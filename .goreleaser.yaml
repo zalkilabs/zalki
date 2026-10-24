@@ -1,0 +1,60 @@
+version: 2
+project_name: zalki
+
+builds:
+  - id: zalki
+    main: ./cmd/zalki
+    binary: zalki
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/zalkilabs/zalki/internal/bus.Version={{ .Version }}
+
+notarize:
+  macos:
+    - enabled: '{{ not .IsSnapshot }}'
+      ids: [zalki]
+      sign:
+        certificate: '{{ .Env.MACOS_SIGN_P12 }}'
+        password: '{{ .Env.MACOS_SIGN_PASSWORD }}'
+      notarize:
+        issuer_id: '{{ .Env.MACOS_NOTARY_ISSUER_ID }}'
+        key_id: '{{ .Env.MACOS_NOTARY_KEY_ID }}'
+        key: '{{ .Env.MACOS_NOTARY_KEY }}'
+        wait: true
+        timeout: 20m
+
+archives:
+  - id: zalki
+    ids: [zalki]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - NOTICE
+      - THIRD_PARTY_NOTICES.txt
+      - README.md
+      - src: completions/*
+        dst: completions
+        strip_parent: true
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+source:
+  enabled: true
+  format: tar.gz
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+
+release:
+  github:
+    owner: zalkilabs
+    name: zalki
+  draft: true
+
+changelog:
+  disable: true

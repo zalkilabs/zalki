@@ -1,0 +1,26 @@
+{
+  "version": "0.163.0",
+  "version_output": "codex-cli 0.163.0",
+  "hook": {
+    "session_id": "00000000-0000-4000-8000-000000000001",
+    "cwd": "/fixture/workspace",
+    "hook_event_name": "SessionStart",
+    "source": "startup"
+  },
+  "name_record": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "thread_name": "Contract review"
+  },
+  "queue_args": [
+    "queue",
+    "--thread",
+    "--message"
+  ],
+  "kind": "codex",
+  "provenance": {
+    "source": "normalized contract from disposable-session probes",
+    "verbatim_capture": false,
+    "observed_on": "2026-10-22",
+    "scope": "hook and metadata shapes; current installations require a live smoke test"
+  }
+}

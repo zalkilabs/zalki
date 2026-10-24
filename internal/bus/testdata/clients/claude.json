@@ -1,0 +1,29 @@
+{
+  "version": "2.1.307",
+  "version_output": "2.1.307 (Claude Code)",
+  "hook": {
+    "session_id": "00000000-0000-4000-8000-000000000001",
+    "cwd": "/fixture/workspace",
+    "hook_event_name": "SessionStart",
+    "source": "startup"
+  },
+  "name_record": {
+    "sessionId": "00000000-0000-4000-8000-000000000001",
+    "name": "Contract review"
+  },
+  "frame": {
+    "msgV": 1,
+    "type": "user",
+    "priority": "next",
+    "message": {
+      "role": "user"
+    }
+  },
+  "kind": "claude",
+  "provenance": {
+    "source": "normalized contract from disposable-session probes",
+    "verbatim_capture": false,
+    "observed_on": "2026-10-22",
+    "scope": "hook and metadata shapes; current installations require a live smoke test"
+  }
+}

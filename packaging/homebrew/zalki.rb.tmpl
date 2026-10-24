@@ -1,0 +1,25 @@
+cask "zalki" do
+  arch arm: "arm64", intel: "amd64"
+
+  version "@VERSION@"
+  sha256 arm:   "@ARM64_SHA@",
+         intel: "@AMD64_SHA@"
+
+  url "https://github.com/zalkilabs/zalki/releases/download/v#{version}/zalki_#{version}_darwin_#{arch}.tar.gz"
+  name "Zalki"
+  desc "Local messaging between AI coding sessions"
+  homepage "https://github.com/zalkilabs/zalki"
+
+  depends_on macos: :monterey
+
+  binary "zalki"
+  bash_completion "completions/zalki.bash"
+  zsh_completion "completions/_zalki"
+  fish_completion "completions/zalki.fish"
+
+  caveats <<~EOS
+    Configure integrations explicitly with zalki install --apply.
+    Run zalki uninstall --apply before brew uninstall zalki.
+    Keep the same native config-directory environment when installing or upgrading integrations.
+  EOS
+end

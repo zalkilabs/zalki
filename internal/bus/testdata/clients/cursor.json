@@ -1,0 +1,23 @@
+{
+  "version": "2026.10.19-6bbf2c4",
+  "version_output": "2026.10.19-6bbf2c4",
+  "hook": {
+    "conversation_id": "00000000-0000-4000-8000-000000000001",
+    "workspace_roots": [
+      "/fixture/workspace"
+    ],
+    "hook_event_name": "sessionStart"
+  },
+  "name_record": {
+    "schemaVersion": 1,
+    "title": "Contract review"
+  },
+  "wake_prefix": "ZALKI_WAKE ",
+  "kind": "cursor",
+  "provenance": {
+    "source": "normalized contract from disposable-session probes",
+    "verbatim_capture": false,
+    "observed_on": "2026-10-22",
+    "scope": "hook and metadata shapes; current installations require a live smoke test"
+  }
+}

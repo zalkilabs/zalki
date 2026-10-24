@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible problem with Zalki.
+body:
+  - type: markdown
+    attributes:
+      value: Remove credentials, capabilities, private messages, and personal paths from everything you share.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Zalki version and affected Claude, Codex, or Cursor CLI version.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: OS version and CPU architecture.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps, expected behavior, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics
+      description: Relevant zalki doctor output, error messages, or diagnostic events.
+      render: text
