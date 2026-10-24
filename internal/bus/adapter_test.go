@@ -181,6 +181,7 @@ func TestRegistryRejectsInvalidAndDuplicateAdapters(t *testing.T) {
 }
 
 func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
+	t.Setenv("CODEX_HOME", t.TempDir())
 	for _, test := range []struct {
 		kind                         string
 		inbox                        InboxMode

@@ -25,15 +25,33 @@ func (a codexAdapter) Configuration(binary string, args []string) []ConfigFile {
 }
 
 func (codexAdapter) Descriptor() AdapterDescriptor {
-	return AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: standardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Notes: []string{"A Codex backend can outlive its terminal."}}
+	return AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: standardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Notes: []string{
+		"A Codex backend can outlive its terminal.",
+		"Codex 0.164.0 or newer can receive tool output on a loaded thread without resuming or steering it. Between-tool delivery is advertised only after this process has verified that app-server. Otherwise the message waits on codex queue. An unconfirmed or ambiguous write is not retried.",
+	}}
 }
 
-func (codexAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
-	return ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: InboxNative, BusyDelivery: DeliveryNextTurn, LifecycleHooks: true}
+func (codexAdapter) ReceiveCapabilities(v Session) ReceiveCapabilities {
+	c := ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: InboxNative, BusyDelivery: DeliveryNextTurn, LifecycleHooks: true}
+	root := codexConfigRoot(v)
+	endpoint, err := inspectCodexControl(root)
+	if err != nil {
+		return c
+	}
+	switch cachedCodexSupport(endpoint, root) {
+	case codexSupportVerified:
+		c.Delivery = "app_server_tool_output"
+		c.BusyDelivery = DeliveryBetweenTools
+	case codexSupportUnavailable:
+		return c
+	default:
+		c.Delivery = "app_server_unverified_or_queue"
+	}
+	return c
 }
 
 func (codexAdapter) Deliver(ctx context.Context, msg Message, target Session) Receipt {
-	return queueCodex(ctx, msg, target)
+	return deliverCodex(ctx, msg, target)
 }
 
 func (codexAdapter) ConfigDir() string {
@@ -68,8 +86,20 @@ func (codexAdapter) HandleHook(s HookHost, event HookInput, id string, output io
 	return true, json.NewEncoder(output).Encode(map[string]bool{"continue": false})
 }
 
-func (codexAdapter) Health(HealthHost, Session) (string, string) {
-	return "native_queue_configured", ""
+func (codexAdapter) Health(_ HealthHost, v Session) (string, string) {
+	root := codexConfigRoot(v)
+	endpoint, err := inspectCodexControl(root)
+	if err != nil {
+		return "native_queue_only", ""
+	}
+	switch cachedCodexSupport(endpoint, root) {
+	case codexSupportVerified:
+		return "app_server_tool_output", ""
+	case codexSupportUnavailable:
+		return "native_queue_only", ""
+	default:
+		return "app_server_socket_present", ""
+	}
 }
 
 func queueCodex(ctx context.Context, msg Message, target Session) Receipt {
