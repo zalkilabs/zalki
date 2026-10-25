@@ -12,8 +12,8 @@ requires one native Shell background task, armed from its startup guidance.
 
 ## Install
 
-The current prerelease is `0.1.0-rc.3`. Homebrew installs a signed, notarized
-macOS binary; Go is required only for development builds.
+Homebrew installs a signed, notarized macOS binary;
+Go is required only for development builds.
 
 ```sh
 brew install zalkilabs/tap/zalki
@@ -23,6 +23,7 @@ zalki install --apply
 Installation preserves unrelated settings and backs up changed files. Restart
 your clients and trust the integrations through their normal controls.
 Use `install` without `--apply` to generate configuration drafts for review.
+A fresh Codex session becomes discoverable after its first prompt.
 
 If you use `CODEX_HOME` or `CLAUDE_CONFIG_DIR`, export them before installing.
 Cursor hooks and MCP settings remain under `~/.cursor`.
@@ -36,7 +37,7 @@ List Zalki sessions with their names.
 Send "ping" to cursor:Backend review and request one reply.
 ```
 
-Use a name from the list. End the turn to receive native replies.
+Use a name from the list. Replies arrive through the client's native delivery path.
 Transport acceptance does not confirm that the receiving agent read the message.
 
 ```sh

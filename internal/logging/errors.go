@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"os"
 	"syscall"
@@ -17,6 +18,10 @@ func ErrorKind(err error) string {
 		return ""
 	case errors.Is(err, context.Canceled):
 		return "canceled"
+	case errors.Is(err, io.EOF):
+		return "eof"
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "unexpected_eof"
 	case os.IsTimeout(err):
 		return "timeout"
 	case errors.Is(err, os.ErrNotExist):
@@ -33,6 +38,10 @@ func ErrorKind(err error) string {
 	var syntax *json.SyntaxError
 	if errors.As(err, &syntax) {
 		return "invalid_json"
+	}
+	var mismatch *json.UnmarshalTypeError
+	if errors.As(err, &mismatch) {
+		return "json_type_mismatch"
 	}
 	var network *net.OpError
 	if errors.As(err, &network) {
