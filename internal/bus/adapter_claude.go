@@ -9,14 +9,16 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/install"
 )
 
 type claudeAdapter struct{ standardHooks }
 
-func (a claudeAdapter) Configuration(binary string, args []string) []ConfigFile {
-	return []ConfigFile{
-		{Path: ".claude/settings.json", ConfigRootEnv: "CLAUDE_CONFIG_DIR", Draft: "claude-hooks.json", JSON: hookConfig(a.Descriptor().Hooks, hookCommand(binary, args, "claude"), false)},
-		{Path: ".claude.json", ConfigRootEnv: "CLAUDE_CONFIG_DIR", Draft: "claude-mcp.json", JSON: mcpConfig(binary, args, true)},
+func (a claudeAdapter) Configuration(binary string, args []string) []install.ConfigFile {
+	return []install.ConfigFile{
+		{Path: ".claude/settings.json", ConfigRootEnv: "CLAUDE_CONFIG_DIR", Draft: "claude-hooks.json", JSON: install.HookConfig(a.Descriptor().Hooks, install.HookCommand(binary, args, "claude"), false)},
+		{Path: ".claude.json", ConfigRootEnv: "CLAUDE_CONFIG_DIR", Draft: "claude-mcp.json", JSON: install.MCPConfig(binary, args, true)},
 	}
 }
 

@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 type replyTransaction struct {
@@ -58,7 +60,7 @@ func (s Store) prepareReply(request ReplyRequest) (msg Message, target Session, 
 		if err := privateDir(dir); err != nil {
 			return err
 		}
-		if err := syncDirectory(s.Dir); err != nil {
+		if err := fsutil.SyncDir(s.Dir); err != nil {
 			return err
 		}
 		path := filepath.Join(dir, msg.ID+".json")
@@ -147,5 +149,5 @@ func (s Store) applyReplyTransaction(path string, tx replyTransaction) error {
 	if err := os.Remove(path); err != nil {
 		return err
 	}
-	return syncDirectory(filepath.Dir(path))
+	return fsutil.SyncDir(filepath.Dir(path))
 }

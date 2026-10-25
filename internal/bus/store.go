@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 type Store struct {
@@ -78,5 +80,5 @@ func writeJSON(path string, value any) error {
 	if err != nil {
 		return err
 	}
-	return atomicBytes(path, append(b, '\n'))
+	return fsutil.WriteAtomic(path, append(b, '\n'))
 }

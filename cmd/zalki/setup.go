@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/install"
 
 	"github.com/spf13/cobra"
 )
 
-func newSetupCommand(opts *commandOptions, install bool) *cobra.Command {
+func newSetupCommand(opts *commandOptions, isInstall bool) *cobra.Command {
 	var out string
 	var apply bool
 	cmd := &cobra.Command{
@@ -23,7 +24,7 @@ func newSetupCommand(opts *commandOptions, install bool) *cobra.Command {
 				return err
 			}
 			if apply {
-				paths, err := bus.Install(binary, service.Store.Dir, opts.home)
+				paths, err := install.Apply(bus.Configuration, binary, service.Store.Dir, opts.home)
 				if err != nil {
 					return err
 				}
@@ -35,7 +36,7 @@ func newSetupCommand(opts *commandOptions, install bool) *cobra.Command {
 				_, err = fmt.Fprintln(cmd.OutOrStdout(), "Existing settings were preserved and backed up. Review/trust integrations in each configured client, then launch normally. Check doctor for adapter and listener requirements.")
 				return err
 			}
-			if err := bus.WriteSetup(binary, service.Store.Dir, out, opts.home); err != nil {
+			if err := install.WriteSetup(bus.Configuration, binary, service.Store.Dir, out, opts.home); err != nil {
 				return err
 			}
 			if _, err := fmt.Fprintln(cmd.OutOrStdout(), "Configuration drafts written to", out); err != nil {
@@ -46,7 +47,7 @@ func newSetupCommand(opts *commandOptions, install bool) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&out, "out", "generated", "configuration draft directory")
-	if install {
+	if isInstall {
 		cmd.Use = "install"
 		cmd.Short = "Draft or apply agent configuration, keeping backups"
 		cmd.Flags().BoolVar(&apply, "apply", false, "apply registered adapter configuration to your user settings, keeping backups")

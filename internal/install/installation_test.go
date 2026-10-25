@@ -1,14 +1,19 @@
-package bus
+package install_test
 
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
+	"github.com/zalkilabs/zalki/internal/install"
 )
 
 func installationSnapshot(t *testing.T, dir string) map[string]string {
@@ -47,18 +52,18 @@ func TestInstallationLifecyclePreservesLaterUserChangesAndHistory(t *testing.T) 
 		t.Fatal(err)
 	}
 	before := installationSnapshot(t, home)
-	preview, err := ManageInstallation(InstallationRequest{Action: "install", Binary: oldBinary, StateDir: state, HomeDir: home, Apply: false})
+	preview, err := install.Manage(bus.Configuration, install.Request{Action: "install", Binary: oldBinary, StateDir: state, HomeDir: home, Apply: false})
 	if err != nil || len(preview.Paths) != 6 || !preview.DryRun {
 		t.Fatal("bad install preview", preview, err)
 	}
 	if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 		t.Fatal("preview wrote files")
 	}
-	if _, err := Install(oldBinary, state, home); err != nil {
+	if _, err := install.Apply(bus.Configuration, oldBinary, state, home); err != nil {
 		t.Fatal(err)
 	}
 	before = installationSnapshot(t, home)
-	if paths, err := Install(oldBinary, state, home); err != nil || len(paths) != 0 {
+	if paths, err := install.Apply(bus.Configuration, oldBinary, state, home); err != nil || len(paths) != 0 {
 		t.Fatal("unchanged install was not idempotent", paths, err)
 	}
 	if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
@@ -80,13 +85,13 @@ func TestInstallationLifecyclePreservesLaterUserChangesAndHistory(t *testing.T) 
 		t.Fatal(err)
 	}
 	before = installationSnapshot(t, home)
-	if _, err := ManageInstallation(InstallationRequest{Action: "upgrade", Binary: newBinary, StateDir: state, HomeDir: home, Apply: false}); err != nil {
+	if _, err := install.Manage(bus.Configuration, install.Request{Action: "upgrade", Binary: newBinary, StateDir: state, HomeDir: home, Apply: false}); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 		t.Fatal("upgrade preview wrote files")
 	}
-	if _, err := ManageInstallation(InstallationRequest{Action: "upgrade", Binary: newBinary, StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(bus.Configuration, install.Request{Action: "upgrade", Binary: newBinary, StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := readJSON(settings, &config); err != nil {
@@ -100,19 +105,19 @@ func TestInstallationLifecyclePreservesLaterUserChangesAndHistory(t *testing.T) 
 		t.Fatal("upgrade replaced unrelated hooks or left old hook paths")
 	}
 	before = installationSnapshot(t, home)
-	if _, err := ManageInstallation(InstallationRequest{Action: "upgrade", Binary: newBinary, StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(bus.Configuration, install.Request{Action: "upgrade", Binary: newBinary, StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 		t.Fatal("unchanged upgrade was not idempotent")
 	}
-	if _, err := ManageInstallation(InstallationRequest{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: false}); err != nil {
+	if _, err := install.Manage(bus.Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: false}); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 		t.Fatal("uninstall preview wrote files")
 	}
-	if _, err := ManageInstallation(InstallationRequest{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(bus.Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := readJSON(settings, &config); err != nil {
@@ -132,7 +137,7 @@ func TestInstallationLifecyclePreservesLaterUserChangesAndHistory(t *testing.T) 
 		t.Fatal("uninstall retained active ownership record", err)
 	}
 	before = installationSnapshot(t, home)
-	if _, err := ManageInstallation(InstallationRequest{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err != nil || !reflect.DeepEqual(before, installationSnapshot(t, home)) {
+	if _, err := install.Manage(bus.Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err != nil || !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 		t.Fatal("repeated uninstall was not harmless", err)
 	}
 }
@@ -143,7 +148,7 @@ func TestInstallationConflictsRefusedBeforeAnyChanges(t *testing.T) {
 		t.Run(conflict, func(t *testing.T) {
 			home := t.TempDir()
 			state := filepath.Join(home, "state")
-			if _, err := Install("/old/zalki", state, home); err != nil {
+			if _, err := install.Apply(bus.Configuration, "/old/zalki", state, home); err != nil {
 				t.Fatal(err)
 			}
 			switch conflict {
@@ -167,7 +172,7 @@ func TestInstallationConflictsRefusedBeforeAnyChanges(t *testing.T) {
 				}
 			case "manifest", "malformed-patch":
 				path := filepath.Join(state, "installation.json")
-				var record installation
+				var record install.Installation
 				if err := readJSON(path, &record); err != nil {
 					t.Fatal(err)
 				}
@@ -182,7 +187,7 @@ func TestInstallationConflictsRefusedBeforeAnyChanges(t *testing.T) {
 			}
 			before := installationSnapshot(t, home)
 			for _, action := range []string{"upgrade", "uninstall"} {
-				if _, err := ManageInstallation(InstallationRequest{Action: action, Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err == nil {
+				if _, err := install.Manage(bus.Configuration, install.Request{Action: action, Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err == nil {
 					t.Fatal("accepted edited managed configuration", action)
 				}
 				if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
@@ -200,7 +205,7 @@ func TestUninstallWithoutRecordDoesNotGuessOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := installationSnapshot(t, home)
-	if _, err := ManageInstallation(InstallationRequest{Action: "uninstall", Binary: "", StateDir: filepath.Join(home, "state"), HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(bus.Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: filepath.Join(home, "state"), HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
@@ -213,18 +218,65 @@ func TestCodexTOMLConflictsAndLiteralLookalikes(t *testing.T) {
 	_, fragment := fixtureConfiguration(t, "/bin/zalki", "/state")
 	// A managed-looking table inside a multiline string is not a real server.
 	lookalike := []byte("notes = '''" + fragment + "'''\n")
-	after, err := addMCPFragment(lookalike, fragment)
+	after, err := install.AddMCPFragment(lookalike, fragment)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := removeMCPFragment(after, fragment); err == nil {
+	if _, err := install.RemoveMCPFragment(after, fragment); err == nil {
 		t.Fatal("ambiguous literal lookalike was removed")
 	}
 	// A quoted table is parsed correctly; a conflicting command is refused.
-	if _, err := addMCPFragment([]byte("[mcp_servers.\"zalki\"]\ncommand = 'other'\n"), fragment); err == nil {
+	if _, err := install.AddMCPFragment([]byte("[mcp_servers.\"zalki\"]\ncommand = 'other'\n"), fragment); err == nil {
 		t.Fatal("alternate TOML representation overwrote another server")
 	}
 	if !strings.Contains(fragment, "mcp_servers.zalki") {
 		t.Fatal("fixture is not an zalki table")
+	}
+}
+
+func readJSON(path string, value any) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, value)
+}
+
+func writeJSON(path string, value any) error {
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	return fsutil.WriteAtomic(path, append(data, '\n'))
+}
+
+func TestUnsupportedInstallationSchemaDoesNotChangeConfiguration(t *testing.T) {
+	for _, schema := range []int{1, 2, 4} {
+		t.Run(fmt.Sprint(schema), func(t *testing.T) {
+			clearConfigOverrides(t)
+			home := t.TempDir()
+			state := filepath.Join(home, "state")
+			if _, err := install.Apply(bus.Configuration, "/old/zalki", state, home); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(state, "installation.json")
+			var record install.Installation
+			if err := readJSON(path, &record); err != nil {
+				t.Fatal(err)
+			}
+			record.Schema = schema
+			if err := writeJSON(path, record); err != nil {
+				t.Fatal(err)
+			}
+			before := installationSnapshot(t, home)
+			for _, apply := range []bool{false, true} {
+				if _, err := install.Manage(bus.Configuration, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: apply}); err == nil {
+					t.Fatal("accepted unsupported installation schema")
+				}
+				if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
+					t.Fatal("unsupported installation changed configuration")
+				}
+			}
+		})
 	}
 }

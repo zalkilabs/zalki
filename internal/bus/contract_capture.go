@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 // Capture is opt-in and allowlisted: no prompts, tool input, environment,
@@ -53,7 +55,7 @@ func captureHookContract(adapter Adapter, event HookInput) error {
 	if err != nil {
 		return err
 	}
-	err = exclusiveFile(filepath.Join(root, kind+"-"+version+".json"), append(encoded, '\n'))
+	err = fsutil.WriteExclusive(filepath.Join(root, kind+"-"+version+".json"), append(encoded, '\n'))
 	if errors.Is(err, os.ErrExist) {
 		return nil
 	}

@@ -11,15 +11,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/install"
 )
 
 type codexAdapter struct{ standardHooks }
 
-func (a codexAdapter) Configuration(binary string, args []string) []ConfigFile {
+func (a codexAdapter) Configuration(binary string, args []string) []install.ConfigFile {
 	command, _ := json.Marshal(binary)
 	arguments, _ := json.Marshal(append(append([]string{}, args...), "mcp"))
-	return []ConfigFile{
-		{Path: ".codex/hooks.json", ConfigRootEnv: "CODEX_HOME", Draft: "codex-hooks.json", JSON: hookConfig(a.Descriptor().Hooks, hookCommand(binary, args, "codex"), false)},
+	return []install.ConfigFile{
+		{Path: ".codex/hooks.json", ConfigRootEnv: "CODEX_HOME", Draft: "codex-hooks.json", JSON: install.HookConfig(a.Descriptor().Hooks, install.HookCommand(binary, args, "codex"), false)},
 		{Path: ".codex/config.toml", ConfigRootEnv: "CODEX_HOME", Draft: "codex-mcp.toml", TOML: fmt.Sprintf("\n[mcp_servers.zalki]\ncommand = %s\nargs = %s\n", command, arguments)},
 	}
 }

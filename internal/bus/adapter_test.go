@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/install"
 )
 
 type fixtureAdapter struct {
@@ -23,26 +24,26 @@ type fixtureAdapter struct {
 
 type configFixtureAdapter struct {
 	fixtureAdapter
-	files []ConfigFile
+	files []install.ConfigFile
 }
 
-func (a configFixtureAdapter) Configuration(string, []string) []ConfigFile { return a.files }
+func (a configFixtureAdapter) Configuration(string, []string) []install.ConfigFile { return a.files }
 
 func TestAdapterRejectsInvalidDraftsAndEmptyPatches(t *testing.T) {
-	for _, file := range []ConfigFile{
-		{Path: ".fourth/mcp.json", Draft: "../escape.json", JSON: mcpConfig("/bin/zalki", nil, false)},
-		{Path: ".fourth/mcp.json", Draft: "/", JSON: mcpConfig("/bin/zalki", nil, false)},
-		{Path: ".fourth/mcp.json", Draft: "targets.json", JSON: mcpConfig("/bin/zalki", nil, false)},
+	for _, file := range []install.ConfigFile{
+		{Path: ".fourth/mcp.json", Draft: "../escape.json", JSON: install.MCPConfig("/bin/zalki", nil, false)},
+		{Path: ".fourth/mcp.json", Draft: "/", JSON: install.MCPConfig("/bin/zalki", nil, false)},
+		{Path: ".fourth/mcp.json", Draft: "targets.json", JSON: install.MCPConfig("/bin/zalki", nil, false)},
 		{Path: ".fourth/mcp.json", Draft: "fourth.json", JSON: map[string]any{}},
-		{Path: ".fourth/mcp.json", Draft: "fourth.json", JSON: mcpConfig("/bin/zalki", nil, false), TOML: "also TOML"},
+		{Path: ".fourth/mcp.json", Draft: "fourth.json", JSON: install.MCPConfig("/bin/zalki", nil, false), TOML: "also TOML"},
 	} {
-		adapter := configFixtureAdapter{fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: InboxNative}, files: []ConfigFile{file}}
+		adapter := configFixtureAdapter{fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: InboxNative}, files: []install.ConfigFile{file}}
 		registry, err := NewRegistry(adapter)
 		if err != nil {
 			t.Fatal(err)
 		}
 		home := t.TempDir()
-		if _, err := registry.manageInstallation(InstallationRequest{Action: "install", Binary: "/bin/zalki", StateDir: filepath.Join(home, "state"), HomeDir: home, Apply: true}); err == nil {
+		if _, err := install.Manage(registry.Configuration, install.Request{Action: "install", Binary: "/bin/zalki", StateDir: filepath.Join(home, "state"), HomeDir: home, Apply: true}); err == nil {
 			t.Fatal("invalid adapter configuration accepted")
 		}
 		files, err := os.ReadDir(home)
@@ -75,12 +76,12 @@ func (a fixtureAdapter) ConfigDir() string { return "/fixture" }
 func (a fixtureAdapter) LookupName(v Session, _ map[string]map[string]string) (string, string) {
 	return a.kind + " " + nativeID(v), "fixture_metadata"
 }
-func (a fixtureAdapter) Configuration(binary string, args []string) []ConfigFile {
+func (a fixtureAdapter) Configuration(binary string, args []string) []install.ConfigFile {
 	path := a.path
 	if path == "" {
 		path = "." + a.kind + "/mcp.json"
 	}
-	return []ConfigFile{{Path: path, Draft: a.kind + "-mcp.json", JSON: mcpConfig(binary, args, false)}}
+	return []install.ConfigFile{{Path: path, Draft: a.kind + "-mcp.json", JSON: install.MCPConfig(binary, args, false)}}
 }
 
 func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
@@ -212,37 +213,6 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 	}
 }
 
-func TestUnsupportedInstallationSchemaDoesNotChangeConfiguration(t *testing.T) {
-	for _, schema := range []int{1, 2, 4} {
-		t.Run(fmt.Sprint(schema), func(t *testing.T) {
-			clearConfigOverrides(t)
-			home := t.TempDir()
-			state := filepath.Join(home, "state")
-			if _, err := Install("/old/zalki", state, home); err != nil {
-				t.Fatal(err)
-			}
-			path := filepath.Join(state, "installation.json")
-			var record installation
-			if err := readJSON(path, &record); err != nil {
-				t.Fatal(err)
-			}
-			record.Schema = schema
-			if err := writeJSON(path, record); err != nil {
-				t.Fatal(err)
-			}
-			before := installationSnapshot(t, home)
-			for _, apply := range []bool{false, true} {
-				if _, err := ManageInstallation(InstallationRequest{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: apply}); err == nil {
-					t.Fatal("accepted unsupported installation schema")
-				}
-				if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
-					t.Fatal("unsupported installation changed configuration")
-				}
-			}
-		})
-	}
-}
-
 func TestLegacyCapabilitiesAreEnrichedWithoutRewritingRecords(t *testing.T) {
 	store := fixtureStore(t)
 	for _, kind := range AgentKinds() {
@@ -278,7 +248,7 @@ func TestNewAdapterConfigurationUpgradeAndRemoval(t *testing.T) {
 	clearConfigOverrides(t)
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
-	if _, err := Install("/old/zalki", state, home); err != nil {
+	if _, err := install.Apply(Configuration, "/old/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
 	registry, err := NewRegistry(codexAdapter{}, claudeAdapter{}, cursorAdapter{}, fixtureAdapter{kind: "fourth", inbox: InboxNative})
@@ -286,13 +256,13 @@ func TestNewAdapterConfigurationUpgradeAndRemoval(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := installationSnapshot(t, home)
-	if _, err := registry.manageInstallation(InstallationRequest{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: false}); err != nil {
+	if _, err := install.Manage(registry.Configuration, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: false}); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 		t.Fatal("new adapter preview changed configuration")
 	}
-	if _, err := registry.manageInstallation(InstallationRequest{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(registry.Configuration, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".fourth", "mcp.json")
@@ -305,13 +275,13 @@ func TestNewAdapterConfigurationUpgradeAndRemoval(t *testing.T) {
 		t.Fatal(err)
 	}
 	before = installationSnapshot(t, home)
-	if _, err := registry.manageInstallation(InstallationRequest{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(registry.Configuration, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 		t.Fatal("new adapter upgrade was not idempotent")
 	}
-	if _, err := registry.manageInstallation(InstallationRequest{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(registry.Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := readJSON(path, &settings); err != nil || settings["unrelated"] != "keep" || len(settings["mcpServers"].(map[string]any)) != 0 {
@@ -328,7 +298,7 @@ func TestAdapterConfigurationCannotClaimArbitraryPaths(t *testing.T) {
 				t.Fatal(err)
 			}
 			home := t.TempDir()
-			if _, err := registry.manageInstallation(InstallationRequest{Action: "install", Binary: "/bin/zalki", StateDir: filepath.Join(home, "state"), HomeDir: home, Apply: true}); err == nil {
+			if _, err := install.Manage(registry.Configuration, install.Request{Action: "install", Binary: "/bin/zalki", StateDir: filepath.Join(home, "state"), HomeDir: home, Apply: true}); err == nil {
 				t.Fatal("unsafe configuration path accepted")
 			}
 			files, err := os.ReadDir(home)
@@ -340,20 +310,20 @@ func TestAdapterConfigurationCannotClaimArbitraryPaths(t *testing.T) {
 	// A tampered record cannot extend ownership to an adapter-undeclared file.
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
-	if _, err := Install("/bin/zalki", state, home); err != nil {
+	if _, err := install.Apply(Configuration, "/bin/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(state, "installation.json")
-	var record installation
+	var record map[string]any
 	if err := readJSON(path, &record); err != nil {
 		t.Fatal(err)
 	}
-	record.Patches["unrelated.json"] = mcpConfig("/bin/other", nil, false)
+	record["patches"].(map[string]any)["unrelated.json"] = install.MCPConfig("/bin/other", nil, false)
 	if err := writeJSON(path, record); err != nil {
 		t.Fatal(err)
 	}
 	before := installationSnapshot(t, home)
-	if _, err := ManageInstallation(InstallationRequest{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err == nil {
+	if _, err := install.Manage(Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err == nil {
 		t.Fatal("record claimed an undeclared configuration file")
 	}
 	if !reflect.DeepEqual(before, installationSnapshot(t, home)) {

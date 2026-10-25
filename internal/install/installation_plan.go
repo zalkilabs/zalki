@@ -1,4 +1,4 @@
-package bus
+package install
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 )
 
 type installationPlan struct {
-	report InstallationReport
+	report Report
 	edits  []configEdit
 }
 
@@ -21,17 +21,17 @@ type installationManifest struct {
 	record installation
 }
 
-// Planning reads and validates all affected files. Only manageInstallation
+// Planning reads and validates all affected files. Only Manage
 // applies the resulting edits, after rebuilding the plan under its lock.
-func (r *Registry) planInstallation(request InstallationRequest) (installationPlan, error) {
-	plan := installationPlan{report: InstallationReport{Action: request.Action, DryRun: !request.Apply, Paths: []string{}}}
+func (declare Declare) plan(request Request) (installationPlan, error) {
+	plan := installationPlan{report: Report{Action: request.Action, DryRun: !request.Apply, Paths: []string{}}}
 	if request.Action != "install" && request.Action != "upgrade" && request.Action != "uninstall" {
 		return plan, errors.New("unsupported installation action")
 	}
 	if !filepath.IsAbs(request.StateDir) || !filepath.IsAbs(request.HomeDir) {
 		return plan, errors.New("home and state paths must be absolute")
 	}
-	allowed, err := r.configuration("/zalki", request.StateDir)
+	allowed, err := declare("/zalki", request.StateDir)
 	if err != nil {
 		return plan, err
 	}
@@ -49,7 +49,7 @@ func (r *Registry) planInstallation(request InstallationRequest) (installationPl
 	if request.Action == "uninstall" && !manifest.exists {
 		return plan, nil
 	}
-	next, err := r.desiredInstallation(request, declarations, manifest.path)
+	next, err := declare.desired(request, declarations, manifest.path)
 	if err != nil {
 		return plan, err
 	}
@@ -78,7 +78,7 @@ func (r *Registry) planInstallation(request InstallationRequest) (installationPl
 	return plan, nil
 }
 
-func readInstallationManifest(request InstallationRequest, declarations map[string]ConfigFile) (installationManifest, error) {
+func readInstallationManifest(request Request, declarations map[string]ConfigFile) (installationManifest, error) {
 	manifest := installationManifest{path: filepath.Join(request.StateDir, "installation.json")}
 	var err error
 	manifest.before, manifest.exists, err = configBytes(manifest.path)
@@ -91,7 +91,7 @@ func readInstallationManifest(request InstallationRequest, declarations map[stri
 	return manifest, manifest.record.validate(request, declarations, manifest.path)
 }
 
-func (record installation) validate(request InstallationRequest, declarations map[string]ConfigFile, manifestPath string) error {
+func (record installation) validate(request Request, declarations map[string]ConfigFile, manifestPath string) error {
 	if record.Schema != 3 || record.Home != request.HomeDir || record.State != request.StateDir || !filepath.IsAbs(record.Binary) || len(record.Patches)+len(record.Fragments) == 0 {
 		return errors.New("installation record does not match this home/state or has an unsupported schema")
 	}
@@ -116,13 +116,13 @@ func (record installation) validate(request InstallationRequest, declarations ma
 	return record.validateTargets(declarations, manifestPath)
 }
 
-func (r *Registry) desiredInstallation(request InstallationRequest, declarations map[string]ConfigFile, manifestPath string) (installation, error) {
+func (declare Declare) desired(request Request, declarations map[string]ConfigFile, manifestPath string) (installation, error) {
 	next := installation{Schema: 3, Home: request.HomeDir, Binary: request.Binary, State: request.StateDir,
 		Patches: map[string]map[string]any{}, Fragments: map[string]string{}, Targets: map[string]string{}}
 	if request.Action == "uninstall" {
 		return next, nil
 	}
-	files, err := r.configuration(request.Binary, request.StateDir)
+	files, err := declare(request.Binary, request.StateDir)
 	if err != nil {
 		return next, err
 	}
