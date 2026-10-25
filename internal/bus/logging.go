@@ -14,6 +14,7 @@ import (
 type eventData struct {
 	Actor, Recipient, MessageID, ReplyTo, Generation string
 	Agent, HookEvent                                 string
+	HookStage                                        string
 	Status, ReceiptStatus                            DeliveryStatus
 	State                                            SessionState
 	Code                                             ErrorCode
@@ -47,6 +48,10 @@ func (s Store) logEvent(level slog.Level, event string, data eventData) {
 	}
 	if standardEvents(true)[data.HookEvent] != "" {
 		attrs = append(attrs, slog.String("hook_event", data.HookEvent))
+	}
+	switch data.HookStage {
+	case "adapter", "decode", "capture", "event", "normalize", "identity", "owner", "handler", "register", "name", "startup", "output", "state":
+		attrs = append(attrs, slog.String("hook_stage", data.HookStage))
 	}
 	if data.Status.valid() {
 		attrs = append(attrs, slog.String("status", string(data.Status)))
