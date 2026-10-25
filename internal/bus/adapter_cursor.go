@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/zalkilabs/zalki/internal/install"
 )
 
 type cursorAdapter struct{ standardHooks }
@@ -51,12 +53,12 @@ func (cursorAdapter) DecodeState(v *Session, raw json.RawMessage) error {
 	return nil
 }
 
-func (a cursorAdapter) Configuration(binary string, args []string) []ConfigFile {
-	hooks := hookConfig(a.Descriptor().Hooks, hookCommand(binary, args, "cursor"), true)
+func (a cursorAdapter) Configuration(binary string, args []string) []install.ConfigFile {
+	hooks := install.HookConfig(a.Descriptor().Hooks, install.HookCommand(binary, args, "cursor"), true)
 	hooks["version"] = 1
-	return []ConfigFile{
+	return []install.ConfigFile{
 		{Path: ".cursor/hooks.json", Draft: "cursor-hooks.json", JSON: hooks},
-		{Path: ".cursor/mcp.json", Draft: "cursor-mcp.json", JSON: mcpConfig(binary, args, false)},
+		{Path: ".cursor/mcp.json", Draft: "cursor-mcp.json", JSON: install.MCPConfig(binary, args, false)},
 	}
 }
 
@@ -174,7 +176,7 @@ func (cursorAdapter) StartupOutput(startup StartupContext) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	command := "ZALKI_CAPABILITY=" + shellQuote(key) + " " + shellQuote(binary) + " --state " + shellQuote(state) + " cursor-listen --actor " + shellQuote(id)
+	command := "ZALKI_CAPABILITY=" + install.ShellQuote(key) + " " + install.ShellQuote(binary) + " --state " + install.ShellQuote(state) + " cursor-listen --actor " + install.ShellQuote(id)
 	return (map[string]any{
 		"additional_context": context + " Cursor idle wake requires one native Shell background task in this conversation. " +
 			"Once your normal permissions allow it, start this exact command through Shell with block_until_ms=0 and " +

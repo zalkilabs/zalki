@@ -1,4 +1,4 @@
-package bus
+package install
 
 import (
 	"encoding/json"
@@ -6,17 +6,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
-func shellQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'" }
+// ShellQuote single-quotes value for safe use in a POSIX shell command.
+func ShellQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'" }
 
-// Configuration returns only paths declared by the compiled-in adapters.
-func Configuration(binary, state string) ([]ConfigFile, error) {
-	return defaultRegistry.configuration(binary, state)
-}
-
-func WriteSetup(binary, state, out, home string) error {
-	files, err := Configuration(binary, state)
+// WriteSetup writes reviewable configuration drafts for the declared files.
+func WriteSetup(declare Declare, binary, state, out, home string) error {
+	files, err := declare(binary, state)
 	if err != nil {
 		return err
 	}
@@ -50,7 +49,7 @@ func WriteSetup(binary, state, out, home string) error {
 		} else {
 			data = []byte(file.TOML)
 		}
-		if err := exclusiveFile(filepath.Join(out, file.Draft), data); err != nil {
+		if err := fsutil.WriteExclusive(filepath.Join(out, file.Draft), data); err != nil {
 			return err
 		}
 	}
@@ -58,20 +57,7 @@ func WriteSetup(binary, state, out, home string) error {
 	if err != nil {
 		return err
 	}
-	return exclusiveFile(filepath.Join(out, "targets.json"), append(data, '\n'))
-}
-
-func exclusiveFile(path string, data []byte) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-	if err != nil {
-		return err
-	}
-	_, writeErr := f.Write(data)
-	closeErr := f.Close()
-	if writeErr != nil {
-		return writeErr
-	}
-	return closeErr
+	return fsutil.WriteExclusive(filepath.Join(out, "targets.json"), append(data, '\n'))
 }
 
 func mergeConfig(existing []byte, patch map[string]any) ([]byte, error) {
@@ -152,9 +138,9 @@ type configEdit struct {
 	remove        bool
 }
 
-// Install applies the reviewed user-config additions and records their ownership.
-func Install(binary, state, home string) ([]string, error) {
-	report, err := ManageInstallation(InstallationRequest{Action: "install", Binary: binary, StateDir: state, HomeDir: home, Apply: true})
+// Apply installs the reviewed user-config additions and records their ownership.
+func Apply(declare Declare, binary, state, home string) ([]string, error) {
+	report, err := Manage(declare, Request{Action: "install", Binary: binary, StateDir: state, HomeDir: home, Apply: true})
 	return report.Paths, err
 }
 
@@ -171,35 +157,4 @@ func configBytes(path string) ([]byte, bool, error) {
 	}
 	b, err := os.ReadFile(path)
 	return b, true, err
-}
-
-func atomicBytes(path string, b []byte) error {
-	f, err := os.CreateTemp(filepath.Dir(path), ".zalki-config-")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(f.Name())
-	if _, err = f.Write(b); err == nil {
-		err = f.Sync()
-	}
-	closed := f.Close()
-	if err != nil {
-		return err
-	}
-	if closed != nil {
-		return closed
-	}
-	if err := os.Rename(f.Name(), path); err != nil {
-		return err
-	}
-	return syncDirectory(filepath.Dir(path))
-}
-
-func syncDirectory(path string) error {
-	dir, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer dir.Close()
-	return dir.Sync()
 }

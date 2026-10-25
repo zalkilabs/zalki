@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/install"
 )
 
 func execute(t *testing.T, home, input string, args ...string) (string, string, error) {
@@ -213,7 +214,7 @@ func TestLifecycleCommandPreviewsAndApplies(t *testing.T) {
 	for _, action := range []string{"upgrade", "uninstall"} {
 		args := []string{action, "--state", state}
 		out, diagnostic, err := execute(t, home, "", args...)
-		var report bus.InstallationReport
+		var report install.Report
 		if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || !report.DryRun || report.Action != action {
 			t.Fatal("lifecycle preview failed", action, err)
 		}

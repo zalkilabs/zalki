@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/install"
 )
 
 // A socket left behind by a crash is insufficient evidence of a live listener.
@@ -70,7 +72,7 @@ func (s Store) cursorRecoveryContext(actor string) (string, error) {
 		return "", err
 	}
 	s.logEvent(slog.LevelInfo, "listener.recovery_requested", eventData{Actor: actor})
-	command := "ZALKI_CAPABILITY=" + shellQuote(key) + " " + shellQuote(binary) + " --state " + shellQuote(s.Dir) + " cursor-listen --actor " + shellQuote(actor)
+	command := "ZALKI_CAPABILITY=" + install.ShellQuote(key) + " " + install.ShellQuote(binary) + " --state " + install.ShellQuote(s.Dir) + " cursor-listen --actor " + install.ShellQuote(actor)
 	return fmt.Sprintf("[Zalki local listener recovery]\nYour registered Cursor session has no verified live listener. "+
 		"Your actor remains %s. Your refreshed private capability is %s; use it for future zalki calls. "+
 		"This replaces only your own previous capability; never reveal it or borrow another session's. "+

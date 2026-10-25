@@ -1,4 +1,4 @@
-package bus
+package install
 
 import (
 	"bytes"
@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 type installation struct {
@@ -22,7 +23,7 @@ type installation struct {
 	Targets   map[string]string         `json:"targets,omitempty"`
 }
 
-type InstallationRequest struct {
+type Request struct {
 	Action   string
 	Binary   string
 	StateDir string
@@ -31,21 +32,20 @@ type InstallationRequest struct {
 	Apply bool
 }
 
-type InstallationReport struct {
+type Report struct {
 	Action string   `json:"action"`
 	DryRun bool     `json:"dry_run"`
 	Paths  []string `json:"paths"`
 }
 
-// ManageInstallation plans every edit before writing and preserves exact ownership.
-func ManageInstallation(request InstallationRequest) (InstallationReport, error) {
-	return defaultRegistry.manageInstallation(request)
-}
+// Declare returns the configuration files the compiled-in adapters own for a binary and state directory.
+type Declare func(binary, state string) ([]ConfigFile, error)
 
-func (r *Registry) manageInstallation(request InstallationRequest) (InstallationReport, error) {
+// Manage plans every edit before writing and preserves exact ownership.
+func Manage(declare Declare, request Request) (Report, error) {
 	preview := request
 	preview.Apply = false
-	plan, err := r.planInstallation(preview)
+	plan, err := declare.plan(preview)
 	if err != nil || !request.Apply {
 		return plan.report, err
 	}
@@ -65,7 +65,7 @@ func (r *Registry) manageInstallation(request InstallationRequest) (Installation
 	}
 	defer unlock()
 	// Rebuild the complete plan under the home-wide lock before any write.
-	plan, err = r.planInstallation(request)
+	plan, err = declare.plan(request)
 	if err != nil {
 		return plan.report, err
 	}
@@ -296,7 +296,7 @@ func mcpNamedTable(data []byte, name string) (map[string]any, error) {
 }
 
 func applyConfigEdits(edits []configEdit) error {
-	stamp := newID()
+	stamp := backupStamp()
 	for i := range edits {
 		e := &edits[i]
 		current, exists, err := configBytes(e.path)
@@ -311,7 +311,7 @@ func applyConfigEdits(edits []configEdit) error {
 		}
 		if exists {
 			e.backup = e.path + ".zalki-backup-" + stamp
-			if err := exclusiveFile(e.backup, e.before); err != nil {
+			if err := fsutil.WriteExclusive(e.backup, e.before); err != nil {
 				return err
 			}
 		}
@@ -321,13 +321,13 @@ func applyConfigEdits(edits []configEdit) error {
 		if edit.remove {
 			err = os.Remove(edit.path)
 		} else {
-			err = atomicBytes(edit.path, edit.after)
+			err = fsutil.WriteAtomic(edit.path, edit.after)
 		}
 		if err != nil {
 			var rollback error
 			for _, prior := range edits[:i+1] {
 				if prior.existed {
-					rollback = errors.Join(rollback, atomicBytes(prior.path, prior.before))
+					rollback = errors.Join(rollback, fsutil.WriteAtomic(prior.path, prior.before))
 				} else if e := os.Remove(prior.path); e != nil && !errors.Is(e, os.ErrNotExist) {
 					rollback = errors.Join(rollback, e)
 				}
