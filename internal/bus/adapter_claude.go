@@ -86,7 +86,7 @@ func writeClaude(ctx context.Context, msg Message, target Session) Receipt {
 	if err != nil {
 		return Receipt{At: timestamp(), Status: StatusNotSent, Error: err.Error(), cause: err}
 	}
-	defer conn.Close()
+	defer conn.Close() //nolint:errcheck // Delivery reports write errors before connection cleanup.
 	if err := CheckEndpoint(target.Endpoint); err != nil {
 		return Receipt{At: timestamp(), Status: StatusNotSent, Error: err.Error(), cause: err}
 	}

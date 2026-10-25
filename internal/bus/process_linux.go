@@ -11,7 +11,7 @@ import (
 
 func readProcess(pid int) (processInfo, error) {
 	dir := filepath.Join("/proc", strconv.Itoa(pid))
-	b, err := os.ReadFile(filepath.Join(dir, "stat"))
+	b, err := os.ReadFile(filepath.Join(dir, "stat")) //nolint:gosec // G304: the PID is a decimal integer below the fixed /proc root.
 	if err != nil {
 		return processInfo{}, err
 	}
@@ -54,7 +54,7 @@ func namedProcesses(name string) ([]processInfo, error) {
 			continue
 		}
 		p, err := readProcess(pid)
-		if err == nil && p.Name == name && p.UID == uint32(os.Getuid()) && !p.Zombie {
+		if err == nil && p.Name == name && p.UID == uint32(os.Getuid()) && !p.Zombie { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 			result = append(result, p)
 		}
 	}

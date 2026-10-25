@@ -8,7 +8,7 @@ import (
 
 // WriteExclusive creates path with mode 0600 and fails if it already exists.
 func WriteExclusive(path string, data []byte) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600) //nolint:gosec // G304: callers pass tool-owned paths
 	if err != nil {
 		return err
 	}
@@ -26,7 +26,7 @@ func WriteAtomic(path string, b []byte) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
+	defer os.Remove(f.Name()) //nolint:errcheck // The temporary path is already gone after a successful rename.
 	if _, err = f.Write(b); err == nil {
 		err = f.Sync()
 	}
@@ -45,10 +45,10 @@ func WriteAtomic(path string, b []byte) error {
 
 // SyncDir flushes directory metadata so a rename or create survives a crash.
 func SyncDir(path string) error {
-	dir, err := os.Open(path)
+	dir, err := os.Open(path) //nolint:gosec // G304: callers pass tool-owned directories
 	if err != nil {
 		return err
 	}
-	defer dir.Close()
+	defer dir.Close() //nolint:errcheck // Sync reports durability errors before descriptor cleanup.
 	return dir.Sync()
 }

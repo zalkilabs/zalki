@@ -111,7 +111,8 @@ func queueCodex(ctx context.Context, msg Message, target Session) Receipt {
 	if _, err := UUID(id); err != nil {
 		return Receipt{At: timestamp(), Status: StatusNotSent, Error: err.Error(), cause: err}
 	}
-	command := exec.CommandContext(ctx, "codex", "queue", "--thread", id, "--message", envelope(msg))
+	command := exec.CommandContext(ctx, "codex", //nolint:gosec // G204: fixed executable; thread id is a validated UUID
+		"queue", "--thread", id, "--message", envelope(msg))
 	if filepath.IsAbs(target.NativeConfigDir) {
 		command.Env = append(os.Environ(), "CODEX_HOME="+target.NativeConfigDir)
 	}
@@ -141,11 +142,11 @@ func codexNames(root string) map[string]string {
 	if err != nil || !info.Mode().IsRegular() || info.Size() > 8*1024*1024 {
 		return nil
 	}
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // G304: path is under the recipient's Codex profile
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // Read-only name lookup has no pending writes.
 	names := map[string]string{}
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 4096), 128*1024)

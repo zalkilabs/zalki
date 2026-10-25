@@ -155,6 +155,6 @@ func configBytes(path string) ([]byte, bool, error) {
 	if !info.Mode().IsRegular() || info.Size() > 4*1024*1024 {
 		return nil, false, errors.New("refusing non-regular or oversized settings file")
 	}
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) //nolint:gosec // G304: path is a client settings file the installer owns
 	return b, true, err
 }

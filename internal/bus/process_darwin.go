@@ -39,7 +39,7 @@ func namedProcesses(name string) ([]processInfo, error) {
 	var result []processInfo
 	for _, row := range rows {
 		p := darwinProcess(row)
-		if p.Name == name && p.UID == uint32(os.Getuid()) && !p.Zombie {
+		if p.Name == name && p.UID == uint32(os.Getuid()) && !p.Zombie { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 			result = append(result, p)
 		}
 	}

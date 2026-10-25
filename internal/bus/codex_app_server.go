@@ -74,7 +74,7 @@ func inspectCodexControl(root string) (codexSocket, error) {
 	}
 	link := filepath.Join(control, codexSocketName)
 	info, err := os.Lstat(link)
-	if err != nil || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) {
+	if err != nil || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 		return codexSocket{}, errCodexUnavailable
 	}
 	resolved := link
@@ -102,13 +102,13 @@ func statCodexSocket(path string) (codexSocket, error) {
 		return codexSocket{}, errCodexUnavailable
 	}
 	stat := info.Sys().(*syscall.Stat_t)
-	if stat.Uid != uint32(os.Getuid()) || info.Mode().Perm()&0077 != 0 {
+	if stat.Uid != uint32(os.Getuid()) || info.Mode().Perm()&0077 != 0 { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 		return codexSocket{}, errCodexUnavailable
 	}
 	if err := privateDirectory(filepath.Dir(path)); err != nil {
 		return codexSocket{}, err
 	}
-	return codexSocket{Path: path, Device: uint64(stat.Dev), Inode: stat.Ino}, nil
+	return codexSocket{Path: path, Device: uint64(stat.Dev), Inode: stat.Ino}, nil // #nosec G115 -- Preserve opaque device identity; Darwin's dev_t is signed, Linux's is unsigned.
 }
 
 func privateDirectory(path string) error {
@@ -116,7 +116,7 @@ func privateDirectory(path string) error {
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return errCodexUnavailable
 	}
-	if info.Mode().Perm()&0077 != 0 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) {
+	if info.Mode().Perm()&0077 != 0 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 		return errCodexUnavailable
 	}
 	return nil
@@ -390,7 +390,7 @@ func newCodexClient(ctx context.Context, endpoint codexSocket) (*codexClient, er
 	}}
 	conn, response, err := websocket.Dial(ctx, "ws://localhost/", &websocket.DialOptions{HTTPClient: &http.Client{Transport: transport}})
 	if response != nil && response.Body != nil {
-		response.Body.Close()
+		_ = response.Body.Close() // Cleanup after the WebSocket handshake.
 	}
 	if err != nil {
 		if response != nil && response.StatusCode != http.StatusSwitchingProtocols {
@@ -410,7 +410,7 @@ func (c *codexClient) Close() {
 		_ = c.conn.Close(websocket.StatusNormalClosure, "")
 		return
 	}
-	c.conn.CloseNow()
+	_ = c.conn.CloseNow() // No submission occurred; there is no delivery result to update.
 }
 
 func (c *codexClient) call(ctx context.Context, method string, params, dest any) error {

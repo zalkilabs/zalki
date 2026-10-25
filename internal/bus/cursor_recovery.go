@@ -24,10 +24,10 @@ func (s Store) cursorListenerRunning(v Session) bool {
 	if err != nil {
 		return false
 	}
-	defer syscall.Close(fd)
+	defer syscall.Close(fd) //nolint:errcheck // Descriptor cleanup after the liveness check.
 	err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB)
 	if err == nil {
-		syscall.Flock(fd, syscall.LOCK_UN)
+		_ = syscall.Flock(fd, syscall.LOCK_UN) // Closing the descriptor also releases the lock.
 		return false
 	}
 	return errors.Is(err, syscall.EWOULDBLOCK)
