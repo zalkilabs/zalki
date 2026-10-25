@@ -35,7 +35,7 @@ func probeProcess(ref *ProcessRef, read func(int) (processInfo, error)) string {
 	if err != nil || current.Start == "" {
 		return "unknown" // Permission and inspection failures are not exit evidence.
 	}
-	if current.Start != ref.Start || current.UID != uint32(os.Getuid()) || current.Zombie {
+	if current.Start != ref.Start || current.UID != uint32(os.Getuid()) || current.Zombie { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 		return "exited"
 	}
 	return "alive"
@@ -56,7 +56,7 @@ func ownerFrom(adapter AdapterDescriptor, pid int, read func(int) (processInfo, 
 			break
 		}
 		p, err := read(pid)
-		if err != nil || p.UID != uint32(os.Getuid()) {
+		if err != nil || p.UID != uint32(os.Getuid()) { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 			break
 		}
 		for _, name := range adapter.ProcessNames {

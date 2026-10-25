@@ -16,15 +16,18 @@ func lockInstallation(home string) (func(), error) {
 		return nil, err
 	}
 	var stat syscall.Stat_t
-	if err = syscall.Fstat(fd, &stat); err == nil && (stat.Mode&syscall.S_IFMT != syscall.S_IFREG || stat.Mode&0077 != 0 || stat.Uid != uint32(os.Getuid())) {
+	if err = syscall.Fstat(fd, &stat); err == nil && (stat.Mode&syscall.S_IFMT != syscall.S_IFREG || stat.Mode&0077 != 0 || stat.Uid != uint32(os.Getuid())) { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 		err = errors.New("installation lock must be a private regular file owned by this OS user")
 	}
 	if err == nil {
 		err = syscall.Flock(fd, syscall.LOCK_EX)
 	}
 	if err != nil {
-		syscall.Close(fd)
+		_ = syscall.Close(fd) // Preserve the validation or lock-acquisition error.
 		return nil, err
 	}
-	return func() { syscall.Flock(fd, syscall.LOCK_UN); syscall.Close(fd) }, nil
+	return func() {
+		_ = syscall.Flock(fd, syscall.LOCK_UN) // Descriptor close also releases the lock.
+		_ = syscall.Close(fd)
+	}, nil
 }

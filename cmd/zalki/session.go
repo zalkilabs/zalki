@@ -30,7 +30,7 @@ func newMCPCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer lease.Close()
+			defer lease.Close() //nolint:errcheck // Stale runtime records can be pruned after shutdown.
 			service.Runtime = lease
 			opts.logger.InfoContext(cmd.Context(), "mcp.started", "runtime_id", lease.Info().ID)
 			defer opts.logger.InfoContext(cmd.Context(), "mcp.stopped")
@@ -52,8 +52,12 @@ func newHookCommand(opts *commandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&kind, "agent", "", "registered native agent (required)")
-	cmd.MarkFlagRequired("agent")
-	cmd.RegisterFlagCompletionFunc("agent", cobra.FixedCompletions(bus.AgentKinds(), cobra.ShellCompDirectiveNoFileComp))
+	if err := cmd.MarkFlagRequired("agent"); err != nil {
+		panic(err)
+	}
+	if err := cmd.RegisterFlagCompletionFunc("agent", cobra.FixedCompletions(bus.AgentKinds(), cobra.ShellCompDirectiveNoFileComp)); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
@@ -75,7 +79,7 @@ func newCursorListenCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer lease.Close()
+			defer lease.Close() //nolint:errcheck // Stale runtime records can be pruned after shutdown.
 			return service.Store.ListenCursor(cmd.Context(), actor, key, cmd.OutOrStdout())
 		},
 	}

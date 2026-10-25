@@ -35,18 +35,18 @@ func InspectEndpoint(path string) (*Endpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !dir.IsDir() || dir.Mode().Perm()&0077 != 0 || dir.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) {
+	if !dir.IsDir() || dir.Mode().Perm()&0077 != 0 || dir.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 		return nil, errors.New("messaging socket directory must be private to this OS user")
 	}
 	info, err := os.Lstat(path)
 	if err != nil {
 		return nil, err
 	}
-	if info.Mode()&os.ModeSocket == 0 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) {
+	if info.Mode()&os.ModeSocket == 0 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 		return nil, errors.New("expected same-user socket, not a file or symlink")
 	}
 	stat := info.Sys().(*syscall.Stat_t)
-	return &Endpoint{Path: path, Device: uint64(stat.Dev), Inode: stat.Ino, ChangedNS: changedNS(stat)}, nil
+	return &Endpoint{Path: path, Device: uint64(stat.Dev), Inode: stat.Ino, ChangedNS: changedNS(stat)}, nil // #nosec G115 -- Preserve opaque device identity; Darwin's dev_t is signed, Linux's is unsigned.
 }
 
 func CheckEndpoint(expected *Endpoint) error {

@@ -46,11 +46,11 @@ var binaryDigests = struct {
 }{entries: map[string]digestCacheEntry{}}
 
 func binaryDigest(path string) (string, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // G304: path is the running zalki executable
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // Read-only executable digest has no pending writes.
 	info, err := f.Stat()
 	if err != nil {
 		return "", err
@@ -59,7 +59,7 @@ func binaryDigest(path string) (string, error) {
 		return "", errors.New("binary is not a regular file")
 	}
 	stat := info.Sys().(*syscall.Stat_t)
-	identity := fileIdentity{uint64(stat.Dev), stat.Ino, info.Size(), info.ModTime().UnixNano(), changedNS(stat)}
+	identity := fileIdentity{uint64(stat.Dev), stat.Ino, info.Size(), info.ModTime().UnixNano(), changedNS(stat)} // #nosec G115 -- Preserve opaque device identity; Darwin's dev_t is signed, Linux's is unsigned.
 	binaryDigests.Lock()
 	defer binaryDigests.Unlock()
 	if previous, ok := binaryDigests.entries[path]; ok && previous.identity == identity {

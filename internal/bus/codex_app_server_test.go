@@ -197,7 +197,6 @@ type observedCodex struct {
 	methods   []string
 	forbidden []string
 	turn      map[string]any
-	pong      bool
 }
 
 func listenCodexControl(t *testing.T) (string, net.Listener) {

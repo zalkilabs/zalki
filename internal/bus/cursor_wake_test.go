@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"strings"
 	"sync"
@@ -154,6 +155,39 @@ func TestCursorWakeRejectsMisboundHints(t *testing.T) {
 	}
 	if _, err := store.Ack(to.ID, toKey, msg.ID); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCursorWakeOutputFailurePreservesCause(t *testing.T) {
+	store := fixtureStore(t)
+	from, key := register(t, store, "codex")
+	to, _ := register(t, store, "cursor")
+	endpoint := &Endpoint{Path: "/fixture/socket"}
+	state := cursorState(to)
+	state.Wake = endpoint
+	setCursorState(&to, state)
+	if err := store.locked(func() error { return store.saveSession(to) }); err != nil {
+		t.Fatal(err)
+	}
+	msg, _, _, err := store.ReserveMessage(SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "body"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Finish(msg.ID, Receipt{Status: StatusPendingActivity}); err != nil {
+		t.Fatal(err)
+	}
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+	done := make(chan error, 1)
+	go func() {
+		done <- store.consumeCursorHint(server, to.ID, to.Generation, endpoint, failedRecoveryOutput{})
+	}()
+	if err := json.NewEncoder(client).Encode(cursorWakeHint{MessageID: msg.ID, Generation: to.Generation}); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; !errors.Is(err, errCursorOutput) || !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("wake output failure lost its classification or underlying cause: %v", err)
 	}
 }
 

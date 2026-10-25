@@ -29,7 +29,7 @@ func privateDir(path string) error {
 	if !info.IsDir() || info.Mode().Perm()&0077 != 0 {
 		return fmt.Errorf("state directory must be a private directory, not a symlink: %s", path)
 	}
-	if info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) {
+	if info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 		return errors.New("state directory is owned by a different user")
 	}
 	return nil
@@ -48,11 +48,11 @@ func (s Store) locked(fn func() error) error {
 	if err != nil {
 		return err
 	}
-	defer syscall.Close(fd)
+	defer syscall.Close(fd) //nolint:errcheck // Closing also releases the journal lock.
 	if err := syscall.Flock(fd, syscall.LOCK_EX); err != nil {
 		return err
 	}
-	defer syscall.Flock(fd, syscall.LOCK_UN)
+	defer syscall.Flock(fd, syscall.LOCK_UN) //nolint:errcheck // Descriptor close also releases the lock.
 	if err := s.recoverReplies(); err != nil {
 		s.logEvent(slog.LevelError, "reply.recovery_failed", eventData{Err: err})
 		return err
@@ -68,7 +68,7 @@ func readJSON(path string, target any) error {
 	if !info.Mode().IsRegular() || info.Size() > 128*1024 {
 		return errors.New("invalid state file")
 	}
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) //nolint:gosec // G304: path is inside the validated journal directory
 	if err != nil {
 		return err
 	}

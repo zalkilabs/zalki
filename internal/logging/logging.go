@@ -37,7 +37,7 @@ func New(config Config, stderr io.Writer) (*slog.Logger, error) {
 	if stderr == nil {
 		stderr = io.Discard
 	}
-	var output io.Writer = stderr
+	output := stderr
 	if config.File != "-" {
 		if !filepath.IsAbs(config.File) {
 			return nil, errors.New("log file must be an absolute path or - for stderr")

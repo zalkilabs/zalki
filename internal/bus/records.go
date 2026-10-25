@@ -73,7 +73,7 @@ func derivedID(namespace string, parts ...string) string {
 	h := sha256.New()
 	h.Write([]byte(namespace))
 	for _, part := range parts {
-		fmt.Fprintf(h, "\x00%d:%s", len(part), part)
+		_, _ = fmt.Fprintf(h, "\x00%d:%s", len(part), part) // hash.Hash writes never fail
 	}
 	b := h.Sum(nil)
 	b[6], b[8] = b[6]&15|128, b[8]&63|128

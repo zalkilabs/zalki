@@ -6,7 +6,7 @@ merge after CI passes. Maintainers are responsible for reviewing and testing
 AI-assisted changes as they would any other contribution.
 
 ```sh
-make fmt-check test vet
+make fmt-check test vet lint
 ```
 
 Use `make fmt` to format code. Add tests for behavior changes and regressions.

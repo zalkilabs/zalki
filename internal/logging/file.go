@@ -26,7 +26,7 @@ func privateLogDirectory(path string) error {
 	if err != nil {
 		return err
 	}
-	if !info.IsDir() || info.Mode().Perm()&0077 != 0 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) {
+	if !info.IsDir() || info.Mode().Perm()&0077 != 0 || info.Sys().(*syscall.Stat_t).Uid != currentUID() {
 		return errors.New("log directory must be private and owned by this OS user")
 	}
 	return nil
@@ -41,12 +41,12 @@ func privateLogFile(path string) (*os.File, error) {
 	info, err := f.Stat()
 	if err == nil {
 		stat := info.Sys().(*syscall.Stat_t)
-		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || stat.Uid != uint32(os.Getuid()) || stat.Nlink != 1 {
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || stat.Uid != currentUID() || stat.Nlink != 1 {
 			err = errors.New("log file must be a private regular file owned by this OS user, without hard links")
 		}
 	}
 	if err != nil {
-		f.Close()
+		_ = f.Close() // Preserve the validation error.
 		return nil, err
 	}
 	return f, nil
@@ -62,7 +62,7 @@ func (w *rotatingWriter) Write(p []byte) (int, error) {
 		} else if err != nil {
 			return 0, err
 		}
-		if !info.IsDir() || info.Mode().Perm()&0077 != 0 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) {
+		if !info.IsDir() || info.Mode().Perm()&0077 != 0 || info.Sys().(*syscall.Stat_t).Uid != currentUID() {
 			return 0, errors.New("state root for default logs must be a private directory owned by this OS user")
 		}
 	}
@@ -76,18 +76,18 @@ func (w *rotatingWriter) Write(p []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer lock.Close()
+	defer lock.Close() //nolint:errcheck // Closing also releases the rotation lock.
 	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
 		return 0, err
 	}
-	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) //nolint:errcheck // Descriptor close also releases the lock.
 	f, err := privateLogFile(w.path)
 	if err != nil {
 		return 0, err
 	}
 	info, err := f.Stat()
 	if err != nil {
-		f.Close()
+		_ = f.Close() // Preserve the stat error.
 		return 0, err
 	}
 	if info.Size()+int64(len(p)) > w.maxBytes {
@@ -130,4 +130,8 @@ func (w *rotatingWriter) rotate() error {
 		}
 	}
 	return os.Rename(w.path, w.path+".1")
+}
+
+func currentUID() uint32 {
+	return uint32(os.Getuid()) //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
 }

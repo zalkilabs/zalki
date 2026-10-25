@@ -63,18 +63,18 @@ func (s Store) ListenCursor(ctx context.Context, actor, key string, output io.Wr
 	if err != nil {
 		return err
 	}
-	defer syscall.Close(fd)
+	defer syscall.Close(fd) //nolint:errcheck // Closing also releases the listener lifetime lock.
 	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		return errors.New("this Cursor conversation already has a listener; keep its original native Shell task")
 	}
-	defer syscall.Flock(fd, syscall.LOCK_UN)
+	defer syscall.Flock(fd, syscall.LOCK_UN) //nolint:errcheck // Descriptor close also releases the lock.
 	// Keep below macOS's Unix-socket path limit, independent of long home/TMPDIR
 	// paths. Each listener owns a fresh private directory and removes only that.
 	dir, err := os.MkdirTemp("/tmp", "zalki-cursor-")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir) //nolint:errcheck // Best-effort cleanup of this listener's private temporary directory.
 	dir, err = filepath.EvalSymlinks(dir)
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func (s Store) ListenCursor(ctx context.Context, actor, key string, output io.Wr
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
+	defer listener.Close() //nolint:errcheck // Cancellation may already have closed the listener.
 	if err := os.Chmod(listener.Addr().String(), 0600); err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (s Store) ListenCursor(ctx context.Context, actor, key string, output io.Wr
 		return err
 	}
 	defer s.clearCursorWake(actor, registration.Generation, endpoint)
-	stopClose := context.AfterFunc(ctx, func() { listener.Close() })
+	stopClose := context.AfterFunc(ctx, func() { _ = listener.Close() })
 	defer stopClose()
 	if _, err := fmt.Fprintln(output, "ZALKI_LISTENER_READY", actor); err != nil {
 		return err
@@ -142,7 +142,7 @@ func (s Store) ListenCursor(ctx context.Context, actor, key string, output io.Wr
 			return err
 		}
 		err = s.consumeCursorHint(conn, actor, registration.Generation, endpoint, output)
-		conn.Close()
+		_ = conn.Close() // The wake attempt has already completed.
 		if errors.Is(err, errCursorOutput) {
 			return err
 		}
@@ -192,7 +192,7 @@ func (s Store) consumeCursorHint(conn net.Conn, actor, generation string, endpoi
 	if !alreadyACKed {
 		// Only validated IDs enter notifications; peer text stays in the journal.
 		if _, err := fmt.Fprintln(output, "ZALKI_WAKE", hint.MessageID); err != nil {
-			return fmt.Errorf("%w: %v", errCursorOutput, err)
+			return fmt.Errorf("%w: %w", errCursorOutput, err)
 		}
 		s.logEvent(slog.LevelInfo, "listener.wake_emitted", eventData{Actor: actor, MessageID: hint.MessageID, Generation: generation})
 	}
@@ -232,7 +232,7 @@ func signalCursor(ctx context.Context, message Message, target Session) Receipt 
 		receipt.cause = err
 		return receipt
 	}
-	defer conn.Close()
+	defer conn.Close() //nolint:errcheck // The wake receipt is determined before connection cleanup.
 	if err := CheckEndpoint(cursorState(target).Wake); err != nil {
 		receipt.Error = err.Error()
 		receipt.cause = err

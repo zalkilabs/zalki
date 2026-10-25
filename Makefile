@@ -1,7 +1,8 @@
-.PHONY: build test vet fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check
+.PHONY: build test vet lint fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check
 
 GORELEASER ?= goreleaser
 GOVULNCHECK ?= govulncheck
+GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
 
 build:
 	go build -o bin/zalki ./cmd/zalki
@@ -11,6 +12,9 @@ test: build
 
 vet:
 	go vet ./...
+
+lint:
+	$(GOLANGCI_LINT) run ./cmd/... ./internal/... ./scripts/...
 
 fmt:
 	gofmt -w cmd internal scripts

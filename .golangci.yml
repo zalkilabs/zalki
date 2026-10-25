@@ -1,0 +1,59 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - errorlint
+    - bodyclose
+    - gosec
+    - revive
+    - nolintlint
+  settings:
+    staticcheck:
+      # ST1005 flags product names ("Cursor", "Claude") that start error strings.
+      checks: ["all", "-ST1000", "-ST1003", "-ST1005", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
+    gosec:
+      excludes:
+        # Duplicates errcheck.
+        - G104
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      rules:
+        - name: error-return
+        - name: error-naming
+        - name: error-strings
+        - name: if-return
+        - name: increment-decrement
+        - name: var-declaration
+        - name: indent-error-flow
+        - name: errorf
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: redefines-builtin-id
+  exclusions:
+    paths:
+      - sandbox
+    rules:
+      # Tests may ignore close/cleanup errors and use fixed file modes.
+      - path: _test\.go
+        linters: [errcheck, gosec]
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  # Report every finding; the default caps hide repeats of the same message.
+  max-issues-per-linter: 0
+  max-same-issues: 0
