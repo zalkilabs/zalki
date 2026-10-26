@@ -1,4 +1,4 @@
-package adapters
+package codex
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 // queueArgs reads the recorded Codex CLI contract shared with the core tests.
 func queueArgs(t *testing.T) []string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "bus", "testdata", "clients", "codex.json"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "bus", "testdata", "clients", "codex.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

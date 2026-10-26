@@ -1,4 +1,5 @@
-package adapters
+// Package socketio binds adapter socket I/O to a caller context.
+package socketio
 
 import (
 	"context"
@@ -6,10 +7,10 @@ import (
 	"time"
 )
 
-// bindSocketContext preserves the transport's I/O bound while honoring earlier
+// BindContext preserves the transport's I/O bound while honoring earlier
 // caller deadlines and cancellation after DialContext has returned. Cleanup joins
 // any running cancellation callback before the caller releases the connection.
-func bindSocketContext(ctx context.Context, conn net.Conn, limit time.Duration) (func(), error) {
+func BindContext(ctx context.Context, conn net.Conn, limit time.Duration) (func(), error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

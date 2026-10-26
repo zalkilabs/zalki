@@ -1,4 +1,4 @@
-package adapters
+package cursor
 
 import (
 	"context"
@@ -87,7 +87,7 @@ func TestCursorSenderRequiresExactHintEcho(t *testing.T) {
 				}
 				done <- json.NewEncoder(conn).Encode(hint)
 			}()
-			receipt := (cursorAdapter{}).Deliver(context.Background(), message, target)
+			receipt := (Adapter{}).Deliver(context.Background(), message, target)
 			if err := <-done; err != nil {
 				t.Fatal(err)
 			}

@@ -1,4 +1,4 @@
-package adapters
+package cursor
 
 import (
 	"fmt"

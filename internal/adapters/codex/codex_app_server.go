@@ -1,4 +1,4 @@
-package adapters
+package codex
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -62,7 +63,7 @@ func codexConfigRoot(target bus.Session) string {
 	if filepath.IsAbs(target.NativeConfigDir) {
 		return filepath.Clean(target.NativeConfigDir)
 	}
-	return (codexAdapter{}).ConfigDir()
+	return (Adapter{}).ConfigDir()
 }
 
 func inspectCodexControl(root string) (codexSocket, error) {
@@ -566,3 +567,5 @@ func approvalValue(value any) bool {
 	}
 	return false
 }
+
+var clientVersionPattern = regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?`)

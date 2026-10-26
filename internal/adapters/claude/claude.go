@@ -1,4 +1,4 @@
-package adapters
+package claude
 
 import (
 	"context"
@@ -13,37 +13,42 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/zalkilabs/zalki/internal/adapters/internal/socketio"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
-type claudeAdapter struct{ bus.StandardHooks }
+// Adapter implements the Claude client.
+type Adapter struct{ bus.StandardHooks }
 
-func (a claudeAdapter) Configuration(binary string, args []string) []install.ConfigFile {
+// New returns the Claude adapter.
+func New() Adapter { return Adapter{} }
+
+func (a Adapter) Configuration(binary string, args []string) []install.ConfigFile {
 	return []install.ConfigFile{
 		{Path: ".claude/settings.json", ConfigRootEnv: "CLAUDE_CONFIG_DIR", Draft: "claude-hooks.json", JSON: install.HookConfig(a.Descriptor().Hooks, install.HookCommand(binary, args, "claude"), false)},
 		{Path: ".claude.json", ConfigRootEnv: "CLAUDE_CONFIG_DIR", Draft: "claude-mcp.json", JSON: install.MCPConfig(binary, args, true)},
 	}
 }
 
-func (claudeAdapter) Descriptor() bus.AdapterDescriptor {
+func (Adapter) Descriptor() bus.AdapterDescriptor {
 	return bus.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: bus.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
 }
 
-func (claudeAdapter) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities {
+func (Adapter) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities {
 	return bus.ReceiveCapabilities{IdleWake: true, Delivery: "experimental_socket", Inbox: bus.InboxNative, BusyDelivery: bus.DeliveryBetweenTools, LifecycleHooks: true, Experimental: true, RequiresEndpoint: true}
 }
 
-func (claudeAdapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+func (Adapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 	return writeClaude(ctx, msg, target)
 }
 
-func (claudeAdapter) ConfigDir() string {
+func (Adapter) ConfigDir() string {
 	home, _ := os.UserHomeDir()
 	return configDir("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 }
 
-func (a claudeAdapter) LookupName(v bus.Session, indexes map[string]map[string]string) (string, string) {
+func (a Adapter) LookupName(v bus.Session, indexes map[string]map[string]string) (string, string) {
 	root := v.NativeConfigDir
 	if !filepath.IsAbs(root) {
 		root = a.ConfigDir()
@@ -55,7 +60,7 @@ func (a claudeAdapter) LookupName(v bus.Session, indexes map[string]map[string]s
 	return indexes[index][bus.NativeID(v)], "claude_session_metadata"
 }
 
-func (claudeAdapter) RegisterHook(event bus.HookInput) (bus.HookRegistration, error) {
+func (Adapter) RegisterHook(event bus.HookInput) (bus.HookRegistration, error) {
 	if value := os.Getenv("CLAUDE_CODE_SESSION_ID"); value != "" && !strings.EqualFold(value, event.SessionID) {
 		return bus.HookRegistration{}, errors.New("hook session/environment identity mismatch")
 	}
@@ -63,7 +68,7 @@ func (claudeAdapter) RegisterHook(event bus.HookInput) (bus.HookRegistration, er
 	return bus.HookRegistration{Endpoint: endpoint}, err
 }
 
-func (claudeAdapter) Health(_ bus.HealthHost, v bus.Session) (string, string) {
+func (Adapter) Health(_ bus.HealthHost, v bus.Session) (string, string) {
 	if bus.CheckEndpoint(v.Endpoint) == nil {
 		return "bound_socket_present", ""
 	}
@@ -100,7 +105,7 @@ func writeClaude(ctx context.Context, msg bus.Message, target bus.Session) bus.R
 }
 
 func writeClaudeFrame(ctx context.Context, conn net.Conn, encoded []byte) bus.Receipt {
-	release, err := bindSocketContext(ctx, conn, 5*time.Second)
+	release, err := socketio.BindContext(ctx, conn, 5*time.Second)
 	if err != nil {
 		return failedReceipt(bus.StatusNotSent, err)
 	}
@@ -178,4 +183,19 @@ func readClaudeMetadata(path string, target any) error {
 func validClaudeName(name string) bool {
 	return name != "" && strings.TrimSpace(name) == name && len(name) <= 512 && utf8.ValidString(name) &&
 		!strings.ContainsFunc(name, unicode.IsControl)
+}
+
+func configDir(variable, fallback string) string {
+	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
+		if path, err := filepath.Abs(value); err == nil {
+			return path
+		}
+	}
+	return fallback
+}
+
+func failedReceipt(status bus.DeliveryStatus, err error) bus.Receipt {
+	receipt := bus.NewReceipt(status)
+	receipt.Error = err.Error()
+	return receipt.WithCause(err)
 }

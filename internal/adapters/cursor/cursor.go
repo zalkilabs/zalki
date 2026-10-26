@@ -1,4 +1,4 @@
-package adapters
+package cursor
 
 import (
 	"context"
@@ -15,9 +15,13 @@ import (
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
-type cursorAdapter struct{ bus.StandardHooks }
+// Adapter implements the Cursor client.
+type Adapter struct{ bus.StandardHooks }
 
-func (a cursorAdapter) Configuration(binary string, args []string) []install.ConfigFile {
+// New returns the Cursor adapter.
+func New() Adapter { return Adapter{} }
+
+func (a Adapter) Configuration(binary string, args []string) []install.ConfigFile {
 	hooks := install.HookConfig(a.Descriptor().Hooks, install.HookCommand(binary, args, "cursor"), true)
 	hooks["version"] = 1
 	return []install.ConfigFile{
@@ -26,13 +30,13 @@ func (a cursorAdapter) Configuration(binary string, args []string) []install.Con
 	}
 }
 
-func (cursorAdapter) Descriptor() bus.AdapterDescriptor {
+func (Adapter) Descriptor() bus.AdapterDescriptor {
 	return bus.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Notes: []string{"A running Cursor listener does not establish an unsuppressed native observer or remaining notification budget."}, Hooks: map[string]string{
 		"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop",
 	}}
 }
 
-func (cursorAdapter) ReceiveCapabilities(v bus.Session) bus.ReceiveCapabilities {
+func (Adapter) ReceiveCapabilities(v bus.Session) bus.ReceiveCapabilities {
 	c := bus.ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: bus.InboxJournal, BusyDelivery: bus.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}
 	if cursorState(v).Wake != nil {
 		c.IdleWake, c.Delivery = true, "native_background_shell_output"
@@ -41,14 +45,14 @@ func (cursorAdapter) ReceiveCapabilities(v bus.Session) bus.ReceiveCapabilities 
 	return c
 }
 
-func (cursorAdapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+func (Adapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 	if cursorState(target).Wake == nil {
 		return bus.NewReceipt(bus.StatusPendingActivity)
 	}
 	return signalCursor(ctx, msg, target)
 }
 
-func (cursorAdapter) ConfigDir() string {
+func (Adapter) ConfigDir() string {
 	home, _ := os.UserHomeDir()
 	root := filepath.Join(home, ".cursor")
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); filepath.IsAbs(xdg) {
@@ -57,7 +61,7 @@ func (cursorAdapter) ConfigDir() string {
 	return configDir("CURSOR_CONFIG_DIR", root)
 }
 
-func (a cursorAdapter) LookupName(v bus.Session, _ map[string]map[string]string) (string, string) {
+func (a Adapter) LookupName(v bus.Session, _ map[string]map[string]string) (string, string) {
 	root := v.NativeConfigDir
 	if !filepath.IsAbs(root) {
 		root = a.ConfigDir()
@@ -71,7 +75,7 @@ func (a cursorAdapter) LookupName(v bus.Session, _ map[string]map[string]string)
 	return cursorNameInRoots(roots, bus.NativeID(v)), "cursor_session_metadata"
 }
 
-func (cursorAdapter) NormalizeHook(event bus.HookInput) (bus.HookInput, error) {
+func (Adapter) NormalizeHook(event bus.HookInput) (bus.HookInput, error) {
 	if event.SessionID == "" {
 		event.SessionID = event.ConversationID
 	}
@@ -81,7 +85,7 @@ func (cursorAdapter) NormalizeHook(event bus.HookInput) (bus.HookInput, error) {
 	return event, nil
 }
 
-func (cursorAdapter) HandleHook(host bus.HookHost, event bus.HookInput, id string, output io.Writer) (bool, error) {
+func (Adapter) HandleHook(host bus.HookHost, event bus.HookInput, id string, output io.Writer) (bool, error) {
 	s, ok := host.(cursorHookHost)
 	if !ok {
 		return false, errors.New("Cursor hook host lacks listener lifecycle support")
@@ -128,7 +132,7 @@ func (cursorAdapter) HandleHook(host bus.HookHost, event bus.HookInput, id strin
 	return true, json.NewEncoder(output).Encode(map[string]string{field: text})
 }
 
-func (cursorAdapter) Health(s bus.HealthHost, v bus.Session) (string, string) {
+func (Adapter) Health(s bus.HealthHost, v bus.Session) (string, string) {
 	if s.ListenerRunning(v) {
 		return "native_background_shell_output", "running"
 	}
@@ -138,7 +142,7 @@ func (cursorAdapter) Health(s bus.HealthHost, v bus.Session) (string, string) {
 	return "deferred", "not_armed"
 }
 
-func (cursorAdapter) StartupOutput(startup bus.StartupContext) (any, error) {
+func (Adapter) StartupOutput(startup bus.StartupContext) (any, error) {
 	id, key, state, context := startup.Actor, startup.Capability, startup.StateDir, startup.Instructions
 	binary, err := os.Executable()
 	if err != nil {
@@ -196,7 +200,7 @@ type cursorHookHost interface {
 	ClaimCursorRecovery(string) (bus.CursorRecovery, error)
 }
 
-func (cursorAdapter) DecodeState(v *bus.Session, raw json.RawMessage) error {
+func (Adapter) DecodeState(v *bus.Session, raw json.RawMessage) error {
 	return (bus.CursorListenerState{}).Restore(v, raw)
 }
 
@@ -237,4 +241,13 @@ func readCursorMetadata(path string, target any) error {
 func validCursorName(name string) bool {
 	return name != "" && strings.TrimSpace(name) == name && len(name) <= 512 && utf8.ValidString(name) &&
 		!strings.ContainsFunc(name, unicode.IsControl)
+}
+
+func configDir(variable, fallback string) string {
+	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
+		if path, err := filepath.Abs(value); err == nil {
+			return path
+		}
+	}
+	return fallback
 }

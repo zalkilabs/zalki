@@ -1,4 +1,4 @@
-package adapters
+package cursor
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/adapters/internal/socketio"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -29,7 +30,7 @@ func signalCursor(ctx context.Context, message bus.Message, target bus.Session) 
 		receipt = receipt.WithCause(err)
 		return receipt
 	}
-	release, err := bindSocketContext(ctx, conn, 3*time.Second)
+	release, err := socketio.BindContext(ctx, conn, 3*time.Second)
 	if err != nil {
 		receipt.Error = err.Error()
 		receipt = receipt.WithCause(err)

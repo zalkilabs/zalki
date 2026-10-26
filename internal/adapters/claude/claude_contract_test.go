@@ -1,9 +1,10 @@
-package adapters
+package claude
 
 import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -20,7 +21,7 @@ type claudeContract struct {
 
 func loadClaudeContract(t *testing.T) claudeContract {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "bus", "testdata", "clients", "claude.json"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "bus", "testdata", "clients", "claude.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +34,7 @@ func loadClaudeContract(t *testing.T) claudeContract {
 
 func TestRecordedClaudeHookAndMetadataContract(t *testing.T) {
 	fixture := loadClaudeContract(t)
-	adapter := claudeAdapter{}
+	adapter := Adapter{}
 	var hook bus.HookInput
 	if err := json.Unmarshal(fixture.Hook, &hook); err != nil {
 		t.Fatal(err)
@@ -111,3 +112,5 @@ func TestClaudeMetadataBoundsAndConflicts(t *testing.T) {
 		t.Fatalf("missing metadata supplied names: %v", got)
 	}
 }
+
+var clientVersionPattern = regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?`)

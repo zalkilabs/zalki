@@ -14,8 +14,8 @@ requiring real adapter transports, Cursor listener/recovery, and the emulated
 bidirectional roundtrip. Missing tests or skipped required tests/subtests fail
 the gate on both Linux and macOS. Ordinary `make test` permits local socket
 sandbox skips. Live model tests stay opt-in; subprocess helper skips are valid.
-Production core and installer dependencies are restricted by depguard in
-`.golangci.yml`; external test composition is exempt.
+Production core, installer, adapter composition and client dependencies are
+restricted by depguard in `.golangci.yml`; external composition tests are exempt.
 
 Use `make fmt` to format code. Add tests for behavior changes and regressions.
 Fixtures must use temporary state and configuration directories. Normal tests
@@ -33,11 +33,22 @@ capabilities, message bodies, credentials, and personal paths from reports.
 
 ## Client integrations
 
-Codex, Claude and Cursor transports, hook mappings, name lookup, and configuration
-fragments live in `internal/adapters`. Implement `bus.Adapter`, declare
-`ReceiveCapabilities`, and register the adapter in `adapters.Builtin`. The CLI
-injects this registry into the core. `TestExternalAdapterComposesWithBuiltins`
-exercises the extension path from outside the core package.
+Codex, Claude and Cursor transports, hook mappings, name lookup, configuration
+and native guidance live in `internal/adapters/codex`, `claude` and `cursor`.
+Each client exposes a concrete `Adapter` and `New` constructor implementing
+`bus.Adapter` and its lifecycle contracts. `internal/adapters` only composes
+these constructors in `Builtin`; the CLI injects this registry into core.
+Clients may depend on bus/install, but never the parent composition package or
+each other. The small `internal/adapters/internal/socketio` leaf shares only
+Claude/Cursor context cancellation and deadline binding, with joined cleanup;
+it depends only on the standard library. Receipt and configuration-root helpers
+remain private to each client.
+
+Protocol/parser tests stay with their client. Full-registry discovery, lifecycle,
+listener/recovery and fourth-adapter tests use the external `adapters_test`
+package in the parent directory. `TestExternalAdapterComposesWithBuiltins`
+exercises the extension path from outside core. Keep the exact owning package
+paths in `scripts/check-integration` up to date when moving required tests.
 
 Cursor's native Shell guidance, hook policy, metadata and sending protocol live
 with its adapter. The authenticated `ListenCursor` runtime remains in

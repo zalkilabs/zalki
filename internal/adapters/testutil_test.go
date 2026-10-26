@@ -1,4 +1,4 @@
-package adapters
+package adapters_test
 
 import (
 	"crypto/rand"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -25,7 +26,7 @@ func newTestID() string {
 
 func adapterTestStore(t *testing.T) bus.Store {
 	t.Helper()
-	store, err := bus.NewStore(filepath.Join(t.TempDir(), "state"), Builtin(), nil)
+	store, err := bus.NewStore(filepath.Join(t.TempDir(), "state"), adapters.Builtin(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,4 +94,13 @@ func adapterTestMessage(t *testing.T, store bus.Store, id string) bus.Message {
 
 func saveAdapterTestSession(store bus.Store, session bus.Session) error {
 	return writeTestJSON(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(session.ID, ":", "_")+".json"), session)
+}
+
+func adapterTestCursorState(t *testing.T, session bus.Session) bus.CursorListenerState {
+	t.Helper()
+	var state bus.CursorListenerState
+	if err := json.Unmarshal(session.AdapterState, &state); err != nil {
+		t.Fatal(err)
+	}
+	return state
 }

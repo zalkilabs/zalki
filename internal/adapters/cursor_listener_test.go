@@ -1,4 +1,4 @@
-package adapters
+package adapters_test
 
 import (
 	"bytes"
@@ -99,7 +99,7 @@ func TestCursorWakeListenerAndDelivery(t *testing.T) {
 		t.Fatal(err)
 	}
 	current := adapterTestSession(t, store, to.ID)
-	if current.Receive.IdleWake || cursorState(current).Wake != nil {
+	if current.Receive.IdleWake || len(current.AdapterState) != 0 && adapterTestCursorState(t, current).Wake != nil {
 		t.Fatalf("listener shutdown left wake capability enabled: %+v %v", current, err)
 	}
 	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "deferred after shutdown"})

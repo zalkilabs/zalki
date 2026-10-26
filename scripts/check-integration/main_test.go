@@ -7,7 +7,7 @@ import (
 )
 
 func TestRequiredIntegrationGate(t *testing.T) {
-	const pkg = "github.com/zalkilabs/zalki/internal/adapters"
+	const pkg = "github.com/zalkilabs/zalki/internal/adapters/cursor"
 	event := func(action, name, path string) string {
 		data, err := json.Marshal(map[string]string{"Action": action, "Test": name, "Package": path})
 		if err != nil {
@@ -24,6 +24,7 @@ func TestRequiredIntegrationGate(t *testing.T) {
 		{"missing", "", "missing run/pass"},
 		{"cached or forged pass", pass, "missing run/pass"},
 		{"unfinished", run, "missing run/pass"},
+		{"old parent package", event("run", "TestSocket", "github.com/zalkilabs/zalki/internal/adapters") + event("pass", "TestSocket", "github.com/zalkilabs/zalki/internal/adapters"), "missing run/pass"},
 		{"wrong package", event("run", "TestSocket", "other") + event("pass", "TestSocket", "other"), "missing run/pass"},
 		{"socket denied", run + event("skip", "TestSocket", pkg), "skipped"},
 		{"hidden subtest skip", run + event("skip", "TestSocket/echo", pkg) + pass, "skipped"},
@@ -32,7 +33,7 @@ func TestRequiredIntegrationGate(t *testing.T) {
 		{"malformed", run + "broken", "invalid go test JSON"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			err := check(strings.NewReader(test.log), []requiredTest{{"adapters", "TestSocket"}})
+			err := check(strings.NewReader(test.log), []requiredTest{{"adapters/cursor", "TestSocket"}})
 			if test.want == "" {
 				if err != nil {
 					t.Fatal(err)

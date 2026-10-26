@@ -1,4 +1,4 @@
-package adapters
+package codex
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 )
 
 func TestRecordedCodexHookAndMetadataContract(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "bus", "testdata", "clients", "codex.json"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "bus", "testdata", "clients", "codex.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,21 +24,13 @@ func TestRecordedCodexHookAndMetadataContract(t *testing.T) {
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	adapter, err := Builtin().Lookup("codex")
-	if err != nil {
-		t.Fatal(err)
-	}
+	adapter := New()
 	var hook bus.HookInput
 	if err := json.Unmarshal(fixture.Hook, &hook); err != nil {
 		t.Fatal(err)
 	}
-	normalizer, ok := adapter.(interface {
-		NormalizeHook(bus.HookInput) (bus.HookInput, error)
-	})
-	if !ok {
-		t.Fatal("codex adapter has no lifecycle normalizer")
-	}
-	hook, err = normalizer.NormalizeHook(hook)
+
+	hook, err = adapter.NormalizeHook(hook)
 	if err != nil || hook.SessionID != "00000000-0000-4000-8000-000000000001" || hook.CWD != "/fixture/workspace" || adapter.Descriptor().Hooks[hook.Event] != "SessionStart" {
 		t.Fatal("recorded native hook no longer normalizes", err)
 	}
@@ -53,10 +45,8 @@ func TestRecordedCodexHookAndMetadataContract(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "session_index.jsonl"), append(record.Bytes(), '\n'), 0600); err != nil {
 		t.Fatal(err)
 	}
-	names := adapter.(interface {
-		LookupName(bus.Session, map[string]map[string]string) (string, string)
-	})
-	name, _ := names.LookupName(bus.Session{ID: "codex:" + hook.SessionID, Kind: "codex", NativeID: hook.SessionID, NativeConfigDir: root}, map[string]map[string]string{})
+
+	name, _ := adapter.LookupName(bus.Session{ID: "codex:" + hook.SessionID, Kind: "codex", NativeID: hook.SessionID, NativeConfigDir: root}, map[string]map[string]string{})
 	if name != "Contract review" {
 		t.Fatalf("native metadata contract changed: got %q", name)
 	}

@@ -1,12 +1,9 @@
-package adapters
+package codex
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/coder/websocket"
-	"github.com/coder/websocket/wsjson"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"net"
 	"net/http"
 	"os"
@@ -15,6 +12,10 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
+	"github.com/zalkilabs/zalki/internal/bus"
 )
 
 func TestCodexVersionGate(t *testing.T) {
@@ -39,12 +40,12 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	root, listener := listenCodexControl(t)
 	defer listener.Close()
 	target := bus.Session{Kind: "codex", NativeConfigDir: root}
-	capabilities := (codexAdapter{}).ReceiveCapabilities(target)
+	capabilities := (Adapter{}).ReceiveCapabilities(target)
 	if capabilities.Delivery != "app_server_unverified_or_queue" || capabilities.BusyDelivery != bus.DeliveryNextTurn || !capabilities.IdleWake {
 		t.Fatalf("socket was not advertised: %+v", capabilities)
 	}
 	var host bus.HealthHost
-	health, listenerHealth := (codexAdapter{}).Health(host, target)
+	health, listenerHealth := (Adapter{}).Health(host, target)
 	if health != "app_server_socket_present" || listenerHealth != "" {
 		t.Fatalf("doctor health = %q %q", health, listenerHealth)
 	}
@@ -52,7 +53,7 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	if err := os.Chmod(socketPath, 0666); err != nil {
 		t.Fatal(err)
 	}
-	if got := (codexAdapter{}).ReceiveCapabilities(target); got.Delivery != "native_queue_next_turn" {
+	if got := (Adapter{}).ReceiveCapabilities(target); got.Delivery != "native_queue_next_turn" {
 		t.Fatalf("group-accessible socket stayed eligible: %+v", got)
 	}
 	if err := os.Chmod(socketPath, 0600); err != nil {
@@ -61,11 +62,11 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	if err := os.Chmod(filepath.Join(root, codexControlDirName), 0755); err != nil {
 		t.Fatal(err)
 	}
-	capabilities = (codexAdapter{}).ReceiveCapabilities(target)
+	capabilities = (Adapter{}).ReceiveCapabilities(target)
 	if capabilities.Delivery != "native_queue_next_turn" || capabilities.BusyDelivery != bus.DeliveryNextTurn {
 		t.Fatalf("public control directory stayed eligible: %+v", capabilities)
 	}
-	health, _ = (codexAdapter{}).Health(host, target)
+	health, _ = (Adapter{}).Health(host, target)
 	if health != "native_queue_only" {
 		t.Fatal(health)
 	}
@@ -125,12 +126,12 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			}
 			switch mode {
 			case "idle", "paged", "busy":
-				verified := (codexAdapter{}).ReceiveCapabilities(bus.Session{Kind: "codex", NativeConfigDir: root})
+				verified := (Adapter{}).ReceiveCapabilities(bus.Session{Kind: "codex", NativeConfigDir: root})
 				if verified.Delivery != "app_server_tool_output" || verified.BusyDelivery != bus.DeliveryBetweenTools {
 					t.Fatalf("verified server was not advertised: %+v", verified)
 				}
 			case "old", "home", "method-missing", "invalid-params":
-				unsupported := (codexAdapter{}).ReceiveCapabilities(bus.Session{Kind: "codex", NativeConfigDir: root})
+				unsupported := (Adapter{}).ReceiveCapabilities(bus.Session{Kind: "codex", NativeConfigDir: root})
 				if unsupported.Delivery != "native_queue_next_turn" || unsupported.BusyDelivery != bus.DeliveryNextTurn {
 					t.Fatalf("unusable server was advertised as direct delivery: %+v", unsupported)
 				}
