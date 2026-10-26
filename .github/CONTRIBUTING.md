@@ -9,6 +9,14 @@ AI-assisted changes as they would any other contribution.
 make fmt-check test vet lint
 ```
 
+CI runs `make test-required`: the uncached race suite plus a JSON coverage gate
+requiring real adapter transports, Cursor listener/recovery, and the emulated
+bidirectional roundtrip. Missing tests or skipped required tests/subtests fail
+the gate on both Linux and macOS. Ordinary `make test` permits local socket
+sandbox skips. Live model tests stay opt-in; subprocess helper skips are valid.
+Production core and installer dependencies are restricted by depguard in
+`.golangci.yml`; external test composition is exempt.
+
 Use `make fmt` to format code. Add tests for behavior changes and regressions.
 Fixtures must use temporary state and configuration directories. Normal tests
 must not contact live agent models or modify your real client settings.

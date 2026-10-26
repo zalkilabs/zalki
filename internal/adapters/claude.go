@@ -96,10 +96,22 @@ func writeClaude(ctx context.Context, msg bus.Message, target bus.Session) bus.R
 	if err := bus.CheckEndpoint(target.Endpoint); err != nil {
 		return failedReceipt(bus.StatusNotSent, err)
 	}
-	if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+	return writeClaudeFrame(ctx, conn, encoded)
+}
+
+func writeClaudeFrame(ctx context.Context, conn net.Conn, encoded []byte) bus.Receipt {
+	release, err := bindSocketContext(ctx, conn, 5*time.Second)
+	if err != nil {
 		return failedReceipt(bus.StatusNotSent, err)
 	}
+	defer release()
+	status := bus.StatusNotSent
 	for len(encoded) > 0 {
+		if err := ctx.Err(); err != nil {
+			return failedReceipt(status, err)
+		}
+		// Once Write is attempted, cancellation cannot prove safe non-delivery.
+		status = bus.StatusUnknownWrite
 		n, err := conn.Write(encoded)
 		if err != nil || n == 0 {
 			if err == nil {

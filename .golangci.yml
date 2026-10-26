@@ -17,7 +17,27 @@ linters:
     - gosec
     - revive
     - nolintlint
+    - depguard
   settings:
+    depguard:
+      rules:
+        core:
+          files: ["**/internal/bus/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/zalkilabs/zalki/internal/fsutil$
+            - github.com/zalkilabs/zalki/internal/logging$
+            # Adapter configuration declarations remain a supported dependency.
+            - github.com/zalkilabs/zalki/internal/install$
+            - golang.org/x/sys/unix$
+        installer:
+          files: ["**/internal/install/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/zalkilabs/zalki/internal/fsutil$
+            - github.com/pelletier/go-toml/v2$
     staticcheck:
       # ST1005 flags product names ("Cursor", "Claude") that start error strings.
       checks: ["all", "-ST1000", "-ST1003", "-ST1005", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]

@@ -116,7 +116,7 @@ func recoveryHint(diagnostic SessionDiagnostic) string {
 		return "In this Cursor session, arm one native Shell cursor-listen task using its private startup guidance."
 	}
 	if diagnostic.TransportHealth == "socket_unavailable" {
-		return "Restart Claude with the experimental integration enabled so it registers its own messaging socket."
+		return "Restart Claude so its default integration can register a fresh messaging socket."
 	}
 	return ""
 }

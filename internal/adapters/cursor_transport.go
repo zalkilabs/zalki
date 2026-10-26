@@ -29,7 +29,14 @@ func signalCursor(ctx context.Context, message bus.Message, target bus.Session) 
 		receipt = receipt.WithCause(err)
 		return receipt
 	}
-	if err := conn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
+	release, err := bindSocketContext(ctx, conn, 3*time.Second)
+	if err != nil {
+		receipt.Error = err.Error()
+		receipt = receipt.WithCause(err)
+		return receipt
+	}
+	defer release()
+	if err := ctx.Err(); err != nil {
 		receipt.Error = err.Error()
 		receipt = receipt.WithCause(err)
 		return receipt

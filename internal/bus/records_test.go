@@ -84,17 +84,31 @@ func TestOpaqueAdapterStateSurvivesCompaction(t *testing.T) {
 		t.Fatal(err)
 	}
 	store.Registry = registry
-	v, _, err := store.Register("fourth", "native-conversation", "/workspace", nil)
+	v, oldKey, err := store.Register("fourth", "native-conversation", "/workspace", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	v.AdapterState = json.RawMessage(`{"schema":1,"client_field":"keep"}`)
+	v.State = StateBusy
 	if err := store.saveSession(v); err != nil {
 		t.Fatal(err)
 	}
-	next, _, err := store.register(v.Kind, v.NativeID, v.CWD, nil, true)
-	if err != nil || next.Generation != v.Generation || !equalJSON(next.AdapterState, v.AdapterState) {
+	next, key, err := store.register(v.Kind, v.NativeID, v.CWD, nil, true)
+	if err != nil || next.Generation != v.Generation || next.State != v.State || !equalJSON(next.AdapterState, v.AdapterState) {
 		t.Fatal("compaction lost adapter-owned state", err)
+	}
+	if _, err := store.authenticate(v.ID, oldKey); ErrorCodeOf(err) != CodeUnauthorized {
+		t.Fatal("compaction retained the old credential", err)
+	}
+	if _, err := store.authenticate(v.ID, key); err != nil {
+		t.Fatal("compaction did not install the new credential", err)
+	}
+	if err := store.Update(v.ID, StateRetired, true); err != nil {
+		t.Fatal(err)
+	}
+	replacement, _, err := store.register(v.Kind, v.NativeID, v.CWD, nil, true)
+	if err != nil || replacement.Generation == next.Generation || replacement.Retired {
+		t.Fatal("compaction reused a retired generation", err)
 	}
 }
 

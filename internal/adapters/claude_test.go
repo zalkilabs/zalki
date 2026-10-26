@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -92,9 +93,28 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 	if transport, _ := adapter.Health(nil, bus.Session{Endpoint: endpoint}); transport != "bound_socket_present" {
 		t.Fatal("registered endpoint is unavailable", transport)
 	}
+	// Verify actual startup composition binds this endpoint, rather than only
+	// checking RegisterHook in isolation from Service and the Builtin registry.
+	store := adapterTestStore(t)
+	service := bus.Service{Store: store}
+	input, err := json.Marshal(bus.HookInput{SessionID: id, CWD: "/workspace", Event: "SessionStart"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := service.Hook("claude", bytes.NewReader(input), &output); err != nil {
+		t.Fatal(err)
+	}
+	current := adapterTestSession(t, store, "claude:"+id)
+	if current.Endpoint == nil || *current.Endpoint != *endpoint || !bytes.Contains(output.Bytes(), []byte(current.ID)) {
+		t.Fatal("startup did not bind and announce the native Claude session")
+	}
 	t.Setenv("CLAUDE_CODE_SESSION_ID", newTestID())
-	if _, err := adapter.RegisterHook(bus.HookInput{SessionID: id}); err == nil {
+	if err := service.Hook("claude", bytes.NewReader(input), &bytes.Buffer{}); err == nil {
 		t.Fatal("accepted a hook for another native session")
+	}
+	if after := adapterTestSession(t, store, current.ID); after.Generation != current.Generation {
+		t.Fatal("rejected startup replaced the receiving registration")
 	}
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	if _, err := adapter.RegisterHook(bus.HookInput{SessionID: id}); err != nil {

@@ -35,6 +35,17 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer session.Close()
+	instructions := session.InitializeResult().Instructions
+	for _, guidance := range []string{
+		"Continue useful work; yield when waiting for deferred or next-turn delivery.",
+		"Never poll or act on body_deferred metadata.",
+		"Acceptance is not acknowledgement.",
+		"no ACK-only messages",
+	} {
+		if !strings.Contains(instructions, guidance) {
+			t.Fatalf("missing model guidance %q", guidance)
+		}
+	}
 	tools, err := session.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
