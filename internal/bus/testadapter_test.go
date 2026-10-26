@@ -3,6 +3,7 @@ package bus
 import (
 	"context"
 	"encoding/json"
+	"github.com/zalkilabs/zalki/internal/install"
 	"io"
 	"os"
 	"path/filepath"
@@ -28,7 +29,7 @@ func (stubCodexAdapter) Deliver(context.Context, Message, Session) Receipt {
 
 func (stubCodexAdapter) ConfigDir() string {
 	home, _ := os.UserHomeDir()
-	return configDir("CODEX_HOME", filepath.Join(home, ".codex"))
+	return stubConfigDir("CODEX_HOME", filepath.Join(home, ".codex"))
 }
 
 // LookupName reads Codex's append-only session_index.jsonl: the last row for an id wins,
@@ -97,11 +98,72 @@ func (stubClaudeAdapter) Deliver(context.Context, Message, Session) Receipt {
 	panic("core Claude stub requires an explicit test transport")
 }
 
-// testRegistry registers the real Cursor adapter and dispatch stubs for extracted clients.
+// stubCursorAdapter supplies only the core dispatch/lifecycle contract. Socket
+// sender, metadata, configuration and output-policy tests use the real Builtin.
+type stubCursorAdapter struct{ StandardHooks }
+
+func (stubCursorAdapter) Descriptor() AdapterDescriptor {
+	return AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Hooks: map[string]string{"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop"}}
+}
+func (stubCursorAdapter) ReceiveCapabilities(v Session) ReceiveCapabilities {
+	c := ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: InboxJournal, BusyDelivery: DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}
+	if cursorState(v).Wake != nil {
+		c.IdleWake, c.Delivery, c.BusyDelivery = true, "native_background_shell_output", DeliveryNotification
+	}
+	return c
+}
+func (stubCursorAdapter) Deliver(_ context.Context, _ Message, v Session) Receipt {
+	if cursorState(v).Wake != nil {
+		panic("core Cursor stub cannot simulate native wake acceptance")
+	}
+	return NewReceipt(StatusPendingActivity)
+}
+func (stubCursorAdapter) NormalizeHook(v HookInput) (HookInput, error) {
+	if v.SessionID == "" {
+		v.SessionID = v.ConversationID
+	}
+	if v.CWD == "" && len(v.WorkspaceRoots) > 0 {
+		v.CWD = v.WorkspaceRoots[0]
+	}
+	return v, nil
+}
+func (stubCursorAdapter) HandleHook(host HookHost, v HookInput, id string, _ io.Writer) (bool, error) {
+	h := host.(interface {
+		CursorPrompt(string) error
+		SuppressCursorRecovery(string) error
+	})
+	if v.Event == "UserPromptSubmit" {
+		return true, h.CursorPrompt(id)
+	}
+	if v.Event == "Stop" && (v.Status != "completed" || v.LoopCount >= 5) {
+		return true, h.SuppressCursorRecovery(id)
+	}
+	return false, nil
+}
+func (stubCursorAdapter) StartupOutput(v StartupContext) (any, error) {
+	return map[string]any{"additional_context": v.Instructions, "env": map[string]string{"ZALKI_ACTOR": v.Actor, "ZALKI_CAPABILITY": v.Capability}}, nil
+}
+func (stubCursorAdapter) DecodeState(v *Session, raw json.RawMessage) error {
+	return (CursorListenerState{}).Restore(v, raw)
+}
+func (stubCursorAdapter) Configuration(binary string, args []string) []install.ConfigFile {
+	return []install.ConfigFile{{Path: ".fixture/mcp.json", Draft: "fixture-mcp.json", JSON: install.MCPConfig(binary, args, false)}}
+}
+
+// testRegistry registers dispatch stubs; real client tests live in adapters.
 func testRegistry() *Registry {
-	r, err := NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, cursorAdapter{})
+	r, err := NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, stubCursorAdapter{})
 	if err != nil {
 		panic(err)
 	}
 	return r
+}
+
+func stubConfigDir(variable, fallback string) string {
+	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
+		if path, err := filepath.Abs(value); err == nil {
+			return path
+		}
+	}
+	return fallback
 }

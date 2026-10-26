@@ -14,7 +14,7 @@ import (
 
 // Builtin returns a registry of every compiled-in adapter.
 func Builtin() *bus.Registry {
-	r, err := bus.NewRegistry(codexAdapter{}, claudeAdapter{}, bus.CursorAdapter())
+	r, err := bus.NewRegistry(codexAdapter{}, claudeAdapter{}, cursorAdapter{})
 	if err != nil {
 		panic(err)
 	}

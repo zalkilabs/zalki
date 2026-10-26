@@ -15,17 +15,15 @@ import (
 	"time"
 )
 
-type cursorWakeHint struct {
+// CursorWakeHint binds a native listener notification to a message and receiving
+// registration. Peer text and credentials never enter this wire contract.
+type CursorWakeHint struct {
 	MessageID  string `json:"message_id"`
 	Generation string `json:"generation"`
 }
 
 func (s Store) cursorListenerLockPath(actor string) string {
 	return filepath.Join(s.Dir, "cursor-listener-"+strings.TrimPrefix(actor, "cursor:")+".lock")
-}
-
-func cursorDeferredReceive() ReceiveCapabilities {
-	return (cursorAdapter{}).ReceiveCapabilities(Session{})
 }
 
 // ListenCursor must be started by the current Cursor model as one native Shell
@@ -102,7 +100,6 @@ func (s Store) ListenCursor(ctx context.Context, actor, key string, output io.Wr
 		state := cursorState(current)
 		state.Wake = endpoint
 		setCursorState(&current, state)
-		current.Receive = ReceiveCapabilities{IdleWake: true, Delivery: "native_background_shell_output"}
 		return s.saveSession(current)
 	})
 	if err != nil {
@@ -160,7 +157,7 @@ func (s Store) consumeCursorHint(conn net.Conn, actor, generation string, endpoi
 	if err := conn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
 		return err
 	}
-	var hint cursorWakeHint
+	var hint CursorWakeHint
 	if err := json.NewDecoder(io.LimitReader(conn, 4096)).Decode(&hint); err != nil {
 		return err
 	}
@@ -211,55 +208,9 @@ func (s Store) clearCursorWake(actor, generation string, endpoint *Endpoint) {
 		state := cursorState(current)
 		state.Wake = nil
 		setCursorState(&current, state)
-		current.Receive = cursorDeferredReceive()
 		return s.saveSession(current)
 	})
 	if err != nil {
 		s.logEvent(slog.LevelWarn, "listener.cleanup_failed", eventData{Actor: actor, Err: err})
 	}
-}
-
-func signalCursor(ctx context.Context, message Message, target Session) Receipt {
-	receipt := Receipt{At: timestamp(), Status: StatusPendingActivity}
-	if err := CheckEndpoint(cursorState(target).Wake); err != nil {
-		receipt.Error = "Cursor listener unavailable: " + err.Error()
-		receipt.cause = err
-		return receipt
-	}
-	conn, err := (&net.Dialer{Timeout: 3 * time.Second}).DialContext(ctx, "unix", cursorState(target).Wake.Path)
-	if err != nil {
-		receipt.Error = "Cursor listener unavailable: " + err.Error()
-		receipt.cause = err
-		return receipt
-	}
-	defer conn.Close() //nolint:errcheck // The wake receipt is determined before connection cleanup.
-	if err := CheckEndpoint(cursorState(target).Wake); err != nil {
-		receipt.Error = err.Error()
-		receipt.cause = err
-		return receipt
-	}
-	if err := conn.SetDeadline(time.Now().Add(3 * time.Second)); err != nil {
-		receipt.Error = err.Error()
-		receipt.cause = err
-		return receipt
-	}
-	receipt.Status = StatusWakeUncertain
-	hint := cursorWakeHint{MessageID: message.ID, Generation: target.Generation}
-	if err := json.NewEncoder(conn).Encode(hint); err != nil {
-		receipt.Error = err.Error()
-		receipt.cause = err
-		return receipt
-	}
-	var response cursorWakeHint
-	if err := json.NewDecoder(io.LimitReader(conn, 4096)).Decode(&response); err != nil {
-		receipt.Error = err.Error()
-		receipt.cause = err
-		return receipt
-	}
-	if response != hint {
-		receipt.Error = "Cursor listener returned a different message identity"
-		return receipt
-	}
-	receipt.At, receipt.Status = timestamp(), StatusWakeWritten
-	return receipt
 }

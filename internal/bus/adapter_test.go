@@ -207,7 +207,7 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 			}
 		})
 	}
-	c := (cursorAdapter{}).ReceiveCapabilities(func() Session { v := Session{}; setCursorState(&v, cursorSessionState{Wake: &Endpoint{}}); return v }())
+	c := (stubCursorAdapter{}).ReceiveCapabilities(func() Session { v := Session{}; setCursorState(&v, CursorListenerState{Wake: &Endpoint{}}); return v }())
 	if !c.IdleWake || c.Inbox != InboxJournal || c.BusyDelivery != DeliveryNotification {
 		t.Fatal("armed listener did not change the advertised receive profile")
 	}
@@ -251,7 +251,7 @@ func TestNewAdapterConfigurationUpgradeAndRemoval(t *testing.T) {
 	if _, err := install.Apply(testRegistry().Configuration, "/old/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
-	registry, err := NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, cursorAdapter{}, fixtureAdapter{kind: "fourth", inbox: InboxNative})
+	registry, err := NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, stubCursorAdapter{}, fixtureAdapter{kind: "fourth", inbox: InboxNative})
 	if err != nil {
 		t.Fatal(err)
 	}

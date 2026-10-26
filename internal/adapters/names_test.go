@@ -318,3 +318,58 @@ func TestNamesUseOwningSessionConfigDirectory(t *testing.T) {
 		t.Fatalf("named resolution used the sender's config root: %+v %v", msg, err)
 	}
 }
+
+func TestLegacyCursorNameLookupWithoutXDGEnvironment(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CURSOR_CONFIG_DIR", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	store := adapterTestStore(t)
+	session, _ := registerAdapterSession(t, store, "cursor")
+	// Simulate an existing record created before config-root capture existed.
+	session.NativeConfigDir = ""
+	if err := saveAdapterTestSession(store, session); err != nil {
+		t.Fatal(err)
+	}
+	nativeNameFixture(t, filepath.Join(home, ".config"), session, "Zalki ID Report")
+	items, err := store.List()
+	if err != nil || len(items) != 1 || items[0].Name != "Zalki ID Report" {
+		t.Fatalf("lost legacy Cursor title without XDG env: %+v %v", items, err)
+	}
+	// Different labels for the UUID across standard locations are not guessed.
+	path := filepath.Join(home, ".cursor", "chats", "other", strings.TrimPrefix(session.ID, "cursor:"), "meta.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeTestJSON(path, map[string]any{"schemaVersion": 1, "title": "Conflicting title"}); err != nil {
+		t.Fatal(err)
+	}
+	items, err = store.List()
+	if err != nil || items[0].Name != "" {
+		t.Fatalf("guessed between conflicting legacy roots: %+v %v", items, err)
+	}
+}
+
+func TestHookBackfillsNativeConfigWithoutReregistering(t *testing.T) {
+	root := nameFixture(t)
+	store := adapterTestStore(t)
+	session, key := registerAdapterSession(t, store, "cursor")
+	session.NativeConfigDir = ""
+	if err := saveAdapterTestSession(store, session); err != nil {
+		t.Fatal(err)
+	}
+	service := bus.Service{Store: store}
+	input := `{"conversation_id":"` + strings.TrimPrefix(session.ID, "cursor:") + `","hook_event_name":"stop","status":"aborted"}`
+	if err := service.Hook("cursor", strings.NewReader(input), &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	nativeNameFixture(t, root, session, "Captured title")
+	t.Setenv("CURSOR_CONFIG_DIR", filepath.Join(t.TempDir(), "sender"))
+	items, err := store.List()
+	if err != nil || items[0].Name != "Captured title" || items[0].Generation != session.Generation {
+		t.Fatalf("hook did not preserve identity and capture root: %+v %v", items, err)
+	}
+	if _, err := store.Messages(session.ID, key); err != nil {
+		t.Fatal("backfill changed capability", err)
+	}
+}

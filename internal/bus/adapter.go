@@ -126,10 +126,6 @@ func (r *Registry) Kinds() []string {
 	return kinds
 }
 
-// CursorAdapter exposes the remaining core adapter for composition. Temporary;
-// its atomic listener lifecycle still depends on private journal transactions.
-func CursorAdapter() Adapter { return cursorAdapter{} }
-
 func (s Store) registry() *Registry { return s.Registry }
 
 func (c ReceiveCapabilities) validate() error {

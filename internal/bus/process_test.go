@@ -66,7 +66,7 @@ func TestOwnerCaptureUsesNativeAncestorAndLabelsBackend(t *testing.T) {
 			}
 		})
 	}
-	if ref := ownerFrom((cursorAdapter{}).Descriptor(), 100, func(int) (processInfo, error) { return processInfo{}, syscall.EPERM }); ref != nil {
+	if ref := ownerFrom((stubCursorAdapter{}).Descriptor(), 100, func(int) (processInfo, error) { return processInfo{}, syscall.EPERM }); ref != nil {
 		t.Fatal("invented an owner without OS evidence")
 	}
 }

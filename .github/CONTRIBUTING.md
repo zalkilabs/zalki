@@ -25,15 +25,20 @@ capabilities, message bodies, credentials, and personal paths from reports.
 
 ## Client integrations
 
-Codex and Claude transports, hook mappings, name lookup, and configuration
+Codex, Claude and Cursor transports, hook mappings, name lookup, and configuration
 fragments live in `internal/adapters`. Implement `bus.Adapter`, declare
 `ReceiveCapabilities`, and register the adapter in `adapters.Builtin`. The CLI
 injects this registry into the core. `TestExternalAdapterComposesWithBuiltins`
 exercises the extension path from outside the core package.
 
-Cursor remains in `internal/bus` while its listener recovery and credential
-rotation share a journal transaction. Preserve that atomic boundary when
-extracting its adapter; do not expose journal mutation to move client code.
+Cursor's native Shell guidance, hook policy, metadata and sending protocol live
+with its adapter. The authenticated `ListenCursor` runtime remains in
+`internal/bus`: it owns the lifetime lock, receiver framing and pending-message
+validation, generation/endpoint-bound registration and cleanup, and notification
+output. Its persisted listener state/migration and atomic prompt, suppression and
+recovery claims also remain core. The adapter requests trusted hook intents and
+formats a recovery claim; it cannot read or mutate the journal or rotate a
+capability itself. Keep that boundary intact when changing the integration.
 
 Keep identity, authentication, retry, and receipt rules in the shared core.
 Client protocol changes usually affect its adapter and fixtures; changes to hook
