@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
@@ -34,7 +33,7 @@ func TestInstallationProcessHelper(t *testing.T) {
 	}
 	fmt.Println("ready")
 	_, _ = bufio.NewReader(os.Stdin).ReadByte()
-	_, err := install.Manage(bus.Configuration, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: os.Getenv("ZALKI_INSTALL_TEST_STATE"), HomeDir: home, Apply: true})
+	_, err := install.Manage(declare, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: os.Getenv("ZALKI_INSTALL_TEST_STATE"), HomeDir: home, Apply: true})
 	result := struct {
 		Error string `json:"error"`
 	}{}
@@ -89,7 +88,7 @@ func TestInstallationLockSerializesAcrossProcessesAndStates(t *testing.T) {
 	release, wait := installationProcess(t, home, "", "hold")
 	done := make(chan error, 1)
 	go func() {
-		_, err := install.Manage(bus.Configuration, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: filepath.Join(home, "state"), HomeDir: home, Apply: true})
+		_, err := install.Manage(declare, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: filepath.Join(home, "state"), HomeDir: home, Apply: true})
 		done <- err
 	}()
 	select {
@@ -142,7 +141,7 @@ func TestConcurrentInstallationsCannotMixOwnership(t *testing.T) {
 	if winner < 0 {
 		t.Fatal("neither installer succeeded", results)
 	}
-	report, err := install.Manage(bus.Configuration, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: states[winner], HomeDir: home, Apply: false})
+	report, err := install.Manage(declare, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: states[winner], HomeDir: home, Apply: false})
 	if err != nil || len(report.Paths) != 0 {
 		t.Fatal("concurrent installation left mixed settings", report, err)
 	}
@@ -160,7 +159,7 @@ func TestInstallationRejectsUnsafeLock(t *testing.T) {
 	if err := os.Symlink(target, filepath.Join(home, ".zalki-install.lock")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := install.Manage(bus.Configuration, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: filepath.Join(home, "state"), HomeDir: home, Apply: true}); err == nil {
+	if _, err := install.Manage(declare, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: filepath.Join(home, "state"), HomeDir: home, Apply: true}); err == nil {
 		t.Fatal("followed an installation lock symlink")
 	}
 	data, _ := os.ReadFile(target)

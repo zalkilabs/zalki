@@ -1,0 +1,53 @@
+package adapters
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/zalkilabs/zalki/internal/bus"
+)
+
+// newTestID returns a random UUID-shaped identifier, as native client thread ids are.
+func newTestID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	b[6], b[8] = b[6]&15|64, b[8]&63|128
+	h := hex.EncodeToString(b)
+	return h[:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
+}
+
+func adapterTestStore(t *testing.T) bus.Store {
+	t.Helper()
+	store, err := bus.NewStore(filepath.Join(t.TempDir(), "state"), Builtin(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store
+}
+
+func registerAdapterSession(t *testing.T, store bus.Store, kind string) (bus.Session, string) {
+	t.Helper()
+	var endpoint *bus.Endpoint
+	if kind == "claude" {
+		endpoint = &bus.Endpoint{Path: "/fixture/not-a-real-socket"}
+	}
+	session, key, err := store.Register(kind, newTestID(), "/workspace", endpoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return session, key
+}
+
+func writeTestJSON(path string, value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0600)
+}

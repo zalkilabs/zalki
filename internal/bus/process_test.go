@@ -56,7 +56,7 @@ func TestOwnerCaptureUsesNativeAncestorAndLabelsBackend(t *testing.T) {
 				}
 				return processInfo{PID: pid, PPID: parent, Name: name, Start: "start", UID: uint32(os.Getuid())}, nil
 			}
-			adapter, err := defaultRegistry.Lookup(test.kind)
+			adapter, err := testRegistry().Lookup(test.kind)
 			if err != nil {
 				t.Fatal(err)
 			}

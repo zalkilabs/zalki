@@ -45,14 +45,15 @@ type StartupContext struct {
 	Actor, Capability, StateDir, Instructions string
 }
 
-type hookRegistration struct {
+// HookRegistration is what an adapter reports when a lifecycle hook registers a session.
+type HookRegistration struct {
 	Endpoint           *Endpoint
 	PreserveGeneration bool
 }
 
 type hookAdapter interface {
 	NormalizeHook(HookInput) (HookInput, error)
-	RegisterHook(HookInput) (hookRegistration, error)
+	RegisterHook(HookInput) (HookRegistration, error)
 	HandleHook(HookHost, HookInput, string, io.Writer) (bool, error)
 	StartupOutput(StartupContext) (any, error)
 }
@@ -86,7 +87,7 @@ func NewRegistry(adapters ...Adapter) (*Registry, error) {
 			return nil, fmt.Errorf("%s hook capabilities do not match its descriptor", d.Kind)
 		}
 		for native, common := range d.Hooks {
-			if !validName(native) || standardEvents(true)[common] == "" {
+			if !validName(native) || StandardEvents(true)[common] == "" {
 				return nil, fmt.Errorf("%s declares an unsupported lifecycle event", d.Kind)
 			}
 		}
@@ -100,7 +101,12 @@ func NewRegistry(adapters ...Adapter) (*Registry, error) {
 	return r, nil
 }
 
+var errNoRegistry = fail(CodeInternal, "agent registry is not configured")
+
 func (r *Registry) Lookup(kind string) (Adapter, error) {
+	if r == nil {
+		return nil, errNoRegistry
+	}
 	adapter, ok := r.adapters[kind]
 	if !ok {
 		return nil, fail(CodeInvalidInput, "unsupported agent %q", kind)
@@ -109,6 +115,9 @@ func (r *Registry) Lookup(kind string) (Adapter, error) {
 }
 
 func (r *Registry) Kinds() []string {
+	if r == nil {
+		return nil
+	}
 	kinds := make([]string, 0, len(r.adapters))
 	for kind := range r.adapters {
 		kinds = append(kinds, kind)
@@ -117,24 +126,11 @@ func (r *Registry) Kinds() []string {
 	return kinds
 }
 
-func builtinRegistry() *Registry {
-	r, err := NewRegistry(codexAdapter{}, claudeAdapter{}, cursorAdapter{})
-	if err != nil {
-		panic(err)
-	}
-	return r
-}
+// CursorAdapter exposes the remaining core adapter for composition. Temporary;
+// its atomic listener lifecycle still depends on private journal transactions.
+func CursorAdapter() Adapter { return cursorAdapter{} }
 
-var defaultRegistry = builtinRegistry()
-
-func AgentKinds() []string { return defaultRegistry.Kinds() }
-
-func (s Store) registry() *Registry {
-	if s.Registry != nil {
-		return s.Registry
-	}
-	return defaultRegistry
-}
+func (s Store) registry() *Registry { return s.Registry }
 
 func (c ReceiveCapabilities) validate() error {
 	if c.Delivery == "" || (c.Inbox != InboxNative && c.Inbox != InboxJournal) {
@@ -151,20 +147,22 @@ func (c ReceiveCapabilities) validate() error {
 	return nil
 }
 
-type standardHooks struct{}
+// StandardHooks supplies default lifecycle behavior for adapters that need none of their own.
+type StandardHooks struct{}
 
-func (standardHooks) NormalizeHook(event HookInput) (HookInput, error) { return event, nil }
-func (standardHooks) RegisterHook(HookInput) (hookRegistration, error) {
-	return hookRegistration{}, nil
+func (StandardHooks) NormalizeHook(event HookInput) (HookInput, error) { return event, nil }
+func (StandardHooks) RegisterHook(HookInput) (HookRegistration, error) {
+	return HookRegistration{}, nil
 }
-func (standardHooks) HandleHook(HookHost, HookInput, string, io.Writer) (bool, error) {
+func (StandardHooks) HandleHook(HookHost, HookInput, string, io.Writer) (bool, error) {
 	return false, nil
 }
-func (standardHooks) StartupOutput(startup StartupContext) (any, error) {
+func (StandardHooks) StartupOutput(startup StartupContext) (any, error) {
 	return map[string]any{"hookSpecificOutput": map[string]string{"hookEventName": "SessionStart", "additionalContext": startup.Instructions}}, nil
 }
 
-func standardEvents(interrupt bool) map[string]string {
+// StandardEvents lists the common lifecycle events adapters may map native hook names onto.
+func StandardEvents(interrupt bool) map[string]string {
 	events := map[string]string{}
 	for _, event := range []string{"SessionStart", "SessionEnd", "PermissionRequest", "PostToolUse", "UserPromptSubmit", "Stop"} {
 		events[event] = event

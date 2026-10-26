@@ -82,20 +82,20 @@ func TestCodexPromptFiltersOnlyCompletedExactEnvelopes(t *testing.T) {
 			t.Fatalf("completed queue item was not stopped quietly: %q %v", out.String(), err)
 		}
 	}
-	checkHook(to.ID, envelope(msg), false)
+	checkHook(to.ID, Envelope(msg), false)
 	if _, err := store.Ack(to.ID, toKey, msg.ID); err != nil {
 		t.Fatal(err)
 	}
-	checkHook(to.ID, envelope(msg), true)
-	checkHook(to.ID, "Please explain this message:\n"+envelope(msg), false)
-	checkHook(to.ID, envelope(msg)+"\nPlease do the work again.", false)
-	checkHook(to.ID, strings.Replace(envelope(msg), "\nhello\n", "\nchanged\n", 1), false)
-	checkHook(to.ID, strings.Replace(envelope(msg), `"unnamed"`, `"Different label"`, 1), false)
-	checkHook(other.ID, envelope(msg), false)
+	checkHook(to.ID, Envelope(msg), true)
+	checkHook(to.ID, "Please explain this message:\n"+Envelope(msg), false)
+	checkHook(to.ID, Envelope(msg)+"\nPlease do the work again.", false)
+	checkHook(to.ID, strings.Replace(Envelope(msg), "\nhello\n", "\nchanged\n", 1), false)
+	checkHook(to.ID, strings.Replace(Envelope(msg), `"unnamed"`, `"Different label"`, 1), false)
+	checkHook(other.ID, Envelope(msg), false)
 	checkHook(to.ID, "[zalki peer message invalid]\nordinary text", false)
 	unknown := msg
 	unknown.ID = newID()
-	checkHook(to.ID, envelope(unknown), false)
+	checkHook(to.ID, Envelope(unknown), false)
 }
 
 func TestCodexPromptDoesNotReplayPreviousRegistration(t *testing.T) {
@@ -112,11 +112,11 @@ func TestCodexPromptDoesNotReplayPreviousRegistration(t *testing.T) {
 	if _, _, err := store.Register("codex", strings.TrimPrefix(to.ID, "codex:"), to.CWD, nil); err != nil {
 		t.Fatal(err)
 	}
-	if reason, err := store.completedNativePrompt(to.ID, envelope(msg)); err != nil || !strings.Contains(reason, "previous registration") {
+	if reason, err := store.completedNativePrompt(to.ID, Envelope(msg)); err != nil || !strings.Contains(reason, "previous registration") {
 		t.Fatalf("stale native message was not filtered: %q %v", reason, err)
 	}
 	for range 7 {
-		input, _ := json.Marshal(HookInput{SessionID: strings.TrimPrefix(to.ID, "codex:"), Event: "UserPromptSubmit", Prompt: envelope(msg)})
+		input, _ := json.Marshal(HookInput{SessionID: strings.TrimPrefix(to.ID, "codex:"), Event: "UserPromptSubmit", Prompt: Envelope(msg)})
 		var out bytes.Buffer
 		if err := service.Hook("codex", bytes.NewReader(input), &out); err != nil {
 			t.Fatal(err)
@@ -180,7 +180,7 @@ func TestCodexCompactionPreservesQueuedMessageRegistration(t *testing.T) {
 		if capability == oldKey {
 			t.Fatal("compaction did not refresh the private model capability")
 		}
-		if reason, err := store.completedNativePrompt(to.ID, envelope(msg)); err != nil || reason != "" {
+		if reason, err := store.completedNativePrompt(to.ID, Envelope(msg)); err != nil || reason != "" {
 			t.Fatalf("valid queued input became stale after compaction: %q %v", reason, err)
 		}
 		newKey = capability

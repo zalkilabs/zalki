@@ -24,7 +24,8 @@ func configDir(variable, fallback string) string {
 	return fallback
 }
 
-func nativeID(v Session) string {
+// NativeID returns the client's session ID, including the fallback for legacy records.
+func NativeID(v Session) string {
 	if v.NativeID != "" {
 		return v.NativeID
 	}

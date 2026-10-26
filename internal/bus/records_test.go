@@ -41,7 +41,7 @@ func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := Service{Store: store, Deliver: func(_ context.Context, _ Message, target Session) Receipt {
-		if nativeID(target) != native || target.ID != first.ID || target.KeyHash != "" {
+		if NativeID(target) != native || target.ID != first.ID || target.KeyHash != "" {
 			t.Error("adapter did not receive the original native identity with credentials removed")
 		}
 		return Receipt{Status: StatusSubmitted}
@@ -117,7 +117,7 @@ func TestLegacyRecordsMigrateOnWrite(t *testing.T) {
 	before, _ := os.ReadFile(path)
 	loaded, err := store.session(v.ID)
 	state := cursorState(loaded)
-	if err != nil || nativeID(loaded) != nativeID(v) || state.Wake == nil || !state.RecoveryAttempted || !state.RecoverySuppressed || !loaded.Receive.IdleWake {
+	if err != nil || NativeID(loaded) != NativeID(v) || state.Wake == nil || !state.RecoveryAttempted || !state.RecoverySuppressed || !loaded.Receive.IdleWake {
 		t.Fatal("legacy Cursor state lost", err)
 	}
 	if _, err := store.List(); err != nil {
@@ -134,7 +134,7 @@ func TestLegacyRecordsMigrateOnWrite(t *testing.T) {
 	if err := readJSON(path, &upgraded); err != nil {
 		t.Fatal(err)
 	}
-	if upgraded["schema"] != float64(recordSchema) || upgraded["native_id"] != nativeID(v) || upgraded["adapter_state"] == nil || upgraded["cursor_wake"] != nil || upgraded["cursor_recovery_attempted"] != nil {
+	if upgraded["schema"] != float64(recordSchema) || upgraded["native_id"] != NativeID(v) || upgraded["adapter_state"] == nil || upgraded["cursor_wake"] != nil || upgraded["cursor_recovery_attempted"] != nil {
 		t.Fatal("adapter state was not migrated", upgraded)
 	}
 	from, _ := register(t, store, "codex")

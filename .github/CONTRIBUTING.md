@@ -25,10 +25,15 @@ capabilities, message bodies, credentials, and personal paths from reports.
 
 ## Client integrations
 
-Client-specific transports, hook mappings, name lookup, and configuration
-fragments live in `internal/bus/adapter_<client>.go`. Implement `Adapter`, declare
-`ReceiveCapabilities`, and register the adapter in `builtinRegistry`.
-`TestNewAdapterUsesCoreWithoutAgentSpecificBranches` exercises the extension path.
+Codex and Claude transports, hook mappings, name lookup, and configuration
+fragments live in `internal/adapters`. Implement `bus.Adapter`, declare
+`ReceiveCapabilities`, and register the adapter in `adapters.Builtin`. The CLI
+injects this registry into the core. `TestExternalAdapterComposesWithBuiltins`
+exercises the extension path from outside the core package.
+
+Cursor remains in `internal/bus` while its listener recovery and credential
+rotation share a journal transaction. Preserve that atomic boundary when
+extracting its adapter; do not expose journal mutation to move client code.
 
 Keep identity, authentication, retry, and receipt rules in the shared core.
 Client protocol changes usually affect its adapter and fixtures; changes to hook

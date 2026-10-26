@@ -78,7 +78,7 @@ func (s Store) saveSession(v Session) error {
 	v.Receive = adapter.ReceiveCapabilities(v)
 	v.Schema = recordSchema
 	if v.NativeID == "" {
-		v.NativeID = nativeID(v)
+		v.NativeID = NativeID(v)
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return fail(CodeInvalidIdentity, "native and Zalki session identities do not match")
@@ -119,7 +119,7 @@ func (s Store) register(kind, id, cwd string, endpoint *Endpoint, compact bool) 
 	session.Receive = adapter.ReceiveCapabilities(session)
 	err = s.locked(func() error {
 		preserved := false
-		if current, err := s.session(full); err == nil && nativeID(current) != native {
+		if current, err := s.session(full); err == nil && NativeID(current) != native {
 			return fail(CodeConflict, "native session identity collision")
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err

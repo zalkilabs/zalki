@@ -15,6 +15,26 @@ import (
 	"time"
 )
 
+type smokeObservation struct {
+	Client     string         `json:"client"`
+	Version    string         `json:"installed_version,omitempty"`
+	Scenario   string         `json:"scenario"`
+	Evidence   string         `json:"evidence"`
+	Status     string         `json:"status"`
+	Receipt    DeliveryStatus `json:"receipt,omitempty"`
+	ReplyBytes int            `json:"reply_bytes,omitempty"`
+	LatencyMS  int64          `json:"latency_ms,omitempty"`
+}
+
+type liveSmokeReport struct {
+	StartedAt    string             `json:"started_at"`
+	Build        string             `json:"build"`
+	Passed       bool               `json:"passed"`
+	Observations []smokeObservation `json:"observations"`
+	ModelTokens  *int               `json:"model_tokens"`
+	ModelTurns   *int               `json:"model_turns"`
+}
+
 func TestLiveSmokeRunnerWithEmulatedClient(t *testing.T) {
 	probeDir, err := os.MkdirTemp("/tmp", "zalki-smoke-test-")
 	if err != nil {
@@ -33,7 +53,7 @@ func TestLiveSmokeRunnerWithEmulatedClient(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "state")
 	t.Setenv("CODEX_HOME", filepath.Join(workspace, "codex"))
 	t.Setenv("CURSOR_CONFIG_DIR", filepath.Join(workspace, "cursor"))
-	store := Store{Dir: state}
+	store := Store{Dir: state, Registry: testRegistry()}
 	target, key, err := store.Register("codex", newID(), workspace, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -101,7 +121,7 @@ func TestSmokeClientHelper(t *testing.T) {
 	if challenge == "" {
 		t.Fatal("missing smoke challenge")
 	}
-	service := Service{Store: Store{Dir: os.Getenv("ZALKI_SMOKE_STATE")}}
+	service := Service{Store: Store{Dir: os.Getenv("ZALKI_SMOKE_STATE"), Registry: testRegistry()}}
 	if _, err := service.Reply(context.Background(), ReplyRequest{Actor: os.Getenv("ZALKI_TEST_CLIENT_ACTOR"), Capability: os.Getenv("ZALKI_TEST_CLIENT_KEY"), MessageID: id, Body: challenge + ": Transport acceptance alone cannot prove that a model read the request."}); err != nil {
 		t.Fatal(err)
 	}

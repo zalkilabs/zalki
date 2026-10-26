@@ -55,7 +55,7 @@ func newHookCommand(opts *commandOptions) *cobra.Command {
 	if err := cmd.MarkFlagRequired("agent"); err != nil {
 		panic(err)
 	}
-	if err := cmd.RegisterFlagCompletionFunc("agent", cobra.FixedCompletions(bus.AgentKinds(), cobra.ShellCompDirectiveNoFileComp)); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("agent", cobra.FixedCompletions(opts.registry.Kinds(), cobra.ShellCompDirectiveNoFileComp)); err != nil {
 		panic(err)
 	}
 	return cmd

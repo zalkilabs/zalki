@@ -11,7 +11,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
-type cursorAdapter struct{ standardHooks }
+type cursorAdapter struct{ StandardHooks }
 
 // Cursor owns its persisted listener/recovery format; the journal stores it opaque.
 type cursorSessionState struct {
@@ -104,7 +104,7 @@ func (a cursorAdapter) LookupName(v Session, _ map[string]map[string]string) (st
 			roots = append(roots, filepath.Join(home, ".cursor"), filepath.Join(home, ".config", "cursor"))
 		}
 	}
-	return cursorNameInRoots(roots, nativeID(v)), "cursor_session_metadata"
+	return cursorNameInRoots(roots, NativeID(v)), "cursor_session_metadata"
 }
 
 func (cursorAdapter) NormalizeHook(event HookInput) (HookInput, error) {
@@ -217,10 +217,6 @@ func cursorNameInRoots(roots []string, id string) string {
 		}
 	}
 	return name
-}
-
-func cursorName(root, id string) string {
-	return cursorNameInRoots([]string{root}, id)
 }
 
 // cursorPrompt observes an actual prompt in an opted-in conversation. Cursor may

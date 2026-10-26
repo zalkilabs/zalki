@@ -55,7 +55,7 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 			}
 			// A fresh Store represents a restarted process. Its first journal read
 			// completes the transaction before exposing either half to callers.
-			restarted := Store{Dir: store.Dir}
+			restarted := Store{Dir: store.Dir, Registry: testRegistry()}
 			if _, err := restarted.List(); err != nil {
 				t.Fatal(err)
 			}

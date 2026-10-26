@@ -15,13 +15,14 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
 func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	service := &bus.Service{Store: bus.Store{Dir: filepath.Join(t.TempDir(), "state")}}
+	service := &bus.Service{Store: bus.Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: adapters.Builtin()}}
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	serverSession, err := New(service).Connect(ctx, serverTransport, nil)
 	if err != nil {
@@ -147,7 +148,7 @@ func TestBinaryLoadedBuildSurvivesOnDiskUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := filepath.Join(dir, "state")
-	store := bus.Store{Dir: state}
+	store := bus.Store{Dir: state, Registry: adapters.Builtin()}
 	actor, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000011", "/fixture", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -241,7 +242,7 @@ func TestBinarySTDIOAndCursorHook(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	dir := filepath.Join(t.TempDir(), "state")
-	store := bus.Store{Dir: dir}
+	store := bus.Store{Dir: dir, Registry: adapters.Builtin()}
 	cursorConfig := filepath.Join(t.TempDir(), "cursor")
 	t.Setenv("CURSOR_CONFIG_DIR", cursorConfig)
 	from, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000001", "/fixture", nil)

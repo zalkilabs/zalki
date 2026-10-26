@@ -44,7 +44,7 @@ func (s Store) readSession(path string) (Session, error) {
 		return v, err
 	}
 	if v.NativeID == "" {
-		v.NativeID = nativeID(v)
+		v.NativeID = NativeID(v)
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return v, fail(CodeInvalidIdentity, "native and Zalki session identities do not match")

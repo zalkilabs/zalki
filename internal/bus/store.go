@@ -13,9 +13,18 @@ import (
 )
 
 type Store struct {
-	Dir      string
+	Dir string
+	// Registry is required; NewStore rejects a nil or empty registry.
 	Registry *Registry
 	Logger   *slog.Logger
+}
+
+// NewStore returns a Store that resolves agent kinds through registry.
+func NewStore(dir string, registry *Registry, logger *slog.Logger) (Store, error) {
+	if len(registry.Kinds()) == 0 {
+		return Store{}, errors.New("an agent registry with at least one adapter is required")
+	}
+	return Store{Dir: dir, Registry: registry, Logger: logger}, nil
 }
 
 func privateDir(path string) error {

@@ -32,8 +32,11 @@ func TestRecordedClientHookAndMetadataContracts(t *testing.T) {
 		if err := json.Unmarshal(raw, &fixture); err != nil {
 			t.Fatal(err)
 		}
+		if fixture.Kind != "cursor" {
+			continue // Extracted adapters have real contract tests in internal/adapters.
+		}
 		t.Run(fixture.Kind, func(t *testing.T) {
-			adapter, err := defaultRegistry.Lookup(fixture.Kind)
+			adapter, err := testRegistry().Lookup(fixture.Kind)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -55,10 +58,6 @@ func TestRecordedClientHookAndMetadataContracts(t *testing.T) {
 			root := t.TempDir()
 			var file string
 			switch fixture.Kind {
-			case "codex":
-				file = filepath.Join(root, "session_index.jsonl")
-			case "claude":
-				file = filepath.Join(root, "sessions", hook.SessionID+".json")
 			case "cursor":
 				file = filepath.Join(root, "chats", "fixture", hook.SessionID, "meta.json")
 			}
@@ -78,13 +77,4 @@ func TestRecordedClientHookAndMetadataContracts(t *testing.T) {
 			}
 		})
 	}
-}
-
-func loadClientContract(t *testing.T, kind string) clientContract {
-	t.Helper()
-	var fixture clientContract
-	if err := readJSON(filepath.Join("testdata", "clients", kind+".json"), &fixture); err != nil {
-		t.Fatal(err)
-	}
-	return fixture
 }

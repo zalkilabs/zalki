@@ -69,7 +69,7 @@ func (b *versionBuffer) Write(p []byte) (int, error) {
 func execClientPath(name string) (string, error) { return exec.LookPath(name) }
 
 func probeClientVersion(path string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, path, "--version")
 	var output versionBuffer

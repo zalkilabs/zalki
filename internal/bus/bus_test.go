@@ -4,20 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"testing"
 )
 
 func fixtureStore(t *testing.T) Store {
 	t.Helper()
-	return Store{Dir: filepath.Join(t.TempDir(), "state")}
+	return Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: testRegistry()}
 }
 
 func register(t *testing.T, store Store, kind string) (Session, string) {
@@ -45,7 +42,7 @@ func TestConcurrentIdempotencyAcrossStoreInstances(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			service := Service{Store: Store{Dir: store.Dir}, Deliver: func(context.Context, Message, Session) Receipt {
+			service := Service{Store: Store{Dir: store.Dir, Registry: testRegistry()}, Deliver: func(context.Context, Message, Session) Receipt {
 				calls.Add(1)
 				return Receipt{Status: "submitted"}
 			}}
@@ -308,85 +305,5 @@ func TestEndpointRejectsFilesAndSymlinks(t *testing.T) {
 	}
 	if _, err := InspectEndpoint(link); err == nil {
 		t.Fatal("accepted symlink")
-	}
-}
-
-func TestRealClaudeSocketFrame(t *testing.T) {
-	dir, err := os.MkdirTemp("/tmp", "zalki-socket-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-	path := filepath.Join(dir, "receiver.sock")
-	listener, err := net.Listen("unix", path)
-	if errors.Is(err, syscall.EPERM) {
-		t.Skip("execution sandbox blocks Unix socket bind")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer listener.Close()
-	endpoint, err := InspectEndpoint(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	msg := Message{ID: newID(), From: "codex:" + newID(), To: "claude:" + newID(), Body: "exact body"}
-	receipt := writeClaude(context.Background(), msg, Session{Kind: "claude", Endpoint: endpoint})
-	if receipt.Status != "transport_written" {
-		t.Fatalf("%+v", receipt)
-	}
-	connection, err := listener.Accept()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer connection.Close()
-	var frame map[string]any
-	if err := json.NewDecoder(connection).Decode(&frame); err != nil {
-		t.Fatal(err)
-	}
-	contract := loadClientContract(t, "claude")
-	for key, expected := range contract.Frame {
-		if key == "message" {
-			continue
-		}
-		if !equalJSON(frame[key], expected) {
-			t.Fatalf("recorded frame field %s changed", key)
-		}
-	}
-	if frame["msg_id"] != msg.ID || frame["message"].(map[string]any)["role"] != contract.Frame["message"].(map[string]any)["role"] {
-		t.Fatal("frame lost its identity or role")
-	}
-	message := frame["message"].(map[string]any)["content"].(string)
-	if !strings.Contains(message, "From: Codex") || !strings.Contains(message, "exact body") || strings.Contains(message, msg.From) {
-		t.Fatal(message)
-	}
-	if strings.Contains(message, "capability is") {
-		t.Fatal("private capability leaked")
-	}
-}
-
-func TestCodexTransportPinsUUIDAndNeverUsesShell(t *testing.T) {
-	dir := t.TempDir()
-	output := filepath.Join(dir, "argv")
-	program := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$ZALKI_TEST_ARGS\"\n"
-	if err := os.WriteFile(filepath.Join(dir, "codex"), []byte(program), 0700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", dir)
-	t.Setenv("ZALKI_TEST_ARGS", output)
-	id := newID()
-	msg := Message{ID: newID(), From: "cursor:" + newID(), To: "codex:" + id, Body: "literal $(not-a-command) `also-literal`"}
-	receipt := queueCodex(context.Background(), msg, Session{ID: msg.To, Kind: "codex"})
-	if receipt.Status != "submitted" {
-		t.Fatalf("%+v", receipt)
-	}
-	args, err := os.ReadFile(output)
-	if err != nil {
-		t.Fatal(err)
-	}
-	contract := loadClientContract(t, "codex")
-	prefix := contract.QueueArgs[0] + "\n" + contract.QueueArgs[1] + "\n" + id + "\n" + contract.QueueArgs[2] + "\n"
-	if !strings.HasPrefix(string(args), prefix) || !strings.Contains(string(args), msg.Body) {
-		t.Fatal(string(args))
 	}
 }

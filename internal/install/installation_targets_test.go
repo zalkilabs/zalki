@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
@@ -37,11 +36,11 @@ func TestInstallationCustomTargetsAndRecordedUninstall(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := installationSnapshot(t, custom)
-	preview, err := install.Manage(bus.Configuration, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: state, HomeDir: home, Apply: false})
+	preview, err := install.Manage(declare, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: state, HomeDir: home, Apply: false})
 	if err != nil || len(preview.Paths) != 6 || !reflect.DeepEqual(before, installationSnapshot(t, custom)) {
 		t.Fatal("invalid custom preview", preview, err)
 	}
-	if _, err := install.Apply(bus.Configuration, "/fixture/zalki", state, home); err != nil {
+	if _, err := install.Apply(declare, "/fixture/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
 	wanted := map[string]string{
@@ -64,13 +63,13 @@ func TestInstallationCustomTargetsAndRecordedUninstall(t *testing.T) {
 			t.Fatal("wrote default path instead of override", key, err)
 		}
 	}
-	if paths, err := install.Apply(bus.Configuration, "/fixture/zalki", state, home); err != nil || len(paths) != 0 {
+	if paths, err := install.Apply(declare, "/fixture/zalki", state, home); err != nil || len(paths) != 0 {
 		t.Fatal("custom install was not idempotent", paths, err)
 	}
 	// Even invalid current environment must not stop removal from recorded paths.
 	t.Setenv("CODEX_HOME", "relative-is-invalid")
 	t.Setenv("CLAUDE_CONFIG_DIR", "different-relative-profile")
-	if _, err := install.Manage(bus.Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(declare, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	for _, target := range wanted {
@@ -89,7 +88,7 @@ func TestInstallationMovesRecordedTargetsToProfile(t *testing.T) {
 	clearConfigOverrides(t)
 	home, custom := t.TempDir(), t.TempDir()
 	state := filepath.Join(home, "state")
-	if _, err := install.Apply(bus.Configuration, "/old/zalki", state, home); err != nil {
+	if _, err := install.Apply(declare, "/old/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
 	manifest := filepath.Join(state, "installation.json")
@@ -100,13 +99,13 @@ func TestInstallationMovesRecordedTargetsToProfile(t *testing.T) {
 	t.Setenv("CODEX_HOME", filepath.Join(custom, "codex"))
 	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(custom, "claude"))
 	before := installationSnapshot(t, home)
-	if _, err := install.Manage(bus.Configuration, install.Request{Action: "install", Binary: "/old/zalki", StateDir: state, HomeDir: home, Apply: true}); err == nil {
+	if _, err := install.Manage(declare, install.Request{Action: "install", Binary: "/old/zalki", StateDir: state, HomeDir: home, Apply: true}); err == nil {
 		t.Fatal("install silently moved an existing integration")
 	}
-	if _, err := install.Manage(bus.Configuration, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: false}); err != nil || !reflect.DeepEqual(before, installationSnapshot(t, home)) {
+	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: false}); err != nil || !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 		t.Fatal("migration preview changed files", err)
 	}
-	if _, err := install.Manage(bus.Configuration, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	for key := range record.Patches {
@@ -119,12 +118,12 @@ func TestInstallationMovesRecordedTargetsToProfile(t *testing.T) {
 		}
 	}
 	before = installationSnapshot(t, home)
-	if _, err := install.Manage(bus.Configuration, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil || !reflect.DeepEqual(before, installationSnapshot(t, home)) {
+	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil || !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 		t.Fatal("profile upgrade not idempotent", err)
 	}
 	// Move again, including old/new paths outside the default home.
 	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(custom, "claude-next"))
-	if _, err := install.Manage(bus.Configuration, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(filepath.Join(custom, "claude", ".claude.json"))
@@ -142,7 +141,7 @@ func TestInvalidConfigurationTargetsRefuseBeforeWriting(t *testing.T) {
 			clearConfigOverrides(t)
 			home := t.TempDir()
 			t.Setenv("CLAUDE_CONFIG_DIR", value)
-			if _, err := install.Apply(bus.Configuration, "/fixture/zalki", filepath.Join(home, "state"), home); err == nil {
+			if _, err := install.Apply(declare, "/fixture/zalki", filepath.Join(home, "state"), home); err == nil {
 				t.Fatal("accepted relative config directory")
 			}
 			if len(installationSnapshot(t, home)) != 0 {
@@ -154,7 +153,7 @@ func TestInvalidConfigurationTargetsRefuseBeforeWriting(t *testing.T) {
 		clearConfigOverrides(t)
 		home := t.TempDir()
 		t.Setenv("CODEX_HOME", filepath.Join(home, ".cursor"))
-		if _, err := install.Apply(bus.Configuration, "/fixture/zalki", filepath.Join(home, "state"), home); err == nil || len(installationSnapshot(t, home)) != 0 {
+		if _, err := install.Apply(declare, "/fixture/zalki", filepath.Join(home, "state"), home); err == nil || len(installationSnapshot(t, home)) != 0 {
 			t.Fatal("overlapping hook files were accepted", err)
 		}
 	})
@@ -165,7 +164,7 @@ func TestSetupRecordsCustomDestinations(t *testing.T) {
 	home, custom := t.TempDir(), t.TempDir()
 	t.Setenv("CLAUDE_CONFIG_DIR", custom)
 	out := filepath.Join(home, "drafts")
-	if err := install.WriteSetup(bus.Configuration, "/fixture/zalki", filepath.Join(home, "state"), out, home); err != nil {
+	if err := install.WriteSetup(declare, "/fixture/zalki", filepath.Join(home, "state"), out, home); err != nil {
 		t.Fatal(err)
 	}
 	var targets map[string]string
@@ -181,7 +180,7 @@ func TestProfileMigrationConflictPreservesBothProfiles(t *testing.T) {
 	clearConfigOverrides(t)
 	home, custom := t.TempDir(), t.TempDir()
 	state := filepath.Join(home, "state")
-	if _, err := install.Apply(bus.Configuration, "/old/zalki", state, home); err != nil {
+	if _, err := install.Apply(declare, "/old/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("CLAUDE_CONFIG_DIR", custom)
@@ -189,7 +188,7 @@ func TestProfileMigrationConflictPreservesBothProfiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	beforeHome, beforeCustom := installationSnapshot(t, home), installationSnapshot(t, custom)
-	if _, err := install.Manage(bus.Configuration, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err == nil {
+	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err == nil {
 		t.Fatal("overwrote a conflicting profile entry")
 	}
 	if !reflect.DeepEqual(beforeHome, installationSnapshot(t, home)) || !reflect.DeepEqual(beforeCustom, installationSnapshot(t, custom)) {
@@ -210,7 +209,7 @@ func TestRecordedTargetsCannotClaimOtherFiles(t *testing.T) {
 		clearConfigOverrides(t)
 		home := t.TempDir()
 		state := filepath.Join(home, "state")
-		if _, err := install.Apply(bus.Configuration, "/fixture/zalki", state, home); err != nil {
+		if _, err := install.Apply(declare, "/fixture/zalki", state, home); err != nil {
 			t.Fatal(err)
 		}
 		path := filepath.Join(state, "installation.json")
@@ -223,7 +222,7 @@ func TestRecordedTargetsCannotClaimOtherFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 		before := installationSnapshot(t, home)
-		if _, err := install.Manage(bus.Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err == nil || !reflect.DeepEqual(before, installationSnapshot(t, home)) {
+		if _, err := install.Manage(declare, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err == nil || !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 			t.Fatal("invalid recorded target produced changes", err)
 		}
 	}

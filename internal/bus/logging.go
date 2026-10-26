@@ -46,7 +46,7 @@ func (s Store) logEvent(level slog.Level, event string, data eventData) {
 	if _, err := s.registry().Lookup(data.Agent); err == nil {
 		attrs = append(attrs, slog.String("agent", data.Agent))
 	}
-	if standardEvents(true)[data.HookEvent] != "" {
+	if StandardEvents(true)[data.HookEvent] != "" {
 		attrs = append(attrs, slog.String("hook_event", data.HookEvent))
 	}
 	switch data.HookStage {

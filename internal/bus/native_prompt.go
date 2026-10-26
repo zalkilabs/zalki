@@ -32,7 +32,7 @@ func (s Store) completedNativePrompt(actor, prompt string) (string, error) {
 		if err != nil {
 			return err
 		}
-		expected := envelope(message)
+		expected := Envelope(s.withLabel(message))
 		if message.To != actor || prompt != expected {
 			return nil
 		}
