@@ -8,6 +8,9 @@ import (
 )
 
 func TestClientVersionProbeAndUnknownVersionDiagnostics(t *testing.T) {
+	if hint := recoveryHint(SessionDiagnostic{TransportHealth: "socket_unavailable"}); !strings.Contains(hint, "default integration") || strings.Contains(hint, "enabled") {
+		t.Fatalf("socket recovery still suggests an opt-in integration: %q", hint)
+	}
 	for _, test := range []struct{ output, want string }{
 		{"codex-cli 0.163.0", "0.163.0"}, {"2.1.308 (Claude Code)", "2.1.308"},
 		{"2026.10.22-27dcf5f", "2026.10.22-27dcf5f"}, {"unrecognized output", ""},

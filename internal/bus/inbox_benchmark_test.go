@@ -9,7 +9,7 @@ import (
 func BenchmarkMessageLookup(b *testing.B) {
 	for _, size := range []int{100, 1000, 10000} {
 		b.Run(fmt.Sprint(size), func(b *testing.B) {
-			store := Store{Dir: filepath.Join(b.TempDir(), "state")}
+			store := Store{Dir: filepath.Join(b.TempDir(), "state"), Registry: testRegistry()}
 			receiver, key, err := store.Register("cursor", newID(), "/fixture", nil)
 			if err != nil {
 				b.Fatal(err)

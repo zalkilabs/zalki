@@ -15,7 +15,7 @@ import (
 )
 
 type fixtureAdapter struct {
-	standardHooks
+	StandardHooks
 	kind       string
 	inbox      InboxMode
 	deliveries *atomic.Int32
@@ -74,7 +74,7 @@ func (a fixtureAdapter) Deliver(_ context.Context, _ Message, _ Session) Receipt
 
 func (a fixtureAdapter) ConfigDir() string { return "/fixture" }
 func (a fixtureAdapter) LookupName(v Session, _ map[string]map[string]string) (string, string) {
-	return a.kind + " " + nativeID(v), "fixture_metadata"
+	return a.kind + " " + NativeID(v), "fixture_metadata"
 }
 func (a fixtureAdapter) Configuration(binary string, args []string) []install.ConfigFile {
 	path := a.path
@@ -123,7 +123,7 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 			if err != nil || msg.To != to.ID || msg.FromLabel != "Fixture" {
 				t.Fatalf("%+v %v", msg, err)
 			}
-			if !strings.Contains(envelope(msg), "From: Fixture") {
+			if !strings.Contains(Envelope(msg), "From: Fixture") {
 				t.Fatal("new adapter display label was lost")
 			}
 			incoming, err := store.Messages(to.ID, toKey)
@@ -176,7 +176,7 @@ func TestRegistryRejectsInvalidAndDuplicateAdapters(t *testing.T) {
 			t.Fatal("invalid adapter registry accepted")
 		}
 	}
-	if _, err := defaultRegistry.Lookup("unknown"); err == nil {
+	if _, err := testRegistry().Lookup("unknown"); err == nil {
 		t.Fatal("unknown adapter accepted")
 	}
 }
@@ -194,7 +194,7 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 		{"cursor", InboxJournal, DeliveryNextHook, false, true, false},
 	} {
 		t.Run(test.kind, func(t *testing.T) {
-			adapter, err := defaultRegistry.Lookup(test.kind)
+			adapter, err := testRegistry().Lookup(test.kind)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -207,7 +207,7 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 			}
 		})
 	}
-	c := (cursorAdapter{}).ReceiveCapabilities(func() Session { v := Session{}; setCursorState(&v, cursorSessionState{Wake: &Endpoint{}}); return v }())
+	c := (stubCursorAdapter{}).ReceiveCapabilities(func() Session { v := Session{}; setCursorState(&v, CursorListenerState{Wake: &Endpoint{}}); return v }())
 	if !c.IdleWake || c.Inbox != InboxJournal || c.BusyDelivery != DeliveryNotification {
 		t.Fatal("armed listener did not change the advertised receive profile")
 	}
@@ -215,7 +215,7 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 
 func TestLegacyCapabilitiesAreEnrichedWithoutRewritingRecords(t *testing.T) {
 	store := fixtureStore(t)
-	for _, kind := range AgentKinds() {
+	for _, kind := range testRegistry().Kinds() {
 		v, _ := register(t, store, kind)
 		path, err := store.sessionPath(v.ID)
 		if err != nil {
@@ -248,10 +248,10 @@ func TestNewAdapterConfigurationUpgradeAndRemoval(t *testing.T) {
 	clearConfigOverrides(t)
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
-	if _, err := install.Apply(Configuration, "/old/zalki", state, home); err != nil {
+	if _, err := install.Apply(testRegistry().Configuration, "/old/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
-	registry, err := NewRegistry(codexAdapter{}, claudeAdapter{}, cursorAdapter{}, fixtureAdapter{kind: "fourth", inbox: InboxNative})
+	registry, err := NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, stubCursorAdapter{}, fixtureAdapter{kind: "fourth", inbox: InboxNative})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +310,7 @@ func TestAdapterConfigurationCannotClaimArbitraryPaths(t *testing.T) {
 	// A tampered record cannot extend ownership to an adapter-undeclared file.
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
-	if _, err := install.Apply(Configuration, "/bin/zalki", state, home); err != nil {
+	if _, err := install.Apply(testRegistry().Configuration, "/bin/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(state, "installation.json")
@@ -323,7 +323,7 @@ func TestAdapterConfigurationCannotClaimArbitraryPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := installationSnapshot(t, home)
-	if _, err := install.Manage(Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err == nil {
+	if _, err := install.Manage(testRegistry().Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err == nil {
 		t.Fatal("record claimed an undeclared configuration file")
 	}
 	if !reflect.DeepEqual(before, installationSnapshot(t, home)) {

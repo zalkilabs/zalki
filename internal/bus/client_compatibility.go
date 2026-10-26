@@ -69,7 +69,7 @@ func (b *versionBuffer) Write(p []byte) (int, error) {
 func execClientPath(name string) (string, error) { return exec.LookPath(name) }
 
 func probeClientVersion(path string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, path, "--version")
 	var output versionBuffer
@@ -116,7 +116,7 @@ func recoveryHint(diagnostic SessionDiagnostic) string {
 		return "In this Cursor session, arm one native Shell cursor-listen task using its private startup guidance."
 	}
 	if diagnostic.TransportHealth == "socket_unavailable" {
-		return "Restart Claude with the experimental integration enabled so it registers its own messaging socket."
+		return "Restart Claude so its default integration can register a fresh messaging socket."
 	}
 	return ""
 }

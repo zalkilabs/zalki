@@ -17,7 +17,51 @@ linters:
     - gosec
     - revive
     - nolintlint
+    - depguard
   settings:
+    depguard:
+      rules:
+        core:
+          files: ["**/internal/bus/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/zalkilabs/zalki/internal/fsutil$
+            - github.com/zalkilabs/zalki/internal/logging$
+            # Adapter configuration declarations remain a supported dependency.
+            - github.com/zalkilabs/zalki/internal/install$
+            - golang.org/x/sys/unix$
+        installer:
+          files: ["**/internal/install/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/zalkilabs/zalki/internal/fsutil$
+            - github.com/pelletier/go-toml/v2$
+        composition:
+          files: ["**/internal/adapters/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - github.com/zalkilabs/zalki/internal/bus$
+            - github.com/zalkilabs/zalki/internal/adapters/codex$
+            - github.com/zalkilabs/zalki/internal/adapters/claude$
+            - github.com/zalkilabs/zalki/internal/adapters/cursor$
+        client-isolation:
+          files:
+            - "**/internal/adapters/codex/**"
+            - "**/internal/adapters/claude/**"
+            - "**/internal/adapters/cursor/**"
+          list-mode: lax
+          allow:
+            - github.com/zalkilabs/zalki/internal/adapters/internal/socketio$
+          deny:
+            - pkg: github.com/zalkilabs/zalki/internal/adapters
+              desc: Clients must not import the composition root or each other; only socketio is shared.
+        socket-io:
+          files: ["**/internal/adapters/internal/socketio/**"]
+          list-mode: strict
+          allow:
+            - $gostd
     staticcheck:
       # ST1005 flags product names ("Cursor", "Claude") that start error strings.
       checks: ["all", "-ST1000", "-ST1003", "-ST1005", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]

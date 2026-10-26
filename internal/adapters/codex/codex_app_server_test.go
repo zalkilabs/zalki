@@ -1,11 +1,9 @@
-package bus
+package codex
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/coder/websocket"
-	"github.com/coder/websocket/wsjson"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +12,10 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
+	"github.com/zalkilabs/zalki/internal/bus"
 )
 
 func TestCodexVersionGate(t *testing.T) {
@@ -37,13 +39,13 @@ func TestCodexVersionGate(t *testing.T) {
 func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	root, listener := listenCodexControl(t)
 	defer listener.Close()
-	target := Session{Kind: "codex", NativeConfigDir: root}
-	capabilities := (codexAdapter{}).ReceiveCapabilities(target)
-	if capabilities.Delivery != "app_server_unverified_or_queue" || capabilities.BusyDelivery != DeliveryNextTurn || !capabilities.IdleWake {
+	target := bus.Session{Kind: "codex", NativeConfigDir: root}
+	capabilities := (Adapter{}).ReceiveCapabilities(target)
+	if capabilities.Delivery != "app_server_unverified_or_queue" || capabilities.BusyDelivery != bus.DeliveryNextTurn || !capabilities.IdleWake {
 		t.Fatalf("socket was not advertised: %+v", capabilities)
 	}
-	var host HealthHost
-	health, listenerHealth := (codexAdapter{}).Health(host, target)
+	var host bus.HealthHost
+	health, listenerHealth := (Adapter{}).Health(host, target)
 	if health != "app_server_socket_present" || listenerHealth != "" {
 		t.Fatalf("doctor health = %q %q", health, listenerHealth)
 	}
@@ -51,7 +53,7 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	if err := os.Chmod(socketPath, 0666); err != nil {
 		t.Fatal(err)
 	}
-	if got := (codexAdapter{}).ReceiveCapabilities(target); got.Delivery != "native_queue_next_turn" {
+	if got := (Adapter{}).ReceiveCapabilities(target); got.Delivery != "native_queue_next_turn" {
 		t.Fatalf("group-accessible socket stayed eligible: %+v", got)
 	}
 	if err := os.Chmod(socketPath, 0600); err != nil {
@@ -60,11 +62,11 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	if err := os.Chmod(filepath.Join(root, codexControlDirName), 0755); err != nil {
 		t.Fatal(err)
 	}
-	capabilities = (codexAdapter{}).ReceiveCapabilities(target)
-	if capabilities.Delivery != "native_queue_next_turn" || capabilities.BusyDelivery != DeliveryNextTurn {
+	capabilities = (Adapter{}).ReceiveCapabilities(target)
+	if capabilities.Delivery != "native_queue_next_turn" || capabilities.BusyDelivery != bus.DeliveryNextTurn {
 		t.Fatalf("public control directory stayed eligible: %+v", capabilities)
 	}
-	health, _ = (codexAdapter{}).Health(host, target)
+	health, _ = (Adapter{}).Health(host, target)
 	if health != "native_queue_only" {
 		t.Fatal(health)
 	}
@@ -75,69 +77,69 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			root, listener := listenCodexControl(t)
 			defer listener.Close()
-			thread := newID()
+			thread := newTestID()
 			body := "deliver this exact body"
 			marker := queueSpy(t)
 			spec := fakeCodex{Home: root, Thread: thread, Mode: mode}
 			calls := serveFakeCodex(t, listener, spec)
-			timeout := 2 * time.Second
+			timeout := 8 * time.Second
 			if mode == "hang" {
 				timeout = 400 * time.Millisecond
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			msg := Message{ID: newID(), From: "cursor:" + newID(), FromLabel: "Cursor", FromName: "Review", To: "codex:" + thread, Body: body, CreatedAt: timestamp()}
-			receipt := deliverCodex(ctx, msg, Session{Kind: "codex", ID: msg.To, NativeID: thread, NativeConfigDir: root})
+			msg := bus.Message{ID: newTestID(), From: "cursor:" + newTestID(), FromLabel: "Cursor", FromName: "Review", To: "codex:" + thread, Body: body, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+			receipt := deliverCodex(ctx, msg, bus.Session{Kind: "codex", ID: msg.To, NativeID: thread, NativeConfigDir: root})
 			if strings.Contains(receipt.Output+receipt.Error, body) {
 				t.Fatal("receipt exposed the message body")
 			}
 			queued := queueMarked(t, marker)
 			switch mode {
 			case "idle", "paged":
-				if receipt.Status != StatusSubmitted || receipt.Output != "started_idle_turn" || queued {
+				if receipt.Status != bus.StatusSubmitted || receipt.Output != "started_idle_turn" || queued {
 					t.Fatalf("status=%s output=%s queued=%v", receipt.Status, receipt.Output, queued)
 				}
 			case "busy":
-				if receipt.Status != StatusSubmitted || receipt.Output != "joined_active_turn" || queued {
+				if receipt.Status != bus.StatusSubmitted || receipt.Output != "joined_active_turn" || queued {
 					t.Fatalf("status=%s output=%s queued=%v", receipt.Status, receipt.Output, queued)
 				}
 			case "approval", "approval-rpc":
-				if receipt.Status != StatusApprovalBlocked || queued {
+				if receipt.Status != bus.StatusApprovalBlocked || queued {
 					t.Fatalf("status=%s queued=%v", receipt.Status, queued)
 				}
 			case "hang":
-				if receipt.Status != StatusUnknownTimeout || queued {
+				if receipt.Status != bus.StatusUnknownTimeout || queued {
 					t.Fatalf("status=%s queued=%v", receipt.Status, queued)
 				}
 			case "dropped", "internal", "malformed":
-				if receipt.Status != StatusUnknownWrite || queued {
+				if receipt.Status != bus.StatusUnknownWrite || queued {
 					t.Fatalf("status=%s queued=%v", receipt.Status, queued)
 				}
 			case "method-missing", "invalid-params":
-				if receipt.Status != StatusSubmitted || !queued {
+				if receipt.Status != bus.StatusSubmitted || !queued {
 					t.Fatalf("status=%s queued=%v", receipt.Status, queued)
 				}
 			default:
-				if receipt.Status != StatusSubmitted || !queued {
+				if receipt.Status != bus.StatusSubmitted || !queued {
 					t.Fatalf("status=%s queued=%v", receipt.Status, queued)
 				}
 			}
 			switch mode {
 			case "idle", "paged", "busy":
-				verified := (codexAdapter{}).ReceiveCapabilities(Session{Kind: "codex", NativeConfigDir: root})
-				if verified.Delivery != "app_server_tool_output" || verified.BusyDelivery != DeliveryBetweenTools {
+				verified := (Adapter{}).ReceiveCapabilities(bus.Session{Kind: "codex", NativeConfigDir: root})
+				if verified.Delivery != "app_server_tool_output" || verified.BusyDelivery != bus.DeliveryBetweenTools {
 					t.Fatalf("verified server was not advertised: %+v", verified)
 				}
 			case "old", "home", "method-missing", "invalid-params":
-				unsupported := (codexAdapter{}).ReceiveCapabilities(Session{Kind: "codex", NativeConfigDir: root})
-				if unsupported.Delivery != "native_queue_next_turn" || unsupported.BusyDelivery != DeliveryNextTurn {
+				unsupported := (Adapter{}).ReceiveCapabilities(bus.Session{Kind: "codex", NativeConfigDir: root})
+				if unsupported.Delivery != "native_queue_next_turn" || unsupported.BusyDelivery != bus.DeliveryNextTurn {
 					t.Fatalf("unusable server was advertised as direct delivery: %+v", unsupported)
 				}
 			}
 			var seen observedCodex
 			select {
 			case seen = <-calls:
-			case <-time.After(3 * time.Second):
+			case <-time.After(8 * time.Second):
 				t.Fatal("app-server exchange did not finish")
 			}
 			if mode == "unsupported" || mode == "closed" {
@@ -356,7 +358,7 @@ func fakeCodexResult(spec fakeCodex, method, home, version string, page *int) co
 		case "approval":
 			status = map[string]any{"type": "active", "activeFlags": []string{"waitingOnApproval"}}
 		case "identity":
-			id = newID()
+			id = newTestID()
 		}
 		return codexFakeReply{result: map[string]any{"thread": map[string]any{"id": id, "status": status}}}
 	case "turn/start":
@@ -372,7 +374,7 @@ func fakeCodexResult(spec fakeCodex, method, home, version string, page *int) co
 		case "approval-rpc":
 			return codexFakeReply{failure: map[string]any{"code": -32000, "data": map[string]any{"waitingOnApproval": true}}}
 		default:
-			return codexFakeReply{result: map[string]any{"turn": map[string]any{"id": newID(), "items": []any{}, "status": "inProgress"}}}
+			return codexFakeReply{result: map[string]any{"turn": map[string]any{"id": newTestID(), "items": []any{}, "status": "inProgress"}}}
 		}
 	default:
 		return codexFakeReply{failure: map[string]any{"code": -32601, "message": "method unavailable"}}

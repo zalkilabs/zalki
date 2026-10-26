@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
@@ -23,7 +22,7 @@ func newLifecycleCommand(opts *commandOptions, action string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			report, err := install.Manage(bus.Configuration, install.Request{
+			report, err := install.Manage(opts.registry.Configuration, install.Request{
 				Action: action, Binary: binary,
 				StateDir: service.Store.Dir, HomeDir: opts.home, Apply: apply,
 			})

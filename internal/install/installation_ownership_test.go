@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
 func fixtureConfiguration(t *testing.T, binary, state string) (map[string]map[string]any, string) {
 	t.Helper()
-	files, err := bus.Configuration(binary, state)
+	files, err := declare(binary, state)
 	if err != nil {
 		t.Fatal(err)
 	}

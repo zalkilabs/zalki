@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
 func TestCollaborationCost(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	store := bus.Store{Dir: filepath.Join(t.TempDir(), "state")}
+	store := bus.Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: adapters.Builtin()}
 	author, authorKey, err := store.Register("cursor", "00000000-0000-4000-8000-000000000101", "/fixture", nil)
 	if err != nil {
 		t.Fatal(err)

@@ -1,4 +1,4 @@
-.PHONY: build test vet lint fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check
+.PHONY: build test test-required vet lint fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check
 
 GORELEASER ?= goreleaser
 GOVULNCHECK ?= govulncheck
@@ -9,6 +9,13 @@ build:
 
 test: build
 	ZALKI_TEST_BINARY="$(CURDIR)/bin/zalki" go test -race ./...
+
+# CI must prove that the real socket/lifecycle/emulated roundtrip tests ran.
+# Preserve local sandbox skips in the ordinary test target.
+test-required: build
+	@set -eu; report="$$(mktemp)"; trap 'rm -f "$$report"' EXIT; \
+	if ! ZALKI_TEST_BINARY="$(CURDIR)/bin/zalki" go test -race -count=1 -json ./... > "$$report"; then cat "$$report"; exit 1; fi; \
+	go run ./scripts/check-integration "$$report"
 
 vet:
 	go vet ./...

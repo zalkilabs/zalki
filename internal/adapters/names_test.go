@@ -1,4 +1,4 @@
-package bus
+package adapters_test
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/bus"
 )
 
 func nameFixture(t *testing.T) string {
@@ -19,7 +21,7 @@ func nameFixture(t *testing.T) string {
 	return root
 }
 
-func nativeNameFixture(t *testing.T, root string, session Session, name string) {
+func nativeNameFixture(t *testing.T, root string, session bus.Session, name string) {
 	t.Helper()
 	id := strings.TrimPrefix(session.ID, session.Kind+":")
 	var path string
@@ -55,10 +57,10 @@ func nativeNameFixture(t *testing.T, root string, session Session, name string) 
 
 func TestNativeNamesRefreshWithoutChangingIdentity(t *testing.T) {
 	root := nameFixture(t)
-	store := fixtureStore(t)
+	store := adapterTestStore(t)
 	for _, kind := range []string{"codex", "claude", "cursor"} {
 		t.Run(kind, func(t *testing.T) {
-			session, key := register(t, store, kind)
+			session, key := registerAdapterSession(t, store, kind)
 			for _, name := range []string{"First native title", "Renamed native title"} {
 				nativeNameFixture(t, root, session, name)
 				items, err := store.List()
@@ -77,7 +79,7 @@ func TestNativeNamesRefreshWithoutChangingIdentity(t *testing.T) {
 				if !found {
 					t.Fatal("missing session")
 				}
-				if _, err := store.authenticate(session.ID, key); err != nil {
+				if _, err := store.Messages(session.ID, key); err != nil {
 					t.Fatal("discovery changed capability", err)
 				}
 			}
@@ -94,21 +96,21 @@ func TestNativeNamesRefreshWithoutChangingIdentity(t *testing.T) {
 
 func TestNameResolutionAmbiguityAndRetirement(t *testing.T) {
 	root := nameFixture(t)
-	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	a, _ := register(t, store, "codex")
-	b, _ := register(t, store, "cursor")
-	for _, v := range []Session{a, b} {
+	store := adapterTestStore(t)
+	sender, key := registerAdapterSession(t, store, "cursor")
+	a, _ := registerAdapterSession(t, store, "codex")
+	b, _ := registerAdapterSession(t, store, "cursor")
+	for _, v := range []bus.Session{a, b} {
 		nativeNameFixture(t, root, v, "reviewer")
 	}
-	service := Service{Store: store, Deliver: func(_ context.Context, msg Message, target Session) Receipt {
+	service := bus.Service{Store: store, Deliver: func(_ context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 		if msg.To != a.ID || target.ID != a.ID {
 			t.Fatal("transport received a name instead of the resolved UUID")
 		}
-		return Receipt{Status: "submitted"}
+		return bus.Receipt{Status: "submitted"}
 	}}
 	for _, name := range []string{"reviewer", "Reviewer", "missing"} {
-		_, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: name, MessageID: newID(), Body: "hello"})
+		_, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: name, MessageID: newTestID(), Body: "hello"})
 		if err == nil {
 			t.Fatalf("accepted ambiguous/unknown name %q", name)
 		}
@@ -116,13 +118,13 @@ func TestNameResolutionAmbiguityAndRetirement(t *testing.T) {
 			t.Fatalf("ambiguity did not identify candidates: %v", err)
 		}
 	}
-	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: "codex:reviewer", MessageID: newID(), Body: "hello"})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "codex:reviewer", MessageID: newTestID(), Body: "hello"})
 	if err != nil || msg.To != a.ID || msg.RequestedTo != "codex:reviewer" {
 		t.Fatalf("qualified name failed: %+v %v", msg, err)
 	}
-	c, _ := register(t, store, "codex")
+	c, _ := registerAdapterSession(t, store, "codex")
 	nativeNameFixture(t, root, c, "reviewer")
-	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: "codex:reviewer", MessageID: newID(), Body: "hello"}); err == nil {
+	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "codex:reviewer", MessageID: newTestID(), Body: "hello"}); err == nil {
 		t.Fatal("accepted duplicate names within a kind")
 	}
 	if err := store.Update(c.ID, "retired", true); err != nil {
@@ -131,31 +133,31 @@ func TestNameResolutionAmbiguityAndRetirement(t *testing.T) {
 	if err := store.Update(b.ID, "retired", true); err != nil {
 		t.Fatal(err)
 	}
-	msg, err = service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: "reviewer", MessageID: newID(), Body: "hello"})
+	msg, err = service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "reviewer", MessageID: newTestID(), Body: "hello"})
 	if err != nil || msg.To != a.ID {
 		t.Fatalf("retired session caused false ambiguity: %+v %v", msg, err)
 	}
 	// Even when a native name looks exactly like an ID, the exact ID wins.
 	nativeNameFixture(t, root, sender, a.ID)
-	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: a.ID, MessageID: newID(), Body: "hello"}); err != nil {
+	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: a.ID, MessageID: newTestID(), Body: "hello"}); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestNameRetryRemainsBoundAfterRenameAndReassignment(t *testing.T) {
 	root := nameFixture(t)
-	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	a, _ := register(t, store, "codex")
-	b, _ := register(t, store, "codex")
+	store := adapterTestStore(t)
+	sender, key := registerAdapterSession(t, store, "cursor")
+	a, _ := registerAdapterSession(t, store, "codex")
+	b, _ := registerAdapterSession(t, store, "codex")
 	nativeNameFixture(t, root, a, "reviewer")
 	calls := 0
-	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
+	service := bus.Service{Store: store, Deliver: func(context.Context, bus.Message, bus.Session) bus.Receipt {
 		calls++
-		return Receipt{Status: "unknown_after_timeout"}
+		return bus.Receipt{Status: "unknown_after_timeout"}
 	}}
-	id := newID()
-	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: "reviewer", MessageID: id, Body: "hello"}); err != nil {
+	id := newTestID()
+	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "reviewer", MessageID: id, Body: "hello"}); err != nil {
 		t.Fatal(err)
 	}
 	nativeNameFixture(t, root, a, "renamed")
@@ -164,40 +166,40 @@ func TestNameRetryRemainsBoundAfterRenameAndReassignment(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, address := range []string{"reviewer", a.ID} {
-		msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: address, MessageID: id, Body: "hello"})
+		msg, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: address, MessageID: id, Body: "hello"})
 		if err != nil || msg.To != a.ID || calls != 1 {
 			t.Fatalf("retry rerouted/resubmitted: %+v %v calls=%d", msg, err, calls)
 		}
 	}
-	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: b.ID, MessageID: id, Body: "hello"}); err == nil {
+	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: b.ID, MessageID: id, Body: "hello"}); err == nil {
 		t.Fatal("rebound a reserved message UUID to a different session")
 	}
 }
 
 func TestNamesPreserveReplyAndCapabilityScope(t *testing.T) {
 	root := nameFixture(t)
-	store := fixtureStore(t)
-	a, aKey := register(t, store, "cursor")
-	b, bKey := register(t, store, "cursor")
-	c, _ := register(t, store, "cursor")
+	store := adapterTestStore(t)
+	a, aKey := registerAdapterSession(t, store, "cursor")
+	b, bKey := registerAdapterSession(t, store, "cursor")
+	c, _ := registerAdapterSession(t, store, "cursor")
 	for _, pair := range []struct {
-		v    Session
+		v    bus.Session
 		name string
 	}{{a, "sender"}, {b, "receiver"}, {c, "other"}} {
 		nativeNameFixture(t, root, pair.v, pair.name)
 	}
-	service := Service{Store: store}
-	parent, err := service.Send(context.Background(), SendRequest{Actor: a.ID, Capability: aKey, To: "receiver", MessageID: newID(), Body: "hello"})
+	service := bus.Service{Store: store}
+	parent, err := service.Send(context.Background(), bus.SendRequest{Actor: a.ID, Capability: aKey, To: "receiver", MessageID: newTestID(), Body: "hello"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Send(context.Background(), SendRequest{Actor: b.ID, Capability: bKey, To: "other", MessageID: newID(), Body: "reply", ReplyTo: parent.ID}); err == nil {
+	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: b.ID, Capability: bKey, To: "other", MessageID: newTestID(), Body: "reply", ReplyTo: parent.ID}); err == nil {
 		t.Fatal("name bypassed reply scope")
 	}
-	if _, err := service.Send(context.Background(), SendRequest{Actor: b.ID, Capability: aKey, To: "sender", MessageID: newID(), Body: "reply", ReplyTo: parent.ID}); err == nil {
+	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: b.ID, Capability: aKey, To: "sender", MessageID: newTestID(), Body: "reply", ReplyTo: parent.ID}); err == nil {
 		t.Fatal("name bypassed authentication")
 	}
-	msg, err := service.Send(context.Background(), SendRequest{Actor: b.ID, Capability: bKey, To: "sender", MessageID: newID(), Body: "reply", ReplyTo: parent.ID})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: b.ID, Capability: bKey, To: "sender", MessageID: newTestID(), Body: "reply", ReplyTo: parent.ID})
 	if err != nil || msg.To != a.ID {
 		t.Fatalf("reply by unique name failed: %+v %v", msg, err)
 	}
@@ -205,9 +207,9 @@ func TestNamesPreserveReplyAndCapabilityScope(t *testing.T) {
 
 func TestClaudeHookTitleAndMissingNativeMetadata(t *testing.T) {
 	nameFixture(t)
-	store := fixtureStore(t)
-	session, _ := register(t, store, "claude")
-	service := Service{Store: store}
+	store := adapterTestStore(t)
+	session, _ := registerAdapterSession(t, store, "claude")
+	service := bus.Service{Store: store}
 	input := `{"session_id":"` + strings.TrimPrefix(session.ID, "claude:") + `","hook_event_name":"Stop","session_title":"reviewer"}`
 	if err := service.Hook("claude", strings.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
@@ -228,11 +230,11 @@ func TestClaudeHookTitleAndMissingNativeMetadata(t *testing.T) {
 
 func TestConflictingOrUnsupportedMetadataHasNoName(t *testing.T) {
 	root := nameFixture(t)
-	store := fixtureStore(t)
-	cursor, _ := register(t, store, "cursor")
-	claude, _ := register(t, store, "claude")
-	codex, _ := register(t, store, "codex")
-	for _, v := range []Session{cursor, claude, codex} {
+	store := adapterTestStore(t)
+	cursor, _ := registerAdapterSession(t, store, "cursor")
+	claude, _ := registerAdapterSession(t, store, "claude")
+	codex, _ := registerAdapterSession(t, store, "codex")
+	for _, v := range []bus.Session{cursor, claude, codex} {
 		nativeNameFixture(t, root, v, "reviewer")
 	}
 	cursorID := strings.TrimPrefix(cursor.ID, "cursor:")
@@ -244,7 +246,7 @@ func TestConflictingOrUnsupportedMetadataHasNoName(t *testing.T) {
 		t.Fatal(err)
 	}
 	claudeID := strings.TrimPrefix(claude.ID, "claude:")
-	if err := writeJSON(filepath.Join(root, "claude", "sessions", "another-process.json"), map[string]string{"sessionId": claudeID, "name": "conflicting"}); err != nil {
+	if err := writeTestJSON(filepath.Join(root, "claude", "sessions", "another-process.json"), map[string]string{"sessionId": claudeID, "name": "conflicting"}); err != nil {
 		t.Fatal(err)
 	}
 	// An interrupted index append must not bring the previous label back.
@@ -273,18 +275,24 @@ func TestConflictingOrUnsupportedMetadataHasNoName(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"schemaVersion":99,"title":"reviewer"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if got := cursorName(filepath.Join(root, "cursor"), cursorID); got != "" {
-		t.Fatalf("accepted unsupported metadata version: %q", got)
+	items, err = store.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range items {
+		if item.ID == cursor.ID && item.Name != "" {
+			t.Fatalf("accepted unsupported metadata version: %q", item.Name)
+		}
 	}
 }
 
 func TestNamesUseOwningSessionConfigDirectory(t *testing.T) {
 	root := nameFixture(t)
-	store := fixtureStore(t)
-	sessions := map[string]Session{}
+	store := adapterTestStore(t)
+	sessions := map[string]bus.Session{}
 	var actor, key string
 	for _, kind := range []string{"codex", "claude", "cursor"} {
-		v, capability := register(t, store, kind)
+		v, capability := registerAdapterSession(t, store, kind)
 		sessions[kind] = v
 		nativeNameFixture(t, root, v, kind+" reviewer")
 		if kind == "cursor" {
@@ -305,7 +313,7 @@ func TestNamesUseOwningSessionConfigDirectory(t *testing.T) {
 			t.Fatalf("sender environment changed receiver name: %+v", item)
 		}
 	}
-	msg, target, fresh, err := store.ReserveMessage(SendRequest{Actor: actor, Capability: key, To: "codex:codex reviewer", MessageID: newID(), Body: "hello"})
+	msg, target, fresh, err := store.ReserveMessage(bus.SendRequest{Actor: actor, Capability: key, To: "codex:codex reviewer", MessageID: newTestID(), Body: "hello"})
 	if err != nil || !fresh || msg.To != sessions["codex"].ID || target.ID != msg.To {
 		t.Fatalf("named resolution used the sender's config root: %+v %v", msg, err)
 	}
@@ -316,11 +324,11 @@ func TestLegacyCursorNameLookupWithoutXDGEnvironment(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("CURSOR_CONFIG_DIR", "")
 	t.Setenv("XDG_CONFIG_HOME", "")
-	store := fixtureStore(t)
-	session, _ := register(t, store, "cursor")
+	store := adapterTestStore(t)
+	session, _ := registerAdapterSession(t, store, "cursor")
 	// Simulate an existing record created before config-root capture existed.
 	session.NativeConfigDir = ""
-	if err := store.locked(func() error { return store.saveSession(session) }); err != nil {
+	if err := saveAdapterTestSession(store, session); err != nil {
 		t.Fatal(err)
 	}
 	nativeNameFixture(t, filepath.Join(home, ".config"), session, "Zalki ID Report")
@@ -333,7 +341,7 @@ func TestLegacyCursorNameLookupWithoutXDGEnvironment(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeJSON(path, map[string]any{"schemaVersion": 1, "title": "Conflicting title"}); err != nil {
+	if err := writeTestJSON(path, map[string]any{"schemaVersion": 1, "title": "Conflicting title"}); err != nil {
 		t.Fatal(err)
 	}
 	items, err = store.List()
@@ -344,13 +352,13 @@ func TestLegacyCursorNameLookupWithoutXDGEnvironment(t *testing.T) {
 
 func TestHookBackfillsNativeConfigWithoutReregistering(t *testing.T) {
 	root := nameFixture(t)
-	store := fixtureStore(t)
-	session, key := register(t, store, "cursor")
+	store := adapterTestStore(t)
+	session, key := registerAdapterSession(t, store, "cursor")
 	session.NativeConfigDir = ""
-	if err := store.locked(func() error { return store.saveSession(session) }); err != nil {
+	if err := saveAdapterTestSession(store, session); err != nil {
 		t.Fatal(err)
 	}
-	service := Service{Store: store}
+	service := bus.Service{Store: store}
 	input := `{"conversation_id":"` + strings.TrimPrefix(session.ID, "cursor:") + `","hook_event_name":"stop","status":"aborted"}`
 	if err := service.Hook("cursor", strings.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
@@ -361,7 +369,7 @@ func TestHookBackfillsNativeConfigWithoutReregistering(t *testing.T) {
 	if err != nil || items[0].Name != "Captured title" || items[0].Generation != session.Generation {
 		t.Fatalf("hook did not preserve identity and capture root: %+v %v", items, err)
 	}
-	if _, err := store.authenticate(session.ID, key); err != nil {
+	if _, err := store.Messages(session.ID, key); err != nil {
 		t.Fatal("backfill changed capability", err)
 	}
 }
