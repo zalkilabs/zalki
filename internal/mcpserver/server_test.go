@@ -59,9 +59,24 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 			t.Fatal(err)
 		}
 		if tool.Name == "list_agents" {
+			for _, guidance := range []string{"state=ready", "liveness=unknown", "experimental=false", "kind is ID prefix", "idle_wake overrides"} {
+				if !strings.Contains(tool.Description, guidance) {
+					t.Fatalf("discovery omitted default guidance %q", guidance)
+				}
+			}
+			for _, field := range []string{"updated_at", "idle_wake", "delivery", "experimental", "state", "liveness"} {
+				if !bytes.Contains(encoded, []byte(`"`+field+`"`)) {
+					t.Fatalf("discovery schema lost field %s", field)
+				}
+			}
 			for _, private := range []string{"adapter_state", "native_id", "key_hash", "endpoint", "native_config_dir"} {
 				if bytes.Contains(encoded, []byte(`"`+private+`"`)) {
 					t.Fatalf("discovery schema exposes internal field %s", private)
+				}
+			}
+			for _, detail := range []string{"kind", "receive", "busy_delivery", "inbox", "lifecycle_hooks", "hook_delivery", "requires_listener", "requires_endpoint"} {
+				if bytes.Contains(encoded, []byte(`"`+detail+`"`)) {
+					t.Fatalf("discovery schema repeats transport/setup detail %s", detail)
 				}
 			}
 		}

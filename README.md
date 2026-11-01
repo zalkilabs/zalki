@@ -40,6 +40,19 @@ Send "ping" to cursor:Backend review and request one reply.
 Use a name from the list. Replies arrive through the client's native delivery path.
 Transport acceptance does not confirm that the receiving agent read the message.
 
+The MCP `list_agents` tool returns each agent's ID, optional name, working
+directory, and `updated_at` (last recorded registration or lifecycle activity,
+in UTC seconds, not a heartbeat). The ID prefix identifies the kind. Omitted
+`state` means `ready`, omitted `liveness` means `unknown`, and omitted
+`experimental` means false. `delivery` is the busy-session timing:
+`between_tools`, `next_turn`, `native_notification`, or `next_hook`. All except
+`next_hook` imply idle wake; an explicit `idle_wake` overrides that default.
+These are per-session capabilities: Cursor's listener and Codex's verified
+app-server support can change them. They do not prove that a terminal is live
+or a message was read. Agents in `approval` refuse delivery until approval ends.
+For full transport and setup details, use `zalki list` or `zalki doctor`;
+the CLI JSON format is unchanged.
+
 ```sh
 zalki doctor
 zalki upgrade --apply
