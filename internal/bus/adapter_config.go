@@ -9,7 +9,8 @@ import (
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
-type configurationAdapter interface {
+// ConfigurationAdapter declares the client integration files used by installation.
+type ConfigurationAdapter interface {
 	Configuration(string, []string) []install.ConfigFile
 }
 
@@ -26,7 +27,7 @@ func (r *Registry) Configuration(binary, state string) ([]install.ConfigFile, er
 	paths, drafts := map[string]bool{}, map[string]bool{"targets.json": true}
 	for _, kind := range r.Kinds() {
 		adapter := r.adapters[kind]
-		configuration, ok := adapter.(configurationAdapter)
+		configuration, ok := adapter.(ConfigurationAdapter)
 		if !ok {
 			continue
 		}

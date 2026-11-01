@@ -35,7 +35,7 @@ type Session struct {
 	// prompt. Hooks skip the message journal when it is zero.
 	ApprovalHeld int         `json:"approval_held,omitempty"`
 	Owner        *ProcessRef `json:"owner,omitempty"`
-	Liveness     string      `json:"liveness,omitempty"`
+	Liveness     Liveness    `json:"liveness,omitempty"`
 	HookBuild    string      `json:"hook_build,omitempty"`
 	Endpoint     *Endpoint   `json:"endpoint,omitempty"`
 	// Listener is the core-owned lease of a native listener. Records that carry

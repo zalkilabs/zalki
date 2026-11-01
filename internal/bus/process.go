@@ -22,23 +22,23 @@ type processInfo struct {
 	Zombie    bool
 }
 
-func processLiveness(ref *ProcessRef) string { return probeProcess(ref, readProcess) }
+func processLiveness(ref *ProcessRef) Liveness { return probeProcess(ref, readProcess) }
 
-func probeProcess(ref *ProcessRef, read func(int) (processInfo, error)) string {
+func probeProcess(ref *ProcessRef, read func(int) (processInfo, error)) Liveness {
 	if ref == nil || ref.PID <= 1 || ref.Start == "" {
-		return "unknown"
+		return LivenessUnknown
 	}
 	current, err := read(ref.PID)
 	if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ESRCH) {
-		return "exited"
+		return LivenessExited
 	}
 	if err != nil || current.Start == "" {
-		return "unknown" // Permission and inspection failures are not exit evidence.
+		return LivenessUnknown // Permission and inspection failures are not exit evidence.
 	}
 	if current.Start != ref.Start || current.UID != uint32(os.Getuid()) || current.Zombie { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
-		return "exited"
+		return LivenessExited
 	}
-	return "alive"
+	return LivenessAlive
 }
 
 // Only trusted hooks supply process ownership; peer/model PIDs are not accepted.
@@ -95,7 +95,7 @@ func (s Store) rememberOwner(id, kind string, refresh bool) error {
 			} else if v.Owner == nil || refresh {
 				if owner := s.nativeOwner(kind); owner != nil {
 					v.Owner, changed = owner, true
-				} else if refresh && processLiveness(v.Owner) == "exited" {
+				} else if refresh && processLiveness(v.Owner) == LivenessExited {
 					// A trusted new prompt proves resumed activity even when the
 					// OS cannot supply a replacement owner fingerprint.
 					v.Owner, changed = nil, true

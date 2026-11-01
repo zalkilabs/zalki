@@ -115,7 +115,7 @@ func recoveryHint(diagnostic SessionDiagnostic, adapter Adapter) string {
 	if diagnostic.HookBuildStatus == "outdated" {
 		return "Restart this client session and reconnect its Zalki MCP server to load the installed build."
 	}
-	if hinter, ok := adapter.(recoveryHintAdapter); ok {
+	if hinter, ok := adapter.(RecoveryHintAdapter); ok {
 		if hint := hinter.RecoveryHint(diagnostic); validRecoveryHint(hint) {
 			return hint
 		}

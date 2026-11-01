@@ -16,14 +16,14 @@ func (Adapter) TracksOwnProcess() bool { return false }
 // leave the socket file in place, so a gone pid is exited before a matching
 // inode counts as alive. A live pid without a stored start time may have been
 // reused, so it is not alive by itself.
-func (Adapter) Liveness(v bus.LivenessView, probes bus.LivenessProbes) string {
-	if pid, ok := messagingSocketPID(v.Endpoint); ok && probes.Presence != nil && probes.Presence(pid) == "exited" {
-		return "exited"
+func (Adapter) Liveness(v bus.LivenessView, probes bus.LivenessProbes) bus.Liveness {
+	if pid, ok := messagingSocketPID(v.Endpoint); ok && probes.Presence != nil && probes.Presence(pid) == bus.LivenessExited {
+		return bus.LivenessExited
 	}
 	if v.Endpoint != nil && probes.Endpoint != nil && probes.Endpoint(v.Endpoint) == nil {
-		return "alive"
+		return bus.LivenessAlive
 	}
-	return "unknown"
+	return bus.LivenessUnknown
 }
 
 func messagingSocketPID(endpoint *bus.Endpoint) (int, bool) {

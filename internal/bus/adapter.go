@@ -36,7 +36,8 @@ type Adapter interface {
 	Deliver(context.Context, Message, Session) Receipt
 }
 
-type nameAdapter interface {
+// NameAdapter supplies native session labels and their configuration location.
+type NameAdapter interface {
 	ConfigDir() string
 	LookupName(Session, map[string]map[string]string) (string, string)
 }
@@ -51,20 +52,22 @@ type HookRegistration struct {
 	PreserveGeneration bool
 }
 
-type hookAdapter interface {
+// HookAdapter normalizes lifecycle hooks and supplies client startup output.
+type HookAdapter interface {
 	NormalizeHook(HookInput) (HookInput, error)
 	RegisterHook(HookInput) (HookRegistration, error)
 	HandleHook(HookHost, HookInput, string, io.Writer) (bool, error)
 	StartupOutput(StartupContext) (any, error)
 }
 
-type healthAdapter interface {
+// HealthAdapter supplements common diagnostics with transport and listener health.
+type HealthAdapter interface {
 	Health(HealthHost, Session) (transport, listener string)
 }
 
-// recoveryHintAdapter supplies a client-specific next step after core's common
+// RecoveryHintAdapter supplies a client-specific next step after core's common
 // hints (retirement, exited owner, outdated build) found nothing to suggest.
-type recoveryHintAdapter interface {
+type RecoveryHintAdapter interface {
 	RecoveryHint(SessionDiagnostic) string
 }
 
@@ -98,7 +101,7 @@ func NewRegistry(adapters ...Adapter) (*Registry, error) {
 			}
 		}
 		if len(d.Hooks) > 0 {
-			if _, ok := adapter.(hookAdapter); !ok {
+			if _, ok := adapter.(HookAdapter); !ok {
 				return nil, fmt.Errorf("%s has no lifecycle adapter", d.Kind)
 			}
 		}

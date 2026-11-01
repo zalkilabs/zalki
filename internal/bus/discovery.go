@@ -12,7 +12,7 @@ type AgentInfo struct {
 	Task         string         `json:"task,omitempty"`
 	CWD          string         `json:"cwd"`
 	State        SessionState   `json:"state,omitempty"`
-	Liveness     string         `json:"liveness,omitempty"`
+	Liveness     Liveness       `json:"liveness,omitempty"`
 	UpdatedAt    string         `json:"updated_at"`
 	Delivery     DeliveryTiming `json:"delivery"`
 	IdleWake     *bool          `json:"idle_wake,omitempty"`

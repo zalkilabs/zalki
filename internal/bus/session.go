@@ -116,7 +116,7 @@ func (s Store) register(kind, id, cwd string, endpoint *Endpoint, compact bool) 
 	hash := sha256.Sum256([]byte(key))
 	native, _ := canonicalNativeID(id)
 	session = Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: StateReady, UpdatedAt: timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
-	if names, ok := adapter.(nameAdapter); ok {
+	if names, ok := adapter.(NameAdapter); ok {
 		session.NativeConfigDir = names.ConfigDir()
 	}
 	session.Receive = adapter.ReceiveCapabilities(session)
@@ -161,7 +161,7 @@ func (s Store) authenticate(id, key string) (Session, error) {
 	if current.Retired {
 		return current, fail(CodeUnavailable, "session is retired; registration is required")
 	}
-	if s.sessionLiveness(current) == livenessExited {
+	if s.sessionLiveness(current) == LivenessExited {
 		return current, fail(CodeUnavailable, "registered owner process has exited; resume or register the session again")
 	}
 	hash := sha256.Sum256([]byte(key))
@@ -216,7 +216,7 @@ func (s Store) sessions() ([]Session, error) {
 	}
 	for _, v := range rows {
 		v.Liveness = s.sessionLiveness(v)
-		if !v.Retired && v.Liveness != livenessExited {
+		if !v.Retired && v.Liveness != LivenessExited {
 			v.KeyHash = ""
 			sessions = append(sessions, v)
 		}

@@ -57,7 +57,7 @@ func (s *Service) Watch(actor, key, to string) (WatchResult, error) {
 			return fail(CodeInvalidInput, "watching your own session is not supported")
 		}
 		result.To = target.ID
-		if target.Retired || s.Store.sessionLiveness(target) == livenessExited {
+		if target.Retired || s.Store.sessionLiveness(target) == LivenessExited {
 			result.Status = "ended"
 			result.Event = "ended"
 			result.At = target.UpdatedAt
@@ -279,7 +279,7 @@ func (s *Service) NoticeExitedSessions(ctx context.Context) error {
 			return err
 		}
 		for _, v := range sessions {
-			if !v.Retired && s.Store.sessionLiveness(v) != livenessExited {
+			if !v.Retired && s.Store.sessionLiveness(v) != LivenessExited {
 				continue
 			}
 			exited = append(exited, v)

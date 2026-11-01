@@ -26,7 +26,7 @@ func TestProcessProbeDistinguishesExitReuseAndUnknown(t *testing.T) {
 		name string
 		p    processInfo
 		err  error
-		want string
+		want Liveness
 	}{
 		{"alive", processInfo{Start: "original", UID: uint32(os.Getuid())}, nil, "alive"},
 		{"PID reused", processInfo{Start: "new", UID: uint32(os.Getuid())}, nil, "exited"},
