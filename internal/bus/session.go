@@ -137,6 +137,7 @@ func (s Store) register(kind, id, cwd string, endpoint *Endpoint, compact bool) 
 			session.State = current.State
 			session.AdapterState = current.AdapterState
 			session.ApprovalHeld = current.ApprovalHeld
+			session.Task = current.Task
 		}
 		if !preserved && exists {
 			if err := s.settleApprovalQueue(full, "destination registration changed before delivery"); err != nil {
@@ -190,6 +191,7 @@ func (s Store) Update(id string, state SessionState, retire bool) error {
 		if retire {
 			current.Retired = true
 			current.RetiredReason = "session_end"
+			current.Task = ""
 			releaseListenerLease(&current)
 		}
 		if err := s.saveSession(current); err != nil {

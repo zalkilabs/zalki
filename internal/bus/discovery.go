@@ -5,8 +5,10 @@ import "time"
 // AgentInfo is the discovery view. Journal schemas, native IDs, adapter state,
 // credential hashes and endpoint details are not part of the MCP contract.
 type AgentInfo struct {
-	ID           string         `json:"id"`
-	Name         string         `json:"name,omitempty"`
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+	// Task is the agent's own unverified claim. Empty claims are omitted.
+	Task         string         `json:"task,omitempty"`
 	CWD          string         `json:"cwd"`
 	State        SessionState   `json:"state,omitempty"`
 	Liveness     string         `json:"liveness,omitempty"`
@@ -23,7 +25,7 @@ func (s Store) Discover() ([]AgentInfo, error) {
 	}
 	info := make([]AgentInfo, 0, len(sessions))
 	for _, v := range sessions {
-		row := AgentInfo{ID: v.ID, Name: v.Name, CWD: v.CWD, State: v.State,
+		row := AgentInfo{ID: v.ID, Name: v.Name, Task: v.Task, CWD: v.CWD, State: v.State,
 			Liveness: v.Liveness, UpdatedAt: v.UpdatedAt,
 			Delivery: v.Receive.BusyDelivery, Experimental: v.Receive.Experimental}
 		if row.State == StateReady {

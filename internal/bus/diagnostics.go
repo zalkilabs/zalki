@@ -144,7 +144,7 @@ func (s Store) PruneRetired(dryRun bool, selected []string, retiredOlderThan tim
 			}
 			report.Sessions = append(report.Sessions, PruneItem{v.ID, reason})
 			if !dryRun {
-				v.Retired, v.State, v.RetiredReason, v.UpdatedAt = true, StateRetired, reason, timestamp()
+				v.Retired, v.State, v.RetiredReason, v.Task, v.UpdatedAt = true, StateRetired, reason, "", timestamp()
 				releaseListenerLease(&v)
 				if err := s.saveSession(v); err != nil {
 					return err

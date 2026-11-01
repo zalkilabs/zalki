@@ -44,6 +44,7 @@ func TestArgumentHintsKeepStrictSchemasWithoutEchoingValues(t *testing.T) {
 		{"reply_message", map[string]any{"reply_to": "secret-value"}, []string{`"reply_to"`, "message_id is the incoming message", "body is the reply"}},
 		{"send_message", map[string]any{"sent": true}, []string{`"sent"`, "accepts actor, body, capability, message_id, to"}},
 		{"list_messages", map[string]any{"unknown": "secret-value"}, []string{`"unknown"`, "accepts actor", "sent"}},
+		{"set_task", map[string]any{"note": "secret-value"}, []string{`"note"`, "accepts actor, capability, task"}},
 	} {
 		result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: test.tool, Arguments: test.args})
 		if err != nil || !result.IsError {

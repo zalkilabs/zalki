@@ -50,7 +50,7 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 6 {
+	if len(tools.Tools) != 7 {
 		t.Fatalf("found %d tools", len(tools.Tools))
 	}
 	for _, tool := range tools.Tools {
@@ -59,12 +59,12 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 			t.Fatal(err)
 		}
 		if tool.Name == "list_agents" {
-			for _, guidance := range []string{"state=ready", "liveness=unknown", "experimental=false", "kind is ID prefix", "idle_wake overrides"} {
+			for _, guidance := range []string{"state=ready", "liveness=unknown", "experimental=false", "kind is ID prefix", "idle_wake overrides", "task: self-claimed"} {
 				if !strings.Contains(tool.Description, guidance) {
 					t.Fatalf("discovery omitted default guidance %q", guidance)
 				}
 			}
-			for _, field := range []string{"updated_at", "idle_wake", "delivery", "experimental", "state", "liveness"} {
+			for _, field := range []string{"updated_at", "idle_wake", "delivery", "experimental", "state", "liveness", "task"} {
 				if !bytes.Contains(encoded, []byte(`"`+field+`"`)) {
 					t.Fatalf("discovery schema lost field %s", field)
 				}
@@ -109,6 +109,10 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 		} else if tool.Name == "watch_agent" {
 			if string(data.Type) != `"object"` || string(data.Properties["status"]) != `{"type":"string"}` || string(data.Properties["to"]) != `{"type":"string"}` {
 				t.Fatalf("watch must describe a one-shot result: %s", encoded)
+			}
+		} else if tool.Name == "set_task" {
+			if string(data.Type) != `"object"` || string(data.Properties["task"]) != `{"type":"string"}` {
+				t.Fatalf("set_task must describe the stored claim: %s", encoded)
 			}
 		} else if string(data.Type) != `"object"` || string(data.Properties["id"]) != `{"type":"string"}` {
 			t.Fatalf("%s must describe a message record: %s", tool.Name, encoded)
