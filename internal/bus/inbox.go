@@ -154,7 +154,7 @@ func (s Store) EmitPending(actor string) (string, error) {
 		}
 		sort.Slice(pending, func(i, j int) bool { return pending[i].CreatedAt < pending[j].CreatedAt })
 		for i, msg := range pending {
-			body := envelope(msg) + "\n\n"
+			body := Envelope(s.withLabel(msg)) + "\n\n"
 			if i >= 5 || context.Len()+len(body) > 24*1024 {
 				break
 			}

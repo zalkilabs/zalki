@@ -7,6 +7,33 @@ import (
 	"testing"
 )
 
+type hintAdapter struct {
+	stubCodexAdapter
+	hint string
+}
+
+func (a hintAdapter) RecoveryHint(SessionDiagnostic) string { return a.hint }
+
+func TestRecoveryHintPrefersCommonStepsAndBoundsAdapterHints(t *testing.T) {
+	adapter := hintAdapter{hint: "Client-specific step."}
+	if hint := recoveryHint(SessionDiagnostic{}, adapter); hint != adapter.hint {
+		t.Fatalf("adapter hint was not used: %q", hint)
+	}
+	for _, d := range []SessionDiagnostic{{Retired: true}, {Liveness: "exited"}, {HookBuildStatus: "outdated"}} {
+		if hint := recoveryHint(d, adapter); hint == "" || hint == adapter.hint {
+			t.Fatalf("common recovery step was not preferred for %+v: %q", d, hint)
+		}
+	}
+	if hint := recoveryHint(SessionDiagnostic{}, stubCodexAdapter{}); hint != "" {
+		t.Fatalf("adapter without hints produced %q", hint)
+	}
+	for _, invalid := range []string{"line\nbreak", "\x1b[31mred", strings.Repeat("x", 513), "\xff"} {
+		if hint := recoveryHint(SessionDiagnostic{}, hintAdapter{hint: invalid}); hint != "" {
+			t.Fatalf("malformed adapter hint was printed: %q", hint)
+		}
+	}
+}
+
 func TestClientVersionProbeAndUnknownVersionDiagnostics(t *testing.T) {
 	for _, test := range []struct{ output, want string }{
 		{"codex-cli 0.163.0", "0.163.0"}, {"2.1.308 (Claude Code)", "2.1.308"},

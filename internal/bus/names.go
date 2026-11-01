@@ -2,7 +2,6 @@ package bus
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -15,16 +14,8 @@ func validName(name string) bool {
 		!strings.ContainsFunc(name, unicode.IsControl)
 }
 
-func configDir(variable, fallback string) string {
-	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
-		if path, err := filepath.Abs(value); err == nil {
-			return path
-		}
-	}
-	return fallback
-}
-
-func nativeID(v Session) string {
+// NativeID returns the client's session ID, including the fallback for legacy records.
+func NativeID(v Session) string {
 	if v.NativeID != "" {
 		return v.NativeID
 	}

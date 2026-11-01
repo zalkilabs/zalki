@@ -1,4 +1,4 @@
-package bus
+package codex
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/zalkilabs/zalki/internal/bus"
 )
 
 const (
@@ -57,11 +59,11 @@ type codexSocket struct {
 	Device, Inode uint64
 }
 
-func codexConfigRoot(target Session) string {
+func codexConfigRoot(target bus.Session) string {
 	if filepath.IsAbs(target.NativeConfigDir) {
 		return filepath.Clean(target.NativeConfigDir)
 	}
-	return (codexAdapter{}).ConfigDir()
+	return (Adapter{}).ConfigDir()
 }
 
 func inspectCodexControl(root string) (codexSocket, error) {
@@ -130,48 +132,52 @@ func (s codexSocket) unchanged() error {
 	return nil
 }
 
-func deliverCodex(ctx context.Context, msg Message, target Session) Receipt {
-	id, err := UUID(nativeID(target))
+func deliverCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+	id, err := bus.UUID(bus.NativeID(target))
 	if err != nil {
-		return Receipt{At: timestamp(), Status: StatusNotSent, Error: err.Error(), cause: err}
+		return failedReceipt(bus.StatusNotSent, err)
 	}
 	receipt, fallback := deliverCodexAppServer(ctx, msg, target, id)
 	if !fallback {
 		return receipt
 	}
 	if ctx.Err() != nil {
-		return Receipt{At: timestamp(), Status: StatusNotSent, Error: errCodexUnavailable.Error(), cause: ctx.Err()}
+		receipt := bus.NewReceipt(bus.StatusNotSent)
+		receipt.Error = errCodexUnavailable.Error()
+		return receipt.WithCause(ctx.Err())
 	}
 	return queueCodex(ctx, msg, target)
 }
 
-func deliverCodexAppServer(ctx context.Context, msg Message, target Session, threadID string) (Receipt, bool) {
+func deliverCodexAppServer(ctx context.Context, msg bus.Message, target bus.Session, threadID string) (bus.Receipt, bool) {
 	root := codexConfigRoot(target)
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {
-		return Receipt{}, true
+		return bus.Receipt{}, true
 	}
 	attempt, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
-	joined, err := submitCodexToolOutput(attempt, endpoint, root, threadID, envelope(msg))
+	joined, err := submitCodexToolOutput(attempt, endpoint, root, threadID, bus.Envelope(msg))
 	if err == nil {
 		output := "started_idle_turn"
 		if joined {
 			output = "joined_active_turn"
 		}
-		return Receipt{At: timestamp(), Status: StatusSubmitted, Output: output}, false
+		receipt := bus.NewReceipt(bus.StatusSubmitted)
+		receipt.Output = output
+		return receipt, false
 	}
 	if errors.Is(err, errCodexApproval) {
-		return Receipt{At: timestamp(), Status: StatusApprovalBlocked, Error: err.Error(), cause: err}, false
+		return failedReceipt(bus.StatusApprovalBlocked, err), false
 	}
 	if errors.Is(err, errCodexUncertain) {
-		status := StatusUnknownWrite
+		status := bus.StatusUnknownWrite
 		if errors.Is(attempt.Err(), context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			status = StatusUnknownTimeout
+			status = bus.StatusUnknownTimeout
 		}
-		return Receipt{At: timestamp(), Status: status, Error: err.Error(), cause: err}, false
+		return failedReceipt(status, err), false
 	}
-	return Receipt{}, true
+	return bus.Receipt{}, true
 }
 
 func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, threadID, output string) (joined bool, err error) {
@@ -188,7 +194,7 @@ func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, thre
 		UserAgent string `json:"userAgent"`
 	}
 	if err := client.call(ctx, "initialize", map[string]any{
-		"clientInfo": map[string]string{"name": "zalki", "version": Version},
+		"clientInfo": map[string]string{"name": "zalki", "version": bus.Version},
 	}, &initialized); err != nil {
 		if errors.Is(err, errCodexUnsupported) {
 			rememberCodexSupport(endpoint, root, codexSupportUnavailable)
@@ -561,3 +567,5 @@ func approvalValue(value any) bool {
 	}
 	return false
 }
+
+var clientVersionPattern = regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?`)

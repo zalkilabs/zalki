@@ -11,6 +11,12 @@ import (
 
 const recordSchema = 1
 
+// leaseSessionSchema marks a session record that carries a listener lease.
+// Older builds drop unknown fields when they rewrite a record, so a lease must
+// never be stored under a schema they accept. Records without one stay at
+// recordSchema and remain readable by older builds.
+const leaseSessionSchema = 2
+
 // Legacy records have schema zero. Reads migrate in memory; writes persist the
 // current schema. An older binary must never overwrite a future record format.
 func readRecord(path string, value any, schema *int) error {
@@ -23,10 +29,6 @@ func readRecord(path string, value any, schema *int) error {
 	return nil
 }
 
-type sessionStateAdapter interface {
-	DecodeState(*Session, json.RawMessage) error
-}
-
 func (s Store) readSession(path string) (Session, error) {
 	var raw json.RawMessage
 	var v Session
@@ -36,25 +38,24 @@ func (s Store) readSession(path string) (Session, error) {
 	if err := json.Unmarshal(raw, &v); err != nil {
 		return v, err
 	}
-	if v.Schema < 0 || v.Schema > recordSchema {
+	if v.Schema < 0 || v.Schema > leaseSessionSchema {
 		return v, fail(CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
 	}
-	adapter, err := s.registry().Lookup(v.Kind)
-	if err != nil {
-		return v, err
+	if v.Listener != nil && v.Schema != leaseSessionSchema {
+		return v, fail(CodeUnsupportedSchema, "a listener lease requires session schema %d", leaseSessionSchema)
 	}
 	if v.NativeID == "" {
-		v.NativeID = nativeID(v)
+		v.NativeID = NativeID(v)
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return v, fail(CodeInvalidIdentity, "native and Zalki session identities do not match")
 	}
-	if state, ok := adapter.(sessionStateAdapter); ok {
-		if err := state.DecodeState(&v, raw); err != nil {
-			return v, err
-		}
+	extensions, err := stateExtensions(raw)
+	if err != nil {
+		return v, err
 	}
-	return v, nil
+	v.AdapterState, err = s.decodeAdapterState(v.Kind, StateInput{Extensions: extensions, State: v.AdapterState})
+	return v, err
 }
 
 func canonicalNativeID(id string) (string, error) {

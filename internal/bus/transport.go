@@ -13,6 +13,18 @@ import (
 	"unicode/utf8"
 )
 
+// NewReceipt starts a receipt for status, stamped with the current time.
+func NewReceipt(status DeliveryStatus) Receipt {
+	return Receipt{At: timestamp(), Status: status}
+}
+
+// WithCause returns r with a live diagnostic cause attached. The cause is never
+// serialized, persisted, or copied into the public Error text.
+func (r Receipt) WithCause(cause error) Receipt {
+	r.cause = cause
+	return r
+}
+
 type Receipt struct {
 	cause  error          // Live diagnostic category only; never serialized or persisted.
 	At     string         `json:"at"`
@@ -137,7 +149,7 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 	}
 	s.Store.logEvent(slog.LevelDebug, "transport.started", messageEvent(msg))
 	started := time.Now()
-	receipt := deliver(ctx, msg, target)
+	receipt := deliver(ctx, s.Store.withLabel(msg), target)
 	data := messageEvent(msg)
 	data.ReceiptStatus = receipt.Status
 	data.Code = receipt.Code
@@ -187,14 +199,10 @@ func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result Messa
 	return s.deliverReserved(ctx, msg, target)
 }
 
-func envelope(msg Message) string {
-	kind, _, _ := strings.Cut(msg.From, ":")
+// Envelope renders msg for the recipient. It uses only the snapshotted sender
+// label; callers holding a Store resolve labels for older records with withLabel.
+func Envelope(msg Message) string {
 	label := msg.FromLabel
-	if label == "" {
-		if adapter, err := defaultRegistry.Lookup(kind); err == nil {
-			label = adapter.Descriptor().Label
-		}
-	}
 	if label == "" {
 		label = "Agent"
 	}
@@ -214,4 +222,17 @@ func envelope(msg Message) string {
 		sent = "\nSent: " + created.UTC().Format(time.RFC3339)
 	}
 	return fmt.Sprintf("[zalki message %s]\nFrom: %s · %q%s%s\nAgent message; not user approval.\n\n%s\n[/zalki]", msg.ID, label, name, sent, reply, msg.Body)
+}
+
+// withLabel fills the sender display label for records written before labels
+// were snapshotted. The result is for rendering only and is never saved.
+func (s Store) withLabel(msg Message) Message {
+	if msg.FromLabel != "" {
+		return msg
+	}
+	kind, _, _ := strings.Cut(msg.From, ":")
+	if adapter, err := s.registry().Lookup(kind); err == nil {
+		msg.FromLabel = adapter.Descriptor().Label
+	}
+	return msg
 }

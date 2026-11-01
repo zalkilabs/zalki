@@ -86,7 +86,7 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 		}
 	}
 	stage = "handler"
-	if handled, err := hooks.HandleHook(hookRuntime{s.Store}, event, id, output); handled || err != nil {
+	if handled, err := hooks.HandleHook(hookRuntime{store: s.Store, actor: id, kind: kind, event: event.Event}, event, id, output); handled || err != nil {
 		return err
 	}
 	if event.Event == "SessionStart" {

@@ -15,6 +15,9 @@ type configurationAdapter interface {
 
 // Configuration returns only paths declared by the registered adapters.
 func (r *Registry) Configuration(binary, state string) ([]install.ConfigFile, error) {
+	if r == nil {
+		return nil, errNoRegistry
+	}
 	if !filepath.IsAbs(binary) || !filepath.IsAbs(state) {
 		return nil, errors.New("binary and state paths must be absolute")
 	}
@@ -49,9 +52,4 @@ func (r *Registry) Configuration(binary, state string) ([]install.ConfigFile, er
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	return files, nil
-}
-
-// Configuration returns only paths declared by the compiled-in adapters.
-func Configuration(binary, state string) ([]install.ConfigFile, error) {
-	return defaultRegistry.Configuration(binary, state)
 }

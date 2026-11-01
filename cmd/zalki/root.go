@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/logging"
 
@@ -20,11 +21,12 @@ type commandOptions struct {
 	logLevel string
 	logFile  string
 	logger   *slog.Logger
+	registry *bus.Registry
 }
 
 // A fresh command tree keeps flags and IO local to each invocation.
 func newRootCommand(home string) *cobra.Command {
-	opts := &commandOptions{home: home}
+	opts := &commandOptions{home: home, registry: adapters.Builtin()}
 	root := &cobra.Command{
 		Use:           "zalki",
 		Short:         "Local messaging between Claude Code, Codex, and Cursor CLI sessions",
@@ -124,7 +126,11 @@ func (opts *commandOptions) service() (*bus.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &bus.Service{Store: bus.Store{Dir: directory, Logger: opts.logger}}, nil
+	store, err := bus.NewStore(directory, opts.registry, opts.logger)
+	if err != nil {
+		return nil, err
+	}
+	return &bus.Service{Store: store}, nil
 }
 
 func encodeOutput(cmd *cobra.Command, value any) error {

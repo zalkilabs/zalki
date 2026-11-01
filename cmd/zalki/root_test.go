@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/adapters"
+
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 )
@@ -118,7 +120,7 @@ func TestVersionAndFreshCommandFlags(t *testing.T) {
 func TestRepeatablePruneSelectionAndDryRun(t *testing.T) {
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
-	store := bus.Store{Dir: state}
+	store := bus.Store{Dir: state, Registry: adapters.Builtin()}
 	var ids []string
 	for _, id := range []string{"00000000-0000-4000-8000-000000000021", "00000000-0000-4000-8000-000000000022"} {
 		session, _, err := store.Register("cursor", id, "/fixture", nil)
@@ -220,6 +222,13 @@ func TestLifecycleCommandPreviewsAndApplies(t *testing.T) {
 		}
 		if _, err := os.Stat(filepath.Join(state, "installation.json")); err != nil {
 			t.Fatal("preview removed record", err)
+		}
+		var guidance struct {
+			NextSteps string `json:"next_steps"`
+		}
+		_ = json.Unmarshal([]byte(out), &guidance)
+		if (action == "upgrade") != strings.Contains(guidance.NextSteps, "same build") {
+			t.Fatal("upgrade guidance missing or shown for the wrong action", action, guidance.NextSteps)
 		}
 		out, diagnostic, err = execute(t, home, "", append(args, "--apply")...)
 		if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || report.DryRun {

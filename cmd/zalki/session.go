@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/zalkilabs/zalki/internal/adapters/cursor"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/mcpserver"
 
@@ -55,7 +56,7 @@ func newHookCommand(opts *commandOptions) *cobra.Command {
 	if err := cmd.MarkFlagRequired("agent"); err != nil {
 		panic(err)
 	}
-	if err := cmd.RegisterFlagCompletionFunc("agent", cobra.FixedCompletions(bus.AgentKinds(), cobra.ShellCompDirectiveNoFileComp)); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("agent", cobra.FixedCompletions(opts.registry.Kinds(), cobra.ShellCompDirectiveNoFileComp)); err != nil {
 		panic(err)
 	}
 	return cmd
@@ -80,7 +81,7 @@ func newCursorListenCommand(opts *commandOptions) *cobra.Command {
 				return err
 			}
 			defer lease.Close() //nolint:errcheck // Stale runtime records can be pruned after shutdown.
-			return service.Store.ListenCursor(cmd.Context(), actor, key, cmd.OutOrStdout())
+			return cursor.Listen(cmd.Context(), service.Store, actor, key, cmd.OutOrStdout())
 		},
 	}
 	cmd.Flags().StringVar(&actor, "actor", os.Getenv("ZALKI_ACTOR"), "your own Cursor actor ID (defaults to ZALKI_ACTOR)")

@@ -1,4 +1,4 @@
-package bus
+package codex
 
 import (
 	"bufio"
@@ -10,14 +10,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
-type codexAdapter struct{ standardHooks }
+// Adapter implements the Codex client.
+type Adapter struct{ bus.StandardHooks }
 
-func (a codexAdapter) Configuration(binary string, args []string) []install.ConfigFile {
+// New returns the Codex adapter.
+func New() Adapter { return Adapter{} }
+
+func (a Adapter) Configuration(binary string, args []string) []install.ConfigFile {
 	command, _ := json.Marshal(binary)
 	arguments, _ := json.Marshal(append(append([]string{}, args...), "mcp"))
 	return []install.ConfigFile{
@@ -26,15 +32,15 @@ func (a codexAdapter) Configuration(binary string, args []string) []install.Conf
 	}
 }
 
-func (codexAdapter) Descriptor() AdapterDescriptor {
-	return AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: standardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Notes: []string{
+func (Adapter) Descriptor() bus.AdapterDescriptor {
+	return bus.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: bus.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Notes: []string{
 		"A Codex backend can outlive its terminal.",
 		"Codex 0.164.0 or newer can receive tool output on a loaded thread without resuming or steering it. Between-tool delivery is advertised only after this process has verified that app-server. Otherwise the message waits on codex queue. An unconfirmed or ambiguous write is not retried.",
 	}}
 }
 
-func (codexAdapter) ReceiveCapabilities(v Session) ReceiveCapabilities {
-	c := ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: InboxNative, BusyDelivery: DeliveryNextTurn, LifecycleHooks: true}
+func (Adapter) ReceiveCapabilities(v bus.Session) bus.ReceiveCapabilities {
+	c := bus.ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: bus.InboxNative, BusyDelivery: bus.DeliveryNextTurn, LifecycleHooks: true}
 	root := codexConfigRoot(v)
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {
@@ -43,7 +49,7 @@ func (codexAdapter) ReceiveCapabilities(v Session) ReceiveCapabilities {
 	switch cachedCodexSupport(endpoint, root) {
 	case codexSupportVerified:
 		c.Delivery = "app_server_tool_output"
-		c.BusyDelivery = DeliveryBetweenTools
+		c.BusyDelivery = bus.DeliveryBetweenTools
 	case codexSupportUnavailable:
 		return c
 	default:
@@ -52,16 +58,16 @@ func (codexAdapter) ReceiveCapabilities(v Session) ReceiveCapabilities {
 	return c
 }
 
-func (codexAdapter) Deliver(ctx context.Context, msg Message, target Session) Receipt {
+func (Adapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 	return deliverCodex(ctx, msg, target)
 }
 
-func (codexAdapter) ConfigDir() string {
+func (Adapter) ConfigDir() string {
 	home, _ := os.UserHomeDir()
 	return configDir("CODEX_HOME", filepath.Join(home, ".codex"))
 }
 
-func (a codexAdapter) LookupName(v Session, indexes map[string]map[string]string) (string, string) {
+func (a Adapter) LookupName(v bus.Session, indexes map[string]map[string]string) (string, string) {
 	root := v.NativeConfigDir
 	if !filepath.IsAbs(root) {
 		root = a.ConfigDir()
@@ -70,14 +76,14 @@ func (a codexAdapter) LookupName(v Session, indexes map[string]map[string]string
 	if _, ok := indexes[index]; !ok {
 		indexes[index] = codexNames(root)
 	}
-	return indexes[index][nativeID(v)], "codex_session_index"
+	return indexes[index][bus.NativeID(v)], "codex_session_index"
 }
 
-func (codexAdapter) RegisterHook(event HookInput) (hookRegistration, error) {
-	return hookRegistration{PreserveGeneration: event.Source == "compact"}, nil
+func (Adapter) RegisterHook(event bus.HookInput) (bus.HookRegistration, error) {
+	return bus.HookRegistration{PreserveGeneration: event.Source == "compact"}, nil
 }
 
-func (codexAdapter) HandleHook(s HookHost, event HookInput, id string, output io.Writer) (bool, error) {
+func (Adapter) HandleHook(s bus.HookHost, event bus.HookInput, id string, output io.Writer) (bool, error) {
 	if event.Event != "UserPromptSubmit" {
 		return false, nil
 	}
@@ -88,7 +94,7 @@ func (codexAdapter) HandleHook(s HookHost, event HookInput, id string, output io
 	return true, json.NewEncoder(output).Encode(map[string]bool{"continue": false})
 }
 
-func (codexAdapter) Health(_ HealthHost, v Session) (string, string) {
+func (Adapter) Health(_ bus.HealthHost, v bus.Session) (string, string) {
 	root := codexConfigRoot(v)
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {
@@ -104,34 +110,35 @@ func (codexAdapter) Health(_ HealthHost, v Session) (string, string) {
 	}
 }
 
-func queueCodex(ctx context.Context, msg Message, target Session) Receipt {
+func queueCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	id := nativeID(target)
-	if _, err := UUID(id); err != nil {
-		return Receipt{At: timestamp(), Status: StatusNotSent, Error: err.Error(), cause: err}
+	id := bus.NativeID(target)
+	if _, err := bus.UUID(id); err != nil {
+		return failedReceipt(bus.StatusNotSent, err)
 	}
-	command := exec.CommandContext(ctx, "codex", //nolint:gosec // G204: fixed executable; thread id is a validated UUID
-		"queue", "--thread", id, "--message", envelope(msg))
+	command := exec.CommandContext(ctx, "codex", //nolint:gosec // G204: fixed executable; thread id is a validated bus.UUID
+		"queue", "--thread", id, "--message", bus.Envelope(msg))
 	if filepath.IsAbs(target.NativeConfigDir) {
 		command.Env = append(os.Environ(), "CODEX_HOME="+target.NativeConfigDir)
 	}
 	output, err := command.CombinedOutput()
-	receipt := Receipt{At: timestamp(), Status: StatusSubmitted, Output: string(output)}
+	receipt := bus.NewReceipt(bus.StatusSubmitted)
+	receipt.Output = string(output)
 	if len(receipt.Output) > 8192 {
 		receipt.Output = receipt.Output[:8192] + " [truncated]"
 	}
 	if ctx.Err() != nil {
-		receipt.Status = StatusUnknownTimeout
+		receipt.Status = bus.StatusUnknownTimeout
 		receipt.Error = ctx.Err().Error()
-		receipt.cause = ctx.Err()
+		receipt = receipt.WithCause(ctx.Err())
 	} else if err != nil {
-		receipt.Status = StatusCommandFailed
+		receipt.Status = bus.StatusCommandFailed
 		if errors.Is(err, exec.ErrNotFound) {
-			receipt.Status = StatusNotSent
+			receipt.Status = bus.StatusNotSent
 		}
 		receipt.Error = err.Error()
-		receipt.cause = err
+		receipt = receipt.WithCause(err)
 	}
 	return receipt
 }
@@ -166,4 +173,19 @@ func codexNames(root string) map[string]string {
 		return nil
 	}
 	return names
+}
+
+func configDir(variable, fallback string) string {
+	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
+		if path, err := filepath.Abs(value); err == nil {
+			return path
+		}
+	}
+	return fallback
+}
+
+func failedReceipt(status bus.DeliveryStatus, err error) bus.Receipt {
+	receipt := bus.NewReceipt(status)
+	receipt.Error = err.Error()
+	return receipt.WithCause(err)
 }
