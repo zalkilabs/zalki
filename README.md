@@ -66,11 +66,13 @@ own last line. The agent does not opt in; Claude Code's `notify_when_idle`
 forwards a status line the same way. Codex has no session-end hook, so a
 Codex watch fires only when a turn goes idle.
 
-The MCP `list_agents` tool returns each agent's ID, optional name, working
-directory, and `updated_at` (last recorded registration or lifecycle activity,
-in UTC seconds, not a heartbeat). The ID prefix identifies the kind. Omitted
-`state` means `ready`, omitted `liveness` means `unknown`, and omitted
-`experimental` means false. `delivery` is the busy-session timing:
+The MCP `list_agents` tool returns each agent's ID, optional name, optional
+`task`, working directory, and `updated_at` (last recorded registration or
+lifecycle activity, in UTC seconds, not a heartbeat). `task` is that agent's
+own unverified claim about its current work. It is omitted when empty and is
+not an address. `set_task` is the only way to set it. The ID prefix identifies
+the kind. Omitted `state` means `ready`, omitted `liveness` means `unknown`, and
+omitted `experimental` means false. `delivery` is the busy-session timing:
 `between_tools`, `next_turn`, `native_notification`, or `next_hook`. All except
 `next_hook` imply idle wake; an explicit `idle_wake` overrides that default.
 These are per-session capabilities: Cursor's listener and Codex's verified
