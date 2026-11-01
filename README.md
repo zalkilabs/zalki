@@ -40,6 +40,13 @@ Send "ping" to cursor:Backend review and request one reply.
 Use a name from the list. Replies arrive through the client's native delivery path.
 Transport acceptance does not confirm that the receiving agent read the message.
 
+`watch_agent` asks for one notice when another agent next finishes a turn or
+ends its session. The notice is a Zalki notice, not a message from that agent,
+and a reply to it is rejected. It can include up to 200 bytes of that agent's
+own last line. The agent does not opt in; Claude Code's `notify_when_idle`
+forwards a status line the same way. Codex has no session-end hook, so a
+Codex watch fires only when a turn goes idle.
+
 The MCP `list_agents` tool returns each agent's ID, optional name, working
 directory, and `updated_at` (last recorded registration or lifecycle activity,
 in UTC seconds, not a heartbeat). The ID prefix identifies the kind. Omitted

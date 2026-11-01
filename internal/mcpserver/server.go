@@ -56,6 +56,7 @@ type MessageView struct {
 	From           string             `json:"from"`
 	FromName       string             `json:"from_name,omitempty"`
 	FromLabel      string             `json:"from_label,omitempty"`
+	Kind           string             `json:"kind,omitempty"`
 	To             string             `json:"to"`
 	Body           string             `json:"body,omitempty"`
 	BodyOmitted    bool               `json:"body_omitted,omitempty"`
@@ -71,7 +72,7 @@ type MessageView struct {
 func messageViews(messages []bus.Message) []MessageView {
 	views := make([]MessageView, 0, len(messages))
 	for _, msg := range messages {
-		view := MessageView{ID: msg.ID, From: msg.From, FromName: msg.FromName, FromLabel: msg.FromLabel,
+		view := MessageView{ID: msg.ID, From: msg.From, FromName: msg.FromName, FromLabel: msg.FromLabel, Kind: msg.Kind,
 			To: msg.To, Body: msg.Body, BodyDeferred: msg.BodyDeferred, BodyOmitted: msg.BodyOmitted, ReplyTo: msg.ReplyTo,
 			CreatedAt: msg.CreatedAt, Status: msg.Status, AcknowledgedAt: msg.AcknowledgedAt}
 		if msg.Receipt != nil {
@@ -172,6 +173,10 @@ func New(service *bus.Service) *mcp.Server {
 		case "ack_message":
 			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) (MessageReceipt, error) {
 				return messageReceipt(service.Store.Ack(args.Actor, args.Capability, args.MessageID))
+			})
+		case "watch_agent":
+			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) (bus.WatchResult, error) {
+				return service.Watch(args.Actor, args.Capability, args.To)
 			})
 		case "list_messages":
 			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) (MessagePage, error) {

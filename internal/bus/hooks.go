@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,9 @@ type HookInput struct {
 	LoopCount      int      `json:"loop_count"`
 	Prompt         string   `json:"prompt"`
 	SessionTitle   *string  `json:"session_title"`
+	// LastAssistantMessage is optional turn text from a Stop hook. Only a short
+	// single line is forwarded, and only when a completion watch is waiting.
+	LastAssistantMessage string `json:"last_assistant_message,omitempty"`
 }
 
 func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultErr error) {
@@ -86,8 +90,16 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 		}
 	}
 	stage = "handler"
-	if handled, err := hooks.HandleHook(hookRuntime{store: s.Store, actor: id, kind: kind, event: event.Event}, event, id, output); handled || err != nil {
+	handled, err := hooks.HandleHook(hookRuntime{store: s.Store, actor: id, kind: kind, event: event.Event}, event, id, output)
+	if err != nil {
 		return err
+	}
+	stage = "watch"
+	if err := s.notifyWatches(context.Background(), id, event); err != nil {
+		return err
+	}
+	if handled {
+		return nil
 	}
 	if event.Event == "SessionStart" {
 		stage = "register"

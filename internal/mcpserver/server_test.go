@@ -50,7 +50,7 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools.Tools) != 5 {
+	if len(tools.Tools) != 6 {
 		t.Fatalf("found %d tools", len(tools.Tools))
 	}
 	for _, tool := range tools.Tools {
@@ -105,6 +105,10 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 		} else if tool.Name == "list_messages" {
 			if string(data.Type) != `"object"` || !bytes.Contains(data.Properties["messages"], []byte(`"array"`)) || !bytes.Contains(data.Properties["more"], []byte(`"boolean"`)) {
 				t.Fatalf("inbox must expose a typed bounded page: %s", encoded)
+			}
+		} else if tool.Name == "watch_agent" {
+			if string(data.Type) != `"object"` || string(data.Properties["status"]) != `{"type":"string"}` || string(data.Properties["to"]) != `{"type":"string"}` {
+				t.Fatalf("watch must describe a one-shot result: %s", encoded)
 			}
 		} else if string(data.Type) != `"object"` || string(data.Properties["id"]) != `{"type":"string"}` {
 			t.Fatalf("%s must describe a message record: %s", tool.Name, encoded)
