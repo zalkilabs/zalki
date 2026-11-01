@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -41,6 +42,36 @@ type Lease struct {
 
 func (s Store) listenerLockPath(kind, actor string) string {
 	return filepath.Join(s.Dir, kind+"-listener-"+strings.TrimPrefix(actor, kind+":")+".lock")
+}
+
+// removeFreeListenerLock reports whether the listener lock file is present and
+// unlocked. The journal lock is already held, so the flock is nonblocking and
+// cannot deadlock a listener that takes the locks in the opposite order.
+// remove unlinks the file only in that case.
+func (s Store) removeFreeListenerLock(kind, actor string, remove bool) (bool, error) {
+	path := s.listenerLockPath(kind, actor)
+	fd, err := syscall.Open(path, syscall.O_RDWR|syscall.O_NOFOLLOW, 0)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer syscall.Close(fd) //nolint:errcheck // Descriptor cleanup after the nonblocking lock attempt.
+	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		if errors.Is(err, syscall.EWOULDBLOCK) {
+			return false, nil
+		}
+		return false, err
+	}
+	defer syscall.Flock(fd, syscall.LOCK_UN) //nolint:errcheck // Closing the descriptor also releases the lock.
+	if !remove {
+		return true, nil
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return false, err
+	}
+	return true, nil
 }
 
 // lockHeld reports whether some process holds the registration's lifetime lock.
@@ -100,15 +131,62 @@ func (s Store) AcquireListenerLease(actor, key string) (lease *Lease, err error)
 	if err != nil {
 		return nil, err
 	}
-	fd, err := syscall.Open(s.listenerLockPath(v.Kind, actor), syscall.O_CREAT|syscall.O_RDWR|syscall.O_NOFOLLOW, 0600)
+	fd, err := acquireListenerLock(s.listenerLockPath(v.Kind, actor))
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		_ = syscall.Close(fd)
-		return nil, fail(CodeConflict, "this conversation already has a listener; keep its original native task")
-	}
 	return &Lease{store: s, actor: actor, kind: v.Kind, key: key, id: newID(), gen: v.Generation, fd: fd}, nil
+}
+
+// listenerLockBeforeFlock runs after the lock file is opened and before it is
+// flocked. Tests unlink the path in that gap.
+var listenerLockBeforeFlock func(path string)
+
+// acquireListenerLock flocks path and keeps the descriptor only while it still
+// refers to the directory entry. Prune can unlink the file after open and
+// before flock; the flock would then succeed on an unlinked inode and a second
+// acquire would lock a new file at the same path.
+func acquireListenerLock(path string) (int, error) {
+	var last error
+	for range 3 {
+		fd, err := syscall.Open(path, syscall.O_CREAT|syscall.O_RDWR|syscall.O_NOFOLLOW, 0600)
+		if err != nil {
+			return -1, err
+		}
+		if listenerLockBeforeFlock != nil {
+			listenerLockBeforeFlock(path)
+		}
+		if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+			_ = syscall.Close(fd)
+			return -1, fail(CodeConflict, "this conversation already has a listener; keep its original native task")
+		}
+		linked, err := lockFileStillLinked(fd, path)
+		if err != nil {
+			_ = syscall.Close(fd)
+			return -1, err
+		}
+		if linked {
+			return fd, nil
+		}
+		_ = syscall.Close(fd)
+		last = fail(CodeConflict, "listener lock changed while it was being acquired")
+	}
+	return -1, last
+}
+
+func lockFileStillLinked(fd int, path string) (bool, error) {
+	var opened syscall.Stat_t
+	if err := syscall.Fstat(fd, &opened); err != nil {
+		return false, err
+	}
+	var current syscall.Stat_t
+	if err := syscall.Stat(path, &current); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return opened.Dev == current.Dev && opened.Ino == current.Ino, nil
 }
 
 // Generation is the registration generation this lease was acquired for.

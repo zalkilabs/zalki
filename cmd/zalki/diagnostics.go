@@ -1,6 +1,11 @@
 package main
 
-import "github.com/spf13/cobra"
+import (
+	"errors"
+
+	"github.com/spf13/cobra"
+	"github.com/zalkilabs/zalki/internal/bus"
+)
 
 func newListCommand(opts *commandOptions) *cobra.Command {
 	return &cobra.Command{
@@ -42,21 +47,26 @@ func newDoctorCommand(opts *commandOptions) *cobra.Command {
 func newPruneCommand(opts *commandOptions) *cobra.Command {
 	var dryRun bool
 	var selected []string
+	retiredOlderThan := bus.DefaultRetiredRetention
 	cmd := &cobra.Command{
-		Use: "prune", Short: "Retire stale registrations while preserving message history", Args: cobra.NoArgs,
+		Use: "prune", Short: "Retire stale registrations and delete old retired records, keeping message history", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if retiredOlderThan < 0 {
+				return errors.New("retired retention window must not be negative")
+			}
 			service, err := opts.service()
 			if err != nil {
 				return err
 			}
-			report, err := service.Store.Prune(dryRun, selected)
+			report, err := service.Store.PruneRetired(dryRun, selected, retiredOlderThan)
 			if err != nil {
 				return err
 			}
 			return encodeOutput(cmd, report)
 		},
 	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview confirmed stale sessions and exited runtimes without changing records")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview confirmed stale sessions, exited runtimes, and expired retired records without changing them")
 	cmd.Flags().StringArrayVar(&selected, "session", nil, "explicitly retire this exact kind:UUID, even if owner liveness is unknown; repeatable")
+	cmd.Flags().DurationVar(&retiredOlderThan, "retired-older-than", bus.DefaultRetiredRetention, "delete retired session records older than this duration; 0 deletes every retired record; message history is kept")
 	return cmd
 }

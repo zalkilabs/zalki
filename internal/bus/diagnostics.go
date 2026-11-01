@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 type PruneItem struct {
@@ -14,10 +15,16 @@ type PruneItem struct {
 	Reason string `json:"reason"`
 }
 type PruneReport struct {
-	DryRun   bool        `json:"dry_run"`
-	Sessions []PruneItem `json:"sessions"`
-	Runtimes []string    `json:"runtimes"`
+	DryRun          bool        `json:"dry_run"`
+	Sessions        []PruneItem `json:"sessions"`
+	Runtimes        []string    `json:"runtimes"`
+	DeletedSessions []PruneItem `json:"deleted_sessions"`
+	DeletedLocks    []string    `json:"deleted_locks"`
 }
+
+// DefaultRetiredRetention is how long a retired session record is kept.
+// Message history is not part of this window.
+const DefaultRetiredRetention = 7 * 24 * time.Hour
 
 func (s Store) rawSessions() ([]Session, error) {
 	files, err := filepath.Glob(filepath.Join(s.Dir, "sessions", "*.json"))
@@ -64,8 +71,19 @@ func (s Store) rawRuntimes() ([]RuntimeInfo, error) {
 // Automatic cleanup requires positive exit evidence, never age or lack of mail.
 // Optional exact IDs allow the human to retire legacy records with no owner
 // proof; no named/prefix match and no process termination is performed.
+// Age only deletes records that are already retired. Prune stays a command:
+// running it from a session hook would scan and delete while a client is starting.
 func (s Store) Prune(dryRun bool, selected []string) (PruneReport, error) {
-	report := PruneReport{DryRun: dryRun, Sessions: []PruneItem{}, Runtimes: []string{}}
+	return s.PruneRetired(dryRun, selected, DefaultRetiredRetention)
+}
+
+// PruneRetired retires exited sessions and deletes retired records older than
+// retiredOlderThan. Messages are kept. A negative window is rejected.
+func (s Store) PruneRetired(dryRun bool, selected []string, retiredOlderThan time.Duration) (PruneReport, error) {
+	report := PruneReport{DryRun: dryRun, Sessions: []PruneItem{}, Runtimes: []string{}, DeletedSessions: []PruneItem{}, DeletedLocks: []string{}}
+	if retiredOlderThan < 0 {
+		return report, errors.New("retired retention window must not be negative")
+	}
 	explicit := map[string]bool{}
 	for _, id := range selected {
 		if _, err := s.sessionPath(id); err != nil {
@@ -88,12 +106,20 @@ func (s Store) Prune(dryRun bool, selected []string) (PruneReport, error) {
 		if err != nil {
 			return err
 		}
+		now := time.Now()
 		for _, v := range sessions {
 			// A retirement from an older build can keep its listener lease, which
 			// holds the record at the lease schema. Release that leftover without
 			// changing the retirement itself. A listener that is still running is
-			// fenced by the cleared record.
+			// fenced by the cleared record. Records already old enough to delete
+			// are removed instead; deletion drops the lease with the file.
 			if v.Retired {
+				if retiredLongEnough(v.UpdatedAt, now, retiredOlderThan) {
+					if err := s.deleteRetired(dryRun, v, &report); err != nil {
+						return err
+					}
+					continue
+				}
 				if v.Listener == nil {
 					continue
 				}
@@ -125,6 +151,9 @@ func (s Store) Prune(dryRun bool, selected []string) (PruneReport, error) {
 				}
 			}
 		}
+		if err := s.deleteOrphanListenerLocks(dryRun, &report); err != nil {
+			return err
+		}
 		for _, v := range runtimes {
 			if processLiveness(v.Process) != "exited" {
 				continue
@@ -139,6 +168,79 @@ func (s Store) Prune(dryRun bool, selected []string) (PruneReport, error) {
 		return nil
 	})
 	return report, err
+}
+
+// retiredLongEnough is true only when updatedAt is strictly older than the
+// window. An unparsable timestamp is kept.
+func retiredLongEnough(updatedAt string, now time.Time, window time.Duration) bool {
+	updated, err := time.Parse(time.RFC3339Nano, updatedAt)
+	if err != nil {
+		return false
+	}
+	return updated.Before(now.Add(-window))
+}
+
+func (s Store) deleteRetired(dryRun bool, v Session, report *PruneReport) error {
+	report.DeletedSessions = append(report.DeletedSessions, PruneItem{v.ID, "retention"})
+	path, err := s.sessionPath(v.ID)
+	if err != nil {
+		return err
+	}
+	lockRemoved, err := s.removeFreeListenerLock(v.Kind, v.ID, !dryRun)
+	if err != nil {
+		return err
+	}
+	if lockRemoved {
+		report.DeletedLocks = append(report.DeletedLocks, filepath.Base(s.listenerLockPath(v.Kind, v.ID)))
+	}
+	if dryRun {
+		return nil
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+func (s Store) deleteOrphanListenerLocks(dryRun bool, report *PruneReport) error {
+	matches, err := filepath.Glob(filepath.Join(s.Dir, "*-listener-*.lock"))
+	if err != nil {
+		return err
+	}
+	sort.Strings(matches)
+	for _, path := range matches {
+		id, ok := sessionIDFromListenerLock(filepath.Base(path))
+		if !ok {
+			continue
+		}
+		sessionPath, err := s.sessionPath(id)
+		if err != nil {
+			return err
+		}
+		if _, err := os.Lstat(sessionPath); err == nil {
+			continue
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		kind, native, _ := strings.Cut(id, ":")
+		removed, err := s.removeFreeListenerLock(kind, kind+":"+native, !dryRun)
+		if err != nil {
+			return err
+		}
+		if removed {
+			report.DeletedLocks = append(report.DeletedLocks, filepath.Base(path))
+		}
+	}
+	return nil
+}
+
+func sessionIDFromListenerLock(base string) (string, bool) {
+	name := strings.TrimSuffix(base, ".lock")
+	kind, native, ok := strings.Cut(name, "-listener-")
+	if !ok || kind == "" || native == "" || strings.Contains(kind, "-listener-") {
+		return "", false
+	}
+	return kind + ":" + native, true
 }
 
 type SessionDiagnostic struct {
