@@ -127,7 +127,8 @@ func TestCollaborationCost(t *testing.T) {
 	}
 	// tools/list was 7951 bytes under the 8 KiB gate before watch_agent.
 	// 9213 is that list plus the one-shot tool and the notice kind on list_messages.
-	if metrics.SchemaBytes > 9213 {
+	// 10341 is that list on #11 plus set_task and the task field.
+	if metrics.SchemaBytes > 10341 {
 		t.Fatalf("tool schemas exceeded budget: %d bytes", metrics.SchemaBytes)
 	}
 	encoded, _ := json.Marshal(metrics)

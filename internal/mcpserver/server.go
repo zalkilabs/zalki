@@ -206,6 +206,10 @@ func New(service *bus.Service) *mcp.Server {
 			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) (bus.WatchResult, error) {
 				return service.Watch(args.Actor, args.Capability, args.To)
 			})
+		case "set_task":
+			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) (bus.TaskResult, error) {
+				return service.SetTask(args.Actor, args.Capability, args.Task)
+			})
 		case "list_messages":
 			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) (MessagePage, error) {
 				messages, err := service.Store.ReadMessages(bus.MessageQuery{

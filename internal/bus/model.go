@@ -19,6 +19,9 @@ type Session struct {
 	Kind         string          `json:"kind"`
 	Name         string          `json:"name,omitempty"`
 	NameSource   string          `json:"name_source,omitempty"`
+	// Task is the agent's own unverified claim about its current work.
+	// It is never an address and never changes routing.
+	Task string `json:"task,omitempty"`
 	// NativeConfigDir is captured in the owning CLI's hook environment, which
 	// can differ from the sender MCP's filtered environment. Omitted in discovery.
 	NativeConfigDir string       `json:"native_config_dir,omitempty"`
