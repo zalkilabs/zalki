@@ -16,6 +16,7 @@ func (s Store) Messages(actor, key string) ([]Message, error) {
 type MessageQuery struct {
 	Actor, Capability string
 	History           bool
+	Sent              bool
 	Limit             int
 	MessageID         string
 	IncludeBody       bool
@@ -37,7 +38,7 @@ func (s Store) QueryMessages(query MessageQuery) ([]Message, error) {
 // ReadMessages supports exact lookup without scanning the journal. History
 // summaries omit bodies unless requested; canonical records are never changed.
 func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
-	actor, key, history, limit := query.Actor, query.Capability, query.History, query.Limit
+	actor, key, history, limit := query.Actor, query.Capability, query.History || query.Sent, query.Limit
 	if limit == 0 {
 		limit = 5
 	}
@@ -58,6 +59,9 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 			}
 			if message.From != actor && message.To != actor {
 				return fail(CodeUnauthorized, "message belongs to another session")
+			}
+			if query.Sent && message.From != actor {
+				return fail(CodeNotFound, "message was not sent by this session")
 			}
 			items = append(items, inboxView(message, current, false))
 			return nil
@@ -84,13 +88,16 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 				return err
 			}
 			if item.From == actor || item.To == actor {
+				if query.Sent && item.From != actor {
+					continue
+				}
 				if !history && (item.To != actor || item.TargetGeneration != current.Generation || item.AcknowledgedAt != "" || !item.Status.canAcknowledge()) {
 					continue
 				}
 				if cursor != nil && !messageComesBefore(*cursor, item, history) {
 					continue
 				}
-				items = append(items, inboxView(item, current, query.History && !query.IncludeBody))
+				items = append(items, inboxView(item, current, history && !query.IncludeBody))
 			}
 		}
 		sort.Slice(items, func(i, j int) bool { return messageComesBefore(items[i], items[j], history) })
