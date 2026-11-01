@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -41,7 +42,7 @@ func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := Service{Store: store, Deliver: func(_ context.Context, _ Message, target Session) Receipt {
-		if nativeID(target) != native || target.ID != first.ID || target.KeyHash != "" {
+		if NativeID(target) != native || target.ID != first.ID || target.KeyHash != "" {
 			t.Error("adapter did not receive the original native identity with credentials removed")
 		}
 		return Receipt{Status: StatusSubmitted}
@@ -84,17 +85,31 @@ func TestOpaqueAdapterStateSurvivesCompaction(t *testing.T) {
 		t.Fatal(err)
 	}
 	store.Registry = registry
-	v, _, err := store.Register("fourth", "native-conversation", "/workspace", nil)
+	v, oldKey, err := store.Register("fourth", "native-conversation", "/workspace", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	v.AdapterState = json.RawMessage(`{"schema":1,"client_field":"keep"}`)
+	v.State = StateBusy
 	if err := store.saveSession(v); err != nil {
 		t.Fatal(err)
 	}
-	next, _, err := store.register(v.Kind, v.NativeID, v.CWD, nil, true)
-	if err != nil || next.Generation != v.Generation || !equalJSON(next.AdapterState, v.AdapterState) {
+	next, key, err := store.register(v.Kind, v.NativeID, v.CWD, nil, true)
+	if err != nil || next.Generation != v.Generation || next.State != v.State || !equalJSON(next.AdapterState, v.AdapterState) {
 		t.Fatal("compaction lost adapter-owned state", err)
+	}
+	if _, err := store.authenticate(v.ID, oldKey); ErrorCodeOf(err) != CodeUnauthorized {
+		t.Fatal("compaction retained the old credential", err)
+	}
+	if _, err := store.authenticate(v.ID, key); err != nil {
+		t.Fatal("compaction did not install the new credential", err)
+	}
+	if err := store.Update(v.ID, StateRetired, true); err != nil {
+		t.Fatal(err)
+	}
+	replacement, _, err := store.register(v.Kind, v.NativeID, v.CWD, nil, true)
+	if err != nil || replacement.Generation == next.Generation || replacement.Retired {
+		t.Fatal("compaction reused a retired generation", err)
 	}
 }
 
@@ -117,8 +132,9 @@ func TestLegacyRecordsMigrateOnWrite(t *testing.T) {
 	before, _ := os.ReadFile(path)
 	loaded, err := store.session(v.ID)
 	state := cursorState(loaded)
-	if err != nil || nativeID(loaded) != nativeID(v) || state.Wake == nil || !state.RecoveryAttempted || !state.RecoverySuppressed || !loaded.Receive.IdleWake {
-		t.Fatal("legacy Cursor state lost", err)
+	// A pre-lease wake endpoint is dropped, never adopted as a lease.
+	if err != nil || NativeID(loaded) != NativeID(v) || !state.RecoveryAttempted || !state.RecoverySuppressed || loaded.Listener != nil || loaded.Receive.IdleWake {
+		t.Fatal("legacy Cursor recovery state lost or legacy wake adopted", err)
 	}
 	if _, err := store.List(); err != nil {
 		t.Fatal(err)
@@ -134,7 +150,7 @@ func TestLegacyRecordsMigrateOnWrite(t *testing.T) {
 	if err := readJSON(path, &upgraded); err != nil {
 		t.Fatal(err)
 	}
-	if upgraded["schema"] != float64(recordSchema) || upgraded["native_id"] != nativeID(v) || upgraded["adapter_state"] == nil || upgraded["cursor_wake"] != nil || upgraded["cursor_recovery_attempted"] != nil {
+	if upgraded["schema"] != float64(recordSchema) || upgraded["native_id"] != NativeID(v) || upgraded["adapter_state"] == nil || upgraded["cursor_wake"] != nil || upgraded["cursor_recovery_attempted"] != nil || upgraded["listener"] != nil {
 		t.Fatal("adapter state was not migrated", upgraded)
 	}
 	from, _ := register(t, store, "codex")
@@ -198,5 +214,171 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 				t.Fatal("future record changed")
 			}
 		})
+	}
+}
+
+// Characterizes how this build treats a session written by a future schema, as
+// an older build would see a newer record during a mixed-version upgrade. Every
+// registry-wide read fails closed, and nothing rewrites the unreadable record.
+func TestFutureSchemaSessionFailsRegistryReadsWithoutWriting(t *testing.T) {
+	store := fixtureStore(t)
+	from, key := register(t, store, "codex")
+	healthy, _ := register(t, store, "claude")
+	future, _ := register(t, store, "cursor")
+	path, _ := store.sessionPath(future.ID)
+	var record map[string]any
+	if err := readJSON(path, &record); err != nil {
+		t.Fatal(err)
+	}
+	record["schema"] = leaseSessionSchema + 1
+	record["future_lease"] = map[string]string{"id": newID()}
+	if err := writeJSON(path, record); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(path)
+	if _, err := store.List(); ErrorCodeOf(err) != CodeUnsupportedSchema {
+		t.Fatal("list read a future session record", err)
+	}
+	if _, err := store.Discover(); ErrorCodeOf(err) != CodeUnsupportedSchema {
+		t.Fatal("discovery read a future session record", err)
+	}
+	if _, err := store.Diagnostics(); ErrorCodeOf(err) != CodeUnsupportedSchema {
+		t.Fatal("doctor read a future session record", err)
+	}
+	if err := store.Update(future.ID, StateBusy, false); ErrorCodeOf(err) != CodeUnsupportedSchema {
+		t.Fatal("lifecycle update accepted a future session record", err)
+	}
+	if _, _, _, err := store.ReserveMessage(SendRequest{Actor: from.ID, Capability: key, To: future.ID, MessageID: newID(), Body: "body"}); ErrorCodeOf(err) != CodeUnsupportedSchema {
+		t.Fatal("send accepted a future recipient record", err)
+	}
+	if _, _, _, err := store.ReserveMessage(SendRequest{Actor: from.ID, Capability: key, To: healthy.ID, MessageID: newID(), Body: "body"}); err != nil {
+		t.Fatal("exact-ID send to a readable session failed", err)
+	}
+	if after, _ := os.ReadFile(path); !bytes.Equal(before, after) {
+		t.Fatal("a failed read or update rewrote the future session record")
+	}
+}
+
+// preLeaseSession is the session record as builds before listener leases
+// (73e3050) decode and rewrite it. They reject schemas above 1 before using a
+// record, and silently drop fields they do not know when they write it back.
+type preLeaseSession struct {
+	Schema          int                 `json:"schema"`
+	NativeID        string              `json:"native_id,omitempty"`
+	AdapterState    json.RawMessage     `json:"adapter_state,omitempty"`
+	ID              string              `json:"id"`
+	Kind            string              `json:"kind"`
+	Name            string              `json:"name,omitempty"`
+	NameSource      string              `json:"name_source,omitempty"`
+	NativeConfigDir string              `json:"native_config_dir,omitempty"`
+	CWD             string              `json:"cwd"`
+	Generation      string              `json:"generation"`
+	State           SessionState        `json:"state"`
+	UpdatedAt       string              `json:"updated_at"`
+	Retired         bool                `json:"retired"`
+	RetiredReason   string              `json:"retired_reason,omitempty"`
+	Owner           *ProcessRef         `json:"owner,omitempty"`
+	Liveness        string              `json:"liveness,omitempty"`
+	HookBuild       string              `json:"hook_build,omitempty"`
+	Endpoint        *Endpoint           `json:"endpoint,omitempty"`
+	KeyHash         string              `json:"key_hash,omitempty"`
+	Receive         ReceiveCapabilities `json:"receive"`
+}
+
+// preLeaseRewrite reads a record as an older build would and, when it accepts
+// it, writes it back as that build would after a state update.
+func preLeaseRewrite(t *testing.T, store Store, id string) error {
+	t.Helper()
+	path, _ := store.sessionPath(id)
+	var v preLeaseSession
+	if err := readJSON(path, &v); err != nil {
+		return err
+	}
+	if v.Schema < 0 || v.Schema > 1 {
+		return fail(CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
+	}
+	v.Schema, v.State, v.UpdatedAt = 1, StateBusy, timestamp()
+	return writeJSON(path, v)
+}
+
+func TestLeasedRecordsAreHiddenFromOlderWriters(t *testing.T) {
+	store := fixtureStore(t)
+	to, key := register(t, store, "cursor")
+	lease := armedLease(t, store, to.ID, key)
+	before := sessionBytes(t, store, to.ID)
+	if err := preLeaseRewrite(t, store, to.ID); ErrorCodeOf(err) != CodeUnsupportedSchema || !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
+		t.Fatal("an older build could rewrite a leased record and drop its lease", err)
+	}
+	lease.Close(nil)
+	if err := preLeaseRewrite(t, store, to.ID); err != nil {
+		t.Fatal("a record without a lease was not returned to older builds", err)
+	}
+	current, err := store.session(to.ID)
+	if err != nil || current.Listener != nil || current.State != StateBusy || current.Receive.IdleWake {
+		t.Fatalf("an older build's rewrite was not readable or revived a listener: %+v %v", current, err)
+	}
+}
+
+func TestInterruptedLeaseIsRetiredByRecovery(t *testing.T) {
+	store := fixtureStore(t)
+	to, key := register(t, store, "cursor")
+	lease := armedLease(t, store, to.ID, key)
+	// A crash releases the lifetime lock but leaves the lease record behind.
+	if err := syscall.Flock(lease.fd, syscall.LOCK_UN); err != nil {
+		t.Fatal(err)
+	}
+	if err := preLeaseRewrite(t, store, to.ID); ErrorCodeOf(err) != CodeUnsupportedSchema {
+		t.Fatal("an older build could rewrite an interrupted lease", err)
+	}
+	if grant, err := claimCursorRecovery(store, to.ID); err != nil || grant.Capability == "" {
+		t.Fatal("an interrupted lease blocked recovery", err)
+	}
+	if err := preLeaseRewrite(t, store, to.ID); err != nil {
+		t.Fatal("recovery left the record unreadable by older builds", err)
+	}
+}
+
+func TestListenerLeaseUnderOlderSchemaIsRejected(t *testing.T) {
+	store := fixtureStore(t)
+	to, _ := register(t, store, "cursor")
+	path, _ := store.sessionPath(to.ID)
+	var record map[string]any
+	if err := readJSON(path, &record); err != nil {
+		t.Fatal(err)
+	}
+	record["listener"] = ListenerLease{ID: newID(), Generation: to.Generation, Endpoint: Endpoint{Path: "/tmp/zalki-x/inbox.sock"}}
+	if err := writeJSON(path, record); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.session(to.ID); ErrorCodeOf(err) != CodeUnsupportedSchema {
+		t.Fatal("accepted a lease stored under a schema older builds would rewrite", err)
+	}
+}
+
+// A wake endpoint stored in Cursor state by a pre-lease build must not survive
+// a rewrite: older builds would read it back as a live listener.
+func TestPreLeaseWakeIsNotCarriedIntoRewrittenRecords(t *testing.T) {
+	store := fixtureStore(t)
+	to, _ := register(t, store, "cursor")
+	path, _ := store.sessionPath(to.ID)
+	var record map[string]any
+	if err := readJSON(path, &record); err != nil {
+		t.Fatal(err)
+	}
+	record["adapter_state"] = map[string]any{"schema": 1, "recovery_attempted": true, "wake": Endpoint{Path: "/tmp/zalki-old/inbox.sock"}}
+	if err := writeJSON(path, record); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update(to.ID, StateBusy, false); err != nil {
+		t.Fatal(err)
+	}
+	var written struct {
+		AdapterState map[string]any `json:"adapter_state"`
+	}
+	if err := json.Unmarshal(sessionBytes(t, store, to.ID), &written); err != nil || written.AdapterState["wake"] != nil {
+		t.Fatal("a pre-lease wake endpoint was written back for older builds", err)
+	}
+	if current, err := store.session(to.ID); err != nil || !cursorState(current).RecoveryAttempted || current.Receive.IdleWake {
+		t.Fatal("normalizing legacy state lost recovery state or advertised a listener", err)
 	}
 }

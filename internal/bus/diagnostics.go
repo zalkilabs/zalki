@@ -210,11 +210,11 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 		}
 		d.Receive = adapter.ReceiveCapabilities(v)
 		if health, ok := adapter.(healthAdapter); ok {
-			d.TransportHealth, d.ListenerHealth = health.Health(hookRuntime{s}, v)
+			d.TransportHealth, d.ListenerHealth = health.Health(hookRuntime{store: s}, v)
 		} else {
 			d.TransportHealth = "unknown"
 		}
-		d.RecoveryHint = recoveryHint(d)
+		d.RecoveryHint = recoveryHint(d, adapter)
 		report.Sessions = append(report.Sessions, d)
 	}
 	tracked := map[int]bool{}

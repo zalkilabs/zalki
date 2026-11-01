@@ -9,7 +9,10 @@ import (
 	"os/exec"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 //go:embed testdata/clients/*.json
@@ -69,7 +72,7 @@ func (b *versionBuffer) Write(p []byte) (int, error) {
 func execClientPath(name string) (string, error) { return exec.LookPath(name) }
 
 func probeClientVersion(path string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, path, "--version")
 	var output versionBuffer
@@ -105,18 +108,22 @@ func annotateClientCompatibility(diagnostic *AgentDiagnostic) {
 	}
 }
 
-func recoveryHint(diagnostic SessionDiagnostic) string {
+func recoveryHint(diagnostic SessionDiagnostic, adapter Adapter) string {
 	if diagnostic.Retired || diagnostic.Liveness == "exited" {
 		return "Start or resume the client session; do not resend messages already submitted."
 	}
 	if diagnostic.HookBuildStatus == "outdated" {
 		return "Restart this client session and reconnect its Zalki MCP server to load the installed build."
 	}
-	if diagnostic.ListenerHealth == "stale" || diagnostic.ListenerHealth == "not_armed" {
-		return "In this Cursor session, arm one native Shell cursor-listen task using its private startup guidance."
-	}
-	if diagnostic.TransportHealth == "socket_unavailable" {
-		return "Restart Claude with the experimental integration enabled so it registers its own messaging socket."
+	if hinter, ok := adapter.(recoveryHintAdapter); ok {
+		if hint := hinter.RecoveryHint(diagnostic); validRecoveryHint(hint) {
+			return hint
+		}
 	}
 	return ""
+}
+
+// Adapter hints are printed by doctor; keep them to one bounded line of text.
+func validRecoveryHint(hint string) bool {
+	return len(hint) <= 512 && utf8.ValidString(hint) && !strings.ContainsFunc(hint, unicode.IsControl)
 }

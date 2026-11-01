@@ -49,6 +49,22 @@ zalki uninstall --apply
 Upgrade and uninstall preview changes when `--apply` is omitted.
 Use `--state` to choose the state directory.
 
+### Upgrading
+
+Every Zalki process that shares a state directory must run the same build.
+Older builds cannot read the records a newer listener writes, and one such
+record stops their session listing, discovery and `doctor` for every client,
+not just Cursor. After installing a new binary:
+
+1. Run `zalki upgrade --apply`.
+2. Reconnect the Zalki MCP server in every open Claude, Codex and Cursor
+   session (or restart those sessions).
+3. In each Cursor conversation, cancel any running `cursor-listen` task, then
+   arm one new task from its startup guidance.
+
+Message history and pending messages are kept. Do not delete the state
+directory to recover from a mixed-build error; finish the steps above instead.
+
 ## Development
 
 Use Go 1.26.10 or newer.

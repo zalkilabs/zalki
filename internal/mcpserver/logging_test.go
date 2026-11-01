@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -24,7 +25,7 @@ func TestBinaryMCPLoggingStaysOffProtocolStdout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	state := filepath.Join(t.TempDir(), "state")
-	store := bus.Store{Dir: state}
+	store := bus.Store{Dir: state, Registry: adapters.Builtin()}
 	actor, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000041", "/fixture", nil)
 	if err != nil {
 		t.Fatal(err)

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
@@ -22,14 +21,14 @@ func TestInstallPreservesSettingsAndIsIdempotent(t *testing.T) {
 	if err := os.WriteFile(settings, original, 0600); err != nil {
 		t.Fatal(err)
 	}
-	paths, err := install.Apply(bus.Configuration, "/opt/local/bin/zalki", filepath.Join(home, "state"), home)
+	paths, err := install.Apply(declare, "/opt/local/bin/zalki", filepath.Join(home, "state"), home)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(paths) != 6 {
 		t.Fatalf("expected six configuration additions, got %d", len(paths))
 	}
-	if _, err := install.Apply(bus.Configuration, "/opt/local/bin/zalki", filepath.Join(home, "state"), home); err != nil {
+	if _, err := install.Apply(declare, "/opt/local/bin/zalki", filepath.Join(home, "state"), home); err != nil {
 		t.Fatal(err)
 	}
 	var merged map[string]any
@@ -85,7 +84,7 @@ func TestInstallRefusesConflictingServerWithoutPartialChanges(t *testing.T) {
 	if err := os.WriteFile(config, before, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := install.Apply(bus.Configuration, "/bin/zalki", filepath.Join(home, "state"), home); err == nil {
+	if _, err := install.Apply(declare, "/bin/zalki", filepath.Join(home, "state"), home); err == nil {
 		t.Fatal("replaced existing MCP server")
 	}
 	after, err := os.ReadFile(config)
@@ -107,7 +106,7 @@ func TestInstallRefusesAlternateTOMLAndSymlinkedFiles(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(home, ".codex", "config.toml"), []byte(body), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := install.Apply(bus.Configuration, "/bin/zalki", filepath.Join(home, "state"), home); err == nil {
+		if _, err := install.Apply(declare, "/bin/zalki", filepath.Join(home, "state"), home); err == nil {
 			t.Fatal("accepted unmergeable TOML")
 		}
 	}
@@ -119,7 +118,7 @@ func TestInstallRefusesAlternateTOMLAndSymlinkedFiles(t *testing.T) {
 	if err := os.Symlink(other, filepath.Join(home, ".claude.json")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := install.Apply(bus.Configuration, "/bin/zalki", filepath.Join(home, "state"), home); err == nil {
+	if _, err := install.Apply(declare, "/bin/zalki", filepath.Join(home, "state"), home); err == nil {
 		t.Fatal("followed symlinked config file")
 	}
 }
@@ -129,10 +128,10 @@ func TestSetupQuotesPathsAndWritesOnlyDrafts(t *testing.T) {
 	home := t.TempDir()
 	out := filepath.Join(home, "drafts")
 	binary := "/tmp/agent's tools/$literal/zalki"
-	if err := install.WriteSetup(bus.Configuration, binary, filepath.Join(home, "state"), out, home); err != nil {
+	if err := install.WriteSetup(declare, binary, filepath.Join(home, "state"), out, home); err != nil {
 		t.Fatal(err)
 	}
-	if err := install.WriteSetup(bus.Configuration, binary, filepath.Join(home, "state"), out, home); err == nil {
+	if err := install.WriteSetup(declare, binary, filepath.Join(home, "state"), out, home); err == nil {
 		t.Fatal("overwrote setup drafts")
 	}
 	data, err := os.ReadFile(filepath.Join(out, "cursor-hooks.json"))

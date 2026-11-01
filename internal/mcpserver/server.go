@@ -137,7 +137,7 @@ func New(service *bus.Service) *mcp.Server {
 			"Share substantive results, reviews, questions, and decisions with the user and relevant agents. " +
 			"Continue useful discussion; avoid repeating unchanged status. A sender's no-reply note does not cancel the user's task. " +
 			"Check timestamps and later updates before acting on old requests. Acceptance is not acknowledgement. " +
-			"End your turn for native delivery; do not poll or handle body_deferred metadata. " +
+			"Continue useful work; yield when waiting for deferred or next-turn delivery. Never poll or act on body_deferred metadata. " +
 			"runtime.needs_restart means reconnect this server.",
 	})
 	for _, definition := range bus.Tools() {

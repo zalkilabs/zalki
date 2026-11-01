@@ -64,7 +64,7 @@ func (s Store) session(id string) (Session, error) {
 }
 
 func (s Store) saveSession(v Session) error {
-	if v.Schema < 0 || v.Schema > recordSchema {
+	if v.Schema < 0 || v.Schema > leaseSessionSchema {
 		return fail(CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
 	}
 	path, err := s.sessionPath(v.ID)
@@ -77,8 +77,11 @@ func (s Store) saveSession(v Session) error {
 	}
 	v.Receive = adapter.ReceiveCapabilities(v)
 	v.Schema = recordSchema
+	if v.Listener != nil {
+		v.Schema = leaseSessionSchema
+	}
 	if v.NativeID == "" {
-		v.NativeID = nativeID(v)
+		v.NativeID = NativeID(v)
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return fail(CodeInvalidIdentity, "native and Zalki session identities do not match")
@@ -119,7 +122,7 @@ func (s Store) register(kind, id, cwd string, endpoint *Endpoint, compact bool) 
 	session.Receive = adapter.ReceiveCapabilities(session)
 	err = s.locked(func() error {
 		preserved := false
-		if current, err := s.session(full); err == nil && nativeID(current) != native {
+		if current, err := s.session(full); err == nil && NativeID(current) != native {
 			return fail(CodeConflict, "native session identity collision")
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
@@ -225,6 +228,7 @@ func (s Store) sessions() ([]Session, error) {
 		sessions[i].Receive = adapter.ReceiveCapabilities(sessions[i])
 		sessions[i].NativeConfigDir = ""
 		sessions[i].AdapterState = nil
+		sessions[i].Listener = nil
 		sessions[i].NativeID = ""
 	}
 	return sessions, nil

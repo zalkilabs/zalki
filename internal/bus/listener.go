@@ -1,0 +1,249 @@
+package bus
+
+import (
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"path/filepath"
+	"strings"
+	"syscall"
+)
+
+// ListenerStatus is core's evidence about a registration's native listener.
+type ListenerStatus string
+
+const (
+	ListenerNone    ListenerStatus = "none"
+	ListenerRunning ListenerStatus = "running"
+	// ListenerStale has a lease record whose endpoint or lifetime lock is gone.
+	ListenerStale ListenerStatus = "stale"
+	// ListenerUnleased has a process holding the lifetime lock without a lease,
+	// such as a listener started by a build that predates leases.
+	ListenerUnleased ListenerStatus = "unleased"
+)
+
+// Lease is one process's exclusive ownership of a registration's listener. It
+// holds the nonblocking lifetime lock for its whole life and never holds the
+// journal lock while waiting on that lock or on socket IO. Lock order is
+// always lifetime lock first, then journal lock.
+//
+// A Lease is used by one goroutine. Every journal operation re-checks that the
+// session still records this lease's ID, generation and endpoint, so a lease
+// superseded by recovery, re-registration or another listener cannot confirm,
+// validate or clear anything.
+type Lease struct {
+	store                     Store
+	actor, kind, key, id, gen string
+	fd                        int
+	endpoint                  *Endpoint
+	confirmed, closed         bool
+}
+
+func (s Store) listenerLockPath(kind, actor string) string {
+	return filepath.Join(s.Dir, kind+"-listener-"+strings.TrimPrefix(actor, kind+":")+".lock")
+}
+
+// lockHeld reports whether some process holds the registration's lifetime lock.
+// A missing or unlocked lock file is not evidence of a live listener.
+func (s Store) lockHeld(v Session) bool {
+	fd, err := syscall.Open(s.listenerLockPath(v.Kind, v.ID), syscall.O_RDWR|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return false
+	}
+	defer syscall.Close(fd) //nolint:errcheck // Descriptor cleanup after the liveness check.
+	err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB)
+	if err == nil {
+		_ = syscall.Flock(fd, syscall.LOCK_UN) // Closing the descriptor also releases the lock.
+		return false
+	}
+	return errors.Is(err, syscall.EWOULDBLOCK)
+}
+
+// listenerStatus checks the lease against its bound endpoint and the lifetime
+// lock. A socket left behind by a crash is insufficient evidence of a listener.
+func (s Store) listenerStatus(v Session) ListenerStatus {
+	held := s.lockHeld(v)
+	switch {
+	case v.Listener != nil && held && v.Listener.Generation == v.Generation && CheckEndpoint(&v.Listener.Endpoint) == nil:
+		return ListenerRunning
+	case v.Listener != nil:
+		return ListenerStale
+	case held:
+		return ListenerUnleased
+	}
+	return ListenerNone
+}
+
+// AcquireListenerLease authenticates the registration's own capability and
+// takes its lifetime lock. Only one lease per registration can exist at a time.
+func (s Store) AcquireListenerLease(actor, key string) (lease *Lease, err error) {
+	defer func() {
+		if err != nil {
+			s.logEvent(slog.LevelWarn, "listener.start_failed", eventData{Actor: actor, Err: err})
+		}
+	}()
+	var v Session
+	err = s.locked(func() error {
+		var err error
+		if v, err = s.authenticate(actor, key); err != nil {
+			return err
+		}
+		adapter, err := s.registry().Lookup(v.Kind)
+		if err != nil {
+			return err
+		}
+		if !adapter.ReceiveCapabilities(v).RequiresListener {
+			return fail(CodeInvalidInput, "a native listener requires your own listener-capable identity")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	fd, err := syscall.Open(s.listenerLockPath(v.Kind, actor), syscall.O_CREAT|syscall.O_RDWR|syscall.O_NOFOLLOW, 0600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		_ = syscall.Close(fd)
+		return nil, fail(CodeConflict, "this conversation already has a listener; keep its original native task")
+	}
+	return &Lease{store: s, actor: actor, kind: v.Kind, key: key, id: newID(), gen: v.Generation, fd: fd}, nil
+}
+
+// Generation is the registration generation this lease was acquired for.
+func (l *Lease) Generation() string { return l.gen }
+
+func (l *Lease) owns(v Session) bool {
+	return l.endpoint != nil && v.Generation == l.gen && v.Listener != nil &&
+		v.Listener.ID == l.id && v.Listener.Generation == l.gen && v.Listener.Endpoint == *l.endpoint
+}
+
+// Arm records endpoint as the registration's listener. It re-authenticates the
+// capability, so a credential rotated since acquisition cannot arm, even when
+// the generation is unchanged. Any stale lease record is replaced: holding the
+// lifetime lock proves no other lease is alive.
+func (l *Lease) Arm(endpoint *Endpoint) error {
+	if l.closed || l.endpoint != nil {
+		return errors.New("listener lease is closed or already armed")
+	}
+	if err := CheckEndpoint(endpoint); err != nil {
+		return err
+	}
+	bound := *endpoint
+	err := l.store.locked(func() error {
+		current, err := l.store.authenticate(l.actor, l.key)
+		if err != nil {
+			return err
+		}
+		if current.Generation != l.gen {
+			return fail(CodeConflict, "registration changed while arming its listener")
+		}
+		current.Listener = &ListenerLease{ID: l.id, Generation: l.gen, Endpoint: bound}
+		return l.store.saveSession(current)
+	})
+	if err == nil {
+		l.endpoint = &bound
+	}
+	return err
+}
+
+// Confirm completes setup after the listener announced itself, applying the
+// adapter's next state in the same save. A listener that could not announce
+// itself never confirms, so the adapter's recovery guard stays in place.
+func (l *Lease) Confirm(policy func(SessionView) (json.RawMessage, error)) error {
+	err := l.store.locked(func() error {
+		current, err := l.store.session(l.actor)
+		if err != nil {
+			return err
+		}
+		if !l.owns(current) {
+			return fail(CodeConflict, "registration changed while completing listener setup")
+		}
+		next, err := policy(viewOf(current))
+		if err != nil {
+			return err
+		}
+		if err := l.store.applyAdapterState(&current, next); err != nil {
+			return err
+		}
+		return l.store.saveSession(current)
+	})
+	if err != nil {
+		return err
+	}
+	l.confirmed = true
+	l.store.logEvent(slog.LevelInfo, "listener.armed", eventData{Actor: l.actor, Generation: l.gen})
+	return nil
+}
+
+// ValidateDelivery checks that this lease is still the active recipient and
+// that messageID is one of its registration's pending messages. It reports
+// whether the message was already acknowledged.
+func (l *Lease) ValidateDelivery(messageID string) (acknowledged bool, err error) {
+	err = l.store.locked(func() error {
+		current, err := l.store.session(l.actor)
+		if err != nil {
+			return err
+		}
+		if current.Retired || !l.owns(current) || current.State == StateApproval {
+			return errors.New("listener is no longer the active recipient")
+		}
+		message, err := l.store.message(messageID)
+		if err != nil {
+			return err
+		}
+		if message.To != l.actor || message.TargetGeneration != l.gen || (!hookPendingStatus(message.Status) && message.Status != StatusContextEmitted) {
+			return errors.New("hint does not refer to this recipient's pending message")
+		}
+		acknowledged = message.AcknowledgedAt != ""
+		return nil
+	})
+	return acknowledged, err
+}
+
+// RejectHint records an invalid or stale wake attempt without exposing it to the model.
+func (l *Lease) RejectHint(err error) {
+	l.store.logEvent(slog.LevelDebug, "listener.hint_rejected", eventData{Actor: l.actor, Err: err})
+}
+
+// WakeEmitted records a wake notification written for a validated message.
+func (l *Lease) WakeEmitted(messageID string) {
+	l.store.logEvent(slog.LevelInfo, "listener.wake_emitted", eventData{Actor: l.actor, MessageID: messageID, Generation: l.gen})
+}
+
+// Close clears the lease record only while it still records this lease's ID,
+// generation and endpoint, then releases the lifetime lock either way. It is
+// idempotent; cause is the listener's exit error.
+func (l *Lease) Close(cause error) {
+	if l.closed {
+		return
+	}
+	l.closed = true
+	if l.endpoint != nil {
+		err := l.store.locked(func() error {
+			current, err := l.store.session(l.actor)
+			if err != nil {
+				return err
+			}
+			if !l.owns(current) {
+				return nil
+			}
+			current.Listener = nil
+			return l.store.saveSession(current)
+		})
+		if err != nil {
+			l.store.logEvent(slog.LevelWarn, "listener.cleanup_failed", eventData{Actor: l.actor, Err: err})
+		}
+	}
+	_ = syscall.Flock(l.fd, syscall.LOCK_UN) // Closing the descriptor also releases the lock.
+	_ = syscall.Close(l.fd)
+	level, event := slog.LevelInfo, "listener.stopped"
+	if !l.confirmed {
+		event = "listener.start_failed"
+	}
+	if cause != nil {
+		level = slog.LevelWarn
+	}
+	l.store.logEvent(level, event, eventData{Actor: l.actor, Err: cause})
+}

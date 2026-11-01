@@ -21,19 +21,30 @@ type Session struct {
 	NameSource   string          `json:"name_source,omitempty"`
 	// NativeConfigDir is captured in the owning CLI's hook environment, which
 	// can differ from the sender MCP's filtered environment. Omitted in discovery.
-	NativeConfigDir string              `json:"native_config_dir,omitempty"`
-	CWD             string              `json:"cwd"`
-	Generation      string              `json:"generation"`
-	State           SessionState        `json:"state"`
-	UpdatedAt       string              `json:"updated_at"`
-	Retired         bool                `json:"retired"`
-	RetiredReason   string              `json:"retired_reason,omitempty"`
-	Owner           *ProcessRef         `json:"owner,omitempty"`
-	Liveness        string              `json:"liveness,omitempty"`
-	HookBuild       string              `json:"hook_build,omitempty"`
-	Endpoint        *Endpoint           `json:"endpoint,omitempty"`
-	KeyHash         string              `json:"key_hash,omitempty"`
-	Receive         ReceiveCapabilities `json:"receive"`
+	NativeConfigDir string       `json:"native_config_dir,omitempty"`
+	CWD             string       `json:"cwd"`
+	Generation      string       `json:"generation"`
+	State           SessionState `json:"state"`
+	UpdatedAt       string       `json:"updated_at"`
+	Retired         bool         `json:"retired"`
+	RetiredReason   string       `json:"retired_reason,omitempty"`
+	Owner           *ProcessRef  `json:"owner,omitempty"`
+	Liveness        string       `json:"liveness,omitempty"`
+	HookBuild       string       `json:"hook_build,omitempty"`
+	Endpoint        *Endpoint    `json:"endpoint,omitempty"`
+	// Listener is the core-owned lease of a native listener. Records that carry
+	// one are written as leaseSessionSchema, which older builds refuse to read.
+	Listener *ListenerLease      `json:"listener,omitempty"`
+	KeyHash  string              `json:"key_hash,omitempty"`
+	Receive  ReceiveCapabilities `json:"receive"`
+}
+
+// ListenerLease identifies the one armed listener of a registration. Only the
+// process holding the matching in-memory Lease may confirm, validate or clear it.
+type ListenerLease struct {
+	ID         string   `json:"id"`
+	Generation string   `json:"generation"`
+	Endpoint   Endpoint `json:"endpoint"`
 }
 
 type ReceiveCapabilities struct {

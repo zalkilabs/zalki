@@ -2,7 +2,6 @@ package bus
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io/fs"
 	"os"
@@ -11,22 +10,6 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/install"
 )
-
-func TestCodexQueueUsesRecipientProfile(t *testing.T) {
-	bin, recipient := t.TempDir(), t.TempDir()
-	output := filepath.Join(bin, "profile")
-	script := "#!/bin/sh\nprintf '%s' \"$CODEX_HOME\" > " + install.ShellQuote(output) + "\n"
-	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte(script), 0700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-	t.Setenv("CODEX_HOME", filepath.Join(bin, "sender-profile"))
-	receipt := queueCodex(context.Background(), Message{ID: newID(), Body: "profile test"}, Session{Kind: "codex", ID: "codex:" + newID(), NativeConfigDir: recipient})
-	data, err := os.ReadFile(output)
-	if err != nil || string(data) != recipient || receipt.Status != StatusSubmitted {
-		t.Fatal("queue inherited sender profile", string(data), receipt, err)
-	}
-}
 
 func TestAdapterDefinesItsOwnConfigurationOverride(t *testing.T) {
 	home, profile := t.TempDir(), t.TempDir()

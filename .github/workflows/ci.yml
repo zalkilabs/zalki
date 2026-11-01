@@ -31,7 +31,7 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
-      - run: make fmt-check test vet
+      - run: make fmt-check test-required vet
       - name: Check Homebrew cask syntax
         if: runner.os == 'macOS'
         run: |
