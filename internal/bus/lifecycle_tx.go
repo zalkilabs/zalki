@@ -184,7 +184,7 @@ func (h hookRuntime) ClaimRecovery(policy func(SessionView) (RecoveryDecision, e
 		v.KeyHash = hex.EncodeToString(hash[:])
 		// Every credential rotation retires the lease: a listener armed under
 		// the old capability must not keep receiving for the new one.
-		v.Listener = nil
+		releaseListenerLease(&v)
 		if err := h.store.saveSession(v); err != nil {
 			return err
 		}

@@ -89,7 +89,22 @@ func (s Store) Prune(dryRun bool, selected []string) (PruneReport, error) {
 			return err
 		}
 		for _, v := range sessions {
+			// A retirement from an older build can keep its listener lease, which
+			// holds the record at the lease schema. Release that leftover without
+			// changing the retirement itself. A listener that is still running is
+			// fenced by the cleared record.
 			if v.Retired {
+				if v.Listener == nil {
+					continue
+				}
+				report.Sessions = append(report.Sessions, PruneItem{v.ID, "lease_released"})
+				if !dryRun {
+					releaseListenerLease(&v)
+					v.UpdatedAt = timestamp()
+					if err := s.saveSession(v); err != nil {
+						return err
+					}
+				}
 				continue
 			}
 			reason := ""
@@ -104,6 +119,7 @@ func (s Store) Prune(dryRun bool, selected []string) (PruneReport, error) {
 			report.Sessions = append(report.Sessions, PruneItem{v.ID, reason})
 			if !dryRun {
 				v.Retired, v.State, v.RetiredReason, v.UpdatedAt = true, StateRetired, reason, timestamp()
+				releaseListenerLease(&v)
 				if err := s.saveSession(v); err != nil {
 					return err
 				}

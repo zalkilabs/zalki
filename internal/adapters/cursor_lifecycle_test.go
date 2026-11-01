@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -161,6 +162,182 @@ func TestCursorRecoveryClearsAStaleWake(t *testing.T) {
 	if adapterTestSession(t, store, to.ID).Receive.IdleWake {
 		t.Fatal("recovery kept advertising a crashed listener's wake")
 	}
+}
+
+// A retirement from before leases were cleared can leave schema 2 behind.
+// Prune must drop that leftover lease, and a dry run must only report it.
+func TestPruneReleasesALeaseLeftOnARetiredSession(t *testing.T) {
+	store := adapterTestStore(t)
+	to, _ := registerAdapterSession(t, store, "cursor")
+	path := filepath.Join(store.Dir, "sessions", strings.ReplaceAll(to.ID, ":", "_")+".json")
+	var record map[string]any
+	data, err := os.ReadFile(path)
+	if err != nil || json.Unmarshal(data, &record) != nil {
+		t.Fatal("unreadable session record", err)
+	}
+	record["schema"] = 2
+	record["state"] = "retired"
+	record["retired"] = true
+	record["retired_reason"] = "explicit_cleanup"
+	record["listener"] = map[string]any{"id": newTestID(), "generation": to.Generation, "endpoint": map[string]any{"path": "/tmp/zalki-cursor-crashed/inbox.sock", "device": 1, "inode": 1}}
+	if err := writeTestJSON(path, record); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview, err := store.Prune(true, nil)
+	if err != nil || len(preview.Sessions) != 1 || preview.Sessions[0].ID != to.ID || preview.Sessions[0].Reason != "lease_released" {
+		t.Fatalf("dry-run did not report the leftover lease: %+v %v", preview, err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || string(before) != string(after) {
+		t.Fatal("dry-run changed the retired lease", err)
+	}
+	report, err := store.Prune(false, nil)
+	if err != nil || len(report.Sessions) != 1 || report.Sessions[0].Reason != "lease_released" {
+		t.Fatalf("prune did not release the leftover lease: %+v %v", report, err)
+	}
+	current := adapterTestSession(t, store, to.ID)
+	healed := sessionFile(t, store, to.ID)
+	if !current.Retired || current.RetiredReason != "explicit_cleanup" || current.State != bus.StateRetired ||
+		current.Listener != nil || current.Schema != 1 || current.Receive.IdleWake ||
+		healed["schema"] != float64(1) || healed["listener"] != nil {
+		t.Fatalf("retired record kept its lease: record=%v session=%+v", healed, current)
+	}
+	if again, err := store.Prune(false, nil); err != nil || len(again.Sessions) != 0 {
+		t.Fatalf("releasing a leftover lease was not idempotent: %+v %v", again, err)
+	}
+}
+
+// Retirement must drop the listener lease. A record that keeps one stays at
+// session schema 2, which older builds reject for the whole registry. A
+// listener that is still running is fenced: it stays up, and it receives no wake.
+func TestRetirementReleasesTheListenerLease(t *testing.T) {
+	retire := func(t *testing.T, store bus.Store, service *bus.Service, id, how string) {
+		t.Helper()
+		switch how {
+		case "explicit_cleanup":
+			report, err := store.Prune(false, []string{id})
+			if err != nil || len(report.Sessions) != 1 || report.Sessions[0].Reason != "explicit_cleanup" {
+				t.Fatalf("explicit prune failed: %+v %v", report, err)
+			}
+		case "owner_exited":
+			markOwnerExited(t, store, id)
+			report, err := store.Prune(false, nil)
+			if err != nil || len(report.Sessions) != 1 || report.Sessions[0].ID != id || report.Sessions[0].Reason != "owner_exited" {
+				t.Fatalf("owner prune failed: %+v %v", report, err)
+			}
+		case "session_end":
+			cursorHook(t, service, id, "sessionEnd", "", 0)
+		default:
+			t.Fatalf("unknown retirement %s", how)
+		}
+	}
+	for _, how := range []string{"explicit_cleanup", "owner_exited", "session_end"} {
+		t.Run(how, func(t *testing.T) {
+			store := adapterTestStore(t)
+			from, fromKey := registerAdapterSession(t, store, "codex")
+			to, key := registerAdapterSession(t, store, "cursor")
+			stop, output := startRecoveryListener(t, store, to.ID, key)
+			leased := adapterTestSession(t, store, to.ID)
+			if leased.Listener == nil || leased.Schema != 2 || !leased.Receive.IdleWake {
+				t.Fatal("listener was not leased")
+			}
+			endpoint := leased.Listener.Endpoint.Path
+			// Accept starts only after Confirm's save. Waiting for that avoids a
+			// confirmation write racing with retirement.
+			waitUntilListening(t, endpoint)
+			service := &bus.Service{Store: store}
+			retire(t, store, service, to.ID, how)
+
+			current := adapterTestSession(t, store, to.ID)
+			record := sessionFile(t, store, to.ID)
+			receive, _ := record["receive"].(map[string]any)
+			if !current.Retired || current.Listener != nil || current.Receive.IdleWake || current.Schema != 1 ||
+				record["schema"] != float64(1) || record["listener"] != nil || receive["idle_wake"] != false {
+				t.Fatalf("retirement left a listener lease: record=%v session=%+v", record, current)
+			}
+			if _, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: fromKey, To: to.ID, MessageID: newTestID(), Body: "after retire"}); err == nil {
+				t.Fatal("sent to a retired session")
+			}
+			conn, err := net.DialTimeout("unix", endpoint, time.Second)
+			if err != nil {
+				t.Fatal("retired listener was not still accepting", err)
+			}
+			defer conn.Close()
+			_ = conn.SetDeadline(time.Now().Add(time.Second))
+			hint := map[string]string{"message_id": newTestID(), "generation": to.Generation}
+			if err := json.NewEncoder(conn).Encode(hint); err != nil {
+				t.Fatal(err)
+			}
+			var response map[string]string
+			if err := json.NewDecoder(conn).Decode(&response); err == nil {
+				t.Fatal("fenced listener accepted a wake hint", response)
+			}
+			if strings.Contains(output.text(), "ZALKI_WAKE") {
+				t.Fatal("retired listener emitted a wake")
+			}
+			stop()
+			after := sessionFile(t, store, to.ID)
+			if after["schema"] != float64(1) || after["listener"] != nil || after["retired"] != true {
+				t.Fatalf("listener shutdown restored the lease: %v", after)
+			}
+		})
+	}
+}
+
+// waitUntilListening returns after the listener has accepted and closed one
+// connection. Accept begins only after Confirm's save, and a queued dial can
+// succeed before that save.
+func waitUntilListening(t *testing.T, endpoint string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		conn, err := net.DialTimeout("unix", endpoint, 50*time.Millisecond)
+		if err == nil {
+			_ = conn.SetDeadline(time.Now().Add(time.Second))
+			_, writeErr := conn.Write([]byte("{}\n"))
+			buf := make([]byte, 1)
+			_, readErr := conn.Read(buf)
+			_ = conn.Close()
+			if writeErr == nil && readErr != nil {
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("listener did not accept after confirmation", err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func markOwnerExited(t *testing.T, store bus.Store, id string) {
+	t.Helper()
+	path := filepath.Join(store.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json")
+	var session bus.Session
+	data, err := os.ReadFile(path)
+	if err != nil || json.Unmarshal(data, &session) != nil {
+		t.Fatal("unreadable session record", err)
+	}
+	session.Owner = &bus.ProcessRef{PID: os.Getpid(), Start: "previous-process-at-this-pid", Role: "client"}
+	if err := writeTestJSON(path, session); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func sessionFile(t *testing.T, store bus.Store, id string) map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(data, &record); err != nil {
+		t.Fatal(err)
+	}
+	return record
 }
 
 type failedListenerOutput struct{}
