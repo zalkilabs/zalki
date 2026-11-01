@@ -63,6 +63,8 @@ type Message struct {
 	Schema int    `json:"schema"`
 	ID     string `json:"id"`
 	From   string `json:"from"`
+	// Kind is "notice" for an automatic completion notice. Empty means an agent wrote the message.
+	Kind string `json:"kind,omitempty"`
 	// Snapshot the sender's label so queued envelopes remain stable after renames.
 	FromName    string `json:"from_name,omitempty"`
 	FromLabel   string `json:"from_label,omitempty"`

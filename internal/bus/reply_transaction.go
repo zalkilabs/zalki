@@ -39,6 +39,9 @@ func (s Store) prepareReply(request ReplyRequest) (msg Message, target Session, 
 		if parent.To != actor {
 			return fail(CodeUnauthorized, "only the bound recipient can reply")
 		}
+		if parent.Kind == noticeKind {
+			return fail(CodeInvalidInput, "this is an automatic notice; use send_message to %s", parent.From)
+		}
 		if !parent.Status.canAcknowledge() {
 			return fail(CodeInvalidTransition, "cannot acknowledge a message that was not sent")
 		}
