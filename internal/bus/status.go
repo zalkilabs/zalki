@@ -76,6 +76,7 @@ const (
 	CodeUnauthorized      ErrorCode = "unauthorized"
 	CodeConflict          ErrorCode = "conflict"
 	CodeUnavailable       ErrorCode = "unavailable"
+	CodeRateLimited       ErrorCode = "rate_limited"
 	CodeNotFound          ErrorCode = "not_found"
 	CodeUnsupportedSchema ErrorCode = "unsupported_schema"
 	CodeInvalidTransition ErrorCode = "invalid_transition"

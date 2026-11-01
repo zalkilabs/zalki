@@ -59,6 +59,14 @@ received history. These views omit bodies unless `include_body:true`; continue
 pages with the same options and `cursor=next_cursor`. Default reads remain the
 unread inbox. `list_agents` takes no arguments.
 
+Agent messages have flood limits: each sender-to-target pair has a burst of 12,
+refills 12 messages/minute, and can admit 120 messages in a rolling hour. A
+target's combined limit is a burst of 48, refill of 40/minute, and 400/hour.
+Over-limit calls return `rate_limited` with a retry time; they are never silently
+queued. Reuse the same message ID for a deliberate retry. Completion notices
+are exempt. See the [design and traffic measurements](docs/design/flood-protection.md)
+for storage behavior and the proposed human-reset loop guard.
+
 `watch_agent` asks for one notice when another agent next finishes a turn or
 ends its session. The notice is a Zalki notice, not a message from that agent,
 and a reply to it is rejected. It can include up to 200 bytes of that agent's

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func (s Store) message(id string) (Message, error) {
@@ -107,6 +108,14 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (Message, Sessi
 			if err := s.holdForApproval(&message); err != nil {
 				return err
 			}
+		}
+		if err := s.consumeFloodQuota(message, time.Now()); err != nil {
+			message.Status = StatusNotSent
+			message.Held = false
+			message.Receipt = &Receipt{At: timestamp(), Status: StatusNotSent, Code: ErrorCodeOf(err), Error: err.Error()}
+			return err
+		}
+		if target.State == StateApproval {
 			if persist {
 				if err := s.rememberApprovalHold(message.To, 1); err != nil {
 					return err

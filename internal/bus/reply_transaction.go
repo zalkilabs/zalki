@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
 )
@@ -51,6 +52,18 @@ func (s Store) prepareReply(request ReplyRequest) (msg Message, target Session, 
 			target.ID = parent.From
 			msg, err = s.outgoingMessage(sender, target, replyID(actor, parent.ID, body), body, parent.ID)
 			msg.Status, msg.Receipt, fresh = StatusNotSent, refusal, false
+			// Refused reply records also grow the journal. They must use quota,
+			// while a retry of an existing record must not spend it again.
+			if err == nil {
+				if _, lookupErr := s.message(msg.ID); errors.Is(lookupErr, os.ErrNotExist) {
+					err = s.consumeFloodQuota(msg, time.Now())
+				} else if lookupErr != nil {
+					err = lookupErr
+				}
+				if err != nil {
+					msg.Receipt = &Receipt{At: timestamp(), Status: StatusNotSent, Code: ErrorCodeOf(err), Error: err.Error()}
+				}
+			}
 		}
 		if err != nil {
 			return err

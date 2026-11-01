@@ -20,6 +20,7 @@ type PruneReport struct {
 	Runtimes        []string    `json:"runtimes"`
 	DeletedSessions []PruneItem `json:"deleted_sessions"`
 	DeletedLocks    []string    `json:"deleted_locks"`
+	DeletedFlood    []string    `json:"deleted_flood"`
 }
 
 // DefaultRetiredRetention is how long a retired session record is kept.
@@ -80,7 +81,7 @@ func (s Store) Prune(dryRun bool, selected []string) (PruneReport, error) {
 // PruneRetired retires exited sessions and deletes retired records older than
 // retiredOlderThan. Messages are kept. A negative window is rejected.
 func (s Store) PruneRetired(dryRun bool, selected []string, retiredOlderThan time.Duration) (PruneReport, error) {
-	report := PruneReport{DryRun: dryRun, Sessions: []PruneItem{}, Runtimes: []string{}, DeletedSessions: []PruneItem{}, DeletedLocks: []string{}}
+	report := PruneReport{DryRun: dryRun, Sessions: []PruneItem{}, Runtimes: []string{}, DeletedSessions: []PruneItem{}, DeletedLocks: []string{}, DeletedFlood: []string{}}
 	if retiredOlderThan < 0 {
 		return report, errors.New("retired retention window must not be negative")
 	}
@@ -155,6 +156,9 @@ func (s Store) PruneRetired(dryRun bool, selected []string, retiredOlderThan tim
 			return err
 		}
 		if err := s.deleteOrphanListenerLocks(dryRun, &report); err != nil {
+			return err
+		}
+		if err := s.deleteOrphanFlood(dryRun, &report); err != nil {
 			return err
 		}
 		for _, v := range runtimes {
