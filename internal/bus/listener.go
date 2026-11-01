@@ -212,6 +212,14 @@ func (l *Lease) WakeEmitted(messageID string) {
 	l.store.logEvent(slog.LevelInfo, "listener.wake_emitted", eventData{Actor: l.actor, MessageID: messageID, Generation: l.gen})
 }
 
+// releaseListenerLease drops the persisted lease. The following saveSession
+// writes recordSchema, which older builds can read. A process that still holds
+// the lifetime lock is fenced: owns requires the record to name its lease, so
+// that process cannot confirm, validate, or clear the record.
+func releaseListenerLease(v *Session) {
+	v.Listener = nil
+}
+
 // Close clears the lease record only while it still records this lease's ID,
 // generation and endpoint, then releases the lifetime lock either way. It is
 // idempotent; cause is the listener's exit error.
@@ -229,7 +237,7 @@ func (l *Lease) Close(cause error) {
 			if !l.owns(current) {
 				return nil
 			}
-			current.Listener = nil
+			releaseListenerLease(&current)
 			return l.store.saveSession(current)
 		})
 		if err != nil {

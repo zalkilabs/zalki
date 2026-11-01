@@ -188,6 +188,7 @@ func (s Store) Update(id string, state SessionState, retire bool) error {
 		if retire {
 			current.Retired = true
 			current.RetiredReason = "session_end"
+			releaseListenerLease(&current)
 		}
 		if err := s.saveSession(current); err != nil {
 			return err
