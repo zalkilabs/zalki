@@ -50,7 +50,7 @@ new message, so Zalki does not deduplicate it by body.
 `reply_message` needs `actor`, `capability`, the **incoming** `message_id`, and
 `body`. It already generates the outgoing ID and safely reuses it for the same
 parent and reply body. Receipts include a short `note` when delivery is deferred
-or approval prevents sending; the status remains authoritative. A busy-target
+or queued for approval; the status remains authoritative. A busy-target
 note describes timing observed at that attempt, not proof of reading.
 
 Both tools also accept `message` for `body`; `reply_message` accepts
@@ -67,6 +67,13 @@ ID or current unique name) and request `preview:true` for a single-line preview
 of at most 80 UTF-8 bytes. Previews omit the rest of the body; full-body access
 still follows the existing rules. Use the exact ID to filter a deleted recipient.
 Neither option is accepted on inbox reads.
+
+When a target is waiting on a permission prompt (`approval`), Zalki holds up to
+eight messages for that session without injecting or acknowledging them. Delivery
+resumes through the normal lifecycle hooks after the prompt is answered. A full
+approval queue rejects additional sends; a queued message's receipt does not
+confirm that the target read it. Retirement, owner exit, or a changed registration
+can settle queued messages as not sent; check their receipts.
 
 Agent messages have flood limits: each sender-to-target pair has a burst of 12,
 refills 12 messages/minute, and can admit 120 messages in a rolling hour. A
@@ -86,8 +93,8 @@ Codex watch fires only when a turn goes idle.
 The MCP `list_agents` tool works without arguments. Optionally provide your
 `actor` and `capability` together to mark your row with `self:true`.
 Incomplete or invalid credentials return an error. It returns each agent's ID,
-optional name, optional `task`, working directory, and `updated_at` (last recorded registration or
-lifecycle activity, in UTC seconds, not a heartbeat). `task` is that agent's
+optional name, optional `task`, working directory, and `updated_at` (last recorded
+registration or lifecycle activity, in UTC seconds, not a heartbeat). `task` is that agent's
 own unverified claim about its current work. It is omitted when empty and is
 not an address. `set_task` is the only way to set it. The ID prefix identifies
 the kind. Omitted `state` means `ready`, omitted `liveness` means `unknown`, and
@@ -96,7 +103,7 @@ omitted `experimental` means false. `delivery` is the busy-session timing:
 `next_hook` imply idle wake; an explicit `idle_wake` overrides that default.
 These are per-session capabilities: Cursor's listener and Codex's verified
 app-server support can change them. They do not prove that a terminal is live
-or a message was read. Agents in `approval` refuse delivery until approval ends.
+or a message was read. Permission-prompt queues follow the limits described above.
 For full transport and setup details, use `zalki list` or `zalki doctor`;
 the CLI JSON format is unchanged.
 
@@ -108,6 +115,17 @@ zalki uninstall --apply
 
 Upgrade and uninstall preview changes when `--apply` is omitted.
 Use `--state` to choose the state directory.
+
+### Retired sessions
+
+`zalki prune --dry-run` previews cleanup; `zalki prune` applies it. Prune retires
+sessions with confirmed owner exit and removes already-retired session records
+older than seven days by default, while keeping message history. Age alone does
+not retire an active registration. Use `--retired-older-than` to change the
+retention window (for example, `336h` for fourteen days); `0` removes every
+already-retired record. Cleanup runs only when you invoke prune. For a legacy
+registration whose owner cannot be checked, `--session kind:UUID` explicitly
+selects that exact session for retirement.
 
 ### Upgrading
 
