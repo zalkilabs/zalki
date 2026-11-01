@@ -158,7 +158,7 @@ func (s Store) authenticate(id, key string) (Session, error) {
 	if current.Retired {
 		return current, fail(CodeUnavailable, "session is retired; registration is required")
 	}
-	if processLiveness(current.Owner) == "exited" {
+	if s.sessionLiveness(current) == livenessExited {
 		return current, fail(CodeUnavailable, "registered owner process has exited; resume or register the session again")
 	}
 	hash := sha256.Sum256([]byte(key))
@@ -213,8 +213,8 @@ func (s Store) sessions() ([]Session, error) {
 		return nil, err
 	}
 	for _, v := range rows {
-		v.Liveness = processLiveness(v.Owner)
-		if !v.Retired && v.Liveness != "exited" {
+		v.Liveness = s.sessionLiveness(v)
+		if !v.Retired && v.Liveness != livenessExited {
 			v.KeyHash = ""
 			sessions = append(sessions, v)
 		}

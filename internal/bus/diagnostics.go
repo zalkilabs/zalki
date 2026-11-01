@@ -110,7 +110,7 @@ func (s Store) Prune(dryRun bool, selected []string) (PruneReport, error) {
 			reason := ""
 			if explicit[v.ID] {
 				reason = "explicit_cleanup"
-			} else if processLiveness(v.Owner) == "exited" {
+			} else if s.sessionLiveness(v) == livenessExited {
 				reason = "owner_exited"
 			}
 			if reason == "" {
@@ -212,7 +212,7 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 	s.nativeNames(sessions)
 	for _, v := range sessions {
 		d := SessionDiagnostic{ID: v.ID, Kind: v.Kind, Name: v.Name, State: v.State, Retired: v.Retired,
-			RetiredReason: v.RetiredReason, Liveness: processLiveness(v.Owner), Owner: v.Owner,
+			RetiredReason: v.RetiredReason, Liveness: s.sessionLiveness(v), Owner: v.Owner,
 			UpdatedAt: v.UpdatedAt, HookBuild: v.HookBuild, HookBuildStatus: "unknown"}
 		if v.HookBuild != "" && report.Runtime.DiskBuild != "" {
 			d.HookBuildStatus = "current"

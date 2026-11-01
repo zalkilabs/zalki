@@ -47,6 +47,9 @@ func (s Store) nativeOwner(kind string) *ProcessRef {
 	if err != nil {
 		return nil
 	}
+	if !s.tracksOwnProcess(kind) {
+		return nil
+	}
 	return ownerFrom(adapter.Descriptor(), os.Getppid(), readProcess)
 }
 
@@ -83,7 +86,13 @@ func (s Store) rememberOwner(id, kind string, refresh bool) error {
 		}
 		changed := false
 		if !v.Retired || refresh {
-			if v.Owner == nil || refresh {
+			if !s.tracksOwnProcess(kind) {
+				// A shared helper or daemon is not this session. Drop one that
+				// an older build recorded.
+				if refresh && v.Owner != nil {
+					v.Owner, changed = nil, true
+				}
+			} else if v.Owner == nil || refresh {
 				if owner := s.nativeOwner(kind); owner != nil {
 					v.Owner, changed = owner, true
 				} else if refresh && processLiveness(v.Owner) == "exited" {
