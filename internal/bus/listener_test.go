@@ -106,6 +106,32 @@ func TestListenerLeaseIsExclusiveUntilClosed(t *testing.T) {
 	acquire(t, store, to.ID, key)
 }
 
+func TestAcquireDropsALockUnlinkedBeforeFlock(t *testing.T) {
+	store := fixtureStore(t)
+	to, key := register(t, store, "cursor")
+	unlinked := false
+	listenerLockBeforeFlock = func(path string) {
+		if !unlinked {
+			if err := os.Remove(path); err != nil {
+				t.Errorf("unlink lock: %v", err)
+			}
+			unlinked = true
+		}
+	}
+	t.Cleanup(func() { listenerLockBeforeFlock = nil })
+	lease, err := store.AcquireListenerLease(to.ID, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { lease.Close(nil) })
+	if !unlinked {
+		t.Fatal("lock file was not unlinked between open and flock")
+	}
+	if _, err := store.AcquireListenerLease(to.ID, key); ErrorCodeOf(err) != CodeConflict {
+		t.Fatal("a second lease acquired the replacement lock file", err)
+	}
+}
+
 func TestListenerLeaseLifecycleWritesLeaseOnlyUnderItsSchema(t *testing.T) {
 	store := fixtureStore(t)
 	to, key := register(t, store, "cursor")
