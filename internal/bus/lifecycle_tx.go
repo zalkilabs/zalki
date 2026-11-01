@@ -167,7 +167,7 @@ func (h hookRuntime) ClaimRecovery(policy func(SessionView) (RecoveryDecision, e
 		if !ok || err != nil {
 			return err
 		}
-		if v.Retired || processLiveness(v.Owner) == "exited" || v.State == StateApproval || h.store.listenerStatus(v) == ListenerRunning {
+		if v.Retired || h.store.sessionLiveness(v) == livenessExited || v.State == StateApproval || h.store.listenerStatus(v) == ListenerRunning {
 			return nil
 		}
 		decision, err := policy(viewOf(v))
