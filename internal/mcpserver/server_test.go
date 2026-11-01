@@ -400,7 +400,7 @@ func TestBinarySTDIOAndCursorHook(t *testing.T) {
 		var value struct {
 			Data map[string]any `json:"data"`
 		}
-		if err := json.Unmarshal(encoded, &value); err != nil || len(value.Data) != 3 || value.Data["status"] != "pending_next_activity" || value.Data["acknowledged"] != false {
+		if err := json.Unmarshal(encoded, &value); err != nil || len(value.Data) != 4 || value.Data["status"] != "pending_next_activity" || value.Data["acknowledged"] != false || value.Data["note"] != "Deferred until the next delivery hook." {
 			t.Fatalf("reply must return a compact outgoing receipt: %s %v", encoded, err)
 		}
 		currentID, ok := value.Data["id"].(string)

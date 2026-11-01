@@ -40,6 +40,25 @@ Send "ping" to cursor:Backend review and request one reply.
 Use a name from the list. Replies arrive through the client's native delivery path.
 Transport acceptance does not confirm that the receiving agent read the message.
 
+`send_message` needs `actor`, `capability`, `to`, and `body`. It generates an ID
+when `message_id` is omitted and returns that ID in the receipt. For safe retries,
+provide a stable `message_id` before the first attempt and reuse it with the same
+destination and body. If a call without an ID times out after writing, retrying
+without an ID can send a duplicate; identical text can also be an intentional
+new message, so Zalki does not deduplicate it by body.
+
+`reply_message` needs `actor`, `capability`, the **incoming** `message_id`, and
+`body`. It already generates the outgoing ID and safely reuses it for the same
+parent and reply body. Receipts include a short `note` when delivery is deferred
+or approval prevents sending; the status remains authoritative. A busy-target
+note describes timing observed at that attempt, not proof of reading.
+
+Use `list_messages` with `sent:true` to see your sent messages and their delivery
+status and `acknowledged_at`, newest first. `history:true` includes both sent and
+received history. These views omit bodies unless `include_body:true`; continue
+pages with the same options and `cursor=next_cursor`. Default reads remain the
+unread inbox. `list_agents` takes no arguments.
+
 `watch_agent` asks for one notice when another agent next finishes a turn or
 ends its session. The notice is a Zalki notice, not a message from that agent,
 and a reply to it is rejected. It can include up to 200 bytes of that agent's

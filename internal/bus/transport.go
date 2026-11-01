@@ -94,6 +94,9 @@ type Service struct {
 }
 
 func (s *Service) Send(ctx context.Context, request SendRequest) (result Message, err error) {
+	if request.MessageID == "" {
+		request.MessageID = newID()
+	}
 	actor, key, to, id, body := request.Actor, request.Capability, request.To, request.MessageID, request.Body
 	defer func() {
 		if err != nil {
@@ -164,7 +167,11 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 		level = slog.LevelWarn
 	}
 	s.Store.logEvent(level, "transport.completed", data)
-	return s.Store.Finish(id, receipt)
+	result, err := s.Store.Finish(id, receipt)
+	if err == nil && target.State == StateBusy {
+		result.BusyDelivery = target.Receive.BusyDelivery
+	}
+	return result, err
 }
 
 func validateMessageBody(body, key string) error {
