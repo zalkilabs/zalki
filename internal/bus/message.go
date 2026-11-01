@@ -104,12 +104,22 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (Message, Sessi
 			message.RequestedTo = requestedTo
 		}
 		if target.State == StateApproval {
-			message.Status = StatusApprovalBlocked
+			if err := s.holdForApproval(&message); err != nil {
+				return err
+			}
+			if persist {
+				if err := s.rememberApprovalHold(message.To, 1); err != nil {
+					return err
+				}
+			}
 		} else {
 			fresh = true
 		}
 		if persist {
 			if err := s.saveMessage(message); err != nil {
+				if message.Status == StatusApprovalBlocked {
+					_ = s.rememberApprovalHold(message.To, -1)
+				}
 				return err
 			}
 			s.logReservation(message)

@@ -28,10 +28,13 @@ type Session struct {
 	UpdatedAt       string       `json:"updated_at"`
 	Retired         bool         `json:"retired"`
 	RetiredReason   string       `json:"retired_reason,omitempty"`
-	Owner           *ProcessRef  `json:"owner,omitempty"`
-	Liveness        string       `json:"liveness,omitempty"`
-	HookBuild       string       `json:"hook_build,omitempty"`
-	Endpoint        *Endpoint    `json:"endpoint,omitempty"`
+	// ApprovalHeld is how many messages are waiting for this session's permission
+	// prompt. Hooks skip the message journal when it is zero.
+	ApprovalHeld int         `json:"approval_held,omitempty"`
+	Owner        *ProcessRef `json:"owner,omitempty"`
+	Liveness     string      `json:"liveness,omitempty"`
+	HookBuild    string      `json:"hook_build,omitempty"`
+	Endpoint     *Endpoint   `json:"endpoint,omitempty"`
 	// Listener is the core-owned lease of a native listener. Records that carry
 	// one are written as leaseSessionSchema, which older builds refuse to read.
 	Listener *ListenerLease      `json:"listener,omitempty"`
@@ -82,6 +85,10 @@ type Message struct {
 	TargetGeneration string         `json:"target_generation"`
 	CreatedAt        string         `json:"created_at"`
 	Status           DeliveryStatus `json:"status"`
-	Receipt          *Receipt       `json:"receipt,omitempty"`
-	AcknowledgedAt   string         `json:"acknowledged_at,omitempty"`
+	// Held marks a message this build queued for a permission prompt. Older
+	// builds used the same status for a final refusal, and those records must
+	// not be released later.
+	Held           bool     `json:"held,omitempty"`
+	Receipt        *Receipt `json:"receipt,omitempty"`
+	AcknowledgedAt string   `json:"acknowledged_at,omitempty"`
 }

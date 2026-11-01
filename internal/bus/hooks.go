@@ -99,7 +99,8 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 		return err
 	}
 	if handled {
-		return nil
+		stage = "approval"
+		return s.releaseApprovalQueue(context.Background(), id)
 	}
 	if event.Event == "SessionStart" {
 		stage = "register"
@@ -139,16 +140,22 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 		}
 	}
 	stage = "state"
+	var stateErr error
 	switch event.Event {
 	case "SessionEnd":
-		return s.Store.Update(id, StateRetired, true)
+		stateErr = s.Store.Update(id, StateRetired, true)
 	case "PermissionRequest":
-		return s.Store.Update(id, StateApproval, false)
+		stateErr = s.Store.Update(id, StateApproval, false)
 	case "PostToolUse", "UserPromptSubmit":
-		return s.Store.Update(id, StateBusy, false)
+		stateErr = s.Store.Update(id, StateBusy, false)
 	case "Stop", "Interrupt":
-		return s.Store.Update(id, StateReady, false)
+		stateErr = s.Store.Update(id, StateReady, false)
 	default:
 		return errors.New("unsupported agent lifecycle event")
 	}
+	if stateErr != nil {
+		return stateErr
+	}
+	stage = "approval"
+	return s.releaseApprovalQueue(context.Background(), id)
 }
