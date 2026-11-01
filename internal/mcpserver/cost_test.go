@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,6 +15,9 @@ import (
 )
 
 func TestCollaborationCost(t *testing.T) {
+	for _, variable := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR"} {
+		t.Setenv(variable, t.TempDir())
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	store := bus.Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: adapters.Builtin()}
@@ -113,6 +117,54 @@ func TestCollaborationCost(t *testing.T) {
 	if metrics.ResponseBytes > 6*1024 {
 		t.Fatalf("review workflow exceeded response budget: %d bytes", metrics.ResponseBytes)
 	}
+	// Keep the entire tools/list schema within 8 KiB, including discovery.
+	if metrics.SchemaBytes > 8*1024 {
+		t.Fatalf("tool schemas exceeded budget: %d bytes", metrics.SchemaBytes)
+	}
 	encoded, _ := json.Marshal(metrics)
 	t.Log(string(encoded))
+
+	t.Run("discovery", func(t *testing.T) {
+		// Eleven agents across all built-in kinds, including the two above.
+		for i := range 9 {
+			kind := []string{"claude", "codex", "cursor"}[i%3]
+			var endpoint *bus.Endpoint
+			if kind == "claude" {
+				endpoint = &bus.Endpoint{Path: "/fixture/not-a-real-socket"}
+			}
+			if _, _, err := store.Register(kind, fmt.Sprintf("00000000-0000-4000-8000-%012d", 200+i), "/workspace/project", endpoint); err != nil {
+				t.Fatal(err)
+			}
+		}
+		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_agents", Arguments: map[string]any{}})
+		if err != nil || result.IsError {
+			t.Fatal("discovery call failed", err)
+		}
+		response, err := json.Marshal(result.StructuredContent)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var output Output[[]bus.AgentInfo]
+		if err := json.Unmarshal(response, &output); err != nil || len(output.Data) != 11 {
+			t.Fatalf("discovery must include eleven typed rows: %s %v", response, err)
+		}
+		// Includes the data envelope and activity timestamps. Transport details
+		// belong in diagnostics, not in every discovery row or its schema.
+		if len(response) > 150*len(output.Data) {
+			t.Fatalf("discovery exceeded 150 bytes/agent: %d bytes for %d agents", len(response), len(output.Data))
+		}
+		// SDK/spec compatibility mirrors the JSON into text. Report the full
+		// result too, rather than presenting single-channel bytes as wire cost.
+		wire, err := json.Marshal(result)
+		if err != nil {
+			t.Fatal(err)
+		}
+		textBytes := 0
+		for _, content := range result.Content {
+			if text, ok := content.(*mcp.TextContent); ok {
+				textBytes += len(text.Text)
+			}
+		}
+		t.Logf("discovery: agents=%d response_bytes=%d bytes_per_agent=%.1f text_bytes=%d tool_result_bytes=%d schema_bytes=%d", len(output.Data), len(response), float64(len(response))/float64(len(output.Data)), textBytes, len(wire), len(schema))
+	})
 }
