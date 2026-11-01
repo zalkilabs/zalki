@@ -227,11 +227,22 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 			TargetGeneration: current.Generation, CreatedAt: timestamp(), Status: StatusAttempting,
 		}
 		if current.State == StateApproval {
-			msg.Status = StatusApprovalBlocked
+			if err := s.Store.holdForApproval(&msg); err != nil {
+				msg.Status = StatusNotSent
+				msg.Receipt = &Receipt{At: timestamp(), Status: StatusNotSent, Code: ErrorCodeOf(err), Error: err.Error()}
+			} else if err := s.Store.rememberApprovalHold(msg.To, 1); err != nil {
+				return err
+			}
 		} else {
 			fresh = true
 		}
-		return s.Store.saveMessage(msg)
+		if err := s.Store.saveMessage(msg); err != nil {
+			if msg.Status == StatusApprovalBlocked {
+				_ = s.Store.rememberApprovalHold(msg.To, -1)
+			}
+			return err
+		}
+		return nil
 	})
 	if err != nil || !fresh || msg.ID == "" {
 		return msg, err

@@ -122,23 +122,25 @@ func (s Store) register(kind, id, cwd string, endpoint *Endpoint, compact bool) 
 	session.Receive = adapter.ReceiveCapabilities(session)
 	err = s.locked(func() error {
 		preserved := false
-		if current, err := s.session(full); err == nil && NativeID(current) != native {
+		current, err := s.session(full)
+		exists := err == nil
+		if exists && NativeID(current) != native {
 			return fail(CodeConflict, "native session identity collision")
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		if compact {
-			current, err := s.session(full)
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
+		if compact && exists && !current.Retired {
+			preserved = true
+			session.Generation = current.Generation
+			session.Name, session.NameSource = current.Name, current.NameSource
+			session.Owner = current.Owner
+			session.State = current.State
+			session.AdapterState = current.AdapterState
+			session.ApprovalHeld = current.ApprovalHeld
+		}
+		if !preserved && exists {
+			if err := s.settleApprovalQueue(full, "destination registration changed before delivery"); err != nil {
 				return err
-			}
-			if err == nil && !current.Retired {
-				preserved = true
-				session.Generation = current.Generation
-				session.Name, session.NameSource = current.Name, current.NameSource
-				session.Owner = current.Owner
-				session.State = current.State
-				session.AdapterState = current.AdapterState
 			}
 		}
 		if err := s.saveSession(session); err != nil {

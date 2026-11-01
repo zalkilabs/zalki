@@ -1,0 +1,222 @@
+package bus
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+// approvalQueueCap bounds messages waiting on one session's permission prompt.
+const approvalQueueCap = 8
+
+const approvalQueuedNote = "queued until the permission prompt is answered"
+
+// holdForApproval marks msg as waiting on the target's permission prompt.
+// The caller holds the journal lock and then saves the message with
+// rememberApprovalHold so the session count matches the journal.
+func (s Store) holdForApproval(msg *Message) error {
+	target, err := s.session(msg.To)
+	if err != nil {
+		return err
+	}
+	if target.ApprovalHeld >= approvalQueueCap {
+		return fail(CodeUnavailable, "too many messages are waiting for this session's permission prompt")
+	}
+	msg.Status = StatusApprovalBlocked
+	msg.Held = true
+	msg.Receipt = &Receipt{At: timestamp(), Status: StatusApprovalBlocked, Error: approvalQueuedNote}
+	return nil
+}
+
+// rememberApprovalHold moves the target's queued-message count by delta.
+// The caller holds the journal lock. A positive delta is written before the
+// message so a crash cannot leave a queued message with a zero count.
+func (s Store) rememberApprovalHold(targetID string, delta int) error {
+	if delta == 0 {
+		return nil
+	}
+	current, err := s.session(targetID)
+	if err != nil {
+		return err
+	}
+	current.ApprovalHeld += delta
+	if current.ApprovalHeld < 0 {
+		current.ApprovalHeld = 0
+	}
+	return s.saveSession(current)
+}
+
+func (s Store) clearApprovalHeld(targetID string) error {
+	current, err := s.session(targetID)
+	if err != nil {
+		return err
+	}
+	if current.ApprovalHeld == 0 {
+		return nil
+	}
+	current.ApprovalHeld = 0
+	return s.saveSession(current)
+}
+
+// queuedApprovals returns approval-blocked messages for target in send order.
+// The caller holds the journal lock.
+func (s Store) queuedApprovals(target string) ([]Message, error) {
+	files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
+	if err != nil {
+		return nil, err
+	}
+	queued := []Message{}
+	for _, file := range files {
+		msg, err := s.message(strings.TrimSuffix(filepath.Base(file), ".json"))
+		if err != nil {
+			return nil, err
+		}
+		if msg.To == target && msg.Held && msg.Status == StatusApprovalBlocked {
+			queued = append(queued, msg)
+		}
+	}
+	sort.Slice(queued, func(i, j int) bool {
+		if queued[i].CreatedAt == queued[j].CreatedAt {
+			return queued[i].ID < queued[j].ID
+		}
+		return queued[i].CreatedAt < queued[j].CreatedAt
+	})
+	return queued, nil
+}
+
+func (s Store) settleQueued(msg Message, reason string) error {
+	current, err := s.message(msg.ID)
+	if err != nil {
+		return err
+	}
+	if !current.Held || current.Status != StatusApprovalBlocked {
+		return nil
+	}
+	current.Held = false
+	current.Status = StatusNotSent
+	current.Receipt = &Receipt{At: timestamp(), Status: StatusNotSent, Code: CodeUnavailable, Error: reason}
+	return s.saveMessage(current)
+}
+
+func (s Store) settleApprovalQueue(actor, reason string) error {
+	queued, err := s.queuedApprovals(actor)
+	if err != nil {
+		return err
+	}
+	for _, msg := range queued {
+		if err := s.settleQueued(msg, reason); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// adoptApprovalQueue moves a resolved session's queued messages into the hook
+// inbox. A later EmitPending writes them into hook context. The caller holds
+// the journal lock.
+func (s Store) adoptApprovalQueue(current Session) error {
+	queued, err := s.queuedApprovals(current.ID)
+	if err != nil {
+		return err
+	}
+	for _, msg := range queued {
+		if msg.TargetGeneration != current.Generation {
+			if err := s.settleQueued(msg, "destination registration changed before delivery"); err != nil {
+				return err
+			}
+			continue
+		}
+		msg.Held = false
+		msg.Status = StatusPendingActivity
+		msg.Receipt = &Receipt{At: timestamp(), Status: StatusPendingActivity}
+		if err := s.saveMessage(msg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// releaseApprovalQueue delivers messages that were waiting for actor's
+// permission prompt. It runs after the hook has recorded the new session
+// state. Retired and exited sessions end those messages as not sent.
+func (s *Service) releaseApprovalQueue(ctx context.Context, actor string) error {
+	var jobs []Message
+	var target Session
+	err := s.Store.locked(func() error {
+		current, err := s.Store.session(actor)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if current.ApprovalHeld == 0 {
+			return nil
+		}
+		queued, err := s.Store.queuedApprovals(actor)
+		if err != nil {
+			return err
+		}
+		if len(queued) == 0 {
+			return s.Store.clearApprovalHeld(actor)
+		}
+		if current.Retired {
+			if err := s.Store.settleApprovalQueue(actor, "destination has retired"); err != nil {
+				return err
+			}
+			return s.Store.clearApprovalHeld(actor)
+		}
+		if s.Store.sessionLiveness(current) == livenessExited {
+			if err := s.Store.settleApprovalQueue(actor, "destination owner process has exited"); err != nil {
+				return err
+			}
+			return s.Store.clearApprovalHeld(actor)
+		}
+		if current.State == StateApproval {
+			return nil
+		}
+		if current.Receive.HookDelivery {
+			if err := s.Store.adoptApprovalQueue(current); err != nil {
+				return err
+			}
+			return s.Store.clearApprovalHeld(actor)
+		}
+		target = current
+		for _, msg := range queued {
+			if msg.TargetGeneration != current.Generation {
+				if err := s.Store.settleQueued(msg, "destination registration changed before delivery"); err != nil {
+					return err
+				}
+				continue
+			}
+			currentMsg, err := s.Store.message(msg.ID)
+			if err != nil {
+				return err
+			}
+			if !currentMsg.Held || currentMsg.Status != StatusApprovalBlocked {
+				continue
+			}
+			currentMsg.Held = false
+			currentMsg.Status = StatusAttempting
+			currentMsg.Receipt = nil
+			if err := s.Store.saveMessage(currentMsg); err != nil {
+				return err
+			}
+			jobs = append(jobs, currentMsg)
+		}
+		return s.Store.clearApprovalHeld(actor)
+	})
+	if err != nil || len(jobs) == 0 {
+		return err
+	}
+	var first error
+	for _, msg := range jobs {
+		if _, err := s.deliverReserved(ctx, msg, target); err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
+}

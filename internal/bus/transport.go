@@ -116,6 +116,7 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 	if err != nil {
 		return Message{}, err
 	}
+	var held Message
 	err = s.Store.locked(func() error {
 		current, err := s.Store.session(target.ID)
 		if err != nil {
@@ -128,11 +129,29 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 			return fail(CodeUnavailable, "destination owner process exited before delivery")
 		}
 		if current.State == StateApproval {
-			return fail(CodeUnavailable, "destination entered tool approval before delivery")
+			stored, err := s.Store.message(id)
+			if err != nil {
+				return err
+			}
+			if err := s.Store.holdForApproval(&stored); err != nil {
+				return err
+			}
+			if err := s.Store.rememberApprovalHold(stored.To, 1); err != nil {
+				return err
+			}
+			if err := s.Store.saveMessage(stored); err != nil {
+				_ = s.Store.rememberApprovalHold(stored.To, -1)
+				return err
+			}
+			held = stored
+			return nil
 		}
 		target = current
 		return nil
 	})
+	if held.ID != "" {
+		return held, nil
+	}
 	if err != nil {
 		return s.Store.Finish(id, Receipt{At: timestamp(), Status: StatusNotSent, Error: err.Error(), cause: err})
 	}
