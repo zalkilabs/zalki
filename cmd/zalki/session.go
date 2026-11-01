@@ -88,13 +88,29 @@ func newCursorListenCommand(opts *commandOptions) *cobra.Command {
 	return cmd
 }
 
+// sendArgs preserves the diagnostic CLI input contract independently of MCP.
+type sendArgs struct {
+	Actor       string `json:"actor"`
+	Capability  string `json:"capability"`
+	To          string `json:"to"`
+	MessageID   string `json:"message_id"`
+	Body        string `json:"body"`
+	History     bool   `json:"history,omitempty"`
+	Sent        bool   `json:"sent,omitempty"`
+	Preview     bool   `json:"preview,omitempty"`
+	Limit       int    `json:"limit,omitempty"`
+	IncludeBody bool   `json:"include_body,omitempty"`
+	Cursor      string `json:"cursor,omitempty"`
+	Task        string `json:"task,omitempty"`
+}
+
 func newSendCommand(opts *commandOptions) *cobra.Command {
 	return &cobra.Command{
 		Use: "send", Short: "Send a diagnostic agent message from JSON stdin", Args: cobra.NoArgs,
 		Long: "Send through the same authenticated service as MCP. Read the message JSON from stdin\nand your private SessionStart capability from ZALKI_CAPABILITY.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Keep message text out of shell arguments and credentials out of receipts.
-			var args bus.ToolArgs
+			var args sendArgs
 			decoder := json.NewDecoder(io.LimitReader(cmd.InOrStdin(), 128*1024))
 			decoder.DisallowUnknownFields()
 			if err := decoder.Decode(&args); err != nil {

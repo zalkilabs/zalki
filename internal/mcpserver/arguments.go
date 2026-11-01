@@ -10,16 +10,21 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+type argumentAlias struct {
+	alias, canonical string
+}
+
 // Run before SDK schema validation so a typo teaches the caller the contract.
-// Normalize supported aliases before validation; all other unknown fields are
+// Normalize declared aliases before validation; all other unknown fields are
 // rejected. Argument values are never echoed.
-func argumentHints(definitions []map[string]any) mcp.Middleware {
+func argumentHints(definitions []toolSpec) mcp.Middleware {
 	accepted := map[string][]string{}
+	specs := map[string]toolSpec{}
 	for _, definition := range definitions {
-		name := definition["name"].(string)
-		properties := definition["inputSchema"].(map[string]any)["properties"].(map[string]any)
+		name := definition.name
+		specs[name] = definition
 		accepted[name] = []string{}
-		for field := range properties {
+		for field := range definition.input.Properties {
 			accepted[name] = append(accepted[name], field)
 		}
 		slices.Sort(accepted[name])
@@ -30,73 +35,51 @@ func argumentHints(definitions []map[string]any) mcp.Middleware {
 			if method != "tools/call" || !ok {
 				return next(ctx, method, request)
 			}
-			fields, known := accepted[params.Name]
+			definition, known := specs[params.Name]
 			var arguments map[string]json.RawMessage
 			if !known || json.Unmarshal(params.Arguments, &arguments) != nil {
 				return next(ctx, method, request)
 			}
-			changed, err := normalizeAliases(params.Name, arguments)
+			changed, err := normalizeAliases(definition.aliases, arguments)
 			if err != nil {
-				result := &mcp.CallToolResult{}
-				result.SetError(err)
-				return result, nil
+				return argumentError(err), nil
 			}
+			fields := accepted[params.Name]
 			var unknown []string
 			for field := range arguments {
 				if !slices.Contains(fields, field) {
 					unknown = append(unknown, fmt.Sprintf("%q", field))
 				}
 			}
-			if len(unknown) == 0 {
-				if params.Name == "list_agents" {
-					_, actorGiven := arguments["actor"]
-					_, keyGiven := arguments["capability"]
-					if actorGiven || keyGiven {
-						var actor, key string
-						_ = json.Unmarshal(arguments["actor"], &actor)
-						_ = json.Unmarshal(arguments["capability"], &key)
-						if actor == "" || key == "" {
-							result := &mcp.CallToolResult{}
-							result.SetError(fmt.Errorf("actor and capability must both be nonempty when provided"))
-							return result, nil
-						}
-					}
-				}
-				if changed {
-					params.Arguments, _ = json.Marshal(arguments)
-				}
-				return next(ctx, method, request)
+			if len(unknown) != 0 {
+				slices.Sort(unknown)
+				return argumentError(fmt.Errorf("unknown fields %s; %s accepts %s.%s", strings.Join(unknown, ", "), definition.name, strings.Join(fields, ", "), definition.hint)), nil
 			}
-			slices.Sort(unknown)
-			hint := fmt.Sprintf("unknown fields %s; %s accepts %s.", strings.Join(unknown, ", "), params.Name, strings.Join(fields, ", "))
-			switch params.Name {
-			case "list_agents":
-				hint += " Omit credentials or provide actor and capability together to mark self."
-			case "send_message":
-				hint += " Use body for message text. message_id is optional; pass it to make retries safe."
-			case "reply_message":
-				hint += " message_id is the incoming message you are replying to; body is the reply. The outgoing ID is generated."
+			if definition.validate != nil {
+				if err := definition.validate(arguments); err != nil {
+					return argumentError(err), nil
+				}
 			}
-			result := &mcp.CallToolResult{}
-			result.SetError(fmt.Errorf("%s", hint))
-			return result, nil
+			if changed {
+				params.Arguments, _ = json.Marshal(arguments)
+			}
+			return next(ctx, method, request)
 		}
 	}
 }
 
-// normalizeAliases leaves schemas canonical while accepting common call spellings.
+func argumentError(err error) *mcp.CallToolResult {
+	result := &mcp.CallToolResult{}
+	result.SetError(err)
+	return result
+}
+
+// normalizeAliases leaves schemas canonical while accepting declared spellings.
 // String comparison is semantic, so JSON escape differences are not conflicts.
-func normalizeAliases(tool string, arguments map[string]json.RawMessage) (bool, error) {
-	if tool != "send_message" && tool != "reply_message" {
-		return false, nil
-	}
-	aliases := [][2]string{{"message", "body"}}
-	if tool == "reply_message" {
-		aliases = append(aliases, [2]string{"reply_to", "message_id"})
-	}
+func normalizeAliases(aliases []argumentAlias, arguments map[string]json.RawMessage) (bool, error) {
 	changed := false
 	for _, pair := range aliases {
-		alias, canonical := pair[0], pair[1]
+		alias, canonical := pair.alias, pair.canonical
 		raw, exists := arguments[alias]
 		if !exists {
 			continue
