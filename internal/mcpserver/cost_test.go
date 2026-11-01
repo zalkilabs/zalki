@@ -86,9 +86,16 @@ func TestCollaborationCost(t *testing.T) {
 			t.Fatal("exact message body missing", err)
 		}
 	}
-	requestID := "00000000-0000-4000-8000-000000000103"
 	body := "Review this cache design: receipt metadata is cached after each read. The journal is authoritative, and other processes can acknowledge messages. Identify one correctness risk and a concrete fix."
-	call("send_message", map[string]any{"actor": author.ID, "capability": authorKey, "to": reviewer.ID, "message_id": requestID, "body": body})
+	data := call("send_message", map[string]any{"actor": author.ID, "capability": authorKey, "to": reviewer.ID, "body": body})
+	var initial MessageReceipt
+	if err := json.Unmarshal(data, &initial); err != nil {
+		t.Fatal(err)
+	}
+	requestID := initial.ID
+	if _, err := bus.UUID(requestID); err != nil {
+		t.Fatal("send omitted a generated ID", err)
+	}
 	read(reviewer.ID, reviewerKey, requestID, body)
 	parent := requestID
 	for i, text := range []string{

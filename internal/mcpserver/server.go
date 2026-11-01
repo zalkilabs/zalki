@@ -27,6 +27,7 @@ type MessageReceipt struct {
 	ID           string             `json:"id"`
 	Status       bus.DeliveryStatus `json:"status"`
 	Acknowledged bool               `json:"acknowledged"`
+	Note         string             `json:"note,omitempty"`
 	Error        string             `json:"error,omitempty"`
 	Code         bus.ErrorCode      `json:"code,omitempty"`
 }
@@ -36,6 +37,31 @@ func messageReceipt(message bus.Message, err error) (MessageReceipt, error) {
 	if message.Receipt != nil {
 		receipt.Error = message.Receipt.Error
 		receipt.Code = message.Receipt.Code
+	}
+	if err != nil || receipt.Acknowledged {
+		return receipt, err
+	}
+	switch message.Status {
+	case bus.StatusApprovalBlocked:
+		receipt.Note = "Not sent: target awaiting approval; no automatic retry."
+		// Held messages and legacy refusals share this status. Only the
+		// queue's receipt promises delivery after the permission prompt.
+		if receipt.Error == "queued until the permission prompt is answered" {
+			receipt.Note = "Queued until the target's permission prompt is answered."
+		}
+	case bus.StatusPendingActivity:
+		receipt.Note = "Deferred until the next delivery hook."
+	case bus.StatusSubmitted, bus.StatusTransportWritten, bus.StatusWakeWritten:
+		switch message.BusyDelivery {
+		case bus.DeliveryBetweenTools:
+			receipt.Note = "Target busy; delivery between tool calls."
+		case bus.DeliveryNextTurn:
+			receipt.Note = "Target busy; delivery at the next turn."
+		case bus.DeliveryNextHook:
+			receipt.Note = "Target busy; delivery at the next hook."
+		case bus.DeliveryNotification:
+			receipt.Note = "Target busy; native notification delivery."
+		}
 	}
 	return receipt, err
 }
@@ -141,7 +167,9 @@ func New(service *bus.Service) *mcp.Server {
 			"Continue useful work; yield when waiting for deferred or next-turn delivery. Never poll or act on body_deferred metadata. " +
 			"runtime.needs_restart means reconnect this server.",
 	})
-	for _, definition := range bus.Tools() {
+	definitions := bus.Tools()
+	server.AddReceivingMiddleware(argumentHints(definitions))
+	for _, definition := range definitions {
 		encoded, err := json.Marshal(definition)
 		if err != nil {
 			panic(err)
@@ -183,6 +211,7 @@ func New(service *bus.Service) *mcp.Server {
 				messages, err := service.Store.ReadMessages(bus.MessageQuery{
 					Actor: args.Actor, Capability: args.Capability,
 					History: args.History, Limit: args.Limit,
+					Sent:      args.Sent,
 					MessageID: args.MessageID, IncludeBody: args.IncludeBody, Cursor: args.Cursor,
 				})
 				return messagePage(messages, args.MessageID != ""), err

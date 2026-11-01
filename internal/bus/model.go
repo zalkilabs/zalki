@@ -63,9 +63,12 @@ type ReceiveCapabilities struct {
 }
 
 type Message struct {
-	Schema int    `json:"schema"`
-	ID     string `json:"id"`
-	From   string `json:"from"`
+	// BusyDelivery describes the target at this delivery attempt, not the
+	// current state of a historical message. It is never persisted.
+	BusyDelivery DeliveryTiming `json:"-"`
+	Schema       int            `json:"schema"`
+	ID           string         `json:"id"`
+	From         string         `json:"from"`
 	// Kind is "notice" for an automatic completion notice. Empty means an agent wrote the message.
 	Kind string `json:"kind,omitempty"`
 	// Snapshot the sender's label so queued envelopes remain stable after renames.

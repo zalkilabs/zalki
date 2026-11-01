@@ -104,8 +104,8 @@ make cost-check
 This benchmarks inbox scans versus exact-ID reads at 100, 1,000, and 10,000
 records, then measures request/response and tool-schema bytes for a scripted
 review/revision exchange and an eleven-agent discovery roster. The budgets are
-6 KiB of responses for the exchange, 8 KiB for all tool schemas, and 150 bytes
-per agent in the eleven-agent discovery fixture (including the envelope).
+6 KiB of responses for the exchange, 9,213 bytes for all tool schemas (including
+`watch_agent`), and 150 bytes per agent in the eleven-agent discovery fixture (including the envelope).
 Discovery keeps per-session `delivery`, optional `experimental`, and `updated_at`
 in UTC seconds. The ID prefix gives the kind; omitted state/liveness mean
 ready/unknown. Idle wake is implied except for `next_hook`; `idle_wake` overrides
