@@ -53,11 +53,20 @@ parent and reply body. Receipts include a short `note` when delivery is deferred
 or approval prevents sending; the status remains authoritative. A busy-target
 note describes timing observed at that attempt, not proof of reading.
 
+Both tools also accept `message` for `body`; `reply_message` accepts
+`reply_to` for the incoming `message_id`. The advertised schemas keep the
+canonical names. If both spellings are supplied, their string values must match;
+a conflict fails before sending or acknowledging anything.
+
 Use `list_messages` with `sent:true` to see your sent messages and their delivery
 status and `acknowledged_at`, newest first. `history:true` includes both sent and
 received history. These views omit bodies unless `include_body:true`; continue
 pages with the same options and `cursor=next_cursor`. Default reads remain the
-unread inbox. `list_agents` takes no arguments.
+unread inbox. With `sent:true`, optionally filter by `to` (an exact recipient
+ID or current unique name) and request `preview:true` for a single-line preview
+of at most 80 UTF-8 bytes. Previews omit the rest of the body; full-body access
+still follows the existing rules. Use the exact ID to filter a deleted recipient.
+Neither option is accepted on inbox reads.
 
 Agent messages have flood limits: each sender-to-target pair has a burst of 12,
 refills 12 messages/minute, and can admit 120 messages in a rolling hour. A
@@ -74,8 +83,10 @@ own last line. The agent does not opt in; Claude Code's `notify_when_idle`
 forwards a status line the same way. Codex has no session-end hook, so a
 Codex watch fires only when a turn goes idle.
 
-The MCP `list_agents` tool returns each agent's ID, optional name, optional
-`task`, working directory, and `updated_at` (last recorded registration or
+The MCP `list_agents` tool works without arguments. Optionally provide your
+`actor` and `capability` together to mark your row with `self:true`.
+Incomplete or invalid credentials return an error. It returns each agent's ID,
+optional name, optional `task`, working directory, and `updated_at` (last recorded registration or
 lifecycle activity, in UTC seconds, not a heartbeat). `task` is that agent's
 own unverified claim about its current work. It is omitted when empty and is
 not an address. `set_task` is the only way to set it. The ID prefix identifies

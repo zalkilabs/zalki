@@ -11,7 +11,8 @@ import (
 )
 
 // Run before SDK schema validation so a typo teaches the caller the contract.
-// The schema still rejects unknown fields; argument values are never echoed.
+// Normalize supported aliases before validation; all other unknown fields are
+// rejected. Argument values are never echoed.
 func argumentHints(definitions []map[string]any) mcp.Middleware {
 	accepted := map[string][]string{}
 	for _, definition := range definitions {
@@ -34,6 +35,12 @@ func argumentHints(definitions []map[string]any) mcp.Middleware {
 			if !known || json.Unmarshal(params.Arguments, &arguments) != nil {
 				return next(ctx, method, request)
 			}
+			changed, err := normalizeAliases(params.Name, arguments)
+			if err != nil {
+				result := &mcp.CallToolResult{}
+				result.SetError(err)
+				return result, nil
+			}
 			var unknown []string
 			for field := range arguments {
 				if !slices.Contains(fields, field) {
@@ -41,13 +48,30 @@ func argumentHints(definitions []map[string]any) mcp.Middleware {
 				}
 			}
 			if len(unknown) == 0 {
+				if params.Name == "list_agents" {
+					_, actorGiven := arguments["actor"]
+					_, keyGiven := arguments["capability"]
+					if actorGiven || keyGiven {
+						var actor, key string
+						_ = json.Unmarshal(arguments["actor"], &actor)
+						_ = json.Unmarshal(arguments["capability"], &key)
+						if actor == "" || key == "" {
+							result := &mcp.CallToolResult{}
+							result.SetError(fmt.Errorf("actor and capability must both be nonempty when provided"))
+							return result, nil
+						}
+					}
+				}
+				if changed {
+					params.Arguments, _ = json.Marshal(arguments)
+				}
 				return next(ctx, method, request)
 			}
 			slices.Sort(unknown)
 			hint := fmt.Sprintf("unknown fields %s; %s accepts %s.", strings.Join(unknown, ", "), params.Name, strings.Join(fields, ", "))
 			switch params.Name {
 			case "list_agents":
-				hint = "list_agents takes no arguments; omit actor and capability."
+				hint += " Omit credentials or provide actor and capability together to mark self."
 			case "send_message":
 				hint += " Use body for message text. message_id is optional; pass it to make retries safe."
 			case "reply_message":
@@ -58,4 +82,42 @@ func argumentHints(definitions []map[string]any) mcp.Middleware {
 			return result, nil
 		}
 	}
+}
+
+// normalizeAliases leaves schemas canonical while accepting common call spellings.
+// String comparison is semantic, so JSON escape differences are not conflicts.
+func normalizeAliases(tool string, arguments map[string]json.RawMessage) (bool, error) {
+	if tool != "send_message" && tool != "reply_message" {
+		return false, nil
+	}
+	aliases := [][2]string{{"message", "body"}}
+	if tool == "reply_message" {
+		aliases = append(aliases, [2]string{"reply_to", "message_id"})
+	}
+	changed := false
+	for _, pair := range aliases {
+		alias, canonical := pair[0], pair[1]
+		raw, exists := arguments[alias]
+		if !exists {
+			continue
+		}
+		var value string
+		if string(raw) == "null" || json.Unmarshal(raw, &value) != nil {
+			return false, fmt.Errorf("%s must be a string", alias)
+		}
+		if other, exists := arguments[canonical]; exists {
+			var canonicalValue string
+			if string(other) == "null" || json.Unmarshal(other, &canonicalValue) != nil {
+				return false, fmt.Errorf("%s must be a string", canonical)
+			}
+			if canonicalValue != value {
+				return false, fmt.Errorf("%s and %s must match when both are provided", alias, canonical)
+			}
+		} else {
+			arguments[canonical] = raw
+		}
+		delete(arguments, alias)
+		changed = true
+	}
+	return changed, nil
 }

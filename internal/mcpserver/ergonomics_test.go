@@ -39,9 +39,9 @@ func TestArgumentHintsKeepStrictSchemasWithoutEchoingValues(t *testing.T) {
 		args map[string]any
 		want []string
 	}{
-		{"list_agents", map[string]any{"actor": "secret-value", "capability": "secret-value"}, []string{"takes no arguments", "omit actor and capability"}},
-		{"send_message", map[string]any{"message": "secret-value"}, []string{`"message"`, "accepts actor, body, capability, message_id, to", "Use body", "retries safe"}},
-		{"reply_message", map[string]any{"reply_to": "secret-value"}, []string{`"reply_to"`, "message_id is the incoming message", "body is the reply"}},
+		{"list_agents", map[string]any{"unknown": "secret-value"}, []string{"unknown", "provide actor and capability together"}},
+		{"send_message", map[string]any{"text": "secret-value"}, []string{`"text"`, "accepts actor, body, capability, message_id, to", "Use body", "retries safe"}},
+		{"reply_message", map[string]any{"parent": "secret-value"}, []string{`"parent"`, "message_id is the incoming message", "body is the reply"}},
 		{"send_message", map[string]any{"sent": true}, []string{`"sent"`, "accepts actor, body, capability, message_id, to"}},
 		{"list_messages", map[string]any{"unknown": "secret-value"}, []string{`"unknown"`, "accepts actor", "sent"}},
 		{"set_task", map[string]any{"note": "secret-value"}, []string{`"note"`, "accepts actor, capability, task"}},
@@ -128,6 +128,14 @@ func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
 	call("list_messages", map[string]any{"actor": from.ID, "capability": key, "sent": true}, &sent)
 	if len(sent.Data.Messages) != 1 || sent.Data.Messages[0].ID != first.Data.ID || sent.Data.Messages[0].AcknowledgedAt == "" || sent.Data.Messages[0].Status != bus.StatusSubmitted || !sent.Data.Messages[0].BodyOmitted {
 		t.Fatal("sent receipts lost direction/status/ack or repeated the body")
+	}
+	call("list_messages", map[string]any{"actor": from.ID, "capability": key, "sent": true, "to": to.ID, "preview": true}, &sent)
+	if len(sent.Data.Messages) != 1 || sent.Data.Messages[0].Preview != "review" || sent.Data.Messages[0].Body != "" || !sent.Data.Messages[0].BodyOmitted {
+		t.Fatal("sent preview/filter arguments did not reach the response view")
+	}
+	call("list_messages", map[string]any{"actor": from.ID, "capability": key, "sent": true, "to": from.ID, "preview": true}, &sent)
+	if len(sent.Data.Messages) != 0 {
+		t.Fatal("MCP recipient filter returned another recipient")
 	}
 }
 

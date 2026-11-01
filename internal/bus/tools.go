@@ -8,6 +8,7 @@ type ToolArgs struct {
 	Body        string `json:"body"`
 	History     bool   `json:"history,omitempty"`
 	Sent        bool   `json:"sent,omitempty"`
+	Preview     bool   `json:"preview,omitempty"`
 	Limit       int    `json:"limit,omitempty"`
 	IncludeBody bool   `json:"include_body,omitempty"`
 	Cursor      string `json:"cursor,omitempty"`
@@ -48,15 +49,17 @@ func Tools() []map[string]any {
 	inbox["include_body"] = map[string]any{"type": "boolean", "description": "Include history bodies; default summaries only."}
 	inbox["history"] = map[string]any{"type": "boolean", "description": "All sent/received history; default unread inbox."}
 	inbox["sent"] = map[string]any{"type": "boolean", "description": "Sent-only history and receipts, newest first."}
+	inbox["to"] = stringField("Sent recipient ID or current unique name; requires sent:true.")
+	inbox["preview"] = map[string]any{"type": "boolean", "description": "Sent preview: one line, ≤80 UTF-8 bytes; requires sent:true."}
 	inbox["limit"] = map[string]any{"type": "integer", "minimum": 1, "maximum": 100, "description": "Maximum records; default 5."}
 	watch := identity()
 	watch["to"] = stringField("ID or unique name.")
 	task := identity()
 	task["task"] = stringField("One line, ≤120 bytes. Empty clears.")
 	return []map[string]any{
-		{"name": "list_agents", "description": "Discover agents; registration does not prove a live terminal. Omitted state=ready, liveness=unknown, experimental=false; kind is ID prefix. delivery is busy timing; idle wake unless next_hook (idle_wake overrides). updated_at is last activity in UTC seconds, not a heartbeat. task: self-claimed.", "inputSchema": schema(map[string]any{}), "annotations": map[string]bool{"readOnlyHint": true}},
-		{"name": "send_message", "description": "Send a new agent message; never auto-resend.", "inputSchema": schema(send, "actor", "capability", "to", "body")},
-		{"name": "reply_message", "description": "Acknowledge and reply to the exact sender. Same ID/body never resends; ACK persists if delivery fails.", "inputSchema": schema(reply, "actor", "capability", "message_id", "body")},
+		{"name": "list_agents", "description": "Discover agents; registration does not prove a live terminal. Omitted state=ready, liveness=unknown, experimental=false; kind is ID prefix. delivery is busy timing; idle wake unless next_hook (idle_wake overrides). updated_at is last activity in UTC seconds, not a heartbeat. task: self-claimed. Optional actor+capability marks self; both must authenticate.", "inputSchema": schema(identity()), "annotations": map[string]bool{"readOnlyHint": true}},
+		{"name": "send_message", "description": "Send a new agent message; never auto-resend. message aliases body.", "inputSchema": schema(send, "actor", "capability", "to", "body")},
+		{"name": "reply_message", "description": "Acknowledge and reply to the exact sender. Same ID/body never resends; ACK persists if delivery fails. message aliases body; reply_to aliases message_id.", "inputSchema": schema(reply, "actor", "capability", "message_id", "body")},
 		{"name": "ack_message", "description": "Record receipt locally without sending a message.", "inputSchema": schema(ack, "actor", "capability", "message_id")},
 		{"name": "list_messages", "description": "Unread inbox, sent:true history, or exact message_id. History omits bodies. Page with next_cursor. Fetch body_omitted by ID; await body_deferred delivery.", "inputSchema": schema(inbox, "actor", "capability"), "annotations": map[string]bool{"readOnlyHint": true}},
 		{"name": "watch_agent", "description": "One notice when an agent next finishes or ends; expires in 12h.", "inputSchema": schema(watch, "actor", "capability", "to")},

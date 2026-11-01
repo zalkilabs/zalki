@@ -86,6 +86,7 @@ type MessageView struct {
 	Kind           string             `json:"kind,omitempty"`
 	To             string             `json:"to"`
 	Body           string             `json:"body,omitempty"`
+	Preview        string             `json:"preview,omitempty"`
 	BodyOmitted    bool               `json:"body_omitted,omitempty"`
 	BodyDeferred   bool               `json:"body_deferred,omitempty"`
 	ReplyTo        string             `json:"reply_to,omitempty"`
@@ -100,7 +101,7 @@ func messageViews(messages []bus.Message) []MessageView {
 	views := make([]MessageView, 0, len(messages))
 	for _, msg := range messages {
 		view := MessageView{ID: msg.ID, From: msg.From, FromName: msg.FromName, FromLabel: msg.FromLabel, Kind: msg.Kind,
-			To: msg.To, Body: msg.Body, BodyDeferred: msg.BodyDeferred, BodyOmitted: msg.BodyOmitted, ReplyTo: msg.ReplyTo,
+			To: msg.To, Body: msg.Body, Preview: msg.BodyPreview, BodyDeferred: msg.BodyDeferred, BodyOmitted: msg.BodyOmitted, ReplyTo: msg.ReplyTo,
 			CreatedAt: msg.CreatedAt, Status: msg.Status, AcknowledgedAt: msg.AcknowledgedAt}
 		if msg.Receipt != nil {
 			view.Error, view.Code = msg.Receipt.Error, msg.Receipt.Code
@@ -186,8 +187,8 @@ func New(service *bus.Service) *mcp.Server {
 		// Clients require concrete output schemas; interface{} produces a boolean schema.
 		switch tool.Name {
 		case "list_agents":
-			addTool(server, service, &tool, func(_ context.Context, _ bus.ToolArgs) ([]bus.AgentInfo, error) {
-				return service.Store.Discover()
+			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) ([]bus.AgentInfo, error) {
+				return service.Store.DiscoverFor(args.Actor, args.Capability)
 			})
 		case "send_message":
 			addTool(server, service, &tool, func(ctx context.Context, args bus.ToolArgs) (MessageReceipt, error) {
@@ -220,7 +221,7 @@ func New(service *bus.Service) *mcp.Server {
 				messages, err := service.Store.ReadMessages(bus.MessageQuery{
 					Actor: args.Actor, Capability: args.Capability,
 					History: args.History, Limit: args.Limit,
-					Sent:      args.Sent,
+					Sent: args.Sent, To: args.To, Preview: args.Preview,
 					MessageID: args.MessageID, IncludeBody: args.IncludeBody, Cursor: args.Cursor,
 				})
 				return messagePage(messages, args.MessageID != ""), err
