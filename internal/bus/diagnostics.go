@@ -151,6 +151,9 @@ func (s Store) PruneRetired(dryRun bool, selected []string, retiredOlderThan tim
 				}
 			}
 		}
+		if err := s.reconcileApprovalHolds(dryRun, &report); err != nil {
+			return err
+		}
 		if err := s.deleteOrphanListenerLocks(dryRun, &report); err != nil {
 			return err
 		}

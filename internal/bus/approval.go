@@ -64,6 +64,10 @@ func (s Store) clearApprovalHeld(targetID string) error {
 // queuedApprovals returns approval-blocked messages for target in send order.
 // The caller holds the journal lock.
 func (s Store) queuedApprovals(target string) ([]Message, error) {
+	return s.queuedApprovalsRead(target, false)
+}
+
+func (s Store) queuedApprovalsRead(target string, skipUnreadable bool) ([]Message, error) {
 	files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
 	if err != nil {
 		return nil, err
@@ -72,6 +76,9 @@ func (s Store) queuedApprovals(target string) ([]Message, error) {
 	for _, file := range files {
 		msg, err := s.message(strings.TrimSuffix(filepath.Base(file), ".json"))
 		if err != nil {
+			if skipUnreadable {
+				continue
+			}
 			return nil, err
 		}
 		if msg.To == target && msg.Held && msg.Status == StatusApprovalBlocked {
@@ -101,8 +108,121 @@ func (s Store) settleQueued(msg Message, reason string) error {
 	return s.saveMessage(current)
 }
 
+// approvalHolds counts messages this build queued, one pass over the journal.
+// The caller holds the journal lock. Legacy approval refusals are not counted.
+// Unreadable files are returned by id so prune can report them and continue.
+func (s Store) approvalHolds() (map[string]int, []string, error) {
+	files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
+	if err != nil {
+		return nil, nil, err
+	}
+	counts := map[string]int{}
+	unreadable := []string{}
+	for _, file := range files {
+		id := strings.TrimSuffix(filepath.Base(file), ".json")
+		msg, err := s.message(id)
+		if err != nil {
+			unreadable = append(unreadable, id)
+			continue
+		}
+		if msg.Held && msg.Status == StatusApprovalBlocked {
+			counts[msg.To]++
+		}
+	}
+	sort.Strings(unreadable)
+	return counts, unreadable, nil
+}
+
+// reconcileApprovalHolds repairs a count an older build dropped when it rewrote
+// a session. Retired targets are settled, because no later hook will release them.
+// The caller holds the journal lock.
+func (s Store) reconcileApprovalHolds(dryRun bool, report *PruneReport) error {
+	counts, unreadable, err := s.approvalHolds()
+	if err != nil {
+		return err
+	}
+	for _, id := range unreadable {
+		report.Sessions = append(report.Sessions, PruneItem{ID: id, Reason: "message_unreadable"})
+	}
+	retiring := map[string]bool{}
+	for _, item := range report.Sessions {
+		if item.Reason == "explicit_cleanup" || item.Reason == "owner_exited" {
+			retiring[item.ID] = true
+		}
+	}
+	sessions, err := s.rawSessions()
+	if err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for _, v := range sessions {
+		seen[v.ID] = true
+		count := counts[v.ID]
+		if v.Retired || retiring[v.ID] {
+			if count == 0 && v.ApprovalHeld == 0 {
+				continue
+			}
+			reason := "approval_recounted"
+			if count > 0 {
+				reason = "approval_settled"
+			}
+			report.Sessions = append(report.Sessions, PruneItem{ID: v.ID, Reason: reason})
+			if dryRun {
+				continue
+			}
+			if count > 0 {
+				if err := s.settleReadableApprovalQueue(v.ID, "destination has retired"); err != nil {
+					return err
+				}
+			}
+			if err := s.clearApprovalHeld(v.ID); err != nil {
+				return err
+			}
+			continue
+		}
+		if v.ApprovalHeld == count {
+			continue
+		}
+		report.Sessions = append(report.Sessions, PruneItem{ID: v.ID, Reason: "approval_recounted"})
+		if dryRun {
+			continue
+		}
+		v.ApprovalHeld = count
+		if err := s.saveSession(v); err != nil {
+			return err
+		}
+	}
+	missing := []string{}
+	for id, count := range counts {
+		if !seen[id] && count > 0 {
+			missing = append(missing, id)
+		}
+	}
+	sort.Strings(missing)
+	for _, id := range missing {
+		report.Sessions = append(report.Sessions, PruneItem{ID: id, Reason: "approval_settled"})
+		if dryRun {
+			continue
+		}
+		if err := s.settleReadableApprovalQueue(id, "destination has retired"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s Store) settleApprovalQueue(actor, reason string) error {
-	queued, err := s.queuedApprovals(actor)
+	return s.settleApprovalQueueRead(actor, reason, false)
+}
+
+// settleReadableApprovalQueue settles queued messages and ignores files prune
+// has already reported as unreadable, so one bad file cannot abort cleanup.
+func (s Store) settleReadableApprovalQueue(actor, reason string) error {
+	return s.settleApprovalQueueRead(actor, reason, true)
+}
+
+func (s Store) settleApprovalQueueRead(actor, reason string, skipUnreadable bool) error {
+	queued, err := s.queuedApprovalsRead(actor, skipUnreadable)
 	if err != nil {
 		return err
 	}
