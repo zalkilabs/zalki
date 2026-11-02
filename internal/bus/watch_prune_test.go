@@ -223,3 +223,40 @@ func TestPruneIgnoresWatchNamesThatAreNotCanonical(t *testing.T) {
 		t.Fatalf("report: %+v %v", report, err)
 	}
 }
+
+func TestPruneKeepsNewerSchemaWatchesOnLiveTargetsOnly(t *testing.T) {
+	store := fixtureStore(t)
+	watcher, _ := register(t, store, "codex")
+	live, _ := register(t, store, "cursor")
+	orphan, _ := register(t, store, "cursor")
+	future := time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
+	write := func(target string) string {
+		t.Helper()
+		path := mustWatchPath(t, store, watcher.ID, target)
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := writeJSON(path, Watch{Schema: recordSchema + 1, Watcher: watcher.ID, Target: target, ExpiresAt: future}); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	kept, dropped := write(live.ID), write(orphan.ID)
+	if err := os.Remove(store.sessionPathMust(t, orphan.ID)); err != nil {
+		t.Fatal(err)
+	}
+	for _, dry := range []bool{true, false} {
+		report, err := store.Prune(dry, nil)
+		dir := filepath.Base(filepath.Dir(dropped))
+		want := []string{dir + "/" + filepath.Base(dropped), dir + "/"}
+		if err != nil || !slices.Equal(report.DeletedWatches, want) {
+			t.Fatalf("dry=%v report: %+v %v", dry, report, err)
+		}
+		if _, err := os.Lstat(kept); err != nil {
+			t.Fatalf("dry=%v removed a newer-schema watch on a live target: %v", dry, err)
+		}
+	}
+	if _, err := os.Lstat(dropped); !os.IsNotExist(err) {
+		t.Fatalf("orphan target's newer-schema watch remained: %v", err)
+	}
+}

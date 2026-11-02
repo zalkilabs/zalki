@@ -106,11 +106,12 @@ func (r *pruneRun) pruneTargetWatches(root, dirName, target string) error {
 // watchIsStale mirrors consumeWatches: a watch that cannot be read, has an
 // unparsable or past expiry, or names a different target would be discarded
 // there. Unlike consume it never returns an error for a bad record, because
-// prune is the cleanup path for them.
+// prune is the cleanup path for them. A record with a newer schema is kept: it
+// was written by a newer build for a live target and is not corrupt.
 func watchIsStale(path, target string, now time.Time) bool {
 	var watch Watch
 	if err := readRecord(path, &watch, &watch.Schema); err != nil {
-		return true
+		return ErrorCodeOf(err) != CodeUnsupportedSchema
 	}
 	expires, err := time.Parse(time.RFC3339Nano, watch.ExpiresAt)
 	return err != nil || !expires.After(now) || watch.Target != target
