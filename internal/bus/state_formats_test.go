@@ -208,7 +208,7 @@ func TestFutureMarkerDefersReplyRecoveryAndRetainsUnknownIntentFields(t *testing
 }
 
 func TestMalformedOrUnknownFormatMarkersFailWritesButKeepReads(t *testing.T) {
-	for _, raw := range []string{`{`, `{"schema":2,"formats":{}}`, `{"schema":1,"formats":{"future_queue":1}}`, `{"schema":1,"formats":{"sessions":0}}`} {
+	for _, raw := range []string{`{`, `null`, `{}`, `{"schema":1}`, `{"formats":{}}`, `[]`, `"marker"`, `{"schema":1,"formats":null}`, `{"schema":1,"formats":[]}`, `{"schema":null,"formats":{}}`, `{"schema":2,"formats":{}}`, `{"schema":1,"formats":{"future_queue":1}}`, `{"schema":1,"formats":{"sessions":0}}`} {
 		t.Run(raw, func(t *testing.T) {
 			store := fixtureStore(t)
 			target, _ := register(t, store, "codex")
@@ -226,5 +226,21 @@ func TestMalformedOrUnknownFormatMarkersFailWritesButKeepReads(t *testing.T) {
 				t.Fatal("unsupported marker was rewritten")
 			}
 		})
+	}
+}
+
+func TestExplicitEmptyFormatMarkerAllowsWrites(t *testing.T) {
+	store := fixtureStore(t)
+	target, _ := register(t, store, "codex")
+	path := filepath.Join(store.Dir, stateFormatFile)
+	if err := os.WriteFile(path, []byte(`{"schema":1,"formats":{}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update(target.ID, StateBusy, false); err != nil {
+		t.Fatal("explicit valid empty marker fenced writes", err)
+	}
+	marker, _, err := store.readStateFormats()
+	if err != nil || marker.Schema != 1 || marker.Formats["sessions"] != recordSchema {
+		t.Fatal("empty marker did not gain written format", marker, err)
 	}
 }

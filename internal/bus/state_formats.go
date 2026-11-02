@@ -40,15 +40,24 @@ func formatWriteError() error {
 }
 
 func (s Store) readStateFormats() (stateFormats, json.RawMessage, error) {
-	marker := stateFormats{Schema: 1, Formats: map[string]int{}}
+	var marker stateFormats
 	var raw json.RawMessage
 	if err := readJSON(filepath.Join(s.Dir, stateFormatFile), &raw); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return marker, nil, nil
+			return stateFormats{Schema: 1, Formats: map[string]int{}}, nil, nil
 		}
 		return marker, nil, formatWriteError()
 	}
-	if err := json.Unmarshal(raw, &marker); err != nil || marker.Schema != 1 || marker.Formats == nil {
+	// Existing files must contain explicit canonical fields. Defaults belong
+	// only to the missing-file path; otherwise null or absent fields hide damage.
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
+		return marker, nil, formatWriteError()
+	}
+	if err := json.Unmarshal(fields["schema"], &marker.Schema); err != nil || marker.Schema != 1 {
+		return marker, nil, formatWriteError()
+	}
+	if err := json.Unmarshal(fields["formats"], &marker.Formats); err != nil || marker.Formats == nil {
 		return marker, nil, formatWriteError()
 	}
 	for family, version := range marker.Formats {

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 // mergeRecordJSON preserves fields outside the typed record while replacing
@@ -210,9 +212,11 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 	if err != nil {
 		return err
 	}
-	// Keep the existing journal read bound; this does not change message limits.
-	if len(raw) > 128*1024 {
-		return fail(CodeInvalidInput, "state record exceeds journal size limit")
+	// Validate before publishing the marker, then write these exact bytes after
+	// the marker. Unknown fields are never dropped to make an oversized merge fit.
+	encoded, err := encodeStateJSON(raw)
+	if err != nil {
+		return err
 	}
 	relative, err := filepath.Rel(s.Dir, path)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
@@ -226,7 +230,7 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 	if err := s.ensureStateFormat(family, version); err != nil {
 		return err
 	}
-	return writeJSON(path, raw)
+	return fsutil.WriteAtomic(path, encoded)
 }
 
 // futureRecord is used only to protect cleanup candidates. Corrupt old records

@@ -173,13 +173,18 @@ func (s Store) Finish(id string, receipt Receipt) (Message, error) {
 		if err != nil {
 			return err
 		}
-		if err := msg.applyReceipt(receipt); err != nil {
+		candidate := msg
+		if err := candidate.applyReceipt(receipt); err != nil {
 			return err
 		}
-		receipt = *msg.Receipt
-		if err := s.saveMessage(msg); err != nil {
+		if err := s.saveMessage(candidate); err != nil {
+			data := messageEvent(msg)
+			data.Err, data.ReceiptStatus = err, receipt.Status
+			s.logEvent(slog.LevelWarn, "message.receipt_save_failed", data)
 			return err
-		} // Preserve a racing ACK.
+		}
+		msg = candidate
+		receipt = *msg.Receipt // Preserve a racing ACK and report only durable state.
 		data := messageEvent(msg)
 		data.ReceiptStatus, data.Code = receipt.Status, receipt.Code
 		data.Err = receipt.cause
@@ -216,12 +221,14 @@ func (s Store) Ack(actor, key, id string) (result Message, resultErr error) {
 			return fail(CodeInvalidTransition, "cannot acknowledge a message that was not sent")
 		}
 		first := msg.AcknowledgedAt == ""
+		candidate := msg
 		if first {
-			msg.AcknowledgedAt = timestamp()
+			candidate.AcknowledgedAt = timestamp()
 		}
-		if err := s.saveMessage(msg); err != nil {
+		if err := s.saveMessage(candidate); err != nil {
 			return err
 		}
+		msg = candidate
 		if first {
 			s.logEvent(slog.LevelInfo, "message.acknowledged", messageEvent(msg))
 		}

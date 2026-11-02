@@ -32,7 +32,7 @@ by these fixtures.
 | Cursor listener socket | 4,096-byte hint/response decoder | UUID/generation control data; the body stays in the journal |
 | Cursor hook delivery | At most five messages and 24 KiB per batch | Raw UTF-8 envelopes before output JSON encoding |
 | Journal `readJSON` | 128 KiB per regular state file | Entire encoded message, session, or reply-transaction record |
-| Journal `writeJSON` | No matching encoded-size rejection | Can write a file that the reader will refuse |
+| Journal `writeJSON` | Same 128 KiB bound as `readJSON` | Exact indented encoding plus newline; oversized writes are refused before replacement |
 | MCP server stdio | 128 KiB | A single **inbound** newline-delimited JSON-RPC frame |
 | Diagnostic CLI send | 128 KiB reader | Encoded stdin JSON, not raw body bytes |
 | Hook input decoder | 128 KiB | Incoming hook event JSON, not outgoing additional context |
@@ -287,5 +287,11 @@ native user sessions, and no model request was made. The temporary Go probe file
 were removed after capturing results.
 
 Existing frame-size, inbox/history/paging, and exact-contract tests were used to
-check the source conclusions. Only this design document is committed.
-No core call site, constant, adapter capability, or schema was changed.
+check the source conclusions. The original investigation committed only this
+design document and changed no adapter capacity or raw body limit.
+
+The subsequent upgrade-robustness fix closes the journal writer gap: one shared
+128 KiB limit applies to reads and the exact indented JSON plus newline written
+to disk. An oversized merge is refused without dropping extensions or replacing
+the old record. Receipt and ACK write failures return the prior durable state.
+The 16 KiB message-body limit and native transport limits remain unchanged.
