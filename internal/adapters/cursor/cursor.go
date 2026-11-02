@@ -76,6 +76,12 @@ func (a Adapter) LookupName(v bus.Session, _ map[string]map[string]string) (stri
 }
 
 func (Adapter) NormalizeHook(event bus.HookInput) (bus.HookInput, error) {
+	// Cursor reports an aborted or errored turn as a stop with a native status.
+	// Core only knows canonical events, so it must see an interruption, not a
+	// completed Stop. A stop with no status is unchanged.
+	if event.Event == "Stop" && event.Status != "" && event.Status != "completed" {
+		event.Event = "Interrupt"
+	}
 	if event.SessionID == "" {
 		event.SessionID = event.ConversationID
 	}
@@ -93,10 +99,10 @@ func (Adapter) HandleHook(host bus.HookHost, event bus.HookInput, id string, out
 	if event.Event == "UserPromptSubmit" {
 		return true, s.ApplyLifecycle(resumeOnPrompt)
 	}
-	if event.Event != "PostToolUse" && event.Event != "Stop" {
+	if event.Event != "PostToolUse" && event.Event != "Stop" && event.Event != "Interrupt" {
 		return false, nil
 	}
-	if event.Event == "Stop" && (event.Status != "completed" || event.LoopCount >= 5) {
+	if event.Event == "Interrupt" || event.Event == "Stop" && (event.Status != "completed" || event.LoopCount >= 5) {
 		return true, s.ApplyLifecycle(suppressRecovery)
 	}
 	state := bus.StateBusy

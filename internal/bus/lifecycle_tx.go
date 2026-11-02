@@ -68,6 +68,7 @@ type LifecycleHost interface {
 var allowedTransitions = map[string][]LifecycleTransition{
 	"UserPromptSubmit": {TransitionNone, TransitionPromptReactivate},
 	"Stop":             {TransitionNone, TransitionReady},
+	"Interrupt":        {TransitionNone, TransitionReady},
 	"PostToolUse":      {TransitionNone},
 }
 

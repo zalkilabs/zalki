@@ -17,10 +17,12 @@ type HookInput struct {
 	Source         string   `json:"source"`
 	ConversationID string   `json:"conversation_id"`
 	WorkspaceRoots []string `json:"workspace_roots"`
-	Status         string   `json:"status"`
-	LoopCount      int      `json:"loop_count"`
-	Prompt         string   `json:"prompt"`
-	SessionTitle   *string  `json:"session_title"`
+	// Status is a client-native field. Only the adapter's NormalizeHook and
+	// HandleHook interpret it; core decides from the canonical Event.
+	Status       string  `json:"status"`
+	LoopCount    int     `json:"loop_count"`
+	Prompt       string  `json:"prompt"`
+	SessionTitle *string `json:"session_title"`
 	// LastAssistantMessage is optional turn text from a Stop hook. Only a short
 	// single line is forwarded, and only when a completion watch is waiting.
 	LastAssistantMessage string `json:"last_assistant_message,omitempty"`

@@ -64,6 +64,9 @@ func (stubCursorAdapter) Deliver(_ context.Context, _ Message, v Session) Receip
 	return NewReceipt(StatusPendingActivity)
 }
 func (stubCursorAdapter) NormalizeHook(v HookInput) (HookInput, error) {
+	if v.Event == "Stop" && v.Status != "" && v.Status != "completed" {
+		v.Event = "Interrupt"
+	}
 	if v.SessionID == "" {
 		v.SessionID = v.ConversationID
 	}
@@ -77,7 +80,7 @@ func (stubCursorAdapter) HandleHook(host HookHost, v HookInput, id string, _ io.
 	if v.Event == "UserPromptSubmit" {
 		return true, h.ApplyLifecycle(stubResumeOnPrompt)
 	}
-	if v.Event == "Stop" && (v.Status != "completed" || v.LoopCount >= 5) {
+	if v.Event == "Interrupt" || v.Event == "Stop" && (v.Status != "completed" || v.LoopCount >= 5) {
 		return true, h.ApplyLifecycle(stubSuppressRecovery)
 	}
 	return false, nil
