@@ -151,14 +151,13 @@ func (s Store) consumeWatches(target string, asOf time.Time) ([]Watch, error) {
 	return due, err
 }
 
+// completionKind decides from canonical events only. An adapter reports a turn
+// that stopped without finishing (aborted, failed) as "Interrupt", not "Stop".
 func completionKind(event HookInput) (string, bool) {
 	switch event.Event {
 	case "SessionEnd":
 		return "ended", true
 	case "Stop":
-		if event.Status != "" && event.Status != "completed" {
-			return "", false
-		}
 		return "idle", true
 	default:
 		return "", false
