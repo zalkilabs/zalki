@@ -90,7 +90,15 @@ ends its session. The notice is a Zalki notice, not a message from that agent,
 and a reply to it is rejected. It can include up to 200 bytes of that agent's
 own last line. The agent does not opt in; Claude Code's `notify_when_idle`
 forwards a status line the same way. Codex has no session-end hook, so a
-Codex watch fires only when a turn goes idle.
+Codex watch fires on a normal exit only when a turn goes idle.
+
+If a watched agent is killed or crashes, an ended notice still arrives with no
+command needed: each running `zalki mcp` server watches the owner processes of
+watched agents (kqueue on macOS, pidfd and inotify on Linux), so the notice is
+about immediate for process-owned sessions and takes up to five minutes for
+sessions whose liveness is endpoint-based. It needs at least one running MCP
+server on a build with this feature; servers on older builds do not observe.
+See [watch lifecycle](docs/design/watch-lifecycle.md).
 
 The MCP `list_agents` tool works without arguments. Optionally provide your
 `actor` and `capability` together to mark your row with `self:true`.

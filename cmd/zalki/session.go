@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"os"
+	"time"
 
 	"github.com/zalkilabs/zalki/internal/adapters/cursor"
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -35,6 +37,21 @@ func newMCPCommand(opts *commandOptions) *cobra.Command {
 			service.Runtime = lease
 			opts.logger.InfoContext(cmd.Context(), "mcp.started", "runtime_id", lease.Info().ID)
 			defer opts.logger.InfoContext(cmd.Context(), "mcp.stopped")
+			// The observer shares the server's lifetime but never its failures:
+			// it logs and skips, and shutdown waits for it only briefly.
+			observeCtx, stopObserver := context.WithCancel(cmd.Context())
+			observerDone := make(chan struct{})
+			go func() {
+				defer close(observerDone)
+				service.ObserveExits(observeCtx, bus.DefaultSweepInterval)
+			}()
+			defer func() {
+				stopObserver()
+				select {
+				case <-observerDone:
+				case <-time.After(2 * time.Second):
+				}
+			}()
 			return mcpserver.Run(cmd.Context(), service, input, output)
 		},
 	}

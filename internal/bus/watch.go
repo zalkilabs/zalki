@@ -105,54 +105,59 @@ func (s Store) saveWatch(v Watch) error {
 // Expired watches are removed and not returned.
 func (s Store) consumeWatches(target string, asOf time.Time) ([]Watch, error) {
 	var due []Watch
-	err := s.locked(func() error {
-		if _, err := s.sessionPath(target); err != nil {
-			return err
-		}
-		dir := filepath.Join(s.Dir, "watches", strings.ReplaceAll(target, ":", "_"))
-		entries, err := os.ReadDir(dir)
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		now := time.Now()
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			path := filepath.Join(dir, entry.Name())
-			var watch Watch
-			if err := readRecord(path, &watch, &watch.Schema); err != nil {
-				return err
-			}
-
-			expires, err := time.Parse(time.RFC3339Nano, watch.ExpiresAt)
-			if err != nil || !expires.After(now) || watch.Target != target {
-				if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
-					return removeErr
-				}
-				continue
-			}
-			if watch.CreatedAt != "" {
-				created, createdErr := time.Parse(time.RFC3339Nano, watch.CreatedAt)
-				if createdErr == nil && created.After(asOf) {
-					continue
-				}
-			}
-			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-				return err
-			}
-			due = append(due, watch)
-		}
-		return nil
+	err := s.locked(func() (err error) {
+		due, err = s.consumeWatchesLocked(target, asOf)
+		return err
 	})
 	return due, err
 }
 
-// completionKind decides from canonical events only. An adapter reports a turn
-// that stopped without finishing (aborted, failed) as "Interrupt", not "Stop".
+// consumeWatchesLocked is consumeWatches for a caller already holding the journal lock.
+func (s Store) consumeWatchesLocked(target string, asOf time.Time) ([]Watch, error) {
+	var due []Watch
+	if _, err := s.sessionPath(target); err != nil {
+		return nil, err
+	}
+	dir := filepath.Join(s.Dir, "watches", strings.ReplaceAll(target, ":", "_"))
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		var watch Watch
+		if err := readRecord(path, &watch, &watch.Schema); err != nil {
+			return nil, err
+		}
+
+		expires, err := time.Parse(time.RFC3339Nano, watch.ExpiresAt)
+		if err != nil || !expires.After(now) || watch.Target != target {
+			if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+				return nil, removeErr
+			}
+			continue
+		}
+		if watch.CreatedAt != "" {
+			created, createdErr := time.Parse(time.RFC3339Nano, watch.CreatedAt)
+			if createdErr == nil && created.After(asOf) {
+				continue
+			}
+		}
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+		due = append(due, watch)
+	}
+	return due, nil
+}
+
 func completionKind(event HookInput) (string, bool) {
 	switch event.Event {
 	case "SessionEnd":
@@ -294,19 +299,29 @@ func (s *Service) NoticeExitedSessions(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		body := completionBody(subject, "ended", timestamp(), "")
-		for _, watch := range watches {
-			message, err := s.deliverCompletion(ctx, watch.Watcher, subject, body)
-			if err == nil && message.Receipt != nil && message.Receipt.Error != "" && !message.IsQueuedForApproval() {
-				err = fail(CodeUnavailable, "completion notice was not delivered")
-			}
-			if err != nil && first == nil {
-				first = err
-			}
+		if err := s.deliverEnded(ctx, subject, watches); err != nil && first == nil {
+			first = err
 		}
 	}
 	if first != nil {
 		return &NoticeDeliveryError{Err: first}
 	}
 	return nil
+}
+
+// deliverEnded sends the ended notice for subject to each consumed watch and
+// returns the first delivery failure.
+func (s *Service) deliverEnded(ctx context.Context, subject Session, watches []Watch) error {
+	var first error
+	body := completionBody(subject, "ended", timestamp(), "")
+	for _, watch := range watches {
+		message, err := s.deliverCompletion(ctx, watch.Watcher, subject, body)
+		if err == nil && message.Receipt != nil && message.Receipt.Error != "" && !message.IsQueuedForApproval() {
+			err = fail(CodeUnavailable, "completion notice was not delivered")
+		}
+		if err != nil && first == nil {
+			first = err
+		}
+	}
+	return first
 }
