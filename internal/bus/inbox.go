@@ -137,28 +137,9 @@ func (s Store) EmitPending(actor string) (string, error) {
 		if !current.Receive.HookDelivery {
 			return errors.New("this adapter does not support hook delivery")
 		}
-		if current.Retired || s.sessionLiveness(current) == livenessExited {
-			if current.ApprovalHeld == 0 {
-				return nil
-			}
-			reason := "destination has retired"
-			if !current.Retired {
-				reason = "destination owner process has exited"
-			}
-			if err := s.settleApprovalQueue(actor, reason); err != nil {
-				return err
-			}
-			return s.clearApprovalHeld(actor)
-		}
-		if current.ApprovalHeld > 0 {
-			if current.State != StateApproval {
-				if err := s.adoptApprovalQueue(current); err != nil {
-					return err
-				}
-				if err := s.clearApprovalHeld(actor); err != nil {
-					return err
-				}
-			}
+		resolved, err := s.resolveApprovalQueue(current, true)
+		if err != nil || resolved.unreachable {
+			return err
 		}
 		pending := []Message{}
 		if err := s.eachMessage(func(_ string, msg Message, readErr error) error {

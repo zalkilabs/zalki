@@ -155,15 +155,7 @@ func (s Store) applyReplyTransaction(path string, tx replyTransaction) error {
 		return err
 	}
 	if errors.Is(err, os.ErrNotExist) {
-		if tx.Reply.Status == StatusApprovalBlocked {
-			if err := s.rememberApprovalHold(tx.Reply.To, 1); err != nil {
-				return err
-			}
-		}
-		if err := s.saveMessage(tx.Reply); err != nil {
-			if tx.Reply.Status == StatusApprovalBlocked {
-				_ = s.rememberApprovalHold(tx.Reply.To, -1)
-			}
+		if err := s.saveReservation(tx.Reply); err != nil {
 			return err
 		}
 		s.logReservation(tx.Reply)

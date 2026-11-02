@@ -10,9 +10,27 @@ import (
 // approvalQueueCap bounds messages waiting on one session's permission prompt.
 const approvalQueueCap = 8
 
+// saveReservation writes the count before a held reservation so a crash cannot
+// leave a durable held message with a zero count. The caller holds the lock.
+func (s Store) saveReservation(msg Message) error {
+	held := msg.IsQueuedForApproval()
+	if held {
+		if err := s.rememberApprovalHold(msg.To, 1); err != nil {
+			return err
+		}
+	}
+	if err := s.saveMessage(msg); err != nil {
+		if held {
+			_ = s.rememberApprovalHold(msg.To, -1)
+		}
+		return err
+	}
+	return nil
+}
+
 // holdForApproval marks msg as waiting on the target's permission prompt.
-// The caller holds the journal lock and then saves the message with
-// rememberApprovalHold so the session count matches the journal.
+// The caller holds the journal lock, then uses saveReservation to persist the
+// matching held count and message.
 func (s Store) holdForApproval(msg *Message) error {
 	target, err := s.session(msg.To)
 	if err != nil {
@@ -222,29 +240,74 @@ func (s Store) settleApprovalQueueRead(actor, reason string, skipUnreadable bool
 	return nil
 }
 
-// adoptApprovalQueue moves a resolved session's queued messages into the hook
-// inbox. A later EmitPending writes them into hook context. The caller holds
-// the journal lock.
-func (s Store) adoptApprovalQueue(current Session) error {
+type approvalResolution struct {
+	jobs        []Message
+	unreachable bool
+}
+
+// resolveApprovalQueue owns settlement/adoption under the journal lock.
+// A hook poll preserves an outstanding approval count until the prompt resolves;
+// lifecycle release also repairs an empty count while approval is still open.
+func (s Store) resolveApprovalQueue(current Session, hookPoll bool) (approvalResolution, error) {
+	reason := ""
+	if current.Retired {
+		reason = "destination has retired"
+	} else if s.sessionLiveness(current) == livenessExited {
+		reason = "destination owner process has exited"
+	}
+	result := approvalResolution{unreachable: reason != ""}
+	if current.ApprovalHeld == 0 || (hookPoll && reason == "" && current.State == StateApproval) {
+		return result, nil
+	}
 	queued, err := s.queuedApprovals(current.ID)
 	if err != nil {
-		return err
+		return result, err
+	}
+	if len(queued) == 0 {
+		return result, s.clearApprovalHeld(current.ID)
+	}
+	if reason != "" {
+		for _, msg := range queued {
+			if err := s.settleQueued(msg, reason); err != nil {
+				return result, err
+			}
+		}
+	} else {
+		if current.State == StateApproval {
+			return result, nil
+		}
+		result.jobs, err = s.releaseReadyApprovals(current, queued)
+		if err != nil {
+			return result, err
+		}
+	}
+	return result, s.clearApprovalHeld(current.ID)
+}
+
+func (s Store) releaseReadyApprovals(current Session, queued []Message) ([]Message, error) {
+	var jobs []Message
+	next := StatusAttempting
+	if current.Receive.HookDelivery {
+		next = StatusPendingActivity
 	}
 	for _, msg := range queued {
 		if msg.TargetGeneration != current.Generation {
 			if err := s.settleQueued(msg, "destination registration changed before delivery"); err != nil {
-				return err
+				return nil, err
 			}
 			continue
 		}
-		if err := msg.releaseHeld(StatusPendingActivity); err != nil {
-			return err
+		if err := msg.releaseHeld(next); err != nil {
+			return nil, err
 		}
 		if err := s.saveMessage(msg); err != nil {
-			return err
+			return nil, err
+		}
+		if !current.Receive.HookDelivery {
+			jobs = append(jobs, msg)
 		}
 	}
-	return nil
+	return jobs, nil
 }
 
 // releaseApprovalQueue delivers messages that were waiting for actor's
@@ -261,61 +324,10 @@ func (s *Service) releaseApprovalQueue(ctx context.Context, actor string) error 
 		if err != nil {
 			return err
 		}
-		if current.ApprovalHeld == 0 {
-			return nil
-		}
-		queued, err := s.Store.queuedApprovals(actor)
-		if err != nil {
-			return err
-		}
-		if len(queued) == 0 {
-			return s.Store.clearApprovalHeld(actor)
-		}
-		if current.Retired {
-			if err := s.Store.settleApprovalQueue(actor, "destination has retired"); err != nil {
-				return err
-			}
-			return s.Store.clearApprovalHeld(actor)
-		}
-		if s.Store.sessionLiveness(current) == livenessExited {
-			if err := s.Store.settleApprovalQueue(actor, "destination owner process has exited"); err != nil {
-				return err
-			}
-			return s.Store.clearApprovalHeld(actor)
-		}
-		if current.State == StateApproval {
-			return nil
-		}
-		if current.Receive.HookDelivery {
-			if err := s.Store.adoptApprovalQueue(current); err != nil {
-				return err
-			}
-			return s.Store.clearApprovalHeld(actor)
-		}
 		target = current
-		for _, msg := range queued {
-			if msg.TargetGeneration != current.Generation {
-				if err := s.Store.settleQueued(msg, "destination registration changed before delivery"); err != nil {
-					return err
-				}
-				continue
-			}
-			currentMsg, err := s.Store.message(msg.ID)
-			if err != nil {
-				return err
-			}
-			if !currentMsg.IsQueuedForApproval() {
-				continue
-			}
-			if err := currentMsg.releaseHeld(StatusAttempting); err != nil {
-				return err
-			}
-			if err := s.Store.saveMessage(currentMsg); err != nil {
-				return err
-			}
-			jobs = append(jobs, currentMsg)
-		}
-		return s.Store.clearApprovalHeld(actor)
+		resolved, err := s.Store.resolveApprovalQueue(current, false)
+		jobs = resolved.jobs
+		return err
 	})
 	if err != nil || len(jobs) == 0 {
 		return err

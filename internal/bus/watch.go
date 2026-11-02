@@ -247,19 +247,11 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 				if moveErr := msg.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
 					return moveErr
 				}
-			} else if err := s.Store.rememberApprovalHold(msg.To, 1); err != nil {
-				return err
 			}
 		} else {
 			fresh = true
 		}
-		if err := s.Store.saveMessage(msg); err != nil {
-			if msg.Status == StatusApprovalBlocked {
-				_ = s.Store.rememberApprovalHold(msg.To, -1)
-			}
-			return err
-		}
-		return nil
+		return s.Store.saveReservation(msg)
 	})
 	if err != nil || !fresh || msg.ID == "" {
 		return msg, err
