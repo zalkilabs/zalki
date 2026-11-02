@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -19,7 +20,7 @@ func newListCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := service.NoticeExitedSessions(cmd.Context()); err != nil {
+			if err := noticeExitedSessions(cmd, service); err != nil {
 				return err
 			}
 			return encodeOutput(cmd, sessions)
@@ -66,7 +67,7 @@ func newPruneCommand(opts *commandOptions) *cobra.Command {
 				return err
 			}
 			if !dryRun {
-				if err := service.NoticeExitedSessions(cmd.Context()); err != nil {
+				if err := noticeExitedSessions(cmd, service); err != nil {
 					return err
 				}
 			}
@@ -77,4 +78,16 @@ func newPruneCommand(opts *commandOptions) *cobra.Command {
 	cmd.Flags().StringArrayVar(&selected, "session", nil, "explicitly retire this exact kind:UUID, even if owner liveness is unknown; repeatable")
 	cmd.Flags().DurationVar(&retiredOlderThan, "retired-older-than", bus.DefaultRetiredRetention, "delete retired session records older than this duration; 0 deletes every retired record; message history is kept")
 	return cmd
+}
+
+// Notice delivery is best effort; journal observation failures remain fatal.
+func noticeExitedSessions(cmd *cobra.Command, service *bus.Service) error {
+	err := service.NoticeExitedSessions(cmd.Context())
+	var delivery *bus.NoticeDeliveryError
+	if !errors.As(err, &delivery) {
+		return err
+	}
+	// The receipt retains details; do not echo native errors or message text.
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: a completion notice could not be delivered; see its receipt.")
+	return nil
 }

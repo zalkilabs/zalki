@@ -179,7 +179,7 @@ func statusLine(text string) string {
 	for cut > 0 && !utf8.RuneStart(text[cut]) {
 		cut--
 	}
-	if space := strings.LastIndexByte(text[:cut], ' '); space > 0 {
+	if space := strings.LastIndexByte(text[:cut], ' '); space >= budget/2 {
 		cut = space
 	}
 	return text[:cut] + ellipsis
@@ -266,6 +266,15 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 	return s.deliverReserved(ctx, msg, target)
 }
 
+// NoticeDeliveryError reports best-effort notice failures separately from
+// journal observation errors. CLI diagnostics can warn without hiding results.
+type NoticeDeliveryError struct{ Err error }
+
+func (e *NoticeDeliveryError) Error() string {
+	return "completion notice delivery failed: " + e.Err.Error()
+}
+func (e *NoticeDeliveryError) Unwrap() error { return e.Err }
+
 // NoticeExitedSessions delivers an ended notice for each unexpired watch whose
 // target is retired or has positive exit evidence. List and prune call it
 // when they observe that exit. An expired watch is removed and not delivered.
@@ -295,10 +304,17 @@ func (s *Service) NoticeExitedSessions(ctx context.Context) error {
 		}
 		body := completionBody(subject, "ended", timestamp(), "")
 		for _, watch := range watches {
-			if _, err := s.deliverCompletion(ctx, watch.Watcher, subject, body); err != nil && first == nil {
+			message, err := s.deliverCompletion(ctx, watch.Watcher, subject, body)
+			if err == nil && message.Receipt != nil && message.Receipt.Error != "" && !message.IsQueuedForApproval() {
+				err = fail(CodeUnavailable, "completion notice was not delivered")
+			}
+			if err != nil && first == nil {
 				first = err
 			}
 		}
 	}
-	return first
+	if first != nil {
+		return &NoticeDeliveryError{Err: first}
+	}
+	return nil
 }

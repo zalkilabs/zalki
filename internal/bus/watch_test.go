@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -141,6 +142,14 @@ func TestStatusLineCutsAtAWordBoundary(t *testing.T) {
 	}
 	if len(got) > statusLineLimit {
 		t.Fatalf("status line is %d bytes", len(got))
+	}
+}
+
+func TestStatusLineDoesNotDiscardMostOfAnUnbrokenToken(t *testing.T) {
+	got := statusLine("a " + strings.Repeat("b", 300))
+	want := "a " + strings.Repeat("b", statusLineLimit-len("…")-2) + "…"
+	if got != want {
+		t.Fatalf("status line discarded useful prefix: %q", got)
 	}
 }
 
@@ -356,5 +365,30 @@ func TestWatchSubscribedDuringStopSurvivesThatCompletion(t *testing.T) {
 	}
 	if delivered != 1 {
 		t.Fatalf("next completed Stop delivered %d notices", delivered)
+	}
+}
+
+func TestNoticeObservationReadErrorsAreNotDeliveryWarnings(t *testing.T) {
+	store := fixtureStore(t)
+	watcher, key := register(t, store, "codex")
+	target, _ := register(t, store, "cursor")
+	service := &Service{Store: store}
+	if _, err := service.Watch(watcher.ID, key, target.ID); err != nil {
+		t.Fatal(err)
+	}
+	path, err := store.watchPath(watcher.ID, target.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("{bad"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Update(target.ID, StateRetired, true); err != nil {
+		t.Fatal(err)
+	}
+	err = service.NoticeExitedSessions(context.Background())
+	var delivery *NoticeDeliveryError
+	if err == nil || errors.As(err, &delivery) {
+		t.Fatal("observation read failure became a best-effort delivery warning", err)
 	}
 }

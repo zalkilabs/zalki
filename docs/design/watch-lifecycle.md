@@ -13,7 +13,8 @@ There is no background process watcher. After a crash or kill without SessionEnd
 an ended notice fires only when an operator runs the explicit CLI `zalki list`
 or an applying `zalki prune` and the target is found retired or positively exited.
 Without such observation, the watch may expire silently. Dry-run prune does not
-deliver notices. MCP `list_agents` remains a read-only discovery operation and
+deliver notices. Notice-delivery failures warn on stderr while list/prune still
+return their JSON results; journal observation errors can fail the command. MCP `list_agents` remains a read-only discovery operation and
 never triggers native notice delivery.
 
 Adding a background observer, or choosing another automatic trigger for crash
