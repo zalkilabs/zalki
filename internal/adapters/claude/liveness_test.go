@@ -12,18 +12,18 @@ func TestClaudeLivenessUsesTheSessionSocket(t *testing.T) {
 	helper := &bus.ProcessRef{PID: 87443, Start: "helper", Role: "client"}
 	bound := bus.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return nil },
-		Presence: func(int) string { return "unknown" },
+		Presence: func(int) bus.Liveness { return bus.LivenessUnknown },
 	}
 	if got := (Adapter{}).Liveness(bus.LivenessView{Endpoint: endpoint, Owner: helper}, bound); got != "alive" {
 		t.Fatalf("a bound session socket was %s", got)
 	}
 	crashed := bus.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return nil },
-		Presence: func(pid int) string {
+		Presence: func(pid int) bus.Liveness {
 			if pid != 12076 {
 				t.Fatalf("probed pid %d", pid)
 			}
-			return "exited"
+			return bus.LivenessExited
 		},
 	}
 	if got := (Adapter{}).Liveness(bus.LivenessView{Endpoint: endpoint, Owner: helper}, crashed); got != "exited" {
@@ -32,11 +32,11 @@ func TestClaudeLivenessUsesTheSessionSocket(t *testing.T) {
 
 	missing := bus.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return errors.New("gone") },
-		Presence: func(pid int) string {
+		Presence: func(pid int) bus.Liveness {
 			if pid != 12076 {
 				t.Fatalf("probed pid %d", pid)
 			}
-			return "exited"
+			return bus.LivenessExited
 		},
 	}
 	if got := (Adapter{}).Liveness(bus.LivenessView{Endpoint: endpoint, Owner: helper}, missing); got != "exited" {
@@ -45,7 +45,7 @@ func TestClaudeLivenessUsesTheSessionSocket(t *testing.T) {
 
 	reused := bus.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return errors.New("replaced") },
-		Presence: func(int) string { return "unknown" },
+		Presence: func(int) bus.Liveness { return bus.LivenessUnknown },
 	}
 	if got := (Adapter{}).Liveness(bus.LivenessView{Endpoint: endpoint, Owner: helper}, reused); got != "unknown" {
 		t.Fatalf("an unfingerprinted pid was %s", got)

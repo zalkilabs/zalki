@@ -99,7 +99,7 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (Message, Sessi
 		if target.Retired {
 			return fail(CodeUnavailable, "destination has retired")
 		}
-		if s.sessionLiveness(target) == livenessExited {
+		if s.sessionLiveness(target) == LivenessExited {
 			return fail(CodeUnavailable, "destination owner process has exited")
 		}
 		to = target.ID

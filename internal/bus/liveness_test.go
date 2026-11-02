@@ -8,7 +8,7 @@ import (
 
 type livenessStub struct {
 	stubCursorAdapter
-	result string
+	result Liveness
 	own    bool
 }
 
@@ -18,15 +18,15 @@ func (s livenessStub) Descriptor() AdapterDescriptor {
 	return d
 }
 
-func (s livenessStub) Liveness(LivenessView, LivenessProbes) string { return s.result }
+func (s livenessStub) Liveness(LivenessView, LivenessProbes) Liveness { return s.result }
 
 func (s livenessStub) TracksOwnProcess() bool { return s.own }
 
 func TestSessionLivenessTrustsOnlyAdapterEvidence(t *testing.T) {
 	for _, test := range []struct {
 		name   string
-		result string
-		want   string
+		result Liveness
+		want   Liveness
 		listed bool
 	}{
 		{name: "alive", result: "alive", want: "alive", listed: true},

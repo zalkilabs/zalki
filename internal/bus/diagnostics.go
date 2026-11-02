@@ -13,7 +13,7 @@ type SessionDiagnostic struct {
 	State           SessionState        `json:"state"`
 	Retired         bool                `json:"retired"`
 	RetiredReason   string              `json:"retired_reason,omitempty"`
-	Liveness        string              `json:"liveness"`
+	Liveness        Liveness            `json:"liveness"`
 	Owner           *ProcessRef         `json:"owner,omitempty"`
 	UpdatedAt       string              `json:"updated_at"`
 	TransportHealth string              `json:"transport_health"`
@@ -57,6 +57,7 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 		binary, err := exec.LookPath(d.Executable)
 		diagnostic := AgentDiagnostic{Kind: kind, Label: d.Label, Binary: binary, Found: err == nil, Receive: adapter.ReceiveCapabilities(Session{})}
 		annotateClientCompatibility(&diagnostic)
+		annotateAdapterCompatibility(&diagnostic, adapter)
 		report.Agents = append(report.Agents, diagnostic)
 		report.Notes = append(report.Notes, d.Notes...)
 	}
@@ -90,7 +91,7 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 			return report, err
 		}
 		d.Receive = adapter.ReceiveCapabilities(v)
-		if health, ok := adapter.(healthAdapter); ok {
+		if health, ok := adapter.(HealthAdapter); ok {
 			d.TransportHealth, d.ListenerHealth = health.Health(hookRuntime{store: s}, v)
 		} else {
 			d.TransportHealth = "unknown"

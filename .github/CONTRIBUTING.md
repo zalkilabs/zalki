@@ -71,6 +71,11 @@ are normalized observations from earlier disposable-session probes, not raw
 captures or a guarantee that current client versions work. `zalki doctor` shows
 the installed versions, fixture coverage, listener health, and recovery hints.
 Already-running clients may still use an older version until restarted.
+Claude's adapter additionally owns an exact-version/platform evidence table.
+`live_verified` describes historical smoke coverage; it does not turn a
+`transport_written` receipt into native acceptance or a read receipt. See the
+[Claude socket investigation and smoke recipe](../docs/design/claude-delivery-ack.md)
+before adding verification for another release.
 
 To capture a new startup contract, export `ZALKI_CAPTURE_CONTRACTS` as an absolute
 private directory before starting the client. Hooks capture allowlisted schema
@@ -104,8 +109,10 @@ make cost-check
 This benchmarks inbox scans versus exact-ID reads at 100, 1,000, and 10,000
 records, then measures request/response and tool-schema bytes for a scripted
 review/revision exchange and an eleven-agent discovery roster. The budgets are
-6 KiB of responses for the exchange, 9,213 bytes for all tool schemas (including
-`watch_agent`), and 150 bytes per agent in the eleven-agent discovery fixture (including the envelope).
+6 KiB of responses for the exchange, 10,872 bytes for all tool schemas (including
+`watch_agent`, `set_task`, authenticated self marking, and sent preview/filter
+options), and 150 bytes per agent in the eleven-agent discovery fixture
+(including the envelope).
 Discovery keeps per-session `delivery`, optional `experimental`, and `updated_at`
 in UTC seconds. The ID prefix gives the kind; omitted state/liveness mean
 ready/unknown. Idle wake is implied except for `next_hook`; `idle_wake` overrides
@@ -126,6 +133,11 @@ continue pages with the same filters and `cursor=next_cursor`. It defaults to fi
 records, and bounds normal pages to 24 KiB. Wake handlers should request the
 hint's `message_id` directly, avoiding a journal scan. History is opt-in and omits
 bodies unless `include_body=true`; exact reads return complete bodies.
+Sent history also supports `to` (exact ID or current unique name) and opt-in
+`preview:true` (one line, at most 80 UTF-8 bytes). These options require
+`sent:true`. Previews never bypass deferred native inbox delivery. Alias fields
+are rewritten in receiving middleware before SDK validation, without adding
+alias properties to the canonical schemas.
 `body_omitted` means fetch by ID; `body_deferred` means await native delivery.
 
 ## Releases

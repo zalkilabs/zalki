@@ -17,10 +17,10 @@ type StateInput struct {
 	State      json.RawMessage
 }
 
-// sessionStateAdapter validates or migrates an adapter's persisted state. It
+// SessionStateAdapter validates or migrates an adapter's persisted state. It
 // returns the normalized current-schema state; core bounds, copies and stores
 // only that result. An error leaves the record unread or unchanged.
-type sessionStateAdapter interface {
+type SessionStateAdapter interface {
 	DecodeState(StateInput) (json.RawMessage, error)
 }
 
@@ -79,7 +79,7 @@ func (s Store) decodeAdapterState(kind string, in StateInput) (json.RawMessage, 
 	if err != nil {
 		return nil, err
 	}
-	codec, ok := adapter.(sessionStateAdapter)
+	codec, ok := adapter.(SessionStateAdapter)
 	if !ok {
 		return in.State, nil
 	}

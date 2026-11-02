@@ -128,7 +128,7 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 		if current.Retired || current.Generation != target.Generation {
 			return fail(CodeUnavailable, "destination registration changed before delivery")
 		}
-		if s.Store.sessionLiveness(current) == livenessExited {
+		if s.Store.sessionLiveness(current) == LivenessExited {
 			return fail(CodeUnavailable, "destination owner process exited before delivery")
 		}
 		if current.State == StateApproval {

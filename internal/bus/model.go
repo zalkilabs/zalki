@@ -35,7 +35,7 @@ type Session struct {
 	// prompt. Hooks skip the message journal when it is zero.
 	ApprovalHeld int         `json:"approval_held,omitempty"`
 	Owner        *ProcessRef `json:"owner,omitempty"`
-	Liveness     string      `json:"liveness,omitempty"`
+	Liveness     Liveness    `json:"liveness,omitempty"`
 	HookBuild    string      `json:"hook_build,omitempty"`
 	Endpoint     *Endpoint   `json:"endpoint,omitempty"`
 	// Listener is the core-owned lease of a native listener. Records that carry
@@ -69,9 +69,11 @@ type Message struct {
 	// BusyDelivery describes the target at this delivery attempt, not the
 	// current state of a historical message. It is never persisted.
 	BusyDelivery DeliveryTiming `json:"-"`
-	Schema       int            `json:"schema"`
-	ID           string         `json:"id"`
-	From         string         `json:"from"`
+	// BodyPreview is opt-in sent history metadata, never journal content.
+	BodyPreview string `json:"-"`
+	Schema      int    `json:"schema"`
+	ID          string `json:"id"`
+	From        string `json:"from"`
 	// Kind is "notice" for an automatic completion notice. Empty means an agent wrote the message.
 	Kind string `json:"kind,omitempty"`
 	// Snapshot the sender's label so queued envelopes remain stable after renames.

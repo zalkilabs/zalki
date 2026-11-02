@@ -47,7 +47,7 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 	if err != nil {
 		return err
 	}
-	hooks, ok := adapter.(hookAdapter)
+	hooks, ok := adapter.(HookAdapter)
 	if !ok {
 		return errors.New("this adapter does not support lifecycle hooks")
 	}
@@ -95,7 +95,7 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 }
 
 // decodeHook captures the native contract before mapping and normalizing it.
-func (s *Service) decodeHook(kind string, input io.Reader, adapter Adapter, hooks hookAdapter, trace *hookTrace) (HookInput, string, error) {
+func (s *Service) decodeHook(kind string, input io.Reader, adapter Adapter, hooks HookAdapter, trace *hookTrace) (HookInput, string, error) {
 	var event HookInput
 	trace.stage = "decode"
 	if err := json.NewDecoder(io.LimitReader(input, 128*1024)).Decode(&event); err != nil {
@@ -131,7 +131,7 @@ func (s *Service) decodeHook(kind string, input io.Reader, adapter Adapter, hook
 	return event, id, nil
 }
 
-func (s *Service) startSession(kind string, hooks hookAdapter, event HookInput, id string, output io.Writer, trace *hookTrace) error {
+func (s *Service) startSession(kind string, hooks HookAdapter, event HookInput, id string, output io.Writer, trace *hookTrace) error {
 	trace.stage = "register"
 	registration, err := hooks.RegisterHook(event)
 	if err != nil {

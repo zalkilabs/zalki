@@ -102,17 +102,8 @@ func (s Store) logReservation(msg Message) {
 
 // ObserveTool is called at the MCP boundary. SDK input-schema failures happen
 // before that boundary; request payloads and returned content are never logged.
+// Only registered handlers call this method, with their declared tool name.
 func (s *Service) ObserveTool(name, actor, id string, elapsed time.Duration, err error) {
-	known := false
-	for _, tool := range Tools() {
-		if tool["name"] == name {
-			known = true
-			break
-		}
-	}
-	if !known {
-		return
-	}
 	level := slog.LevelDebug
 	if err != nil {
 		level = slog.LevelWarn

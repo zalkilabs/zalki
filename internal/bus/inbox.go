@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Messages returns full history for local diagnostics and integrations.
@@ -16,6 +18,8 @@ type MessageQuery struct {
 	Actor, Capability string
 	History           bool
 	Sent              bool
+	To                string
+	Preview           bool
 	Limit             int
 	MessageID         string
 	IncludeBody       bool
@@ -44,12 +48,33 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 	if limit < 1 || limit > 100 {
 		return MessageBatch{}, fail(CodeInvalidInput, "limit must be 1..100")
 	}
+	if !query.Sent && (query.To != "" || query.Preview) {
+		return MessageBatch{}, fail(CodeInvalidInput, "to and preview require sent:true")
+	}
 	batch := MessageBatch{Messages: []Message{}}
 	items := []Message{}
 	err := s.locked(func() error {
 		current, err := s.authenticate(actor, key)
 		if err != nil {
 			return err
+		}
+		recipient := query.To
+		if recipient != "" {
+			// Canonical IDs work even after a recipient's session was deleted.
+			if _, err := s.sessionPath(recipient); err != nil {
+				target, err := s.resolve(recipient)
+				if err != nil {
+					return err
+				}
+				recipient = target.ID
+			}
+		}
+		view := func(message Message, omitBody bool) Message {
+			result := inboxView(message, current, omitBody)
+			if query.Preview && !result.BodyDeferred {
+				result.BodyPreview = bodyPreview(message.Body)
+			}
+			return result
 		}
 		if query.MessageID != "" {
 			message, err := s.message(query.MessageID)
@@ -62,7 +87,10 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 			if query.Sent && message.From != actor {
 				return fail(CodeNotFound, "message was not sent by this session")
 			}
-			items = append(items, inboxView(message, current, false))
+			if recipient != "" && message.To != recipient {
+				return fail(CodeNotFound, "message was not sent to this recipient")
+			}
+			items = append(items, view(message, false))
 			return nil
 		}
 		var cursor *Message
@@ -84,13 +112,16 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 				if query.Sent && item.From != actor {
 					return nil
 				}
+				if recipient != "" && item.To != recipient {
+					return nil
+				}
 				if !history && (item.To != actor || item.TargetGeneration != current.Generation || item.AcknowledgedAt != "" || !item.Status.canAcknowledge()) {
 					return nil
 				}
 				if cursor != nil && !messageComesBefore(*cursor, item, history) {
 					return nil
 				}
-				items = append(items, inboxView(item, current, history && !query.IncludeBody))
+				items = append(items, view(item, history && !query.IncludeBody))
 			}
 			return nil
 		}); err != nil {
@@ -105,6 +136,25 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 	})
 	batch.Messages = items
 	return batch, err
+}
+
+// bodyPreview produces one display line with a byte cap on UTF-8 boundaries.
+func bodyPreview(body string) string {
+	line := strings.Join(strings.Fields(body), " ")
+	line = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, line)
+	if len(line) > 80 {
+		end := 80
+		for !utf8.RuneStart(line[end]) {
+			end--
+		}
+		line = line[:end]
+	}
+	return line
 }
 
 func messageComesBefore(a, b Message, history bool) bool {

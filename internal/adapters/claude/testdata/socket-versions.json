@@ -1,0 +1,36 @@
+{
+  "2.1.307": {
+    "status": "fixture_covered",
+    "hint": "Recorded hook/metadata fixtures cover this version, not native socket acceptance. transport_written is write-only. Run make smoke-live in disposable sessions; see docs/design/claude-delivery-ack.md.",
+    "fixture": "internal/bus/testdata/clients/claude.json",
+    "scope": "normalized hook and metadata shapes; no live socket claim"
+  },
+  "2.1.316": {
+    "status": "live_verified",
+    "platforms": ["darwin/arm64"],
+    "hint": "Live smoke passed all four Claude cases for this version on darwin/arm64 (2026-11-01). transport_written is not a native ACK or read receipt. New versions need a new smoke report; see docs/design/claude-delivery-ack.md.",
+    "scope": "historical version/host coverage, not verification of every installed binary or running session",
+    "smoke_evidence": {
+      "report": "smoke-reports/f71f053d-3f74-4363-9a85-7a63c339533e.json",
+      "report_sha256": "b64be950e7697c8ca3b628064090895e624fc7664379abfe7f09e42965181cbc",
+      "started_at": "2026-11-01T15:44:38.037508000Z",
+      "zalki_build": "0.1.0-experimental+a984908f1cb0",
+      "installed_version": "2.1.316",
+      "overall_report_passed": false,
+      "claude_cases": {
+        "fresh-registration": "passed",
+        "idle-wake": "passed",
+        "restart-recovery": "passed",
+        "draft-preservation": "passed"
+      },
+      "binary_sha256": null
+    },
+    "source_review": {
+      "reviewed_on": "2026-11-02",
+      "binary_sha256": "64c327e92b2c5e0f78c0a980c5a518121e1f0d140ca771ca5dd4488d1a2dcb3f",
+      "inbox_module_byte_range": [280611271, 280647118],
+      "inline_ack": false,
+      "scope": "current binary source inspection and offline handler harness; not the historical smoke binary hash"
+    }
+  }
+}

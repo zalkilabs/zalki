@@ -26,7 +26,7 @@ type RuntimeInfo struct {
 	LoadedBuild     string      `json:"loaded_build"`
 	DiskBuild       string      `json:"disk_build,omitempty"`
 	NeedsRestart    bool        `json:"needs_restart"`
-	ProcessLiveness string      `json:"process_liveness"`
+	ProcessLiveness Liveness    `json:"process_liveness"`
 	Actors          []string    `json:"actors,omitempty"`
 	BuildError      string      `json:"build_error,omitempty"`
 }

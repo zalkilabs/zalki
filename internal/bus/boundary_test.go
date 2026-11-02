@@ -16,7 +16,6 @@ var clientNames = []string{"claude", "codex", "cursor"}
 // the only places core may spell it, and only in these exact forms.
 var paginationCursor = map[string]map[string]bool{
 	"inbox.go": {"Cursor": true, "cursor": true},
-	"tools.go": {"Cursor": true, `"cursor"`: true},
 }
 
 // TestCoreHasNoClientSpecificCode keeps client behavior in the adapter

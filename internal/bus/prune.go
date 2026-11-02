@@ -127,7 +127,7 @@ func (r *pruneRun) sweepSessions(sessions []Session) error {
 		reason := ""
 		if r.selected[v.ID] {
 			reason = "explicit_cleanup"
-		} else if r.store.sessionLiveness(v) == livenessExited {
+		} else if r.store.sessionLiveness(v) == LivenessExited {
 			reason = "owner_exited"
 		}
 		if reason == "" {

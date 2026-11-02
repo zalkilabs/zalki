@@ -7,11 +7,12 @@ import "time"
 type AgentInfo struct {
 	ID   string `json:"id"`
 	Name string `json:"name,omitempty"`
+	Self bool   `json:"self,omitempty"`
 	// Task is the agent's own unverified claim. Empty claims are omitted.
 	Task         string         `json:"task,omitempty"`
 	CWD          string         `json:"cwd"`
 	State        SessionState   `json:"state,omitempty"`
-	Liveness     string         `json:"liveness,omitempty"`
+	Liveness     Liveness       `json:"liveness,omitempty"`
 	UpdatedAt    string         `json:"updated_at"`
 	Delivery     DeliveryTiming `json:"delivery"`
 	IdleWake     *bool          `json:"idle_wake,omitempty"`
@@ -19,13 +20,32 @@ type AgentInfo struct {
 }
 
 func (s Store) Discover() ([]AgentInfo, error) {
-	sessions, err := s.List()
+	return s.DiscoverFor("", "")
+}
+
+// DiscoverFor optionally marks the authenticated caller. Partial or invalid
+// credentials fail the entire call rather than silently losing self identity.
+func (s Store) DiscoverFor(actor, key string) ([]AgentInfo, error) {
+	if (actor == "") != (key == "") {
+		return nil, fail(CodeInvalidInput, "actor and capability must be provided together")
+	}
+	var sessions []Session
+	err := s.locked(func() error {
+		if actor != "" {
+			if _, err := s.authenticate(actor, key); err != nil {
+				return err
+			}
+		}
+		var err error
+		sessions, err = s.sessions()
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
 	info := make([]AgentInfo, 0, len(sessions))
 	for _, v := range sessions {
-		row := AgentInfo{ID: v.ID, Name: v.Name, Task: v.Task, CWD: v.CWD, State: v.State,
+		row := AgentInfo{ID: v.ID, Name: v.Name, Self: v.ID == actor, Task: v.Task, CWD: v.CWD, State: v.State,
 			Liveness: v.Liveness, UpdatedAt: v.UpdatedAt,
 			Delivery: v.Receive.BusyDelivery, Experimental: v.Receive.Experimental}
 		if row.State == StateReady {

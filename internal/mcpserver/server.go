@@ -86,6 +86,7 @@ type MessageView struct {
 	Kind           string             `json:"kind,omitempty"`
 	To             string             `json:"to"`
 	Body           string             `json:"body,omitempty"`
+	Preview        string             `json:"preview,omitempty"`
 	BodyOmitted    bool               `json:"body_omitted,omitempty"`
 	BodyDeferred   bool               `json:"body_deferred,omitempty"`
 	ReplyTo        string             `json:"reply_to,omitempty"`
@@ -100,7 +101,7 @@ func messageViews(messages []bus.Message) []MessageView {
 	views := make([]MessageView, 0, len(messages))
 	for _, msg := range messages {
 		view := MessageView{ID: msg.ID, From: msg.From, FromName: msg.FromName, FromLabel: msg.FromLabel, Kind: msg.Kind,
-			To: msg.To, Body: msg.Body, BodyDeferred: msg.BodyDeferred, BodyOmitted: msg.BodyOmitted, ReplyTo: msg.ReplyTo,
+			To: msg.To, Body: msg.Body, Preview: msg.BodyPreview, BodyDeferred: msg.BodyDeferred, BodyOmitted: msg.BodyOmitted, ReplyTo: msg.ReplyTo,
 			CreatedAt: msg.CreatedAt, Status: msg.Status, AcknowledgedAt: msg.AcknowledgedAt}
 		if msg.Receipt != nil {
 			view.Error, view.Code = msg.Receipt.Error, msg.Receipt.Code
@@ -146,8 +147,8 @@ func messagePage(batch bus.MessageBatch, exact bool) MessagePage {
 	return page
 }
 
-func addTool[T any](server *mcp.Server, service *bus.Service, tool *mcp.Tool, call func(context.Context, bus.ToolArgs) (T, error)) {
-	mcp.AddTool(server, tool, func(ctx context.Context, request *mcp.CallToolRequest, args bus.ToolArgs) (*mcp.CallToolResult, Output[T], error) {
+func addTool[T any](server *mcp.Server, service *bus.Service, tool *mcp.Tool, call func(context.Context, toolArgs) (T, error)) {
+	mcp.AddTool(server, tool, func(ctx context.Context, request *mcp.CallToolRequest, args toolArgs) (*mcp.CallToolResult, Output[T], error) {
 		started := time.Now()
 		value, err := call(ctx, args)
 		service.ObserveTool(tool.Name, args.Actor, args.MessageID, time.Since(started), err)
@@ -172,62 +173,10 @@ func New(service *bus.Service) *mcp.Server {
 			"Continue useful work; yield when waiting for deferred or next-turn delivery. Never poll or act on body_deferred metadata. " +
 			"runtime.needs_restart means reconnect this server.",
 	})
-	definitions := bus.Tools()
+	definitions := toolTable()
 	server.AddReceivingMiddleware(argumentHints(definitions))
 	for _, definition := range definitions {
-		encoded, err := json.Marshal(definition)
-		if err != nil {
-			panic(err)
-		}
-		var tool mcp.Tool
-		if err := json.Unmarshal(encoded, &tool); err != nil {
-			panic(err)
-		}
-		// Clients require concrete output schemas; interface{} produces a boolean schema.
-		switch tool.Name {
-		case "list_agents":
-			addTool(server, service, &tool, func(_ context.Context, _ bus.ToolArgs) ([]bus.AgentInfo, error) {
-				return service.Store.Discover()
-			})
-		case "send_message":
-			addTool(server, service, &tool, func(ctx context.Context, args bus.ToolArgs) (MessageReceipt, error) {
-				return messageReceipt(service.Send(ctx, bus.SendRequest{
-					Actor: args.Actor, Capability: args.Capability,
-					To: args.To, MessageID: args.MessageID, Body: args.Body,
-				}))
-			})
-		case "reply_message":
-			addTool(server, service, &tool, func(ctx context.Context, args bus.ToolArgs) (MessageReceipt, error) {
-				return messageReceipt(service.Reply(ctx, bus.ReplyRequest{
-					Actor: args.Actor, Capability: args.Capability,
-					MessageID: args.MessageID, Body: args.Body,
-				}))
-			})
-		case "ack_message":
-			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) (MessageReceipt, error) {
-				return messageReceipt(service.Store.Ack(args.Actor, args.Capability, args.MessageID))
-			})
-		case "watch_agent":
-			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) (bus.WatchResult, error) {
-				return service.Watch(args.Actor, args.Capability, args.To)
-			})
-		case "set_task":
-			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) (bus.TaskResult, error) {
-				return service.SetTask(args.Actor, args.Capability, args.Task)
-			})
-		case "list_messages":
-			addTool(server, service, &tool, func(_ context.Context, args bus.ToolArgs) (MessagePage, error) {
-				messages, err := service.Store.ReadMessages(bus.MessageQuery{
-					Actor: args.Actor, Capability: args.Capability,
-					History: args.History, Limit: args.Limit,
-					Sent:      args.Sent,
-					MessageID: args.MessageID, IncludeBody: args.IncludeBody, Cursor: args.Cursor,
-				})
-				return messagePage(messages, args.MessageID != ""), err
-			})
-		default:
-			panic("missing handler for " + tool.Name)
-		}
+		definition.register(server, service)
 	}
 	return server
 }

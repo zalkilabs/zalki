@@ -127,12 +127,43 @@ func TestCollaborationCost(t *testing.T) {
 	}
 	// tools/list was 7951 bytes under the 8 KiB gate before watch_agent.
 	// 9213 is that list plus the one-shot tool and the notice kind on list_messages.
-	// 10341 is that list on #11 plus set_task and the task field.
-	if metrics.SchemaBytes > 10341 {
+	// 10341 includes set_task; 10872 adds caller marking, sent filters/preview,
+	// and 73 bytes of alias guidance without alias schema properties.
+	if metrics.SchemaBytes > 10872 {
 		t.Fatalf("tool schemas exceeded budget: %d bytes", metrics.SchemaBytes)
 	}
 	encoded, _ := json.Marshal(metrics)
 	t.Log(string(encoded))
+
+	t.Run("sent_preview", func(t *testing.T) {
+		measure := func(preview bool) (int, int) {
+			t.Helper()
+			args := map[string]any{"actor": author.ID, "capability": authorKey, "sent": true}
+			if preview {
+				args["to"], args["preview"] = reviewer.ID, true
+			}
+			params := &mcp.CallToolParams{Name: "list_messages", Arguments: args}
+			request, _ := json.Marshal(params)
+			result, err := session.CallTool(ctx, params)
+			if err != nil || result.IsError {
+				t.Fatal("sent cost call failed", err)
+			}
+			response, _ := json.Marshal(result.StructuredContent)
+			var output Output[MessagePage]
+			if err := json.Unmarshal(response, &output); err != nil || len(output.Data.Messages) != 2 {
+				t.Fatal("sent cost fixture lost messages", err)
+			}
+			for _, message := range output.Data.Messages {
+				if (message.Preview != "") != preview || len(message.Preview) > 80 || message.Body != "" {
+					t.Fatal("sent preview changed the default body contract")
+				}
+			}
+			return len(request), len(response)
+		}
+		plainRequest, plainResponse := measure(false)
+		previewRequest, previewResponse := measure(true)
+		t.Logf("sent_preview: messages=2 default_request_bytes=%d default_response_bytes=%d to_preview_request_delta=%d preview_response_delta=%d", plainRequest, plainResponse, previewRequest-plainRequest, previewResponse-plainResponse)
+	})
 
 	t.Run("discovery", func(t *testing.T) {
 		// Eleven agents across all built-in kinds, including the two above.
@@ -176,5 +207,14 @@ func TestCollaborationCost(t *testing.T) {
 			}
 		}
 		t.Logf("discovery: agents=%d response_bytes=%d bytes_per_agent=%.1f text_bytes=%d tool_result_bytes=%d schema_bytes=%d", len(output.Data), len(response), float64(len(response))/float64(len(output.Data)), textBytes, len(wire), len(schema))
+		marked, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_agents", Arguments: map[string]any{"actor": author.ID, "capability": authorKey}})
+		if err != nil || marked.IsError {
+			t.Fatal("authenticated discovery cost call failed", err)
+		}
+		markedResponse, _ := json.Marshal(marked.StructuredContent)
+		if len(markedResponse)-len(response) != len(`,"self":true`) || len(markedResponse) > 150*len(output.Data) {
+			t.Fatal("self marking added more than one compact marker")
+		}
+		t.Logf("authenticated_discovery: response_bytes=%d delta=%d bytes_per_agent=%.1f", len(markedResponse), len(markedResponse)-len(response), float64(len(markedResponse))/float64(len(output.Data)))
 	})
 }

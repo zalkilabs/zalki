@@ -30,7 +30,7 @@ func (s Store) nativeNames(sessions []Session) {
 		if err != nil {
 			continue
 		}
-		names, ok := adapter.(nameAdapter)
+		names, ok := adapter.(NameAdapter)
 		if !ok {
 			continue
 		}
@@ -46,7 +46,7 @@ func (s Store) rememberNativeConfigDir(id, kind string) error {
 	if err != nil {
 		return err
 	}
-	names, ok := adapter.(nameAdapter)
+	names, ok := adapter.(NameAdapter)
 	if !ok {
 		return nil
 	}
