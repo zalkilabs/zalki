@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 )
@@ -141,10 +142,21 @@ func mergeRecordValue(previous, next json.RawMessage, typ reflect.Type) (json.Ra
 	}
 }
 
+// recordUpdate carries preservation data only for an exceptional first write
+// from a durable reply intent, and obsolete fields consumed by migration.
+type recordUpdate struct {
+	previous json.RawMessage
+	removed  []string
+}
+
 // writeRecord is called under the journal lock. Re-read the on-disk record so
 // re-registration and crash recovery also preserve fields absent from their
 // newly constructed values. A future record is never overwritten by a fresh value.
-func (s Store) writeRecord(path string, value any, supported int, removed ...string) error {
+func (s Store) writeRecord(path string, value any, supported int, updates ...recordUpdate) error {
+	update := recordUpdate{}
+	if len(updates) != 0 {
+		update = updates[0]
+	}
 	next, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -162,6 +174,9 @@ func (s Store) writeRecord(path string, value any, supported int, removed ...str
 	if err := readJSON(path, &previous); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
+	if len(previous) == 0 {
+		previous = update.previous
+	}
 	if len(previous) != 0 {
 		var header struct {
 			Schema int `json:"schema"`
@@ -173,13 +188,13 @@ func (s Store) writeRecord(path string, value any, supported int, removed ...str
 			return fail(CodeUnsupportedSchema, "unsupported journal schema %d; upgrade zalki", header.Schema)
 		}
 	}
-	if len(previous) != 0 && len(removed) != 0 {
+	if len(previous) != 0 && len(update.removed) != 0 {
 		fields := map[string]json.RawMessage{}
 		if err := json.Unmarshal(previous, &fields); err != nil {
 			return err
 		}
 		for key := range fields {
-			for _, name := range removed {
+			for _, name := range update.removed {
 				if strings.EqualFold(key, name) {
 					delete(fields, key)
 					break
@@ -198,6 +213,18 @@ func (s Store) writeRecord(path string, value any, supported int, removed ...str
 	// Keep the existing journal read bound; this does not change message limits.
 	if len(raw) > 128*1024 {
 		return fail(CodeInvalidInput, "state record exceeds journal size limit")
+	}
+	relative, err := filepath.Rel(s.Dir, path)
+	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		return fail(CodeInvalidIdentity, "record path is outside state directory")
+	}
+	family, _, _ := strings.Cut(relative, string(os.PathSeparator))
+	version := nextHeader.Schema
+	if version == 0 {
+		version = 1
+	}
+	if err := s.ensureStateFormat(family, version); err != nil {
+		return err
 	}
 	return writeJSON(path, raw)
 }

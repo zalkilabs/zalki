@@ -259,7 +259,7 @@ func (l *Lease) Confirm(policy func(SessionView) (json.RawMessage, error)) error
 // that messageID is one of its registration's pending messages. It reports
 // whether the message was already acknowledged.
 func (l *Lease) ValidateDelivery(messageID string) (acknowledged bool, err error) {
-	err = l.store.locked(func() error {
+	err = l.store.readLocked(func() error {
 		current, err := l.store.session(l.actor)
 		if err != nil {
 			return err

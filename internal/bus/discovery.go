@@ -36,7 +36,7 @@ func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error)
 	}
 	var sessions []Session
 	var skipped int
-	err := s.locked(func() error {
+	err := s.readLocked(func() error {
 		if actor != "" {
 			if _, err := s.authenticate(actor, key); err != nil {
 				return err

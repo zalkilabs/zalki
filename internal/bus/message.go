@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"os"
@@ -40,6 +41,10 @@ func (s Store) eachMessage(visit func(id string, message Message, readErr error)
 }
 
 func (s Store) saveMessage(v Message) error {
+	return s.saveMessageRecord(v, nil)
+}
+
+func (s Store) saveMessageRecord(v Message, previous json.RawMessage) error {
 	if v.Schema < 0 || v.Schema > recordSchema {
 		return fail(CodeUnsupportedSchema, "unsupported message schema %d", v.Schema)
 	}
@@ -47,7 +52,7 @@ func (s Store) saveMessage(v Message) error {
 		return err
 	}
 	v.Schema = recordSchema
-	return s.writeRecord(filepath.Join(s.Dir, "messages", v.ID+".json"), v, recordSchema)
+	return s.writeRecord(filepath.Join(s.Dir, "messages", v.ID+".json"), v, recordSchema, recordUpdate{previous: previous})
 }
 
 func (s Store) ReserveMessage(request SendRequest) (message Message, target Session, fresh bool, err error) {

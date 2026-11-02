@@ -106,7 +106,7 @@ func (s Store) saveSession(v Session) error {
 			}
 		}
 	}
-	return s.writeRecord(path, v, leaseSessionSchema, removed...)
+	return s.writeRecord(path, v, leaseSessionSchema, recordUpdate{removed: removed})
 }
 
 func (s Store) Register(kind, id, cwd string, endpoint *Endpoint) (Session, string, error) {
@@ -271,7 +271,7 @@ func (s Store) List() ([]Session, error) {
 func (s Store) ListWithWarnings() ([]Session, int, error) {
 	var sessions []Session
 	var skipped int
-	err := s.locked(func() error {
+	err := s.readLocked(func() error {
 		var err error
 		sessions, skipped, err = s.sessionsWithWarnings()
 		return err

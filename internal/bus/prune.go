@@ -63,19 +63,24 @@ func (s Store) PruneRetired(dryRun bool, selected []string, retiredOlderThan tim
 		return run.report, errors.New("retired retention window must not be negative")
 	}
 	for _, id := range selected {
-		if _, err := s.sessionPath(id); err != nil {
+		if _, err := s.sessionRecordPath(id); err != nil {
 			return run.report, err
 		}
 		run.selected[id] = true
 	}
-	err := s.locked(run.execute)
+	var err error
+	if dryRun {
+		err = s.readLocked(run.execute)
+	} else {
+		err = s.locked(run.execute)
+	}
 	return run.report, err
 }
 
 func (r *pruneRun) execute() error {
 	// Validate every selection and read both snapshots before any mutation.
 	for id := range r.selected {
-		path, err := r.store.sessionPath(id)
+		path, err := r.store.sessionRecordPath(id)
 		if err != nil {
 			return err
 		}

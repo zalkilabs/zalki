@@ -64,7 +64,7 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 	}
 	var sessions []Session
 	var runtimes []RuntimeInfo
-	err := s.locked(func() error {
+	err := s.readLocked(func() error {
 		var err error
 		var issues []SessionIssue
 		sessions, issues, err = s.scanSessions()

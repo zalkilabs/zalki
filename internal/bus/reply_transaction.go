@@ -2,6 +2,7 @@ package bus
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -85,7 +86,7 @@ func (s Store) prepareReply(request ReplyRequest) (msg Message, target Session, 
 			return err
 		}
 		path := filepath.Join(dir, msg.ID+".json")
-		if err := writeJSON(path, tx); err != nil {
+		if err := s.writeRecord(path, tx, recordSchema); err != nil {
 			return err
 		}
 		s.logEvent(slog.LevelDebug, "reply.intent_committed", messageEvent(msg))
@@ -155,7 +156,13 @@ func (s Store) applyReplyTransaction(path string, tx replyTransaction) error {
 		return err
 	}
 	if errors.Is(err, os.ErrNotExist) {
-		if err := s.saveReservation(tx.Reply); err != nil {
+		var intent struct {
+			Reply json.RawMessage `json:"reply"`
+		}
+		if err := readJSON(path, &intent); err != nil {
+			return err
+		}
+		if err := s.saveReservationRecord(tx.Reply, intent.Reply); err != nil {
 			return err
 		}
 		s.logReservation(tx.Reply)

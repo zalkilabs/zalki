@@ -260,6 +260,12 @@ func TestMixedSessionScanSkipsRecordsAndPrunePreservesThem(t *testing.T) {
 			}
 		}
 	}
+	for _, id := range []string{future.ID, missingID} {
+		report, err := store.Prune(false, []string{id})
+		if err != nil || len(report.DeletedSessions) != 0 {
+			t.Fatal("selected unsupported record was not skipped", report, err)
+		}
+	}
 	for path, expected := range before {
 		if got, _ := os.ReadFile(path); !bytes.Equal(got, expected) {
 			t.Fatal("skipped record changed", path)
@@ -338,7 +344,21 @@ func TestReleasedStateFixturesRoundTripWithoutFieldLoss(t *testing.T) {
 				if readErr != nil {
 					return readErr
 				}
-				return store.saveMessage(msg)
+				path := filepath.Join(store.Dir, "messages", msg.ID+".json")
+				var before, after any
+				if err := readJSON(path, &before); err != nil {
+					return err
+				}
+				if err := store.saveMessage(msg); err != nil {
+					return err
+				}
+				if err := readJSON(path, &after); err != nil {
+					return err
+				}
+				if !reflect.DeepEqual(before, after) {
+					t.Fatal("released message lost fields")
+				}
+				return nil
 			}); err != nil {
 				t.Fatal(err)
 			}
@@ -432,5 +452,52 @@ func TestHeldExtensionsSurviveApprovalReleaseAndRetirement(t *testing.T) {
 			}
 			requireRecordExtension(t, store.sessionPathMust(t, target.ID))
 		})
+	}
+}
+
+func TestFloodMergeKeepsNestedFieldsByArrivalIdentity(t *testing.T) {
+	now := time.Now()
+	state := floodState{Schema: 1, Target: "target", Inbound: floodBucket{Tokens: 2, At: now}, Senders: map[string]floodBucket{"kept": {Tokens: 1, At: now}, "removed": {Tokens: 1, At: now}}, Recent: []floodArrival{{ID: "first", Sender: "kept", At: now}, {ID: "second", Sender: "kept", At: now}}}
+	previous, _ := json.Marshal(state)
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(previous, &fields); err != nil {
+		t.Fatal(err)
+	}
+	var arrivals []map[string]json.RawMessage
+	if err := json.Unmarshal(fields["recent"], &arrivals); err != nil {
+		t.Fatal(err)
+	}
+	arrivals[0]["future_arrival"] = json.RawMessage(`"first only"`)
+	arrivals[1]["future_arrival"] = json.RawMessage(`"second only"`)
+	fields["recent"], _ = json.Marshal(arrivals)
+	var senders map[string]map[string]json.RawMessage
+	if err := json.Unmarshal(fields["senders"], &senders); err != nil {
+		t.Fatal(err)
+	}
+	senders["kept"]["future_bucket"] = futureExtension
+	fields["senders"], _ = json.Marshal(senders)
+	previous, _ = json.Marshal(fields)
+	state.Recent = append(state.Recent[1:], floodArrival{ID: "third", Sender: "kept", At: now})
+	delete(state.Senders, "removed")
+	merged, err := mergeRecordJSON(previous, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(merged, &fields); err != nil {
+		t.Fatal(err)
+	}
+	arrivals = nil
+	if err := json.Unmarshal(fields["recent"], &arrivals); err != nil {
+		t.Fatal(err)
+	}
+	if string(arrivals[0]["future_arrival"]) != `"second only"` || arrivals[1]["future_arrival"] != nil {
+		t.Fatal("arrival extensions shifted to another reservation")
+	}
+	senders = nil
+	if err := json.Unmarshal(fields["senders"], &senders); err != nil {
+		t.Fatal(err)
+	}
+	if senders["kept"]["future_bucket"] == nil || senders["removed"] != nil {
+		t.Fatal("bucket extensions lost or removed sender resurrected")
 	}
 }

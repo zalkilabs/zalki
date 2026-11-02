@@ -45,6 +45,16 @@ func privateDir(path string) error {
 }
 
 func (s Store) locked(fn func() error) error {
+	return s.lockedMode(fn, false)
+}
+
+// readLocked preserves normal reply recovery when formats are compatible. A
+// newer marker disables recovery and permits reads without applying old writes.
+func (s Store) readLocked(fn func() error) error {
+	return s.lockedMode(fn, true)
+}
+
+func (s Store) lockedMode(fn func() error, readOnly bool) error {
 	if err := privateDir(s.Dir); err != nil {
 		return err
 	}
@@ -62,9 +72,15 @@ func (s Store) locked(fn func() error) error {
 		return err
 	}
 	defer syscall.Flock(fd, syscall.LOCK_UN) //nolint:errcheck // Descriptor close also releases the lock.
-	if err := s.recoverReplies(); err != nil {
-		s.logEvent(slog.LevelError, "reply.recovery_failed", eventData{Err: err})
-		return err
+	compatibility := s.CheckWriteCompatibility()
+	if compatibility != nil && !readOnly {
+		return compatibility
+	}
+	if compatibility == nil {
+		if err := s.recoverReplies(); err != nil {
+			s.logEvent(slog.LevelError, "reply.recovery_failed", eventData{Err: err})
+			return err
+		}
 	}
 	return fn()
 }
