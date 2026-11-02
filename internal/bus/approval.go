@@ -2,6 +2,7 @@ package bus
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"sort"
@@ -13,13 +14,17 @@ const approvalQueueCap = 8
 // saveReservation writes the count before a held reservation so a crash cannot
 // leave a durable held message with a zero count. The caller holds the lock.
 func (s Store) saveReservation(msg Message) error {
+	return s.saveReservationRecord(msg, nil)
+}
+
+func (s Store) saveReservationRecord(msg Message, previous json.RawMessage) error {
 	held := msg.IsQueuedForApproval()
 	if held {
 		if err := s.rememberApprovalHold(msg.To, 1); err != nil {
 			return err
 		}
 	}
-	if err := s.saveMessage(msg); err != nil {
+	if err := s.saveMessageRecord(msg, previous); err != nil {
 		if held {
 			_ = s.rememberApprovalHold(msg.To, -1)
 		}
@@ -158,11 +163,14 @@ func (s Store) reconcileApprovalHolds(dryRun bool, report *PruneReport, retiring
 	for _, id := range unreadable {
 		report.Sessions = append(report.Sessions, PruneItem{ID: id, Reason: "message_unreadable"})
 	}
-	sessions, err := s.rawSessions()
+	sessions, issues, err := s.scanSessions()
 	if err != nil {
 		return err
 	}
 	seen := map[string]bool{}
+	for _, issue := range issues {
+		seen[issue.ID] = true
+	}
 	for _, v := range sessions {
 		seen[v.ID] = true
 		count := counts[v.ID]

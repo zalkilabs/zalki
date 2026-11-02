@@ -109,7 +109,7 @@ make cost-check
 This benchmarks inbox scans versus exact-ID reads at 100, 1,000, and 10,000
 records, then measures request/response and tool-schema bytes for a scripted
 review/revision exchange and an eleven-agent discovery roster. The budgets are
-6 KiB of responses for the exchange, 10,872 bytes for all tool schemas (including
+6 KiB of responses for the exchange, 10,910 bytes for all tool schemas (including
 `watch_agent`, `set_task`, authenticated self marking, and sent preview/filter
 options), and 150 bytes per agent in the eleven-agent discovery fixture
 (including the envelope).
@@ -139,6 +139,36 @@ Sent history also supports `to` (exact ID or current unique name) and opt-in
 are rewritten in receiving middleware before SDK validation, without adding
 alias properties to the canonical schemas.
 `body_omitted` means fetch by ID; `body_deferred` means await native delivery.
+
+## Shared state upgrades
+
+List and discovery skip individual unreadable, unsupported, or removed-adapter
+session records. CLI list reports a count on stderr; MCP list_agents adds
+`skipped_sessions` only when nonzero. Doctor and prune retain diagnostic reasons.
+Exact reads and writes still reject those records. Their bytes are kept intact.
+
+Session, message, watch, and flood rewrites preserve unknown JSON fields, including
+retained nested records. Known fields explicitly cleared are removed, including
+case variants. Adapter migrations explicitly identify obsolete extension fields;
+old wake endpoints are removed instead of being revived by preservation.
+
+`state-formats.json` is a versioned, lazy declaration of formats written by
+marker-aware builds. It records each family's highest schema before publishing
+the record and never automatically lowers that declaration. It is not a census
+of legacy files: unmarked records still rely on per-record schema checks. Readers
+do not create a marker unless they actually recover a pending reply transaction.
+
+A newer, unknown, or unreadable marker fences journal mutations with an
+`upgrade zalki` error. Known sessions and message pages remain readable; reply
+recovery waits for a compatible build. MCP can start without runtime registration,
+and lifecycle hooks become logged no-ops, so the fence does not break the client.
+Diagnostics may continue writing logs and using the existing journal lock; the
+fence protects record formats, not operating-system access to the directory.
+
+Pre-marker binaries ignore the file. They do not gain forward protection from
+its presence: upgrade every writer sharing a state directory. The schema-2 lease
+fence remains necessary. A marker left after a failed record write conservatively
+keeps the announced format requirement rather than risking an undeclared record.
 
 ## Releases
 

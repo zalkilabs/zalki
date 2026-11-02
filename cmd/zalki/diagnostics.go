@@ -16,9 +16,12 @@ func newListCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sessions, err := service.Store.List()
+			sessions, skipped, err := service.Store.ListWithWarnings()
 			if err != nil {
 				return err
+			}
+			if skipped > 0 {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: skipped %d unreadable or unsupported session records.\n", skipped)
 			}
 			if err := noticeExitedSessions(cmd, service); err != nil {
 				return err
@@ -83,6 +86,10 @@ func newPruneCommand(opts *commandOptions) *cobra.Command {
 // Notice delivery is best effort; journal observation failures remain fatal.
 func noticeExitedSessions(cmd *cobra.Command, service *bus.Service) error {
 	err := service.NoticeExitedSessions(cmd.Context())
+	if bus.IsUpgradeRequired(err) {
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: upgrade zalki to write this state; read-only results remain available.")
+		return nil
+	}
 	var delivery *bus.NoticeDeliveryError
 	if !errors.As(err, &delivery) {
 		return err

@@ -9,8 +9,8 @@ import (
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
-// The full advertised tools/list contract was captured before moving the tool
-// table out of bus. Guard content as well as size during behavior-only refactors.
+// Pin the full advertised tools/list contract, including discovery's optional
+// skipped_sessions count. Guard content as well as size during refactors.
 // Exclude the result envelope: its serverInfo version contains a dynamic build ID.
 func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	client, ctx := testClient(t, &bus.Service{})
@@ -22,7 +22,7 @@ func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = "ff796639b42b259a19023d867994a45006725d43eb47115936b3b196b098e539"
+	const want = "ab89c2a2e7a7486d2924e98e7f9adfc0e80090d3b413bd601e4a2ffd38883834"
 	if got := fmt.Sprintf("%x", sha256.Sum256(encoded)); got != want {
 		t.Fatalf("advertised tool contract changed: sha256=%s bytes=%d; compare with the pre-refactor contract before updating", got, len(encoded))
 	}

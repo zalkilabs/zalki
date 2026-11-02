@@ -147,17 +147,43 @@ func messagePage(batch bus.MessageBatch, exact bool) MessagePage {
 	return page
 }
 
-func addTool[T any](server *mcp.Server, service *bus.Service, tool *mcp.Tool, call func(context.Context, toolArgs) (T, error)) {
-	mcp.AddTool(server, tool, func(ctx context.Context, request *mcp.CallToolRequest, args toolArgs) (*mcp.CallToolResult, Output[T], error) {
+// DiscoveryOutput adds one warning count to discovery, keeping healthy data
+// arrays and all other tools' envelopes byte-identical.
+type DiscoveryOutput struct {
+	Data            []bus.AgentInfo    `json:"data"`
+	SkippedSessions int                `json:"skipped_sessions,omitempty"`
+	Runtime         *bus.RuntimeStatus `json:"runtime,omitempty"`
+	Error           *ToolError         `json:"error,omitempty"`
+}
+
+type discoveryResult struct {
+	agents  []bus.AgentInfo
+	skipped int
+}
+
+func toolOutput[T any](service *bus.Service, value T, err error) Output[T] {
+	output := Output[T]{Data: value, Runtime: runtimeWarning(service)}
+	if err != nil {
+		output.Error = &ToolError{Code: bus.ErrorCodeOf(err), Message: err.Error()}
+	}
+	return output
+}
+
+func discoveryOutput(service *bus.Service, value discoveryResult, err error) DiscoveryOutput {
+	output := toolOutput(service, value.agents, err)
+	return DiscoveryOutput{Data: output.Data, SkippedSessions: value.skipped, Runtime: output.Runtime, Error: output.Error}
+}
+
+func addToolOutput[T, O any](server *mcp.Server, service *bus.Service, tool *mcp.Tool, call func(context.Context, toolArgs) (T, error), wrap func(*bus.Service, T, error) O) {
+	mcp.AddTool(server, tool, func(ctx context.Context, request *mcp.CallToolRequest, args toolArgs) (*mcp.CallToolResult, O, error) {
 		started := time.Now()
 		value, err := call(ctx, args)
 		service.ObserveTool(tool.Name, args.Actor, args.MessageID, time.Since(started), err)
 		if err == nil && service.Runtime != nil {
 			service.Runtime.ObserveActor(args.Actor)
 		}
-		output := Output[T]{Data: value, Runtime: runtimeWarning(service)}
+		output := wrap(service, value, err)
 		if err != nil {
-			output.Error = &ToolError{Code: bus.ErrorCodeOf(err), Message: err.Error()}
 			return &mcp.CallToolResult{IsError: true}, output, nil
 		}
 		return nil, output, nil

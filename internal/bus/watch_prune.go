@@ -78,7 +78,7 @@ func (r *pruneRun) pruneTargetWatches(root, dirName, target string) error {
 			remaining++
 			continue
 		}
-		if !orphan && !watchIsStale(filepath.Join(dir, name), target, r.now) {
+		if futureRecord(filepath.Join(dir, name), recordSchema) || (!orphan && !watchIsStale(filepath.Join(dir, name), target, r.now)) {
 			remaining++
 			continue
 		}

@@ -26,22 +26,28 @@ func (s Store) Discover() ([]AgentInfo, error) {
 // DiscoverFor optionally marks the authenticated caller. Partial or invalid
 // credentials fail the entire call rather than silently losing self identity.
 func (s Store) DiscoverFor(actor, key string) ([]AgentInfo, error) {
+	info, _, err := s.DiscoverWithWarnings(actor, key)
+	return info, err
+}
+
+func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error) {
 	if (actor == "") != (key == "") {
-		return nil, fail(CodeInvalidInput, "actor and capability must be provided together")
+		return nil, 0, fail(CodeInvalidInput, "actor and capability must be provided together")
 	}
 	var sessions []Session
-	err := s.locked(func() error {
+	var skipped int
+	err := s.readLocked(func() error {
 		if actor != "" {
 			if _, err := s.authenticate(actor, key); err != nil {
 				return err
 			}
 		}
 		var err error
-		sessions, err = s.sessions()
+		sessions, skipped, err = s.sessionsWithWarnings()
 		return err
 	})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	info := make([]AgentInfo, 0, len(sessions))
 	for _, v := range sessions {
@@ -65,5 +71,5 @@ func (s Store) DiscoverFor(actor, key string) ([]AgentInfo, error) {
 		}
 		info = append(info, row)
 	}
-	return info, nil
+	return info, skipped, nil
 }

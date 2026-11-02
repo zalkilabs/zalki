@@ -52,6 +52,9 @@ func (r *pruneRun) deleteOrphanFlood() error {
 				return err
 			}
 		}
+		if futureRecord(filepath.Join(dir, base), recordSchema) {
+			continue
+		}
 		report.DeletedFlood = append(report.DeletedFlood, base)
 		if !dryRun {
 			if err := os.Remove(filepath.Join(dir, base)); err != nil && !errors.Is(err, os.ErrNotExist) {

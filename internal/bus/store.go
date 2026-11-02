@@ -45,6 +45,16 @@ func privateDir(path string) error {
 }
 
 func (s Store) locked(fn func() error) error {
+	return s.lockedMode(fn, false)
+}
+
+// readLocked preserves normal reply recovery when formats are compatible. A
+// newer marker disables recovery and permits reads without applying old writes.
+func (s Store) readLocked(fn func() error) error {
+	return s.lockedMode(fn, true)
+}
+
+func (s Store) lockedMode(fn func() error, readOnly bool) error {
 	if err := privateDir(s.Dir); err != nil {
 		return err
 	}
@@ -62,19 +72,28 @@ func (s Store) locked(fn func() error) error {
 		return err
 	}
 	defer syscall.Flock(fd, syscall.LOCK_UN) //nolint:errcheck // Descriptor close also releases the lock.
-	if err := s.recoverReplies(); err != nil {
-		s.logEvent(slog.LevelError, "reply.recovery_failed", eventData{Err: err})
-		return err
+	compatibility := s.CheckWriteCompatibility()
+	if compatibility != nil && !readOnly {
+		return compatibility
+	}
+	if compatibility == nil {
+		if err := s.recoverReplies(); err != nil {
+			s.logEvent(slog.LevelError, "reply.recovery_failed", eventData{Err: err})
+			return err
+		}
 	}
 	return fn()
 }
+
+// maxStateFileBytes bounds the exact persisted JSON, including its newline.
+const maxStateFileBytes = 128 * 1024
 
 func readJSON(path string, target any) error {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return err
 	}
-	if !info.Mode().IsRegular() || info.Size() > 128*1024 {
+	if !info.Mode().IsRegular() || info.Size() > maxStateFileBytes {
 		return errors.New("invalid state file")
 	}
 	b, err := os.ReadFile(path) //nolint:gosec // G304: path is inside the validated journal directory
@@ -84,10 +103,24 @@ func readJSON(path string, target any) error {
 	return json.Unmarshal(b, target)
 }
 
-func writeJSON(path string, value any) error {
+// encodeStateJSON validates exactly what will reach disk, not the compact
+// input. No writer may publish bytes that readJSON would reject by size.
+func encodeStateJSON(value any) ([]byte, error) {
 	b, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	b = append(b, '\n')
+	if len(b) > maxStateFileBytes {
+		return nil, fail(CodeInvalidInput, "encoded state record is %d bytes; limit is %d bytes", len(b), maxStateFileBytes)
+	}
+	return b, nil
+}
+
+func writeJSON(path string, value any) error {
+	b, err := encodeStateJSON(value)
 	if err != nil {
 		return err
 	}
-	return fsutil.WriteAtomic(path, append(b, '\n'))
+	return fsutil.WriteAtomic(path, b)
 }

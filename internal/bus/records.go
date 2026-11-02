@@ -3,7 +3,6 @@ package bus
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -84,24 +83,55 @@ func derivedID(namespace string, parts ...string) string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
-func (s Store) rawSessions() ([]Session, error) {
+// SessionIssue describes one skipped file. ID comes from its filename, never
+// from an unvalidated record, and is only diagnostic metadata.
+type SessionIssue struct {
+	ID     string
+	Reason string
+}
+
+// scanSessions is shared by list, prune, diagnostics and exit observation.
+// Caller holds the journal lock; directory scan errors remain fatal.
+func (s Store) scanSessions() ([]Session, []SessionIssue, error) {
 	files, err := filepath.Glob(filepath.Join(s.Dir, "sessions", "*.json"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	items := []Session{}
+	items, issues := []Session{}, []SessionIssue{}
 	for _, path := range files {
-		v, err := s.readSession(path)
-		if err != nil {
-			return nil, err
+		id, validName := watchNameID(strings.TrimSuffix(filepath.Base(path), ".json"))
+		if !validName {
+			issues = append(issues, SessionIssue{filepath.Base(path), "session_identity_mismatch"})
+			continue
 		}
-		// Validate identities before using records as paths in cleanup.
-		expected, err := s.sessionPath(v.ID)
-		if err != nil || expected != path || !strings.HasPrefix(v.ID, v.Kind+":") {
-			return nil, errors.New("session file identity mismatch")
+		v, readErr := s.readSession(path)
+		reason := "session_unreadable"
+		if readErr == nil {
+			expected, pathErr := s.sessionPath(v.ID)
+			if pathErr != nil || expected != path || v.ID != id || !strings.HasPrefix(v.ID, v.Kind+":") {
+				readErr = fail(CodeInvalidIdentity, "session file identity mismatch")
+			}
+		}
+		if readErr != nil {
+			if ErrorCodeOf(readErr) == CodeUnsupportedSchema {
+				reason = "session_unsupported_schema"
+			} else if ErrorCodeOf(readErr) == CodeInvalidIdentity {
+				reason = "session_identity_mismatch"
+			}
+			kind, _, _ := strings.Cut(id, ":")
+			if _, err := s.registry().Lookup(kind); err != nil {
+				reason = "session_adapter_missing"
+			}
+			issues = append(issues, SessionIssue{id, reason})
+			continue
 		}
 		items = append(items, v)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
-	return items, nil
+	return items, issues, nil
+}
+
+func (s Store) rawSessions() ([]Session, error) {
+	sessions, _, err := s.scanSessions()
+	return sessions, err
 }

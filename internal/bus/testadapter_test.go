@@ -182,3 +182,7 @@ func testRegistry() *Registry {
 	}
 	return r
 }
+
+func (stubCursorAdapter) LegacyStateFields() []string {
+	return []string{"cursor_wake", "cursor_recovery_attempted", "cursor_recovery_suppressed"}
+}

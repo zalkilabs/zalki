@@ -90,7 +90,7 @@ func (s Store) consumeFloodQuota(msg Message, now time.Time) error {
 	if err != nil || !changed {
 		return err
 	}
-	return saveFloodState(path, state)
+	return s.saveFloodState(path, state)
 }
 
 // loadFloodState validates the persisted header before admission replays arrivals.
@@ -185,11 +185,11 @@ func (state *floodState) admit(senderID, messageID string, now time.Time) (bool,
 	return true, nil
 }
 
-func saveFloodState(path string, state floodState) error {
+func (s Store) saveFloodState(path string, state floodState) error {
 	if err := privateDir(filepath.Dir(path)); err != nil {
 		return err
 	}
 	// Reserve quota first: an IO failure or crash may consume capacity without
 	// sending, but must not permit uncounted delivery after restarting.
-	return writeJSON(path, state)
+	return s.writeRecord(path, state, recordSchema)
 }

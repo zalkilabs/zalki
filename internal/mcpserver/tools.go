@@ -61,15 +61,19 @@ func schema(properties map[string]any, required ...string) inputSchema {
 }
 
 func defineTool[T any](definition toolDefinition, call func(context.Context, *bus.Service, toolArgs) (T, error)) toolSpec {
+	return defineToolOutput(definition, call, toolOutput[T])
+}
+
+func defineToolOutput[T, O any](definition toolDefinition, call func(context.Context, *bus.Service, toolArgs) (T, error), wrap func(*bus.Service, T, error) O) toolSpec {
 	return toolSpec{toolDefinition: definition, register: func(server *mcp.Server, service *bus.Service) {
 		tool := &mcp.Tool{Name: definition.name, Description: definition.description, InputSchema: definition.input}
 		if definition.readOnly {
 			tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: true}
 		}
 		// Clients require concrete output schemas; interface{} produces a boolean schema.
-		addTool(server, service, tool, func(ctx context.Context, args toolArgs) (T, error) {
+		addToolOutput(server, service, tool, func(ctx context.Context, args toolArgs) (T, error) {
 			return call(ctx, service, args)
-		})
+		}, wrap)
 	}}
 }
 
@@ -107,7 +111,7 @@ func toolTable() []toolSpec {
 	task := identity()
 	task["task"] = stringField("One line, ≤120 bytes. Empty clears.")
 	return []toolSpec{
-		defineTool(toolDefinition{
+		defineToolOutput(toolDefinition{
 			name:        "list_agents",
 			description: "Discover agents; registration does not prove a live terminal. Omitted state=ready, liveness=unknown, experimental=false; kind is ID prefix. delivery is busy timing; idle wake unless next_hook (idle_wake overrides). updated_at is last activity in UTC seconds, not a heartbeat. task: self-claimed. Optional actor+capability marks self; both must authenticate.",
 			input:       schema(identity()), readOnly: true,
@@ -125,9 +129,10 @@ func toolTable() []toolSpec {
 				}
 				return nil
 			},
-		}, func(_ context.Context, service *bus.Service, args toolArgs) ([]bus.AgentInfo, error) {
-			return service.Store.DiscoverFor(args.Actor, args.Capability)
-		}),
+		}, func(_ context.Context, service *bus.Service, args toolArgs) (discoveryResult, error) {
+			rows, skipped, err := service.Store.DiscoverWithWarnings(args.Actor, args.Capability)
+			return discoveryResult{agents: rows, skipped: skipped}, err
+		}, discoveryOutput),
 		defineTool(toolDefinition{
 			name: "send_message", description: "Send a new agent message; never auto-resend. message aliases body.",
 			input:   schema(send, "actor", "capability", "to", "body"),

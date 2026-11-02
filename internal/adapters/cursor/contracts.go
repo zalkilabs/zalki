@@ -12,3 +12,5 @@ var (
 	_ bus.RecoveryHintAdapter  = Adapter{}
 	_ bus.SessionStateAdapter  = Adapter{}
 )
+
+var _ bus.SessionStateMigrationAdapter = (*Adapter)(nil)

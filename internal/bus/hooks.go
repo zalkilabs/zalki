@@ -37,6 +37,11 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 	started := time.Now()
 	trace := hookTrace{stage: "adapter"}
 	defer func() {
+		if IsUpgradeRequired(resultErr) || ErrorCodeOf(resultErr) == CodeUnsupportedSchema {
+			s.Store.logEvent(slog.LevelWarn, "hook.upgrade_required", eventData{Agent: kind, Actor: trace.actor, HookEvent: trace.lifecycle, Err: resultErr})
+			resultErr = nil
+			return
+		}
 		level, event := slog.LevelDebug, "hook.completed"
 		data := eventData{Agent: kind, Actor: trace.actor, HookEvent: trace.lifecycle, Duration: time.Since(started), Err: resultErr}
 		if resultErr != nil {
@@ -45,6 +50,9 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 		}
 		s.Store.logEvent(level, event, data)
 	}()
+	if err := s.Store.CheckWriteCompatibility(); err != nil {
+		return err
+	}
 	adapter, err := s.Store.registry().Lookup(kind)
 	if err != nil {
 		return err

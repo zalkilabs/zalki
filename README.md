@@ -147,16 +147,22 @@ removed.
 
 ### Upgrading
 
-Every Zalki process that shares a state directory must run the same build.
-Older builds cannot read the records a newer listener writes, and one such
-record stops their session listing, discovery and `doctor` for every client,
-not just Cursor. After installing a new binary:
+Use the same build for every Zalki process sharing a state directory. This
+build skips unreadable or unsupported sessions in lists and discovery, reports
+a skipped count, and keeps exact access strict. Older releases can still fail
+entire scans when they encounter a newer record. After installing a new binary:
 
 1. Run `zalki upgrade --apply`.
 2. Reconnect the Zalki MCP server in every open Claude, Codex and Cursor
    session (or restart those sessions).
 3. In each Cursor conversation, cancel any running `cursor-listen` task, then
    arm one new task from its startup guidance.
+
+`state-formats.json` is created lazily; rc.5 ignores it. An unreadable or
+unsupported marker fences writes with an "upgrade zalki" error while known data
+remains readable. For an unreadable marker, restore it from backup, or remove
+it only after confirming every running Zalki build is this version or newer.
+Do not remove a valid marker to bypass an unsupported format.
 
 Message history and pending messages are kept. Do not delete the state
 directory to recover from a mixed-build error; finish the steps above instead.

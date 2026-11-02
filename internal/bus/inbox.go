@@ -53,7 +53,7 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 	}
 	batch := MessageBatch{Messages: []Message{}}
 	items := []Message{}
-	err := s.locked(func() error {
+	err := s.readLocked(func() error {
 		current, err := s.authenticate(actor, key)
 		if err != nil {
 			return err

@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"os"
@@ -40,6 +41,10 @@ func (s Store) eachMessage(visit func(id string, message Message, readErr error)
 }
 
 func (s Store) saveMessage(v Message) error {
+	return s.saveMessageRecord(v, nil)
+}
+
+func (s Store) saveMessageRecord(v Message, previous json.RawMessage) error {
 	if v.Schema < 0 || v.Schema > recordSchema {
 		return fail(CodeUnsupportedSchema, "unsupported message schema %d", v.Schema)
 	}
@@ -47,7 +52,7 @@ func (s Store) saveMessage(v Message) error {
 		return err
 	}
 	v.Schema = recordSchema
-	return writeJSON(filepath.Join(s.Dir, "messages", v.ID+".json"), v)
+	return s.writeRecord(filepath.Join(s.Dir, "messages", v.ID+".json"), v, recordSchema, recordUpdate{previous: previous})
 }
 
 func (s Store) ReserveMessage(request SendRequest) (message Message, target Session, fresh bool, err error) {
@@ -168,13 +173,18 @@ func (s Store) Finish(id string, receipt Receipt) (Message, error) {
 		if err != nil {
 			return err
 		}
-		if err := msg.applyReceipt(receipt); err != nil {
+		candidate := msg
+		if err := candidate.applyReceipt(receipt); err != nil {
 			return err
 		}
-		receipt = *msg.Receipt
-		if err := s.saveMessage(msg); err != nil {
+		if err := s.saveMessage(candidate); err != nil {
+			data := messageEvent(msg)
+			data.Err, data.ReceiptStatus = err, receipt.Status
+			s.logEvent(slog.LevelWarn, "message.receipt_save_failed", data)
 			return err
-		} // Preserve a racing ACK.
+		}
+		msg = candidate
+		receipt = *msg.Receipt // Preserve a racing ACK and report only durable state.
 		data := messageEvent(msg)
 		data.ReceiptStatus, data.Code = receipt.Status, receipt.Code
 		data.Err = receipt.cause
@@ -211,12 +221,14 @@ func (s Store) Ack(actor, key, id string) (result Message, resultErr error) {
 			return fail(CodeInvalidTransition, "cannot acknowledge a message that was not sent")
 		}
 		first := msg.AcknowledgedAt == ""
+		candidate := msg
 		if first {
-			msg.AcknowledgedAt = timestamp()
+			candidate.AcknowledgedAt = timestamp()
 		}
-		if err := s.saveMessage(msg); err != nil {
+		if err := s.saveMessage(candidate); err != nil {
 			return err
 		}
+		msg = candidate
 		if first {
 			s.logEvent(slog.LevelInfo, "message.acknowledged", messageEvent(msg))
 		}

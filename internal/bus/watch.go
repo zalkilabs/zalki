@@ -89,6 +89,9 @@ func (s Store) watchPath(watcher, target string) (string, error) {
 }
 
 func (s Store) saveWatch(v Watch) error {
+	if v.Schema < 0 || v.Schema > recordSchema {
+		return fail(CodeUnsupportedSchema, "unsupported watch schema %d", v.Schema)
+	}
 	path, err := s.watchPath(v.Watcher, v.Target)
 	if err != nil {
 		return err
@@ -97,7 +100,7 @@ func (s Store) saveWatch(v Watch) error {
 		return err
 	}
 	v.Schema = recordSchema
-	return writeJSON(path, v)
+	return s.writeRecord(path, v, recordSchema)
 }
 
 // consumeWatches removes due watches on target. A watch created after asOf stays

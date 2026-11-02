@@ -24,7 +24,7 @@ func (s Store) completedNativePrompt(actor, prompt string) (string, error) {
 		return "", nil
 	}
 	var reason string
-	err := s.locked(func() error {
+	err := s.readLocked(func() error {
 		message, err := s.message(id)
 		if errors.Is(err, os.ErrNotExist) {
 			return nil

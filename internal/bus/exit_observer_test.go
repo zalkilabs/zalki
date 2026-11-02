@@ -65,6 +65,7 @@ type fakeExitSource struct {
 	dirs      map[string]bool
 	watchFail error
 	closed    bool
+	closes    int
 }
 
 func newFakeExitSource() *fakeExitSource {
@@ -95,6 +96,9 @@ func (f *fakeExitSource) Events() <-chan exitEvent { return f.events }
 func (f *fakeExitSource) Close() error {
 	f.mu.Lock()
 	f.closed = true
+	f.closes++
+	clear(f.procs)
+	clear(f.dirs)
 	f.mu.Unlock()
 	return nil
 }
@@ -112,6 +116,12 @@ func (f *fakeExitSource) isClosed() bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.closed
+}
+
+func (f *fakeExitSource) closeCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.closes
 }
 
 func (f *fakeExitSource) open() (exitSource, error) { return f, nil }
@@ -373,13 +383,13 @@ func TestObserverClaimsASweepOncePerHalfIntervalAcrossServers(t *testing.T) {
 	}
 	now := time.Now()
 	interval := 20 * time.Second
-	if !store.claimObservation(interval, now) {
+	if claimed, err := store.claimObservation(interval, now); err != nil || !claimed {
 		t.Fatal("the first server did not sweep")
 	}
-	if store.claimObservation(interval, now.Add(interval/4)) {
+	if claimed, err := store.claimObservation(interval, now.Add(interval/4)); err != nil || claimed {
 		t.Fatal("a second server swept within half an interval")
 	}
-	if !store.claimObservation(interval, now.Add(interval)) {
+	if claimed, err := store.claimObservation(interval, now.Add(interval)); err != nil || !claimed {
 		t.Fatal("no server swept after the interval")
 	}
 	stamp := filepath.Join(store.Dir, observerStampName)
@@ -403,7 +413,7 @@ func TestObserverClaimsASweepOncePerHalfIntervalAcrossServers(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 { // repeated: a stamp that cannot be used must never suppress a sweep
-		if !store.claimObservation(interval, now) {
+		if claimed, err := store.claimObservation(interval, now); err != nil || !claimed {
 			t.Fatal("a symlinked stamp suppressed the sweep")
 		}
 	}

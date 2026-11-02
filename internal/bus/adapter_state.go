@@ -24,6 +24,12 @@ type SessionStateAdapter interface {
 	DecodeState(StateInput) (json.RawMessage, error)
 }
 
+// SessionStateMigrationAdapter identifies obsolete top-level extension fields
+// consumed by an adapter's migration. Core-owned fields can never be removed.
+type SessionStateMigrationAdapter interface {
+	LegacyStateFields() []string
+}
+
 const (
 	maxAdapterState = 4096
 	maxExtensions   = 32

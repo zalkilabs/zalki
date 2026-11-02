@@ -219,7 +219,7 @@ func TestPruneIgnoresWatchNamesThatAreNotCanonical(t *testing.T) {
 	}
 }
 
-func TestPruneKeepsNewerSchemaWatchesOnLiveTargetsOnly(t *testing.T) {
+func TestPruneKeepsNewerSchemaWatchesOnLiveAndMissingTargets(t *testing.T) {
 	store := fixtureStore(t)
 	watcher, _, live, _ := registerPair(t, store, "codex", "cursor")
 	orphan, _ := register(t, store, "cursor")
@@ -241,16 +241,14 @@ func TestPruneKeepsNewerSchemaWatchesOnLiveTargetsOnly(t *testing.T) {
 	}
 	for _, dry := range []bool{true, false} {
 		report, err := store.Prune(dry, nil)
-		dir := filepath.Base(filepath.Dir(dropped))
-		want := []string{dir + "/" + filepath.Base(dropped), dir + "/"}
-		if err != nil || !slices.Equal(report.DeletedWatches, want) {
+		if err != nil || len(report.DeletedWatches) != 0 {
 			t.Fatalf("dry=%v report: %+v %v", dry, report, err)
 		}
 		if _, err := os.Lstat(kept); err != nil {
 			t.Fatalf("dry=%v removed a newer-schema watch on a live target: %v", dry, err)
 		}
 	}
-	if _, err := os.Lstat(dropped); !os.IsNotExist(err) {
-		t.Fatalf("orphan target's newer-schema watch remained: %v", err)
+	if _, err := os.Lstat(dropped); err != nil {
+		t.Fatalf("missing target's newer-schema watch was removed: %v", err)
 	}
 }
