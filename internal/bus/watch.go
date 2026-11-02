@@ -97,7 +97,7 @@ func (s Store) saveWatch(v Watch) error {
 		return err
 	}
 	v.Schema = recordSchema
-	return writeJSON(path, v)
+	return s.writeRecord(path, v, recordSchema)
 }
 
 // consumeWatches removes due watches on target. A watch created after asOf stays

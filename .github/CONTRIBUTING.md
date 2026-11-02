@@ -109,7 +109,7 @@ make cost-check
 This benchmarks inbox scans versus exact-ID reads at 100, 1,000, and 10,000
 records, then measures request/response and tool-schema bytes for a scripted
 review/revision exchange and an eleven-agent discovery roster. The budgets are
-6 KiB of responses for the exchange, 10,872 bytes for all tool schemas (including
+6 KiB of responses for the exchange, 10,910 bytes for all tool schemas (including
 `watch_agent`, `set_task`, authenticated self marking, and sent preview/filter
 options), and 150 bytes per agent in the eleven-agent discovery fixture
 (including the envelope).

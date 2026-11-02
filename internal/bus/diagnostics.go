@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"sort"
@@ -65,7 +66,11 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 	var runtimes []RuntimeInfo
 	err := s.locked(func() error {
 		var err error
-		sessions, err = s.rawSessions()
+		var issues []SessionIssue
+		sessions, issues, err = s.scanSessions()
+		if len(issues) > 0 {
+			report.Notes = append(report.Notes, fmt.Sprintf("Skipped %d unreadable or unsupported session records.", len(issues)))
+		}
 		if err != nil {
 			return err
 		}

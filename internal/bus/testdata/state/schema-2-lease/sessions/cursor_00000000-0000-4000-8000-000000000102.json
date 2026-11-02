@@ -1,0 +1,41 @@
+{
+  "schema": 2,
+  "native_id": "00000000-0000-4000-8000-000000000102",
+  "adapter_state": {
+    "schema": 1
+  },
+  "id": "cursor:00000000-0000-4000-8000-000000000102",
+  "kind": "cursor",
+  "native_config_dir": "/fixture/cursor",
+  "cwd": "/fixture/workspace",
+  "generation": "488fa7c9-4d03-4bce-85e2-87b0567bb941",
+  "state": "ready",
+  "updated_at": "2026-11-02T19:29:38.579338000Z",
+  "retired": false,
+  "hook_build": "9a8e055936aabaf42b6c32aae9e235a40f4c24b4f130012aedf9e88fc188a718",
+  "key_hash": "04e5b13f0306d46a699a42211e653e45ae35c1082357930583eee4f5d5e3072b",
+  "receive": {
+    "idle_wake": false,
+    "delivery": "next_postToolUse_or_completed_stop_hook",
+    "inbox": "journal",
+    "busy_delivery": "next_hook",
+    "lifecycle_hooks": true,
+    "hook_delivery": true,
+    "requires_listener": true,
+    "requires_endpoint": false,
+    "experimental": false
+  },
+  "listener": {
+    "id": "00000000-0000-4000-8000-000000000201",
+    "generation": "488fa7c9-4d03-4bce-85e2-87b0567bb941",
+    "endpoint": {
+      "path": "/fixture/inbox.sock",
+      "device": 1,
+      "inode": 2,
+      "changed_ns": 3
+    },
+    "future_lease": {
+      "flag": true
+    }
+  }
+}

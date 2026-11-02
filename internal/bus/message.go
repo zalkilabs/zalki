@@ -47,7 +47,7 @@ func (s Store) saveMessage(v Message) error {
 		return err
 	}
 	v.Schema = recordSchema
-	return writeJSON(filepath.Join(s.Dir, "messages", v.ID+".json"), v)
+	return s.writeRecord(filepath.Join(s.Dir, "messages", v.ID+".json"), v, recordSchema)
 }
 
 func (s Store) ReserveMessage(request SendRequest) (message Message, target Session, fresh bool, err error) {

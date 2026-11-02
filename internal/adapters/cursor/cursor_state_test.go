@@ -42,3 +42,26 @@ func TestCursorStateRejectsUnknownSchemasAndMalformedLegacyFields(t *testing.T) 
 		t.Fatal("a future Cursor schema was not reported as unsupported", err)
 	}
 }
+
+func TestCursorStateKeepsUnknownFieldsWhenKnownFlagsAreCleared(t *testing.T) {
+	raw := json.RawMessage(`{"schema":1,"recovery_attempted":true,"recovery_suppressed":true,"wake":{"path":"/old"},"future_flag":{"large":123456789012345678901234567890}}`)
+	normalized, err := (Adapter{}).DecodeState(bus.StateInput{State: raw})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := decodeCursorState(normalized)
+	state.RecoveryAttempted, state.RecoverySuppressed = false, false
+	encoded := encodeCursorState(state)
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if string(fields["future_flag"]) != `{"large":123456789012345678901234567890}` {
+		t.Fatal("extension lost", string(encoded))
+	}
+	for _, key := range []string{"recovery_attempted", "recovery_suppressed", "wake"} {
+		if _, exists := fields[key]; exists {
+			t.Fatal("cleared or obsolete field resurrected", key)
+		}
+	}
+}

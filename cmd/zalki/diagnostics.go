@@ -16,9 +16,12 @@ func newListCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sessions, err := service.Store.List()
+			sessions, skipped, err := service.Store.ListWithWarnings()
 			if err != nil {
 				return err
+			}
+			if skipped > 0 {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: skipped %d unreadable or unsupported session records.\n", skipped)
 			}
 			if err := noticeExitedSessions(cmd, service); err != nil {
 				return err

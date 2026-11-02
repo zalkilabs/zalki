@@ -158,11 +158,14 @@ func (s Store) reconcileApprovalHolds(dryRun bool, report *PruneReport, retiring
 	for _, id := range unreadable {
 		report.Sessions = append(report.Sessions, PruneItem{ID: id, Reason: "message_unreadable"})
 	}
-	sessions, err := s.rawSessions()
+	sessions, issues, err := s.scanSessions()
 	if err != nil {
 		return err
 	}
 	seen := map[string]bool{}
+	for _, issue := range issues {
+		seen[issue.ID] = true
+	}
 	for _, v := range sessions {
 		seen[v.ID] = true
 		count := counts[v.ID]

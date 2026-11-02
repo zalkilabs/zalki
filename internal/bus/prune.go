@@ -75,17 +75,24 @@ func (s Store) PruneRetired(dryRun bool, selected []string, retiredOlderThan tim
 func (r *pruneRun) execute() error {
 	// Validate every selection and read both snapshots before any mutation.
 	for id := range r.selected {
-		if _, err := r.store.session(id); err != nil {
+		path, err := r.store.sessionPath(id)
+		if err != nil {
+			return err
+		}
+		if _, err := os.Lstat(path); err != nil {
 			return err
 		}
 	}
-	sessions, err := r.store.rawSessions()
+	sessions, issues, err := r.store.scanSessions()
 	if err != nil {
 		return err
 	}
 	runtimes, err := r.store.rawRuntimes()
 	if err != nil {
 		return err
+	}
+	for _, issue := range issues {
+		r.report.Sessions = append(r.report.Sessions, PruneItem(issue))
 	}
 	r.now = time.Now()
 	if err := r.sweepSessions(sessions); err != nil {
@@ -212,7 +219,7 @@ func (r *pruneRun) deleteOrphanListenerLocks() error {
 		if !ok {
 			continue
 		}
-		sessionPath, err := s.sessionPath(id)
+		sessionPath, err := s.sessionRecordPath(id)
 		if err != nil {
 			return err
 		}

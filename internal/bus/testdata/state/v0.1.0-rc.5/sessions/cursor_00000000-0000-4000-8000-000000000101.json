@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "native_id": "00000000-0000-4000-8000-000000000101",
+  "adapter_state": {
+    "schema": 1
+  },
+  "id": "cursor:00000000-0000-4000-8000-000000000101",
+  "kind": "cursor",
+  "native_config_dir": "/fixture/cursor",
+  "cwd": "/fixture/workspace",
+  "generation": "80c83d55-ed3e-4125-9b31-28c988b0683f",
+  "state": "ready",
+  "updated_at": "2026-11-02T19:29:38.538497000Z",
+  "retired": false,
+  "hook_build": "9a8e055936aabaf42b6c32aae9e235a40f4c24b4f130012aedf9e88fc188a718",
+  "key_hash": "a66c0f3990ca51eb782b569506a5c0811e559360aa4ecf18751a83255409720f",
+  "receive": {
+    "idle_wake": false,
+    "delivery": "next_postToolUse_or_completed_stop_hook",
+    "inbox": "journal",
+    "busy_delivery": "next_hook",
+    "lifecycle_hooks": true,
+    "hook_delivery": true,
+    "requires_listener": true,
+    "requires_endpoint": false,
+    "experimental": false
+  }
+}

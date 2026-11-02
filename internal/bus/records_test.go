@@ -206,8 +206,11 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 			} else {
 				_, err = store.List()
 			}
-			if ErrorCodeOf(err) != CodeUnsupportedSchema {
-				t.Fatal("discovery skipped unsupported schema", err)
+			if kind == "message" && ErrorCodeOf(err) != CodeUnsupportedSchema {
+				t.Fatal("exact message schema was accepted", err)
+			}
+			if kind != "message" && err != nil {
+				t.Fatal("session scan did not skip unsupported record", err)
 			}
 			after, _ := os.ReadFile(path)
 			if !bytes.Equal(before, after) {
@@ -219,8 +222,8 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 
 // Characterizes how this build treats a session written by a future schema, as
 // an older build would see a newer record during a mixed-version upgrade. Every
-// registry-wide read fails closed, and nothing rewrites the unreadable record.
-func TestFutureSchemaSessionFailsRegistryReadsWithoutWriting(t *testing.T) {
+// registry-wide read skips it, and nothing rewrites the unreadable record.
+func TestFutureSchemaSessionSkipsRegistryReadsWithoutWriting(t *testing.T) {
 	store := fixtureStore(t)
 	from, key, healthy, _ := registerPair(t, store, "codex", "claude")
 	future, _ := register(t, store, "cursor")
@@ -235,14 +238,14 @@ func TestFutureSchemaSessionFailsRegistryReadsWithoutWriting(t *testing.T) {
 		t.Fatal(err)
 	}
 	before, _ := os.ReadFile(path)
-	if _, err := store.List(); ErrorCodeOf(err) != CodeUnsupportedSchema {
-		t.Fatal("list read a future session record", err)
+	if rows, skipped, err := store.ListWithWarnings(); err != nil || len(rows) != 2 || skipped != 1 {
+		t.Fatal("list lost healthy sessions or skip count", rows, skipped, err)
 	}
-	if _, err := store.Discover(); ErrorCodeOf(err) != CodeUnsupportedSchema {
-		t.Fatal("discovery read a future session record", err)
+	if rows, skipped, err := store.DiscoverWithWarnings("", ""); err != nil || len(rows) != 2 || skipped != 1 {
+		t.Fatal("discovery lost healthy sessions or skip count", rows, skipped, err)
 	}
-	if _, err := store.Diagnostics(); ErrorCodeOf(err) != CodeUnsupportedSchema {
-		t.Fatal("doctor read a future session record", err)
+	if report, err := store.Diagnostics(); err != nil || len(report.Sessions) != 2 {
+		t.Fatal("doctor lost healthy sessions", report, err)
 	}
 	if err := store.Update(future.ID, StateBusy, false); ErrorCodeOf(err) != CodeUnsupportedSchema {
 		t.Fatal("lifecycle update accepted a future session record", err)

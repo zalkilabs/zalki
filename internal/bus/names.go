@@ -73,7 +73,7 @@ func (s Store) rememberNativeConfigDir(id, kind string) error {
 // resolve runs under the journal lock so ambiguity detection and reservation
 // share a registry snapshot. Only registered sessions can be addressed by name.
 func (s Store) resolve(destination string) (Session, error) {
-	if _, err := s.sessionPath(destination); err == nil {
+	if _, err := s.sessionRecordPath(destination); err == nil {
 		return s.session(destination) // Exact IDs always win over names.
 	}
 	kind, name := "", destination

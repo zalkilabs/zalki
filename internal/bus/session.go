@@ -27,21 +27,33 @@ func (s Store) sessionID(kind, id string) (string, error) {
 	return kind + ":" + derivedID("zalki/native/v1", kind, native), nil
 }
 
-func (s Store) sessionPath(id string) (string, error) {
+// sessionRecordPath validates a canonical address without requiring its adapter.
+// Cleanup can inspect the existence of a removed adapter's record safely.
+func (s Store) sessionRecordPath(id string) (string, error) {
 	parts := strings.Split(id, ":")
-	if len(parts) != 2 {
+	if len(parts) != 2 || !kindPattern.MatchString(parts[0]) {
 		return "", fail(CodeInvalidIdentity, "use the complete kind:UUID returned by list_agents")
 	}
-	_, err := s.registry().Lookup(parts[0])
-	uuid, uuidErr := UUID(parts[1])
-	canonical := parts[0] + ":" + uuid
-	if uuidErr != nil {
-		return "", uuidErr
+	uuid, err := UUID(parts[1])
+	if err != nil {
+		return "", err
 	}
-	if err != nil || canonical != id {
+	if uuid != parts[1] {
 		return "", fail(CodeInvalidIdentity, "invalid session identity")
 	}
 	return filepath.Join(s.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json"), nil
+}
+
+func (s Store) sessionPath(id string) (string, error) {
+	path, err := s.sessionRecordPath(id)
+	if err != nil {
+		return "", err
+	}
+	kind, _, _ := strings.Cut(id, ":")
+	if _, err := s.registry().Lookup(kind); err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 func (s Store) session(id string) (Session, error) {
@@ -86,7 +98,15 @@ func (s Store) saveSession(v Session) error {
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return fail(CodeInvalidIdentity, "native and Zalki session identities do not match")
 	}
-	return writeJSON(path, v)
+	var removed []string
+	if migration, ok := adapter.(SessionStateMigrationAdapter); ok {
+		for _, name := range migration.LegacyStateFields() {
+			if !coreField(name) {
+				removed = append(removed, name)
+			}
+		}
+	}
+	return s.writeRecord(path, v, leaseSessionSchema, removed...)
 }
 
 func (s Store) Register(kind, id, cwd string, endpoint *Endpoint) (Session, string, error) {
@@ -208,11 +228,11 @@ func (s Store) Update(id string, state SessionState, retire bool) error {
 
 // sessions is called with the journal lock held. Native names are a read-only
 // discovery view: they never change a session's routing identity or capability.
-func (s Store) sessions() ([]Session, error) {
+func (s Store) sessionsWithWarnings() ([]Session, int, error) {
 	sessions := []Session{}
-	rows, err := s.rawSessions()
+	rows, issues, err := s.scanSessions()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	for _, v := range rows {
 		v.Liveness = s.sessionLiveness(v)
@@ -226,7 +246,7 @@ func (s Store) sessions() ([]Session, error) {
 	for i := range sessions {
 		adapter, err := s.registry().Lookup(sessions[i].Kind)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		sessions[i].Receive = adapter.ReceiveCapabilities(sessions[i])
 		sessions[i].NativeConfigDir = ""
@@ -234,17 +254,29 @@ func (s Store) sessions() ([]Session, error) {
 		sessions[i].Listener = nil
 		sessions[i].NativeID = ""
 	}
-	return sessions, nil
+	return sessions, len(issues), nil
+}
+
+func (s Store) sessions() ([]Session, error) {
+	sessions, _, err := s.sessionsWithWarnings()
+	return sessions, err
 }
 
 func (s Store) List() ([]Session, error) {
+	sessions, _, err := s.ListWithWarnings()
+	return sessions, err
+}
+
+// ListWithWarnings keeps the original row shape and reports skipped records once.
+func (s Store) ListWithWarnings() ([]Session, int, error) {
 	var sessions []Session
+	var skipped int
 	err := s.locked(func() error {
 		var err error
-		sessions, err = s.sessions()
+		sessions, skipped, err = s.sessionsWithWarnings()
 		return err
 	})
-	return sessions, err
+	return sessions, skipped, err
 }
 
 // retireSession clears all active state, including any listener generation fence.
