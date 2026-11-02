@@ -36,6 +36,7 @@ type Watch struct {
 	Schema    int    `json:"schema"`
 	Watcher   string `json:"watcher"`
 	Target    string `json:"target"`
+	CreatedAt string `json:"created_at,omitempty"`
 	ExpiresAt string `json:"expires_at"`
 }
 
@@ -65,8 +66,9 @@ func (s *Service) Watch(actor, key, to string) (WatchResult, error) {
 			}
 			return nil
 		}
-		expires := time.Now().UTC().Add(watchTTL).Format(time.RFC3339Nano)
-		if err := s.Store.saveWatch(Watch{Schema: recordSchema, Watcher: watcher.ID, Target: target.ID, ExpiresAt: expires}); err != nil {
+		now := time.Now().UTC()
+		expires := now.Add(watchTTL).Format(time.RFC3339Nano)
+		if err := s.Store.saveWatch(Watch{Schema: recordSchema, Watcher: watcher.ID, Target: target.ID, CreatedAt: now.Format(time.RFC3339Nano), ExpiresAt: expires}); err != nil {
 			return err
 		}
 		result.Status = "watching"
@@ -98,8 +100,10 @@ func (s Store) saveWatch(v Watch) error {
 	return writeJSON(path, v)
 }
 
-// consumeWatches removes every watch on target and returns those that have not expired.
-func (s Store) consumeWatches(target string) ([]Watch, error) {
+// consumeWatches removes due watches on target. A watch created after asOf stays
+// armed so a Stop already in progress cannot consume a subscription to the next turn.
+// Expired watches are removed and not returned.
+func (s Store) consumeWatches(target string, asOf time.Time) ([]Watch, error) {
 	var due []Watch
 	err := s.locked(func() error {
 		if _, err := s.sessionPath(target); err != nil {
@@ -123,12 +127,19 @@ func (s Store) consumeWatches(target string) ([]Watch, error) {
 			if err := readRecord(path, &watch, &watch.Schema); err != nil {
 				return err
 			}
+
 			expires, err := time.Parse(time.RFC3339Nano, watch.ExpiresAt)
 			if err != nil || !expires.After(now) || watch.Target != target {
 				if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
 					return removeErr
 				}
 				continue
+			}
+			if watch.CreatedAt != "" {
+				created, createdErr := time.Parse(time.RFC3339Nano, watch.CreatedAt)
+				if createdErr == nil && created.After(asOf) {
+					continue
+				}
 			}
 			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 				return err
@@ -162,11 +173,16 @@ func statusLine(text string) string {
 	if text == "" || len(text) <= statusLineLimit {
 		return text
 	}
-	cut := statusLineLimit
+	const ellipsis = "…"
+	budget := statusLineLimit - len(ellipsis)
+	cut := budget
 	for cut > 0 && !utf8.RuneStart(text[cut]) {
 		cut--
 	}
-	return text[:cut]
+	if space := strings.LastIndexByte(text[:cut], ' '); space >= budget/2 {
+		cut = space
+	}
+	return text[:cut] + ellipsis
 }
 
 func completionBody(subject Session, event, at, line string) string {
@@ -185,12 +201,12 @@ func completionBody(subject Session, event, at, line string) string {
 	return body
 }
 
-func (s *Service) notifyWatches(ctx context.Context, actor string, event HookInput) error {
+func (s *Service) notifyWatches(ctx context.Context, actor string, event HookInput, asOf time.Time) error {
 	kind, ok := completionKind(event)
 	if !ok {
 		return nil
 	}
-	watches, err := s.Store.consumeWatches(actor)
+	watches, err := s.Store.consumeWatches(actor, asOf)
 	if err != nil || len(watches) == 0 {
 		return err
 	}
@@ -228,24 +244,70 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 		}
 		if current.State == StateApproval {
 			if err := s.Store.holdForApproval(&msg); err != nil {
-				msg.Status = StatusNotSent
-				msg.Receipt = &Receipt{At: timestamp(), Status: StatusNotSent, Code: ErrorCodeOf(err), Error: err.Error()}
-			} else if err := s.Store.rememberApprovalHold(msg.To, 1); err != nil {
-				return err
+				if moveErr := msg.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+					return moveErr
+				}
 			}
 		} else {
 			fresh = true
 		}
-		if err := s.Store.saveMessage(msg); err != nil {
-			if msg.Status == StatusApprovalBlocked {
-				_ = s.Store.rememberApprovalHold(msg.To, -1)
-			}
-			return err
-		}
-		return nil
+		return s.Store.saveReservation(msg)
 	})
 	if err != nil || !fresh || msg.ID == "" {
 		return msg, err
 	}
 	return s.deliverReserved(ctx, msg, target)
+}
+
+// NoticeDeliveryError reports best-effort notice failures separately from
+// journal observation errors. CLI diagnostics can warn without hiding results.
+type NoticeDeliveryError struct{ Err error }
+
+func (e *NoticeDeliveryError) Error() string {
+	return "completion notice delivery failed: " + e.Err.Error()
+}
+func (e *NoticeDeliveryError) Unwrap() error { return e.Err }
+
+// NoticeExitedSessions delivers an ended notice for each unexpired watch whose
+// target is retired or has positive exit evidence. List and prune call it
+// when they observe that exit. An expired watch is removed and not delivered.
+func (s *Service) NoticeExitedSessions(ctx context.Context) error {
+	var exited []Session
+	err := s.Store.locked(func() error {
+		sessions, err := s.Store.rawSessions()
+		if err != nil {
+			return err
+		}
+		for _, v := range sessions {
+			if !v.Retired && s.Store.sessionLiveness(v) != livenessExited {
+				continue
+			}
+			exited = append(exited, v)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	var first error
+	for _, subject := range exited {
+		watches, err := s.Store.consumeWatches(subject.ID, time.Now())
+		if err != nil {
+			return err
+		}
+		body := completionBody(subject, "ended", timestamp(), "")
+		for _, watch := range watches {
+			message, err := s.deliverCompletion(ctx, watch.Watcher, subject, body)
+			if err == nil && message.Receipt != nil && message.Receipt.Error != "" && !message.IsQueuedForApproval() {
+				err = fail(CodeUnavailable, "completion notice was not delivered")
+			}
+			if err != nil && first == nil {
+				first = err
+			}
+		}
+	}
+	if first != nil {
+		return &NoticeDeliveryError{Err: first}
+	}
+	return nil
 }

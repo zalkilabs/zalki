@@ -3,7 +3,10 @@ package bus
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"path/filepath"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -79,4 +82,26 @@ func derivedID(namespace string, parts ...string) string {
 	b := h.Sum(nil)
 	b[6], b[8] = b[6]&15|128, b[8]&63|128
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func (s Store) rawSessions() ([]Session, error) {
+	files, err := filepath.Glob(filepath.Join(s.Dir, "sessions", "*.json"))
+	if err != nil {
+		return nil, err
+	}
+	items := []Session{}
+	for _, path := range files {
+		v, err := s.readSession(path)
+		if err != nil {
+			return nil, err
+		}
+		// Validate identities before using records as paths in cleanup.
+		expected, err := s.sessionPath(v.ID)
+		if err != nil || expected != path || !strings.HasPrefix(v.ID, v.Kind+":") {
+			return nil, errors.New("session file identity mismatch")
+		}
+		items = append(items, v)
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
+	return items, nil
 }

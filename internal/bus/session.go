@@ -187,12 +187,10 @@ func (s Store) Update(id string, state SessionState, retire bool) error {
 			return nil
 		}
 		previous := current.State
-		current.State, current.UpdatedAt = state, timestamp()
 		if retire {
-			current.Retired = true
-			current.RetiredReason = "session_end"
-			current.Task = ""
-			releaseListenerLease(&current)
+			retireSession(&current, "session_end")
+		} else {
+			current.State, current.UpdatedAt = state, timestamp()
 		}
 		if err := s.saveSession(current); err != nil {
 			return err
@@ -247,4 +245,10 @@ func (s Store) List() ([]Session, error) {
 		return err
 	})
 	return sessions, err
+}
+
+// retireSession clears all active state, including any listener generation fence.
+func retireSession(v *Session, reason string) {
+	v.Retired, v.State, v.RetiredReason, v.Task, v.UpdatedAt = true, StateRetired, reason, "", timestamp()
+	releaseListenerLease(v)
 }

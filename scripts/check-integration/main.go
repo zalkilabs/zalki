@@ -24,6 +24,7 @@ var required = []requiredTest{
 	{"adapters", "TestCodexStartupAndResumeStillReplaceRegistration"},
 	{"adapters", "TestCodexCompactionDoesNotReviveRetiredRegistration"},
 	{"adapters/claude", "TestRealClaudeSocketFrame"},
+	{"adapters", "TestClaudeLivenessAfterKillAndCleanExit"},
 	{"adapters", "TestClaudeRegistrationIdentityAndHealth"},
 	{"adapters/claude", "TestClaudeFrameSizeAndMissingEndpoint"},
 	{"adapters", "TestClaudeServiceWritesOnceAndPreservesSenderLabel"},
@@ -34,6 +35,7 @@ var required = []requiredTest{
 	{"adapters/claude", "TestClaudeWriteHonorsContext"},
 	{"adapters/claude", "TestClaudeCanceledBeforeDialDoesNotSend"},
 	{"bus", "TestLiveSmokeRunnerWithEmulatedClient"},
+	{"bus", "TestProcessFingerprintTracksRealExit"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

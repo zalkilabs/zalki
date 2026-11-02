@@ -3,6 +3,8 @@ package bus
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"path/filepath"
 	"strings"
@@ -71,5 +73,89 @@ func TestHookDiagnosticStageRejectsArbitraryText(t *testing.T) {
 	rows := logRows(t, &output)
 	if len(rows) != 1 || rows[0]["hook_stage"] != nil || strings.Contains(output.String(), "private-stage-sentinel") {
 		t.Fatal("unrecognized hook stage bypassed the metadata allowlist")
+	}
+}
+
+// Fail at adapter boundaries to verify that extracted stages retain diagnostics
+// and stop before later registration or startup output can occur.
+type hookStageFailureAdapter struct {
+	stubCodexAdapter
+	stage string
+}
+
+func (a hookStageFailureAdapter) NormalizeHook(event HookInput) (HookInput, error) {
+	if a.stage == "normalize" {
+		return HookInput{}, errors.New("private-hook-stage-sentinel")
+	}
+	return event, nil
+}
+
+func (a hookStageFailureAdapter) HandleHook(_ HookHost, _ HookInput, _ string, _ io.Writer) (bool, error) {
+	if a.stage == "handler" {
+		return false, errors.New("private-hook-stage-sentinel")
+	}
+	return false, nil
+}
+
+func (a hookStageFailureAdapter) StartupOutput(startup StartupContext) (any, error) {
+	if a.stage == "startup" {
+		return nil, errors.New("private-hook-stage-sentinel")
+	}
+	return a.stubCodexAdapter.StartupOutput(startup)
+}
+
+type closedHookWriter struct{}
+
+func (closedHookWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+func TestHookAdapterFailuresPreserveStageAndRegistrationBoundary(t *testing.T) {
+	for _, stage := range []string{"normalize", "identity", "handler", "startup", "output"} {
+		t.Run(stage, func(t *testing.T) {
+			t.Setenv("ZALKI_CAPTURE_CONTRACTS", "")
+			store := fixtureStore(t)
+			var err error
+			store.Registry, err = NewRegistry(hookStageFailureAdapter{stage: stage})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var diagnostic bytes.Buffer
+			store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
+			id := newID()
+			if stage == "identity" {
+				id = ""
+			}
+			input, err := json.Marshal(HookInput{SessionID: id, CWD: "/workspace", Event: "SessionStart"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			service := Service{Store: store}
+			if err := service.Hook("codex", bytes.NewReader(input), closedHookWriter{}); err == nil {
+				t.Fatal("failed boundary was accepted")
+			}
+			failures := 0
+			for _, row := range logRows(t, &diagnostic) {
+				if row["msg"] != "hook.failed" {
+					continue
+				}
+				failures++
+				if row["hook_stage"] != stage || row["hook_event"] != "SessionStart" {
+					t.Fatalf("failure lost its stage or native event correlation: %v", row)
+				}
+				if (stage == "handler" || stage == "startup" || stage == "output") && row["actor"] != "codex:"+id {
+					t.Fatalf("failure lost its validated actor: %v", row)
+				}
+			}
+			if failures != 1 || strings.Contains(diagnostic.String(), "private-hook-stage-sentinel") || strings.Contains(diagnostic.String(), "private capability") {
+				t.Fatal("failure diagnostic count or content changed")
+			}
+			files, err := filepath.Glob(filepath.Join(store.Dir, "sessions", "*.json"))
+			wantRecords := 0
+			if stage == "startup" || stage == "output" {
+				wantRecords = 1
+			}
+			if err != nil || len(files) != wantRecords {
+				t.Fatalf("registration crossed its failure boundary: %d want %d: %v", len(files), wantRecords, err)
+			}
+		})
 	}
 }

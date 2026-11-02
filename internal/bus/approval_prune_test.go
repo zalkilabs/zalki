@@ -228,3 +228,28 @@ func mustSessionPath(t *testing.T, store Store, id string) string {
 	}
 	return path
 }
+
+func TestPrunePreviewSettlesQueueForSelectedLiveTarget(t *testing.T) {
+	store := fixtureStore(t)
+	target, msg, _ := queueThenDropCount(t, store)
+	preview, err := store.Prune(true, []string{target.ID})
+	if err != nil || !pruneReported(preview, target.ID, "explicit_cleanup") || !pruneReported(preview, target.ID, "approval_settled") {
+		t.Fatalf("dry-run missed selected retirement or its queue: %+v %v", preview, err)
+	}
+	current, err := store.session(target.ID)
+	if err != nil || current.Retired {
+		t.Fatalf("dry-run retired the target: %+v %v", current, err)
+	}
+	held, err := store.message(msg.ID)
+	if err != nil || !held.Held {
+		t.Fatalf("dry-run settled the queue: %+v %v", held, err)
+	}
+	applied, err := store.Prune(false, []string{target.ID})
+	if err != nil || !pruneReported(applied, target.ID, "explicit_cleanup") || !pruneReported(applied, target.ID, "approval_settled") || len(applied.Sessions) != len(preview.Sessions) {
+		t.Fatalf("applied retirement differs from preview: %+v %+v %v", preview, applied, err)
+	}
+	settled, err := store.message(msg.ID)
+	if err != nil || settled.Held || settled.Status != StatusNotSent {
+		t.Fatalf("selected retirement left held work: %+v %v", settled, err)
+	}
+}

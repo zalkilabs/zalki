@@ -139,11 +139,7 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 			if err := s.Store.holdForApproval(&stored); err != nil {
 				return err
 			}
-			if err := s.Store.rememberApprovalHold(stored.To, 1); err != nil {
-				return err
-			}
-			if err := s.Store.saveMessage(stored); err != nil {
-				_ = s.Store.rememberApprovalHold(stored.To, -1)
+			if err := s.Store.saveReservation(stored); err != nil {
 				return err
 			}
 			held = stored

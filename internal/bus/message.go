@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func (s Store) message(id string) (Message, error) {
@@ -18,6 +19,24 @@ func (s Store) message(id string) (Message, error) {
 		err = fail(CodeInvalidIdentity, "message file identity mismatch")
 	}
 	return msg, err
+}
+
+// eachMessage visits journal files in the same lexical order as filepath.Glob.
+// The caller holds the journal lock and chooses whether a read error is fatal,
+// ignored, or reported. Exact-ID reads do not use this scan.
+func (s Store) eachMessage(visit func(id string, message Message, readErr error) error) error {
+	files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		id := strings.TrimSuffix(filepath.Base(file), ".json")
+		message, readErr := s.message(id)
+		if err := visit(id, message, readErr); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s Store) saveMessage(v Message) error {
@@ -104,22 +123,24 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (Message, Sessi
 			message.RequestedTo = requestedTo
 		}
 		if target.State == StateApproval {
-			if err := s.holdForApproval(&message); err != nil {
+			if err := s.approvalCapacity(message.To); err != nil {
 				return err
 			}
-			if persist {
-				if err := s.rememberApprovalHold(message.To, 1); err != nil {
-					return err
-				}
-			}
-		} else {
-			fresh = true
 		}
+		if err := s.consumeFloodQuota(message, time.Now()); err != nil {
+			if moveErr := message.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+				return moveErr
+			}
+			return err
+		}
+		if target.State == StateApproval {
+			if err := message.hold(); err != nil {
+				return err
+			}
+		}
+		fresh = target.State != StateApproval
 		if persist {
-			if err := s.saveMessage(message); err != nil {
-				if message.Status == StatusApprovalBlocked {
-					_ = s.rememberApprovalHold(message.To, -1)
-				}
+			if err := s.saveReservation(message); err != nil {
 				return err
 			}
 			s.logReservation(message)
@@ -147,15 +168,10 @@ func (s Store) Finish(id string, receipt Receipt) (Message, error) {
 		if err != nil {
 			return err
 		}
-		next, err := transition(msg.Status, receipt.Status)
-		if err != nil {
+		if err := msg.applyReceipt(receipt); err != nil {
 			return err
 		}
-		msg.Status = next
-		if receipt.Error != "" && receipt.Code == "" {
-			receipt.Code = CodeUnavailable
-		}
-		msg.Receipt = &receipt
+		receipt = *msg.Receipt
 		if err := s.saveMessage(msg); err != nil {
 			return err
 		} // Preserve a racing ACK.

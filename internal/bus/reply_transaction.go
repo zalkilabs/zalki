@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
 )
@@ -47,10 +48,27 @@ func (s Store) prepareReply(request ReplyRequest) (msg Message, target Session, 
 		}
 		msg, target, fresh, err = s.prepareMessage(SendRequest{Actor: actor, Capability: key, To: parent.From, MessageID: replyID(actor, parent.ID, body), Body: body, ReplyTo: parent.ID}, false)
 		if code := ErrorCodeOf(err); code == CodeUnavailable || code == CodeNotFound {
-			refusal := &Receipt{At: timestamp(), Status: StatusNotSent, Code: code, Error: err.Error()}
+			refusalReason := err.Error()
 			target.ID = parent.From
 			msg, err = s.outgoingMessage(sender, target, replyID(actor, parent.ID, body), body, parent.ID)
-			msg.Status, msg.Receipt, fresh = StatusNotSent, refusal, false
+			fresh = false
+			if err == nil {
+				err = msg.settleNotSent(code, refusalReason)
+			}
+			// Refused reply records also grow the journal. They must use quota,
+			// while a retry of an existing record must not spend it again.
+			if err == nil {
+				if _, lookupErr := s.message(msg.ID); errors.Is(lookupErr, os.ErrNotExist) {
+					err = s.consumeFloodQuota(msg, time.Now())
+				} else if lookupErr != nil {
+					err = lookupErr
+				}
+				if err != nil {
+					if moveErr := msg.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+						return moveErr
+					}
+				}
+			}
 		}
 		if err != nil {
 			return err
@@ -137,15 +155,7 @@ func (s Store) applyReplyTransaction(path string, tx replyTransaction) error {
 		return err
 	}
 	if errors.Is(err, os.ErrNotExist) {
-		if tx.Reply.Status == StatusApprovalBlocked {
-			if err := s.rememberApprovalHold(tx.Reply.To, 1); err != nil {
-				return err
-			}
-		}
-		if err := s.saveMessage(tx.Reply); err != nil {
-			if tx.Reply.Status == StatusApprovalBlocked {
-				_ = s.rememberApprovalHold(tx.Reply.To, -1)
-			}
+		if err := s.saveReservation(tx.Reply); err != nil {
 			return err
 		}
 		s.logReservation(tx.Reply)

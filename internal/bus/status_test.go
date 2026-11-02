@@ -23,7 +23,7 @@ func TestDeliveryTransitionsPreserveCompletedAndUncertainAttempts(t *testing.T) 
 		{StatusApprovalBlocked, StatusSubmitted, StatusApprovalBlocked, true},
 		{StatusSubmitted, DeliveryStatus("unknown"), StatusSubmitted, true},
 	} {
-		next, err := transition(test.from, test.to)
+		next, err := transition(test.from, test.to, false)
 		if next != test.want || (err != nil) != test.rejected {
 			t.Fatalf("%s -> %s = %s: %v", test.from, test.to, next, err)
 		}
@@ -52,5 +52,42 @@ func TestDeliveryTransitionsPreserveCompletedAndUncertainAttempts(t *testing.T) 
 	}
 	if err := store.Update(to.ID, SessionState("invented"), false); ErrorCodeOf(err) != CodeInvalidTransition {
 		t.Fatal("unknown session state accepted", err)
+	}
+}
+
+func TestQueuedApprovalViewCannotBePersisted(t *testing.T) {
+	if StatusQueuedForApproval.valid() || StatusQueuedForApproval.canAcknowledge() {
+		t.Fatal("derived approval view was accepted as a persisted status")
+	}
+	if _, err := transition(StatusAttempting, StatusQueuedForApproval, false); ErrorCodeOf(err) != CodeInvalidTransition {
+		t.Fatal("derived approval view became a journal transition", err)
+	}
+}
+
+func TestHeldApprovalTransitionsDoNotReopenLegacyRefusals(t *testing.T) {
+	for _, to := range []DeliveryStatus{StatusAttempting, StatusPendingActivity, StatusNotSent} {
+		if _, err := transition(StatusApprovalBlocked, to, false); ErrorCodeOf(err) != CodeInvalidTransition {
+			t.Fatalf("legacy refusal reopened to %s: %v", to, err)
+		}
+		if got, err := transition(StatusApprovalBlocked, to, true); err != nil || got != to {
+			t.Fatalf("held transition to %s rejected: %v", to, err)
+		}
+	}
+	legacy := Message{Status: StatusApprovalBlocked}
+	if err := legacy.releaseHeld(StatusAttempting); ErrorCodeOf(err) != CodeInvalidTransition || legacy.Held || legacy.Status != StatusApprovalBlocked {
+		t.Fatal("release helper changed a legacy refusal", err)
+	}
+	msg := Message{Status: StatusAttempting}
+	if err := msg.hold(); err != nil || !msg.IsQueuedForApproval() || msg.Receipt.Error != approvalQueuedNote {
+		t.Fatal("hold did not preserve canonical journal state", err)
+	}
+	if err := msg.releaseHeld(StatusPendingActivity); err != nil || msg.Held || msg.Receipt.Status != StatusPendingActivity {
+		t.Fatal("hook release lost its receipt", err)
+	}
+	if err := msg.emitContext(); err != nil {
+		t.Fatal(err)
+	}
+	if err := msg.applyReceipt(Receipt{Status: StatusWakeWritten}); err != nil || msg.Status != StatusContextEmitted {
+		t.Fatal("racing wake overwrote emitted context", err)
 	}
 }

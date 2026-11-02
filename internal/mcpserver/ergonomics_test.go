@@ -132,7 +132,7 @@ func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
 }
 
 func TestReceiptNotesNeverPromiseRefusedOrUnconfirmedDelivery(t *testing.T) {
-	queued, err := messageReceipt(bus.Message{Status: bus.StatusApprovalBlocked, Receipt: &bus.Receipt{Error: "queued until the permission prompt is answered"}}, nil)
+	queued, err := messageReceipt(bus.Message{Status: bus.StatusApprovalBlocked, Held: true}, nil)
 	if err != nil || queued.Note != "Queued until the target's permission prompt is answered." {
 		t.Fatal("a queued approval message was described as refused")
 	}
