@@ -82,47 +82,65 @@ func (s Store) consumeFloodQuota(msg Message, now time.Time) error {
 	if err != nil {
 		return err
 	}
+	state, err := loadFloodState(path, msg.To, now)
+	if err != nil {
+		return err
+	}
+	changed, err := state.admit(derivedID("zalki/flood/sender/v1", msg.From), msg.ID, now)
+	if err != nil || !changed {
+		return err
+	}
+	return saveFloodState(path, state)
+}
+
+// loadFloodState validates the persisted header before admission replays arrivals.
+func loadFloodState(path, target string, now time.Time) (floodState, error) {
 	var state floodState
 	if err := readJSON(path, &state); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			return err
+			return state, err
 		}
-		state = floodState{Schema: 1, Target: msg.To, Inbound: floodBucket{Tokens: floodInboundBurst, At: now}, Senders: map[string]floodBucket{}}
+		state = floodState{Schema: 1, Target: target, Inbound: floodBucket{Tokens: floodInboundBurst, At: now}, Senders: map[string]floodBucket{}}
 	}
 	if state.Schema != 1 {
-		return fail(CodeUnsupportedSchema, "unsupported flood quota schema %d", state.Schema)
+		return state, fail(CodeUnsupportedSchema, "unsupported flood quota schema %d", state.Schema)
 	}
-	if state.Target != msg.To || !state.Inbound.valid(floodInboundBurst) || state.Senders == nil {
-		return fail(CodeInvalidInput, "invalid flood quota state")
+	if state.Target != target || !state.Inbound.valid(floodInboundBurst) || state.Senders == nil {
+		return state, fail(CodeInvalidInput, "invalid flood quota state")
 	}
+	return state, nil
+}
+
+// admit is filesystem-free. A reused precommit reservation is unchanged, so
+// callers must not rewrite its file or consume tokens a second time.
+func (state *floodState) admit(senderID, messageID string, now time.Time) (bool, error) {
 	actualNow := now
 	if now.Before(state.Inbound.At) {
 		now = state.Inbound.At
 	}
 	if len(state.Recent) > floodInboundPerHour {
-		return fail(CodeInvalidInput, "invalid hourly flood quota state")
+		return false, fail(CodeInvalidInput, "invalid hourly flood quota state")
 	}
-	senderID := derivedID("zalki/flood/sender/v1", msg.From)
 	recent := state.Recent[:0]
 	pairCount := 0
 	var oldestPair time.Time
 	var previous time.Time
 	for _, arrival := range state.Recent {
 		if arrival.At.IsZero() || arrival.At.Before(previous) || arrival.At.After(state.Inbound.At) {
-			return fail(CodeInvalidInput, "invalid flood quota arrival time")
+			return false, fail(CodeInvalidInput, "invalid flood quota arrival time")
 		}
 		previous = arrival.At
 		if now.Sub(arrival.At) >= time.Hour {
 			continue
 		}
 		recent = append(recent, arrival)
-		if arrival.ID == msg.ID {
+		if arrival.ID == messageID {
 			if arrival.Sender != senderID {
-				return fail(CodeConflict, "message UUID already reserved by another sender")
+				return false, fail(CodeConflict, "message UUID already reserved by another sender")
 			}
 			// A quota reservation can outlive a crash before journal/intent IO.
 			// Reusing it must not spend a second token or hourly slot.
-			return nil
+			return false, nil
 		}
 		if arrival.Sender == senderID {
 			pairCount++
@@ -133,14 +151,14 @@ func (s Store) consumeFloodQuota(msg Message, now time.Time) error {
 	}
 	state.Recent = recent
 	if pairCount >= floodPairPerHour {
-		return floodWait(fmt.Sprintf("pair hourly cap (%d/hour)", floodPairPerHour), msg.To, actualNow, oldestPair.Add(time.Hour))
+		return false, floodWait(fmt.Sprintf("pair hourly cap (%d/hour)", floodPairPerHour), state.Target, actualNow, oldestPair.Add(time.Hour))
 	}
 	if len(recent) >= floodInboundPerHour {
-		return floodWait(fmt.Sprintf("inbound hourly cap (%d/hour, all senders)", floodInboundPerHour), msg.To, actualNow, recent[0].At.Add(time.Hour))
+		return false, floodWait(fmt.Sprintf("inbound hourly cap (%d/hour, all senders)", floodInboundPerHour), state.Target, actualNow, recent[0].At.Add(time.Hour))
 	}
 	for actor, bucket := range state.Senders {
 		if !bucket.valid(floodPairBurst) {
-			return fail(CodeInvalidInput, "invalid sender flood quota state")
+			return false, fail(CodeInvalidInput, "invalid sender flood quota state")
 		}
 		// A minute of inactivity fully refills a pair. Pruning here bounds the
 		// map by recent traffic, rather than every historical sender.
@@ -155,15 +173,19 @@ func (s Store) consumeFloodQuota(msg Message, now time.Time) error {
 	pair = pair.refill(now, floodPairBurst, floodPairPerMinute)
 	inbound := state.Inbound.refill(now, floodInboundBurst, floodInboundPerMinute)
 	if pair.Tokens < 1 {
-		return floodWait(fmt.Sprintf("pair short bucket (%d burst, %d/minute refill)", floodPairBurst, floodPairPerMinute), msg.To, actualNow, pair.nextToken(floodPairPerMinute))
+		return false, floodWait(fmt.Sprintf("pair short bucket (%d burst, %d/minute refill)", floodPairBurst, floodPairPerMinute), state.Target, actualNow, pair.nextToken(floodPairPerMinute))
 	}
 	if inbound.Tokens < 1 {
-		return floodWait(fmt.Sprintf("inbound short bucket (%d burst, %d/minute refill, all senders)", floodInboundBurst, floodInboundPerMinute), msg.To, actualNow, inbound.nextToken(floodInboundPerMinute))
+		return false, floodWait(fmt.Sprintf("inbound short bucket (%d burst, %d/minute refill, all senders)", floodInboundBurst, floodInboundPerMinute), state.Target, actualNow, inbound.nextToken(floodInboundPerMinute))
 	}
 	pair.Tokens--
 	inbound.Tokens--
 	state.Senders[senderID], state.Inbound = pair, inbound
-	state.Recent = append(state.Recent, floodArrival{ID: msg.ID, Sender: senderID, At: now})
+	state.Recent = append(state.Recent, floodArrival{ID: messageID, Sender: senderID, At: now})
+	return true, nil
+}
+
+func saveFloodState(path string, state floodState) error {
 	if err := privateDir(filepath.Dir(path)); err != nil {
 		return err
 	}

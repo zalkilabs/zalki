@@ -123,7 +123,7 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (Message, Sessi
 			message.RequestedTo = requestedTo
 		}
 		if target.State == StateApproval {
-			if err := s.holdForApproval(&message); err != nil {
+			if err := s.approvalCapacity(message.To); err != nil {
 				return err
 			}
 		}
@@ -132,6 +132,11 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (Message, Sessi
 				return moveErr
 			}
 			return err
+		}
+		if target.State == StateApproval {
+			if err := message.hold(); err != nil {
+				return err
+			}
 		}
 		fresh = target.State != StateApproval
 		if persist {

@@ -32,14 +32,22 @@ func (s Store) saveReservation(msg Message) error {
 // The caller holds the journal lock, then uses saveReservation to persist the
 // matching held count and message.
 func (s Store) holdForApproval(msg *Message) error {
-	target, err := s.session(msg.To)
+	if err := s.approvalCapacity(msg.To); err != nil {
+		return err
+	}
+	return msg.hold()
+}
+
+// approvalCapacity checks before flood admission without changing message state.
+func (s Store) approvalCapacity(targetID string) error {
+	target, err := s.session(targetID)
 	if err != nil {
 		return err
 	}
 	if target.ApprovalHeld >= approvalQueueCap {
 		return fail(CodeUnavailable, "too many messages are waiting for this session's permission prompt")
 	}
-	return msg.hold()
+	return nil
 }
 
 // rememberApprovalHold moves the target's queued-message count by delta.
