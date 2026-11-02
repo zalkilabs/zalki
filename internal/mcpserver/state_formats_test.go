@@ -81,8 +81,10 @@ func TestBinarySTDIOReadsSurviveFutureStateFormats(t *testing.T) {
 	if !bytes.Contains(raw, []byte("upgrade zalki")) {
 		t.Fatal("write failure lacked upgrade guidance", string(raw))
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, "runtimes")); !os.IsNotExist(err) {
-		t.Fatal("fenced startup wrote runtime tracking", err)
+	for _, name := range []string{"runtimes", "watches", "watch-observer.stamp"} {
+		if _, err := os.Stat(filepath.Join(store.Dir, name)); !os.IsNotExist(err) {
+			t.Fatal("fenced startup created state", name, err)
+		}
 	}
 	if after, _ := os.ReadFile(markerPath); !bytes.Equal(marker, after) {
 		t.Fatal("MCP rewrote future marker")

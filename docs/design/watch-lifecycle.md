@@ -73,3 +73,8 @@ ports of the existing journal lock (`Flock`) and process probe
 Notice delivery failures from the CLI paths warn on stderr while list/prune still
 return their JSON results; journal observation errors can fail the command.
 Unknown liveness and idle age never count as evidence of exit.
+
+The lazy `state-formats.json` marker is ignored by rc.5. An unreadable or
+unsupported marker fences writes with "upgrade zalki": the observer releases
+its kernel watches, logs once and stays idle until shutdown, creating no watch directory or stamp and sending
+no notices. For unreadable-marker recovery, see [Upgrading](../../README.md#upgrading).
