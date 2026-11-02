@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 )
 
 // approvalQueueCap bounds messages waiting on one session's permission prompt.
@@ -74,22 +72,20 @@ func (s Store) queuedApprovals(target string) ([]Message, error) {
 }
 
 func (s Store) queuedApprovalsRead(target string, skipUnreadable bool) ([]Message, error) {
-	files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
-	if err != nil {
-		return nil, err
-	}
 	queued := []Message{}
-	for _, file := range files {
-		msg, err := s.message(strings.TrimSuffix(filepath.Base(file), ".json"))
-		if err != nil {
+	if err := s.eachMessage(func(_ string, msg Message, readErr error) error {
+		if readErr != nil {
 			if skipUnreadable {
-				continue
+				return nil
 			}
-			return nil, err
+			return readErr
 		}
 		if msg.To == target && msg.IsQueuedForApproval() {
 			queued = append(queued, msg)
 		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	sort.Slice(queued, func(i, j int) bool {
 		if queued[i].CreatedAt == queued[j].CreatedAt {
@@ -118,22 +114,19 @@ func (s Store) settleQueued(msg Message, reason string) error {
 // The caller holds the journal lock. Legacy approval refusals are not counted.
 // Unreadable files are returned by id so prune can report them and continue.
 func (s Store) approvalHolds() (map[string]int, []string, error) {
-	files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
-	if err != nil {
-		return nil, nil, err
-	}
 	counts := map[string]int{}
 	unreadable := []string{}
-	for _, file := range files {
-		id := strings.TrimSuffix(filepath.Base(file), ".json")
-		msg, err := s.message(id)
-		if err != nil {
+	if err := s.eachMessage(func(id string, msg Message, readErr error) error {
+		if readErr != nil {
 			unreadable = append(unreadable, id)
-			continue
+			return nil
 		}
 		if msg.IsQueuedForApproval() {
 			counts[msg.To]++
 		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
 	}
 	sort.Strings(unreadable)
 	return counts, unreadable, nil

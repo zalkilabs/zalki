@@ -3,7 +3,6 @@ package bus
 import (
 	"errors"
 	"log/slog"
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -77,28 +76,25 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 			}
 			cursor = &anchor
 		}
-		files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
-		if err != nil {
-			return err
-		}
-		for _, file := range files {
-			var item Message
-			item, err = s.message(strings.TrimSuffix(filepath.Base(file), ".json"))
-			if err != nil {
-				return err
+		if err := s.eachMessage(func(_ string, item Message, readErr error) error {
+			if readErr != nil {
+				return readErr
 			}
 			if item.From == actor || item.To == actor {
 				if query.Sent && item.From != actor {
-					continue
+					return nil
 				}
 				if !history && (item.To != actor || item.TargetGeneration != current.Generation || item.AcknowledgedAt != "" || !item.Status.canAcknowledge()) {
-					continue
+					return nil
 				}
 				if cursor != nil && !messageComesBefore(*cursor, item, history) {
-					continue
+					return nil
 				}
 				items = append(items, inboxView(item, current, history && !query.IncludeBody))
 			}
+			return nil
+		}); err != nil {
+			return err
 		}
 		sort.Slice(items, func(i, j int) bool { return messageComesBefore(items[i], items[j], history) })
 		if len(items) > limit {
@@ -164,20 +160,17 @@ func (s Store) EmitPending(actor string) (string, error) {
 				}
 			}
 		}
-		files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
-		if err != nil {
-			return err
-		}
 		pending := []Message{}
-		for _, file := range files {
-			var msg Message
-			msg, err = s.message(strings.TrimSuffix(filepath.Base(file), ".json"))
-			if err != nil {
-				return err
+		if err := s.eachMessage(func(_ string, msg Message, readErr error) error {
+			if readErr != nil {
+				return readErr
 			}
 			if msg.To == actor && msg.TargetGeneration == current.Generation && hookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
 				pending = append(pending, msg)
 			}
+			return nil
+		}); err != nil {
+			return err
 		}
 		sort.Slice(pending, func(i, j int) bool { return pending[i].CreatedAt < pending[j].CreatedAt })
 		for i, msg := range pending {

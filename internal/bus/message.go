@@ -21,6 +21,24 @@ func (s Store) message(id string) (Message, error) {
 	return msg, err
 }
 
+// eachMessage visits journal files in the same lexical order as filepath.Glob.
+// The caller holds the journal lock and chooses whether a read error is fatal,
+// ignored, or reported. Exact-ID reads do not use this scan.
+func (s Store) eachMessage(visit func(id string, message Message, readErr error) error) error {
+	files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		id := strings.TrimSuffix(filepath.Base(file), ".json")
+		message, readErr := s.message(id)
+		if err := visit(id, message, readErr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s Store) saveMessage(v Message) error {
 	if v.Schema < 0 || v.Schema > recordSchema {
 		return fail(CodeUnsupportedSchema, "unsupported message schema %d", v.Schema)
