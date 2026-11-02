@@ -10,14 +10,6 @@ import (
 // approvalQueueCap bounds messages waiting on one session's permission prompt.
 const approvalQueueCap = 8
 
-const approvalQueuedNote = "queued until the permission prompt is answered"
-
-// IsQueuedForApproval distinguishes a held message from a legacy final refusal.
-// The derived queued_for_approval view is never written to the journal.
-func (msg Message) IsQueuedForApproval() bool {
-	return msg.Held && msg.Status == StatusApprovalBlocked
-}
-
 // holdForApproval marks msg as waiting on the target's permission prompt.
 // The caller holds the journal lock and then saves the message with
 // rememberApprovalHold so the session count matches the journal.
@@ -29,10 +21,7 @@ func (s Store) holdForApproval(msg *Message) error {
 	if target.ApprovalHeld >= approvalQueueCap {
 		return fail(CodeUnavailable, "too many messages are waiting for this session's permission prompt")
 	}
-	msg.Status = StatusApprovalBlocked
-	msg.Held = true
-	msg.Receipt = &Receipt{At: timestamp(), Status: StatusApprovalBlocked, Error: approvalQueuedNote}
-	return nil
+	return msg.hold()
 }
 
 // rememberApprovalHold moves the target's queued-message count by delta.
@@ -104,9 +93,9 @@ func (s Store) settleQueued(msg Message, reason string) error {
 	if !current.IsQueuedForApproval() {
 		return nil
 	}
-	current.Held = false
-	current.Status = StatusNotSent
-	current.Receipt = &Receipt{At: timestamp(), Status: StatusNotSent, Code: CodeUnavailable, Error: reason}
+	if err := current.settleNotSent(CodeUnavailable, reason); err != nil {
+		return err
+	}
 	return s.saveMessage(current)
 }
 
@@ -248,9 +237,9 @@ func (s Store) adoptApprovalQueue(current Session) error {
 			}
 			continue
 		}
-		msg.Held = false
-		msg.Status = StatusPendingActivity
-		msg.Receipt = &Receipt{At: timestamp(), Status: StatusPendingActivity}
+		if err := msg.releaseHeld(StatusPendingActivity); err != nil {
+			return err
+		}
 		if err := s.saveMessage(msg); err != nil {
 			return err
 		}
@@ -318,9 +307,9 @@ func (s *Service) releaseApprovalQueue(ctx context.Context, actor string) error 
 			if !currentMsg.IsQueuedForApproval() {
 				continue
 			}
-			currentMsg.Held = false
-			currentMsg.Status = StatusAttempting
-			currentMsg.Receipt = nil
+			if err := currentMsg.releaseHeld(StatusAttempting); err != nil {
+				return err
+			}
 			if err := s.Store.saveMessage(currentMsg); err != nil {
 				return err
 			}

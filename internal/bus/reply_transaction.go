@@ -48,10 +48,13 @@ func (s Store) prepareReply(request ReplyRequest) (msg Message, target Session, 
 		}
 		msg, target, fresh, err = s.prepareMessage(SendRequest{Actor: actor, Capability: key, To: parent.From, MessageID: replyID(actor, parent.ID, body), Body: body, ReplyTo: parent.ID}, false)
 		if code := ErrorCodeOf(err); code == CodeUnavailable || code == CodeNotFound {
-			refusal := &Receipt{At: timestamp(), Status: StatusNotSent, Code: code, Error: err.Error()}
+			refusalReason := err.Error()
 			target.ID = parent.From
 			msg, err = s.outgoingMessage(sender, target, replyID(actor, parent.ID, body), body, parent.ID)
-			msg.Status, msg.Receipt, fresh = StatusNotSent, refusal, false
+			fresh = false
+			if err == nil {
+				err = msg.settleNotSent(code, refusalReason)
+			}
 			// Refused reply records also grow the journal. They must use quota,
 			// while a retry of an existing record must not spend it again.
 			if err == nil {
@@ -61,7 +64,9 @@ func (s Store) prepareReply(request ReplyRequest) (msg Message, target Session, 
 					err = lookupErr
 				}
 				if err != nil {
-					msg.Receipt = &Receipt{At: timestamp(), Status: StatusNotSent, Code: ErrorCodeOf(err), Error: err.Error()}
+					if moveErr := msg.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+						return moveErr
+					}
 				}
 			}
 		}

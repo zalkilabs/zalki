@@ -244,8 +244,9 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 		}
 		if current.State == StateApproval {
 			if err := s.Store.holdForApproval(&msg); err != nil {
-				msg.Status = StatusNotSent
-				msg.Receipt = &Receipt{At: timestamp(), Status: StatusNotSent, Code: ErrorCodeOf(err), Error: err.Error()}
+				if moveErr := msg.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+					return moveErr
+				}
 			} else if err := s.Store.rememberApprovalHold(msg.To, 1); err != nil {
 				return err
 			}

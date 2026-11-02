@@ -128,9 +128,9 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (Message, Sessi
 			}
 		}
 		if err := s.consumeFloodQuota(message, time.Now()); err != nil {
-			message.Status = StatusNotSent
-			message.Held = false
-			message.Receipt = &Receipt{At: timestamp(), Status: StatusNotSent, Code: ErrorCodeOf(err), Error: err.Error()}
+			if moveErr := message.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+				return moveErr
+			}
 			return err
 		}
 		if target.State == StateApproval {
@@ -174,15 +174,10 @@ func (s Store) Finish(id string, receipt Receipt) (Message, error) {
 		if err != nil {
 			return err
 		}
-		next, err := transition(msg.Status, receipt.Status)
-		if err != nil {
+		if err := msg.applyReceipt(receipt); err != nil {
 			return err
 		}
-		msg.Status = next
-		if receipt.Error != "" && receipt.Code == "" {
-			receipt.Code = CodeUnavailable
-		}
-		msg.Receipt = &receipt
+		receipt = *msg.Receipt
 		if err := s.saveMessage(msg); err != nil {
 			return err
 		} // Preserve a racing ACK.

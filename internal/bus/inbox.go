@@ -178,8 +178,9 @@ func (s Store) EmitPending(actor string) (string, error) {
 			if i >= 5 || context.Len()+len(body) > 24*1024 {
 				break
 			}
-			msg.Status = StatusContextEmitted
-			msg.Receipt = &Receipt{At: timestamp(), Status: StatusContextEmitted}
+			if err := msg.emitContext(); err != nil {
+				return err
+			}
 			if err := s.saveMessage(msg); err != nil {
 				return err
 			}
