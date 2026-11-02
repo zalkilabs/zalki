@@ -133,6 +133,8 @@ func writeClaudeFrame(ctx context.Context, conn net.Conn, encoded []byte) bus.Re
 		}
 		encoded = encoded[n:]
 	}
+	// Claude 2.1.316 sends no inline ACK, even for silently ignored frames.
+	// EOF is not acceptance; see docs/design/claude-delivery-ack.md.
 	return bus.NewReceipt(bus.StatusTransportWritten)
 }
 

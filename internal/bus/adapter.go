@@ -71,6 +71,12 @@ type RecoveryHintAdapter interface {
 	RecoveryHint(SessionDiagnostic) string
 }
 
+// CompatibilityAdapter supplements doctor with adapter-owned version evidence.
+// Empty or malformed results leave the common fixture diagnosis unchanged.
+type CompatibilityAdapter interface {
+	Compatibility(version string) (status, hint string)
+}
+
 type Registry struct{ adapters map[string]Adapter }
 
 var kindPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)

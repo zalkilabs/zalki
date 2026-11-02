@@ -71,6 +71,11 @@ are normalized observations from earlier disposable-session probes, not raw
 captures or a guarantee that current client versions work. `zalki doctor` shows
 the installed versions, fixture coverage, listener health, and recovery hints.
 Already-running clients may still use an older version until restarted.
+Claude's adapter additionally owns an exact-version/platform evidence table.
+`live_verified` describes historical smoke coverage; it does not turn a
+`transport_written` receipt into native acceptance or a read receipt. See the
+[Claude socket investigation and smoke recipe](../docs/design/claude-delivery-ack.md)
+before adding verification for another release.
 
 To capture a new startup contract, export `ZALKI_CAPTURE_CONTRACTS` as an absolute
 private directory before starting the client. Hooks capture allowlisted schema

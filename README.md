@@ -9,6 +9,8 @@ Discover agents by name, send messages, and reply from their normal CLI.
 
 macOS preview. Claude's transport is experimental. Cursor idle wake
 requires one native Shell background task, armed from its startup guidance.
+Claude socket writes have no native inline ACK; `transport_written` confirms
+only the local write. See the [version evidence and smoke recipe](docs/design/claude-delivery-ack.md).
 
 ## Install
 

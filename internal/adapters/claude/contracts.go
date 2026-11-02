@@ -11,4 +11,5 @@ var (
 	_ bus.ConfigurationAdapter = Adapter{}
 	_ bus.LivenessAdapter      = Adapter{}
 	_ bus.RecoveryHintAdapter  = Adapter{}
+	_ bus.CompatibilityAdapter = Adapter{}
 )

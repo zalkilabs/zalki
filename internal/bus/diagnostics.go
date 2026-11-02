@@ -57,6 +57,7 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 		binary, err := exec.LookPath(d.Executable)
 		diagnostic := AgentDiagnostic{Kind: kind, Label: d.Label, Binary: binary, Found: err == nil, Receive: adapter.ReceiveCapabilities(Session{})}
 		annotateClientCompatibility(&diagnostic)
+		annotateAdapterCompatibility(&diagnostic, adapter)
 		report.Agents = append(report.Agents, diagnostic)
 		report.Notes = append(report.Notes, d.Notes...)
 	}

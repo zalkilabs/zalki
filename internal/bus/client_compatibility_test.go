@@ -64,3 +64,35 @@ func TestClientVersionProbeAndUnknownVersionDiagnostics(t *testing.T) {
 		t.Fatal("version output was not bounded")
 	}
 }
+
+type compatibilityStub struct {
+	stubCodexAdapter
+	status, hint string
+}
+
+func (a compatibilityStub) Compatibility(string) (string, string) { return a.status, a.hint }
+
+func TestAdapterVersionEvidenceDoesNotOverrideUnavailableClientsOrMalformedHints(t *testing.T) {
+	for _, test := range []struct {
+		found   bool
+		version string
+		adapter Adapter
+		want    string
+	}{
+		{true, "2.1.316", compatibilityStub{status: "live_verified", hint: "Historical smoke evidence; no per-message ACK."}, "live_verified"},
+		{false, "2.1.316", compatibilityStub{status: "live_verified", hint: "Known"}, "original"},
+		{true, "", compatibilityStub{status: "live_verified", hint: "Known"}, "original"},
+		{true, "2.1.316", compatibilityStub{status: "live_verified", hint: "bad\nhint"}, "original"},
+		{true, "2.1.316", compatibilityStub{status: "bad status", hint: "Known"}, "original"},
+		{true, "2.1.316", stubCodexAdapter{}, "original"},
+	} {
+		diagnostic := AgentDiagnostic{Found: test.found, Version: test.version, Compatibility: "original", RecoveryHint: "Original hint."}
+		annotateAdapterCompatibility(&diagnostic, test.adapter)
+		if diagnostic.Compatibility != test.want {
+			t.Fatalf("compatibility=%s want=%s", diagnostic.Compatibility, test.want)
+		}
+		if test.want == "original" && diagnostic.RecoveryHint != "Original hint." {
+			t.Fatal("unavailable or invalid evidence replaced the common next step")
+		}
+	}
+}

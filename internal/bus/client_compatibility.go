@@ -127,3 +127,22 @@ func recoveryHint(diagnostic SessionDiagnostic, adapter Adapter) string {
 func validRecoveryHint(hint string) bool {
 	return len(hint) <= 512 && utf8.ValidString(hint) && !strings.ContainsFunc(hint, unicode.IsControl)
 }
+
+// Adapter evidence is separate from generic hook/metadata fixture coverage.
+// Missing installations or unavailable versions retain their common diagnosis.
+func annotateAdapterCompatibility(diagnostic *AgentDiagnostic, adapter Adapter) {
+	if !diagnostic.Found || diagnostic.Version == "" {
+		return
+	}
+	policy, ok := adapter.(CompatibilityAdapter)
+	if !ok {
+		return
+	}
+	status, hint := policy.Compatibility(diagnostic.Version)
+	if !compatibilityStatusPattern.MatchString(status) || !validRecoveryHint(hint) {
+		return
+	}
+	diagnostic.Compatibility, diagnostic.RecoveryHint = status, hint
+}
+
+var compatibilityStatusPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
