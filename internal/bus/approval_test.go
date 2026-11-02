@@ -33,8 +33,7 @@ func stopHook(t *testing.T, service Service, kind, id string) {
 
 func TestApprovalQueueDeliversOnceInOrder(t *testing.T) {
 	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
@@ -82,8 +81,7 @@ func TestApprovalQueueDeliversOnceInOrder(t *testing.T) {
 
 func TestFreshRegistrationSettlesHeldMessages(t *testing.T) {
 	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
@@ -112,8 +110,7 @@ func TestFreshRegistrationSettlesHeldMessages(t *testing.T) {
 
 func TestCompactRegistrationKeepsHeldMessages(t *testing.T) {
 	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
@@ -137,8 +134,7 @@ func TestCompactRegistrationKeepsHeldMessages(t *testing.T) {
 
 func TestLegacyApprovalRefusalIsNotReleased(t *testing.T) {
 	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +162,8 @@ func TestLegacyApprovalRefusalIsNotReleased(t *testing.T) {
 }
 
 func TestHookDoesNotReadMessagesWhenNothingIsQueued(t *testing.T) {
-	store := fixtureStore(t)
+	service := newTestService(t)
+	store := service.Store
 	target, _ := register(t, store, "codex")
 	path := filepath.Join(store.Dir, "messages", "corrupt.json")
 	if err := os.WriteFile(path, []byte("{"), 0600); err != nil {
@@ -175,14 +172,13 @@ func TestHookDoesNotReadMessagesWhenNothingIsQueued(t *testing.T) {
 	if err := os.Chmod(path, 0); err != nil {
 		t.Fatal(err)
 	}
-	service := Service{Store: store}
+
 	stopHook(t, service, "codex", target.ID)
 }
 
 func TestApprovalQueueCapsAndDropsOnRetirement(t *testing.T) {
 	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
@@ -213,8 +209,7 @@ func TestApprovalQueueCapsAndDropsOnRetirement(t *testing.T) {
 
 func TestApprovalQueueDropsWhenTheOwnerHasExited(t *testing.T) {
 	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
@@ -243,13 +238,13 @@ func TestApprovalQueueDropsWhenTheOwnerHasExited(t *testing.T) {
 }
 
 func TestApprovalQueueFeedsHookDeliveryOnce(t *testing.T) {
-	store := fixtureStore(t)
-	sender, key := register(t, store, "codex")
-	target, _ := register(t, store, "cursor")
+	service := newTestService(t)
+	store := service.Store
+	sender, key, target, _ := registerPair(t, store, "codex", "cursor")
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
-	service := Service{Store: store}
+
 	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "through the hook"})
 	if err != nil || msg.Status != StatusApprovalBlocked {
 		t.Fatal(msg, err)
@@ -272,8 +267,7 @@ func TestApprovalQueueFeedsHookDeliveryOnce(t *testing.T) {
 
 func TestApprovalQueueDeliversANoticeAfterThePrompt(t *testing.T) {
 	store := fixtureStore(t)
-	watcher, key := register(t, store, "codex")
-	target, _ := register(t, store, "claude")
+	watcher, key, target, _ := registerPair(t, store, "codex", "claude")
 	if err := store.Update(watcher.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
@@ -298,17 +292,17 @@ func TestApprovalQueueDeliversANoticeAfterThePrompt(t *testing.T) {
 }
 
 func TestApprovalQueueDeliversOnceUnderConcurrentHooks(t *testing.T) {
-	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	service := newTestService(t)
+	store := service.Store
+	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	var n atomic.Int32
-	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, Message, Session) Receipt {
 		n.Add(1)
 		return NewReceipt(StatusSubmitted)
-	}}
+	}
 	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "once"}); err != nil {
 		t.Fatal(err)
 	}

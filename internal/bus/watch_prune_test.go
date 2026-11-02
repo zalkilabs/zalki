@@ -22,12 +22,9 @@ func writeTestWatch(t *testing.T, store Store, watcher, target string, expires t
 
 func TestPruneDeletesStaleWatchesWithMatchingDryRun(t *testing.T) {
 	store := fixtureStore(t)
-	watcher, _ := register(t, store, "codex")
-	live, _ := register(t, store, "cursor")
-	expiredTarget, _ := register(t, store, "cursor")
-	orphan, _ := register(t, store, "cursor")
-	old, _ := register(t, store, "cursor")
-	other, _ := register(t, store, "claude")
+	watcher, _, live, _ := registerPair(t, store, "codex", "cursor")
+	expiredTarget, _, orphan, _ := registerPair(t, store, "cursor", "cursor")
+	old, _, other, _ := registerPair(t, store, "cursor", "claude")
 	future := time.Now().Add(time.Hour)
 
 	keep := writeTestWatch(t, store, watcher.ID, live.ID, future)
@@ -124,8 +121,7 @@ func TestPruneDeletesStaleWatchesWithMatchingDryRun(t *testing.T) {
 
 func TestPruneRemovesInvalidWatchRecords(t *testing.T) {
 	store := fixtureStore(t)
-	watcher, _ := register(t, store, "codex")
-	target, _ := register(t, store, "cursor")
+	watcher, _, target, _ := registerPair(t, store, "codex", "cursor")
 	mismatch, _ := register(t, store, "claude")
 	bad := writeTestWatch(t, store, watcher.ID, target.ID, time.Now().Add(time.Hour))
 	if err := os.WriteFile(bad, []byte("not json"), 0600); err != nil {
@@ -161,8 +157,7 @@ func mustWatchPath(t *testing.T, store Store, watcher, target string) string {
 
 func TestPruneDoesNotFollowWatchSymlinks(t *testing.T) {
 	store := fixtureStore(t)
-	watcher, _ := register(t, store, "codex")
-	live, _ := register(t, store, "cursor")
+	watcher, _, live, _ := registerPair(t, store, "codex", "cursor")
 	outside := t.TempDir()
 	victim := filepath.Join(outside, "victim.json")
 	if err := os.WriteFile(victim, []byte("{}"), 0600); err != nil {
@@ -226,8 +221,7 @@ func TestPruneIgnoresWatchNamesThatAreNotCanonical(t *testing.T) {
 
 func TestPruneKeepsNewerSchemaWatchesOnLiveTargetsOnly(t *testing.T) {
 	store := fixtureStore(t)
-	watcher, _ := register(t, store, "codex")
-	live, _ := register(t, store, "cursor")
+	watcher, _, live, _ := registerPair(t, store, "codex", "cursor")
 	orphan, _ := register(t, store, "cursor")
 	future := time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
 	write := func(target string) string {

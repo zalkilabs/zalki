@@ -187,9 +187,9 @@ func TestFloodRetryReservationsAndIdleSenderExpiry(t *testing.T) {
 
 func TestFloodDenialDoesNotReserveOrAcknowledgeReplies(t *testing.T) {
 	for _, retired := range []bool{false, true} {
-		store := fixtureStore(t)
-		actor, key := register(t, store, "cursor")
-		target, _ := register(t, store, "codex")
+		service := newTestService(t)
+		store := service.Store
+		actor, key, target, _ := registerPair(t, store, "cursor", "codex")
 		parent := Message{ID: newID(), From: target.ID, To: actor.ID, Body: "review", Status: StatusSubmitted}
 		if err := store.saveMessage(parent); err != nil {
 			t.Fatal(err)
@@ -206,7 +206,7 @@ func TestFloodDenialDoesNotReserveOrAcknowledgeReplies(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		service := Service{Store: store}
+
 		refused, err := service.Reply(context.Background(), ReplyRequest{Actor: actor.ID, Capability: key, MessageID: parent.ID, Body: "reply"})
 		if ErrorCodeOf(err) != CodeRateLimited || refused.Receipt == nil || refused.Receipt.Code != CodeRateLimited {
 			t.Fatal("reply bypassed quota", err)
@@ -223,8 +223,7 @@ func TestFloodDenialDoesNotReserveOrAcknowledgeReplies(t *testing.T) {
 
 func TestFloodKnownMessageRetrySkipsQuotaAndNewSendAvoidsJournalScan(t *testing.T) {
 	store := fixtureStore(t)
-	actor, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	actor, key, target, _ := registerPair(t, store, "cursor", "codex")
 	request := SendRequest{Actor: actor.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "work"}
 	if err := os.WriteFile(filepath.Join(store.Dir, "messages", newID()+".json"), []byte("unrelated malformed record"), 0600); err != nil {
 		t.Fatal(err)
@@ -246,16 +245,16 @@ func TestFloodKnownMessageRetrySkipsQuotaAndNewSendAvoidsJournalScan(t *testing.
 }
 
 func TestFloodWatchNoticesAreExempt(t *testing.T) {
-	store := fixtureStore(t)
-	watcher, key := register(t, store, "cursor")
-	subject, _ := register(t, store, "codex")
+	service := newTestService(t)
+	store := service.Store
+	watcher, key, subject, _ := registerPair(t, store, "cursor", "codex")
 	for range floodPairBurst {
 		if err := spendFlood(store, Message{ID: newID(), From: subject.ID, To: watcher.ID}, time.Now().Add(time.Hour)); err != nil {
 			t.Fatal(err)
 		}
 	}
 	before := floodBytes(t, store, watcher.ID)
-	service := Service{Store: store}
+
 	if _, err := service.Watch(watcher.ID, key, subject.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -267,9 +266,9 @@ func TestFloodWatchNoticesAreExempt(t *testing.T) {
 }
 
 func TestFloodSendRefusalNeverCreatesAnApprovalHold(t *testing.T) {
-	store := fixtureStore(t)
-	actor, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	service := newTestService(t)
+	store := service.Store
+	actor, key, target, _ := registerPair(t, store, "cursor", "codex")
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +279,7 @@ func TestFloodSendRefusalNeverCreatesAnApprovalHold(t *testing.T) {
 		}
 	}
 	before := floodBytes(t, store, target.ID)
-	service := Service{Store: store}
+
 	msg, err := service.Send(context.Background(), SendRequest{Actor: actor.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "limited"})
 	if ErrorCodeOf(err) != CodeRateLimited || msg.Held || msg.Status != StatusNotSent || msg.Receipt == nil || msg.Receipt.Code != CodeRateLimited {
 		t.Fatalf("rate refusal looked like a queued message: %+v %v", msg, err)

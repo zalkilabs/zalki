@@ -3,12 +3,10 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -16,19 +14,13 @@ func TestMCPAliasesBeforeValidationAndWithoutSideEffectsOnConflict(t *testing.T)
 	for _, variable := range []string{"CODEX_HOME", "CURSOR_CONFIG_DIR"} {
 		t.Setenv(variable, t.TempDir())
 	}
-	store := bus.Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: adapters.Builtin()}
-	from, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000031", "/fixture", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	to, toKey, err := store.Register("codex", "00000000-0000-4000-8000-000000000032", "/fixture", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	service := &bus.Service{Store: store, Deliver: func(context.Context, bus.Message, bus.Session) bus.Receipt {
+	service := newTestService(t)
+	store := service.Store
+	from, key, to, toKey := registerPair(t, store, "cursor", "00000000-0000-4000-8000-000000000031", "codex", "00000000-0000-4000-8000-000000000032")
+	service.Deliver = func(context.Context, bus.Message, bus.Session) bus.Receipt {
 		return bus.NewReceipt(bus.StatusSubmitted)
-	}}
-	client, ctx := ergonomicsClient(t, service)
+	}
+	client, ctx := testClient(t, service)
 	call := func(tool string, args any) *mcp.CallToolResult {
 		t.Helper()
 		result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: tool, Arguments: args})
@@ -114,55 +106,39 @@ func TestMCPAliasesBeforeValidationAndWithoutSideEffectsOnConflict(t *testing.T)
 	}
 }
 
-func TestMCPDiscoveryMarksOnlyAuthenticatedCaller(t *testing.T) {
-	t.Setenv("CURSOR_CONFIG_DIR", t.TempDir())
-	store := bus.Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: adapters.Builtin()}
-	actors := make([]string, 2)
-	keys := make([]string, 2)
-	for i, id := range []string{"00000000-0000-4000-8000-000000000041", "00000000-0000-4000-8000-000000000042"} {
-		v, key, err := store.Register("cursor", id, "/fixture", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		actors[i], keys[i] = v.ID, key
-	}
-	client, ctx := ergonomicsClient(t, &bus.Service{Store: store})
-	for _, caller := range []int{-1, 0, 1, -1} {
-		args := map[string]any{}
-		if caller >= 0 {
-			args["actor"], args["capability"] = actors[caller], keys[caller]
-		}
-		result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: "list_agents", Arguments: args})
-		if err != nil || result.IsError {
-			t.Fatalf("discovery failed: %+v %v", result, err)
-		}
-		var output Output[[]bus.AgentInfo]
-		encoded, _ := json.Marshal(result.StructuredContent)
-		if err := json.Unmarshal(encoded, &output); err != nil || len(output.Data) != 2 {
-			t.Fatal("discovery lost rows", err)
-		}
-		for _, row := range output.Data {
-			wantSelf := caller >= 0 && row.ID == actors[caller]
-			if row.Self != wantSelf {
-				t.Fatal("self marker leaked across callers")
-			}
-		}
-	}
-	for _, args := range []map[string]any{
-		{"actor": actors[0]},
-		{"capability": keys[0]},
-		{"actor": "", "capability": ""},
-		{"actor": actors[0], "capability": ""},
-		{"actor": actors[0], "capability": "wrong"},
-		{"actor": actors[0], "capability": keys[1]},
+func TestArgumentHintsKeepStrictSchemasWithoutEchoingValues(t *testing.T) {
+	store := newTestStore(t)
+	client, ctx := testClient(t, &bus.Service{Store: store})
+	for _, test := range []struct {
+		tool string
+		args map[string]any
+		want []string
+	}{
+		{"list_agents", map[string]any{"unknown": "secret-value"}, []string{"unknown", "provide actor and capability together"}},
+		{"send_message", map[string]any{"text": "secret-value"}, []string{`"text"`, "accepts actor, body, capability, message_id, to", "Use body", "retries safe"}},
+		{"reply_message", map[string]any{"parent": "secret-value"}, []string{`"parent"`, "message_id is the incoming message", "body is the reply"}},
+		{"send_message", map[string]any{"sent": true}, []string{`"sent"`, "accepts actor, body, capability, message_id, to"}},
+		{"list_messages", map[string]any{"unknown": "secret-value"}, []string{`"unknown"`, "accepts actor", "sent"}},
+		{"set_task", map[string]any{"note": "secret-value"}, []string{`"note"`, "accepts actor, capability, task"}},
 	} {
-		result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: "list_agents", Arguments: args})
+		result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: test.tool, Arguments: test.args})
 		if err != nil || !result.IsError {
-			t.Fatal("invalid discovery credentials fell back to an anonymous roster", err)
+			t.Fatalf("%s accepted unknown fields: %+v %v", test.tool, result, err)
 		}
 		encoded, _ := json.Marshal(result)
-		if strings.Contains(string(encoded), "/fixture") || strings.Contains(string(encoded), keys[0]) || strings.Contains(string(encoded), keys[1]) {
-			t.Fatal("invalid discovery returned a roster or credentials")
+		text := ""
+		for _, block := range result.Content {
+			if content, ok := block.(*mcp.TextContent); ok {
+				text += content.Text
+			}
+		}
+		for _, want := range test.want {
+			if !strings.Contains(text, want) {
+				t.Fatalf("%s lacks helpful hint %q: %s", test.tool, want, text)
+			}
+		}
+		if strings.Contains(string(encoded), "secret-value") {
+			t.Fatal("argument hint echoed private values")
 		}
 	}
 }

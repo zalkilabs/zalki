@@ -28,10 +28,8 @@ func TestRetiredRetentionBoundaryIsStrictlyOlder(t *testing.T) {
 
 func TestPruneDeletesOnlyOldRetiredSessions(t *testing.T) {
 	store := fixtureStore(t)
-	from, fromKey := register(t, store, "codex")
-	to, toKey := register(t, store, "cursor")
-	live, _ := register(t, store, "cursor")
-	young, _ := register(t, store, "cursor")
+	from, fromKey, to, toKey := registerPair(t, store, "codex", "cursor")
+	live, _, young, _ := registerPair(t, store, "cursor", "cursor")
 	service := &Service{Store: store}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: fromKey, To: to.ID, MessageID: newID(), Body: "keep this history"})
 	if err != nil {

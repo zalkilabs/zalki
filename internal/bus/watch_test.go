@@ -14,17 +14,17 @@ import (
 )
 
 func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
-	store := fixtureStore(t)
-	watcher, key := register(t, store, "codex")
-	target, _ := register(t, store, "claude")
+	service := newTestService(t)
+	store := service.Store
+	watcher, key, target, _ := registerPair(t, store, "codex", "claude")
 	if err := store.hookName(target.ID, "reviewer"); err != nil {
 		t.Fatal(err)
 	}
 	var delivered []Message
-	service := Service{Store: store, Deliver: func(_ context.Context, msg Message, _ Session) Receipt {
+	service.Deliver = func(_ context.Context, msg Message, _ Session) Receipt {
 		delivered = append(delivered, msg)
 		return NewReceipt(StatusSubmitted)
-	}}
+	}
 	first, err := service.Watch(watcher.ID, key, target.ID)
 	if err != nil || first.Status != "watching" || first.To != target.ID {
 		t.Fatalf("watch: %+v %v", first, err)
@@ -90,14 +90,14 @@ func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
 }
 
 func TestWatchSkipsAnUnfinishedStopAndExpires(t *testing.T) {
-	store := fixtureStore(t)
-	watcher, key := register(t, store, "codex")
-	target, _ := register(t, store, "cursor")
+	service := newTestService(t)
+	store := service.Store
+	watcher, key, target, _ := registerPair(t, store, "codex", "cursor")
 	var delivered int
-	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, Message, Session) Receipt {
 		delivered++
 		return NewReceipt(StatusSubmitted)
-	}}
+	}
 	if result, err := service.Watch(watcher.ID, key, target.ID); err != nil || result.Status != "watching" {
 		t.Fatal(result, err)
 	}
@@ -154,14 +154,14 @@ func TestStatusLineDoesNotDiscardMostOfAnUnbrokenToken(t *testing.T) {
 }
 
 func TestWatchWaitsForTheNextStopWhenArmedMidTurn(t *testing.T) {
-	store := fixtureStore(t)
-	watcher, key := register(t, store, "codex")
-	target, _ := register(t, store, "claude")
+	service := newTestService(t)
+	store := service.Store
+	watcher, key, target, _ := registerPair(t, store, "codex", "claude")
 	var delivered int
-	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, Message, Session) Receipt {
 		delivered++
 		return NewReceipt(StatusSubmitted)
-	}}
+	}
 	if _, err := service.Watch(watcher.ID, key, target.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -198,14 +198,14 @@ func TestWatchWaitsForTheNextStopWhenArmedMidTurn(t *testing.T) {
 }
 
 func TestWatchEndsWhenExitIsObservedWithoutSessionEnd(t *testing.T) {
-	store := fixtureStore(t)
-	watcher, key := register(t, store, "codex")
-	target, _ := register(t, store, "cursor")
+	service := newTestService(t)
+	store := service.Store
+	watcher, key, target, _ := registerPair(t, store, "codex", "cursor")
 	var delivered []Message
-	service := Service{Store: store, Deliver: func(_ context.Context, msg Message, _ Session) Receipt {
+	service.Deliver = func(_ context.Context, msg Message, _ Session) Receipt {
 		delivered = append(delivered, msg)
 		return NewReceipt(StatusSubmitted)
-	}}
+	}
 	if _, err := service.Watch(watcher.ID, key, target.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -270,13 +270,13 @@ func TestWatchEndsWhenExitIsObservedWithoutSessionEnd(t *testing.T) {
 }
 
 func TestWatchAnswersAnEndedSessionImmediately(t *testing.T) {
-	store := fixtureStore(t)
-	watcher, key := register(t, store, "codex")
-	target, _ := register(t, store, "cursor")
+	service := newTestService(t)
+	store := service.Store
+	watcher, key, target, _ := registerPair(t, store, "codex", "cursor")
 	if err := store.Update(target.ID, StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
-	service := Service{Store: store}
+
 	result, err := service.Watch(watcher.ID, key, target.ID)
 	if err != nil || result.Status != "ended" || result.Event != "ended" || result.To != target.ID || result.At == "" {
 		t.Fatalf("retired watch: %+v %v", result, err)
@@ -331,8 +331,7 @@ func TestWatchSubscribedDuringStopSurvivesThatCompletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	store.Registry = registry
-	watcher, key := register(t, store, "codex")
-	target, _ := register(t, store, "claude")
+	watcher, key, target, _ := registerPair(t, store, "codex", "claude")
 	var delivered int
 	service := &Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
 		delivered++
@@ -370,8 +369,7 @@ func TestWatchSubscribedDuringStopSurvivesThatCompletion(t *testing.T) {
 
 func TestNoticeObservationReadErrorsAreNotDeliveryWarnings(t *testing.T) {
 	store := fixtureStore(t)
-	watcher, key := register(t, store, "codex")
-	target, _ := register(t, store, "cursor")
+	watcher, key, target, _ := registerPair(t, store, "codex", "cursor")
 	service := &Service{Store: store}
 	if _, err := service.Watch(watcher.ID, key, target.ID); err != nil {
 		t.Fatal(err)

@@ -14,10 +14,8 @@ import (
 func TestPrunePreservesQuietAndUnknownOwnersAndMessageJournal(t *testing.T) {
 	p := selfProcess(t)
 	store := fixtureStore(t)
-	from, key := register(t, store, "codex")
-	dead, _ := register(t, store, "cursor")
-	quiet, _ := register(t, store, "cursor")
-	unknown, _ := register(t, store, "cursor")
+	from, key, dead, _ := registerPair(t, store, "codex", "cursor")
+	quiet, _, unknown, _ := registerPair(t, store, "cursor", "cursor")
 	msg, err := (&Service{Store: store}).Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: dead.ID, MessageID: newID(), Body: "retain history"})
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +183,8 @@ func TestPruneRemovesOnlyExitedRuntimeRecords(t *testing.T) {
 
 func TestCursorResumedPromptReplacesExitedOwnerEvidence(t *testing.T) {
 	p := selfProcess(t)
-	store := fixtureStore(t)
+	service := newTestService(t)
+	store := service.Store
 	v, key := register(t, store, "cursor")
 	v.Owner = &ProcessRef{PID: p.PID, Start: "old-client-at-reused-pid", Role: "client"}
 	v.Retired, v.State, v.RetiredReason = true, "retired", "owner_exited"
@@ -194,7 +193,7 @@ func TestCursorResumedPromptReplacesExitedOwnerEvidence(t *testing.T) {
 	}
 	input, _ := json.Marshal(map[string]any{"conversation_id": strings.TrimPrefix(v.ID, "cursor:"), "hook_event_name": "beforeSubmitPrompt"})
 	var out bytes.Buffer
-	service := Service{Store: store}
+
 	if err := service.Hook("cursor", bytes.NewReader(input), &out); err != nil {
 		t.Fatal(err)
 	}

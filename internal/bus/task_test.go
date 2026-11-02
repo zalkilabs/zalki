@@ -8,8 +8,7 @@ import (
 
 func TestSetTaskStoresClearsAndRejectsLimits(t *testing.T) {
 	store := fixtureStore(t)
-	session, key := register(t, store, "cursor")
-	other, otherKey := register(t, store, "codex")
+	session, key, other, otherKey := registerPair(t, store, "cursor", "codex")
 	service := &Service{Store: store}
 
 	stored, err := service.SetTask(session.ID, key, "review the queue")
@@ -65,8 +64,7 @@ func TestSetTaskStoresClearsAndRejectsLimits(t *testing.T) {
 
 func TestTaskIsListedOnlyWhenSetAndIsNotAnAddress(t *testing.T) {
 	store := fixtureStore(t)
-	sender, senderKey := register(t, store, "cursor")
-	named, _ := register(t, store, "codex")
+	sender, senderKey, named, _ := registerPair(t, store, "cursor", "codex")
 	claimant, claimantKey := register(t, store, "cursor")
 	if err := store.hookName(named.ID, "beta"); err != nil {
 		t.Fatal(err)

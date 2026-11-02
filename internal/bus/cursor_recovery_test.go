@@ -112,8 +112,7 @@ func TestCursorRecoveryWaitsForARunningLease(t *testing.T) {
 
 func TestCursorRecoveryClaimPreservesRegistrationAndPendingMessages(t *testing.T) {
 	store := fixtureStore(t)
-	from, key := register(t, store, "codex")
-	to, oldKey := register(t, store, "cursor")
+	from, key, to, oldKey := registerPair(t, store, "codex", "cursor")
 	message, _, _, err := store.ReserveMessage(SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "pending during recovery"})
 	if err != nil {
 		t.Fatal(err)

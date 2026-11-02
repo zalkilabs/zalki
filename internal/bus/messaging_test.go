@@ -84,13 +84,13 @@ func TestStoreRequiresRegistry(t *testing.T) {
 }
 
 func TestSenderNameSnapshotSurvivesRenameAndRetry(t *testing.T) {
-	store := fixtureStore(t)
-	from, key := register(t, store, "claude")
-	to, toKey := register(t, store, "codex")
+	service := newTestService(t)
+	store := service.Store
+	from, key, to, toKey := registerPair(t, store, "claude", "codex")
 	if err := store.hookName(from.ID, "Backend review"); err != nil {
 		t.Fatal(err)
 	}
-	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt { return Receipt{Status: "submitted"} }}
+	service.Deliver = func(context.Context, Message, Session) Receipt { return Receipt{Status: "submitted"} }
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "hello"})
 	if err != nil || msg.FromName != "Backend review" {
 		t.Fatalf("sender name not captured: %+v %v", msg, err)
@@ -112,9 +112,9 @@ func TestSenderNameSnapshotSurvivesRenameAndRetry(t *testing.T) {
 }
 
 func TestReplyAcknowledgesAndPinsSenderWithConcurrentRetries(t *testing.T) {
-	store := fixtureStore(t)
-	from, _ := register(t, store, "codex")
-	to, key := register(t, store, "cursor")
+	service := newTestService(t)
+	store := service.Store
+	from, _, to, key := registerPair(t, store, "codex", "cursor")
 	// Two senders have the same display name; a reply must not resolve the label.
 	other, _ := register(t, store, "codex")
 	for _, sender := range []Session{from, other} {
@@ -128,13 +128,13 @@ func TestReplyAcknowledgesAndPinsSenderWithConcurrentRetries(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count atomic.Int32
-	service := Service{Store: store, Deliver: func(_ context.Context, msg Message, target Session) Receipt {
+	service.Deliver = func(_ context.Context, msg Message, target Session) Receipt {
 		if msg.To != from.ID || target.ID != from.ID || msg.ReplyTo != parent.ID {
 			t.Error("reply was redirected by a duplicate name")
 		}
 		count.Add(1)
 		return Receipt{Status: "submitted"}
-	}}
+	}
 	var wg sync.WaitGroup
 	for range 12 {
 		wg.Add(1)
@@ -169,9 +169,9 @@ func TestReplyAcknowledgesAndPinsSenderWithConcurrentRetries(t *testing.T) {
 func TestReplyRejectsInvalidRequestsBeforeAcknowledgement(t *testing.T) {
 	for _, test := range []string{"wrong actor", "wrong capability", "empty", "invalid UTF-8", "NUL", "oversize", "capability leak", "unsent"} {
 		t.Run(test, func(t *testing.T) {
-			store := fixtureStore(t)
-			from, fromKey := register(t, store, "codex")
-			to, key := register(t, store, "cursor")
+			service := newTestService(t)
+			store := service.Store
+			from, fromKey, to, key := registerPair(t, store, "codex", "cursor")
 			parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: "submitted"}
 			actor, body := to.ID, "pong"
 			switch test {
@@ -195,7 +195,7 @@ func TestReplyRejectsInvalidRequestsBeforeAcknowledgement(t *testing.T) {
 			if err := store.saveMessage(parent); err != nil {
 				t.Fatal(err)
 			}
-			service := Service{Store: store}
+
 			if _, err := service.Reply(context.Background(), ReplyRequest{Actor: actor, Capability: key, MessageID: parent.ID, Body: body}); err == nil {
 				t.Fatal("invalid reply accepted")
 			}
@@ -208,9 +208,9 @@ func TestReplyRejectsInvalidRequestsBeforeAcknowledgement(t *testing.T) {
 }
 
 func TestReplyKeepsReadAcknowledgementWhenDeliveryRefused(t *testing.T) {
-	store := fixtureStore(t)
-	from, _ := register(t, store, "codex")
-	to, key := register(t, store, "cursor")
+	service := newTestService(t)
+	store := service.Store
+	from, _, to, key := registerPair(t, store, "codex", "cursor")
 	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: "submitted"}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
@@ -218,7 +218,7 @@ func TestReplyKeepsReadAcknowledgementWhenDeliveryRefused(t *testing.T) {
 	if err := store.Update(from.ID, "approval", false); err != nil {
 		t.Fatal(err)
 	}
-	service := Service{Store: store}
+
 	reply, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: key, MessageID: parent.ID, Body: "pong"})
 	if err != nil || reply.Status != StatusApprovalBlocked {
 		t.Fatalf("reply crossed a pending approval: %+v %v", reply, err)

@@ -12,8 +12,7 @@ import (
 
 func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 	store := fixtureStore(t)
-	actor, key := register(t, store, "cursor")
-	peer, _ := register(t, store, "codex")
+	actor, key, peer, _ := registerPair(t, store, "cursor", "codex")
 	other, _ := register(t, store, "cursor")
 	if err := store.hookName(peer.ID, "reviewer"); err != nil {
 		t.Fatal(err)
@@ -98,8 +97,7 @@ func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 
 func TestSentPreviewCannotExposeNativeInbox(t *testing.T) {
 	store := fixtureStore(t)
-	actor, key := register(t, store, "codex")
-	peer, peerKey := register(t, store, "cursor")
+	actor, key, peer, peerKey := registerPair(t, store, "codex", "cursor")
 	msg := Message{ID: newID(), From: peer.ID, To: actor.ID, TargetGeneration: actor.Generation, Body: "native secret", CreatedAt: timestamp(), Status: StatusSubmitted}
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)

@@ -9,8 +9,7 @@ import (
 
 func TestMessageScanCallersKeepTheirUnreadableRecordPolicies(t *testing.T) {
 	store := fixtureStore(t)
-	from, key := register(t, store, "codex")
-	to, toKey := register(t, store, "cursor")
+	from, key, to, toKey := registerPair(t, store, "codex", "cursor")
 	if err := store.Update(to.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}

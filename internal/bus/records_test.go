@@ -222,8 +222,7 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 // registry-wide read fails closed, and nothing rewrites the unreadable record.
 func TestFutureSchemaSessionFailsRegistryReadsWithoutWriting(t *testing.T) {
 	store := fixtureStore(t)
-	from, key := register(t, store, "codex")
-	healthy, _ := register(t, store, "claude")
+	from, key, healthy, _ := registerPair(t, store, "codex", "claude")
 	future, _ := register(t, store, "cursor")
 	path, _ := store.sessionPath(future.ID)
 	var record map[string]any
