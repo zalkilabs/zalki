@@ -20,6 +20,9 @@ type PruneReport struct {
 	DeletedSessions []PruneItem `json:"deleted_sessions"`
 	DeletedLocks    []string    `json:"deleted_locks"`
 	DeletedFlood    []string    `json:"deleted_flood"`
+	// DeletedWatches lists watches/ paths: target_dir/watcher.json files and
+	// "target_dir/" for a per-target directory removed once empty.
+	DeletedWatches []string `json:"deleted_watches"`
 }
 
 // DefaultRetiredRetention is how long a retired session record is kept.
@@ -53,7 +56,7 @@ func (s Store) Prune(dryRun bool, selected []string) (PruneReport, error) {
 func (s Store) PruneRetired(dryRun bool, selected []string, retiredOlderThan time.Duration) (PruneReport, error) {
 	run := pruneRun{
 		store: s, dryRun: dryRun, retention: retiredOlderThan,
-		report:   PruneReport{DryRun: dryRun, Sessions: []PruneItem{}, Runtimes: []string{}, DeletedSessions: []PruneItem{}, DeletedLocks: []string{}, DeletedFlood: []string{}},
+		report:   PruneReport{DryRun: dryRun, Sessions: []PruneItem{}, Runtimes: []string{}, DeletedSessions: []PruneItem{}, DeletedLocks: []string{}, DeletedFlood: []string{}, DeletedWatches: []string{}},
 		selected: map[string]bool{}, retired: map[string]bool{}, deleted: map[string]bool{},
 	}
 	if retiredOlderThan < 0 {
@@ -95,6 +98,9 @@ func (r *pruneRun) execute() error {
 		return err
 	}
 	if err := r.deleteOrphanFlood(); err != nil {
+		return err
+	}
+	if err := r.deleteStaleWatches(); err != nil {
 		return err
 	}
 	return r.deleteExitedRuntimes(runtimes)

@@ -129,6 +129,14 @@ already-retired record. Cleanup runs only when you invoke prune. For a legacy
 registration whose owner cannot be checked, `--session kind:UUID` explicitly
 selects that exact session for retirement.
 
+Prune also removes completion-watch records that can no longer fire: expired
+watches, unreadable or invalid watch files, and watches whose target session
+record is gone or is deleted by retention in the same run, plus any per-target
+watch directory left empty. They are listed in `deleted_watches`; a dry run
+lists exactly what an applied run deletes. Watches on live sessions that have
+not expired are kept. Symlinks and unrecognized names are never followed or
+removed.
+
 ### Upgrading
 
 Every Zalki process that shares a state directory must run the same build.
