@@ -120,7 +120,12 @@ func claudeSocket(t *testing.T, clean bool) (*bus.Endpoint, func()) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
-	dir, err := os.MkdirTemp("/private/tmp", "zalki-claude-exit-")
+	// Keep the Unix socket path short and canonical on both Linux and macOS.
+	tmp, err := filepath.EvalSymlinks("/tmp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, err := os.MkdirTemp(tmp, "zalki-claude-exit-")
 	if err != nil {
 		t.Fatal(err)
 	}
