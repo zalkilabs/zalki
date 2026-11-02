@@ -8,8 +8,7 @@ import (
 
 func TestExactLookupAvoidsUnrelatedJournalReadsAndPreservesHistory(t *testing.T) {
 	store := fixtureStore(t)
-	sender, _ := register(t, store, "codex")
-	receiver, key := register(t, store, "cursor")
+	sender, _, receiver, key := registerPair(t, store, "codex", "cursor")
 	other, otherKey := register(t, store, "cursor")
 	msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "review result", CreatedAt: timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
 	if err := store.saveMessage(msg); err != nil {
@@ -35,8 +34,7 @@ func TestExactLookupAvoidsUnrelatedJournalReadsAndPreservesHistory(t *testing.T)
 
 func TestHistoryBodiesAreOptInAndNativeBodiesStayDeferred(t *testing.T) {
 	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	receiver, toKey := register(t, store, "codex")
+	sender, key, receiver, toKey := registerPair(t, store, "cursor", "codex")
 	msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "review result", CreatedAt: timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)

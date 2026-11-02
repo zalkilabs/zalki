@@ -22,7 +22,7 @@ import (
 func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	service := &bus.Service{Store: bus.Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: adapters.Builtin()}}
+	service := newTestService(t)
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	serverSession, err := New(service).Connect(ctx, serverTransport, nil)
 	if err != nil {
@@ -279,14 +279,7 @@ func TestBinarySTDIOAndCursorHook(t *testing.T) {
 	store := bus.Store{Dir: dir, Registry: adapters.Builtin()}
 	cursorConfig := filepath.Join(t.TempDir(), "cursor")
 	t.Setenv("CURSOR_CONFIG_DIR", cursorConfig)
-	from, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000001", "/fixture", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	to, toKey, err := store.Register("cursor", "00000000-0000-4000-8000-000000000002", "/fixture", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	from, key, to, toKey := registerPair(t, store, "cursor", "00000000-0000-4000-8000-000000000001", "cursor", "00000000-0000-4000-8000-000000000002")
 	// Exercise native-name discovery and resolution through the actual stdio
 	// transport, not just a direct Store call. No provider process is contacted.
 	metadata := filepath.Join(cursorConfig, "chats", "fixture", "00000000-0000-4000-8000-000000000002", "meta.json")

@@ -7,8 +7,7 @@ import (
 
 func TestInboxFiltersBeforeLimitWithoutLosingUnreadWork(t *testing.T) {
 	store := fixtureStore(t)
-	sender, _ := register(t, store, "codex")
-	receiver, key := register(t, store, "cursor")
+	sender, _, receiver, key := registerPair(t, store, "codex", "cursor")
 	var unread []Message
 	for i := range 130 {
 		msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "work",
@@ -59,8 +58,7 @@ func TestInboxFiltersBeforeLimitWithoutLosingUnreadWork(t *testing.T) {
 
 func TestMessageHistoryPaginationDoesNotRepeatRecords(t *testing.T) {
 	store := fixtureStore(t)
-	sender, _ := register(t, store, "codex")
-	receiver, key := register(t, store, "cursor")
+	sender, _, receiver, key := registerPair(t, store, "codex", "cursor")
 	for i := range 12 {
 		msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "history", CreatedAt: fmt.Sprintf("2026-10-23T00:00:%02d.000000000Z", i), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
 		if err := store.saveMessage(msg); err != nil {

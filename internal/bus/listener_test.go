@@ -84,8 +84,7 @@ func pendingMessage(t *testing.T, store Store, to Session) Message {
 
 func TestListenerLeaseRequiresTheRegistrationsOwnCapability(t *testing.T) {
 	store := fixtureStore(t)
-	from, key := register(t, store, "codex")
-	to, _ := register(t, store, "cursor")
+	from, key, to, _ := registerPair(t, store, "codex", "cursor")
 	if _, err := store.AcquireListenerLease(to.ID, "wrong capability"); ErrorCodeOf(err) != CodeUnauthorized {
 		t.Fatal("listener accepted a different session capability", err)
 	}
@@ -240,8 +239,7 @@ func TestSupersededLeaseCannotConfirmValidateOrClear(t *testing.T) {
 
 func TestValidateDeliveryKeepsRecipientFences(t *testing.T) {
 	store := fixtureStore(t)
-	to, key := register(t, store, "cursor")
-	other, _ := register(t, store, "cursor")
+	to, key, other, _ := registerPair(t, store, "cursor", "cursor")
 	lease := armedLease(t, store, to.ID, key)
 	msg := pendingMessage(t, store, to)
 	if _, err := lease.ValidateDelivery(pendingMessage(t, store, other).ID); err == nil {
@@ -313,10 +311,10 @@ func TestListenerStatusRequiresEndpointAndLifetimeLock(t *testing.T) {
 }
 
 func TestCursorPendingDoesNotReplayPreviousGeneration(t *testing.T) {
-	store := fixtureStore(t)
-	from, key := register(t, store, "codex")
-	to, _ := register(t, store, "cursor")
-	service := Service{Store: store}
+	service := newTestService(t)
+	store := service.Store
+	from, key, to, _ := registerPair(t, store, "codex", "cursor")
+
 	if _, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "previous registration"}); err != nil {
 		t.Fatal(err)
 	}

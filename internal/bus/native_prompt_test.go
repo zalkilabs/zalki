@@ -9,12 +9,13 @@ import (
 func TestReceiptReadDoesNotCreateSecondNativeInbox(t *testing.T) {
 	for _, kind := range []string{"codex", "claude", "cursor"} {
 		t.Run(kind, func(t *testing.T) {
-			store := fixtureStore(t)
+			service := newTestService(t)
+			store := service.Store
 			from, key := register(t, store, "cursor")
 			to, toKey := register(t, store, kind)
-			service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
+			service.Deliver = func(context.Context, Message, Session) Receipt {
 				return Receipt{Status: "submitted"}
-			}}
+			}
 			msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "handle once"})
 			if err != nil {
 				t.Fatal(err)
@@ -50,12 +51,12 @@ func TestReceiptReadDoesNotCreateSecondNativeInbox(t *testing.T) {
 }
 
 func TestCompletedNativePromptGenerationFenceIsReadOnly(t *testing.T) {
-	store := fixtureStore(t)
-	from, key := register(t, store, "cursor")
-	to, _ := register(t, store, "codex")
-	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
+	service := newTestService(t)
+	store := service.Store
+	from, key, to, _ := registerPair(t, store, "cursor", "codex")
+	service.Deliver = func(context.Context, Message, Session) Receipt {
 		return NewReceipt(StatusSubmitted)
-	}}
+	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "queued"})
 	if err != nil {
 		t.Fatal(err)

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -16,24 +15,18 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 	for _, variable := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR"} {
 		t.Setenv(variable, t.TempDir())
 	}
-	store := bus.Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: adapters.Builtin()}
-	from, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000021", "/fixture", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	to, _, err := store.Register("codex", "00000000-0000-4000-8000-000000000022", "/fixture", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newTestService(t)
+	store := service.Store
+	from, key, to, _ := registerPair(t, store, "cursor", "00000000-0000-4000-8000-000000000021", "codex", "00000000-0000-4000-8000-000000000022")
 	if err := store.Update(to.ID, bus.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	calls := 0
-	service := &bus.Service{Store: store, Deliver: func(context.Context, bus.Message, bus.Session) bus.Receipt {
+	service.Deliver = func(context.Context, bus.Message, bus.Session) bus.Receipt {
 		calls++
 		return bus.NewReceipt(bus.StatusSubmitted)
-	}}
-	client, ctx := ergonomicsClient(t, service)
+	}
+	client, ctx := testClient(t, service)
 	send := func(id, body string) MessageReceipt {
 		t.Helper()
 		args := map[string]any{"actor": from.ID, "capability": key, "to": to.ID, "body": body}

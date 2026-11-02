@@ -10,10 +10,8 @@ import (
 
 func TestPruneDeletesOrphanFloodWithMatchingDryRun(t *testing.T) {
 	store := fixtureStore(t)
-	sender, _ := register(t, store, "codex")
-	live, _ := register(t, store, "cursor")
-	young, _ := register(t, store, "cursor")
-	old, _ := register(t, store, "cursor")
+	sender, _, live, _ := registerPair(t, store, "codex", "cursor")
+	young, _, old, _ := registerPair(t, store, "cursor", "cursor")
 	orphan, _ := register(t, store, "cursor")
 	paths := map[string]string{}
 	before := map[string]string{}

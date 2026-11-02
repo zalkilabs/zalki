@@ -11,8 +11,7 @@ import (
 
 func queueThenDropCount(t *testing.T, store Store) (Session, Message, Message) {
 	t.Helper()
-	sender, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}

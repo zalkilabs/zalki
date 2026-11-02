@@ -13,7 +13,7 @@ import (
 // table out of bus. Guard content as well as size during behavior-only refactors.
 // Exclude the result envelope: its serverInfo version contains a dynamic build ID.
 func TestAdvertisedToolContractUnchanged(t *testing.T) {
-	client, ctx := ergonomicsClient(t, &bus.Service{})
+	client, ctx := testClient(t, &bus.Service{})
 	result, err := client.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatal(err)

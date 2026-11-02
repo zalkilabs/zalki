@@ -32,8 +32,7 @@ func TestDeliveryTransitionsPreserveCompletedAndUncertainAttempts(t *testing.T) 
 		}
 	}
 	store := fixtureStore(t)
-	from, key := register(t, store, "codex")
-	to, _ := register(t, store, "cursor")
+	from, key, to, _ := registerPair(t, store, "codex", "cursor")
 	msg, _, _, err := store.ReserveMessage(SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "ping"})
 	if err != nil {
 		t.Fatal(err)

@@ -36,8 +36,7 @@ func TestMessageLogsCorrelateWithoutExposingPrivateContent(t *testing.T) {
 	store.Logger = slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	private := "private-content-sentinel"
 	t.Setenv("CODEX_HOME", filepath.Join(t.TempDir(), private))
-	from, key := register(t, store, "codex")
-	to, toKey := register(t, store, "codex")
+	from, key, to, toKey := registerPair(t, store, "codex", "codex")
 	if err := store.hookName(from.ID, private); err != nil {
 		t.Fatal(err)
 	}
@@ -115,8 +114,7 @@ func TestRecoveryLoggingKeepsUncertainReplyUnsubmitted(t *testing.T) {
 	store := fixtureStore(t)
 	var output bytes.Buffer
 	store.Logger = slog.New(slog.NewJSONHandler(&output, nil))
-	from, _ := register(t, store, "codex")
-	to, key := register(t, store, "cursor")
+	from, _, to, key := registerPair(t, store, "codex", "cursor")
 	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "private-recovery-body", Status: StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)

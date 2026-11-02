@@ -11,8 +11,7 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 	for _, stage := range []string{"intent", "reservation", "ack", "receipt"} {
 		t.Run(stage, func(t *testing.T) {
 			store := fixtureStore(t)
-			from, _ := register(t, store, "codex")
-			to, key := register(t, store, "cursor")
+			from, _, to, key := registerPair(t, store, "codex", "cursor")
 			parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: StatusSubmitted}
 			if err := store.saveMessage(parent); err != nil {
 				t.Fatal(err)
@@ -80,9 +79,9 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 }
 
 func TestReplyCannotAcknowledgeWithoutDurableIntent(t *testing.T) {
-	store := fixtureStore(t)
-	from, _ := register(t, store, "codex")
-	to, key := register(t, store, "cursor")
+	service := newTestService(t)
+	store := service.Store
+	from, _, to, key := registerPair(t, store, "codex", "cursor")
 	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
@@ -91,7 +90,7 @@ func TestReplyCannotAcknowledgeWithoutDurableIntent(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(store.Dir, "transactions"), []byte("blocked"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	service := Service{Store: store}
+
 	if _, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: key, MessageID: parent.ID, Body: "pong"}); err == nil {
 		t.Fatal("reply ignored intent write failure")
 	}
@@ -106,9 +105,9 @@ func TestReplyCannotAcknowledgeWithoutDurableIntent(t *testing.T) {
 
 func TestReplyRecordsUnavailableDestinationWithAcknowledgement(t *testing.T) {
 	for _, missing := range []bool{false, true} {
-		store := fixtureStore(t)
-		from, _ := register(t, store, "codex")
-		to, key := register(t, store, "cursor")
+		service := newTestService(t)
+		store := service.Store
+		from, _, to, key := registerPair(t, store, "codex", "cursor")
 		parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: StatusSubmitted}
 		if err := store.saveMessage(parent); err != nil {
 			t.Fatal(err)
@@ -121,7 +120,7 @@ func TestReplyRecordsUnavailableDestinationWithAcknowledgement(t *testing.T) {
 		} else if err := store.Update(from.ID, StateRetired, true); err != nil {
 			t.Fatal(err)
 		}
-		service := Service{Store: store}
+
 		reply, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: key, MessageID: parent.ID, Body: "pong"})
 		if err != nil || reply.Status != StatusNotSent || reply.Receipt == nil || reply.Receipt.Code == "" {
 			t.Fatal("missing failed reply reservation", reply, err)

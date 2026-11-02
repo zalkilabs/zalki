@@ -12,28 +12,9 @@ import (
 	"testing"
 )
 
-func fixtureStore(t *testing.T) Store {
-	t.Helper()
-	return Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: testRegistry()}
-}
-
-func register(t *testing.T, store Store, kind string) (Session, string) {
-	t.Helper()
-	var endpoint *Endpoint
-	if kind == "claude" {
-		endpoint = &Endpoint{Path: "/fixture/not-a-real-socket"}
-	}
-	session, key, err := store.Register(kind, newID(), "/workspace", endpoint)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return session, key
-}
-
 func TestConcurrentIdempotencyAcrossStoreInstances(t *testing.T) {
 	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	id := newID()
 	var calls atomic.Int32
 	var wg sync.WaitGroup
@@ -63,14 +44,14 @@ func TestConcurrentIdempotencyAcrossStoreInstances(t *testing.T) {
 }
 
 func TestCapabilityScopeReplayAndCrashUncertainty(t *testing.T) {
-	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, _ := register(t, store, "codex")
+	service := newTestService(t)
+	store := service.Store
+	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	calls := 0
-	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, Message, Session) Receipt {
 		calls++
 		return Receipt{Status: "unknown_after_timeout"}
-	}}
+	}
 	id := newID()
 	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: "wrong", To: target.ID, MessageID: id, Body: "test"}); err == nil {
 		t.Fatal("accepted wrong capability")
@@ -99,12 +80,12 @@ func TestCapabilityScopeReplayAndCrashUncertainty(t *testing.T) {
 }
 
 func TestRecipientAckRaceAndReplyScope(t *testing.T) {
-	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, targetKey := register(t, store, "codex")
+	service := newTestService(t)
+	store := service.Store
+	sender, key, target, targetKey := registerPair(t, store, "cursor", "codex")
 	third, thirdKey := register(t, store, "codex")
 	id := newID()
-	service := Service{Store: store, Deliver: func(_ context.Context, msg Message, _ Session) Receipt {
+	service.Deliver = func(_ context.Context, msg Message, _ Session) Receipt {
 		if _, err := store.Ack(third.ID, thirdKey, msg.ID); err == nil {
 			t.Error("third-party ACK accepted")
 		}
@@ -112,7 +93,7 @@ func TestRecipientAckRaceAndReplyScope(t *testing.T) {
 			t.Error(err)
 		}
 		return Receipt{Status: "submitted"}
-	}}
+	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: id, Body: "hello"})
 	if err != nil || msg.AcknowledgedAt == "" {
 		t.Fatalf("ACK racing with receipt was lost: %+v %v", msg, err)
@@ -126,13 +107,13 @@ func TestRecipientAckRaceAndReplyScope(t *testing.T) {
 }
 
 func TestApprovalAndRetirementPreventTransport(t *testing.T) {
-	store := fixtureStore(t)
-	sender, key := register(t, store, "cursor")
-	target, targetKey := register(t, store, "codex")
-	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
+	service := newTestService(t)
+	store := service.Store
+	sender, key, target, targetKey := registerPair(t, store, "cursor", "codex")
+	service.Deliver = func(context.Context, Message, Session) Receipt {
 		t.Fatal("transport used while blocked")
 		return Receipt{}
-	}}
+	}
 	if err := store.Update(target.ID, "approval", false); err != nil {
 		t.Fatal(err)
 	}
@@ -166,14 +147,14 @@ func TestApprovalAndRetirementPreventTransport(t *testing.T) {
 }
 
 func TestClaudeTransportEnabledByDefault(t *testing.T) {
-	store := fixtureStore(t)
-	sender, key := register(t, store, "codex")
-	target, _ := register(t, store, "claude")
+	service := newTestService(t)
+	store := service.Store
+	sender, key, target, _ := registerPair(t, store, "codex", "claude")
 	delivered := false
-	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, Message, Session) Receipt {
 		delivered = true
 		return Receipt{Status: StatusTransportWritten}
-	}}
+	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "test"})
 	if err != nil || msg.Status != StatusTransportWritten || !delivered {
 		t.Fatalf("Claude was not enabled by default: %+v %v", msg, err)
@@ -181,9 +162,10 @@ func TestClaudeTransportEnabledByDefault(t *testing.T) {
 }
 
 func TestCursorPromptReactivatesResumedConversation(t *testing.T) {
-	store := fixtureStore(t)
+	service := newTestService(t)
+	store := service.Store
 	target, key := register(t, store, "cursor")
-	service := Service{Store: store}
+
 	callHook := func(id, event string) {
 		t.Helper()
 		input, _ := json.Marshal(map[string]any{
