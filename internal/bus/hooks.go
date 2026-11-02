@@ -95,7 +95,7 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 		return err
 	}
 	stage = "watch"
-	if err := s.notifyWatches(context.Background(), id, event); err != nil {
+	if err := s.notifyWatches(context.Background(), id, event, started); err != nil {
 		return err
 	}
 	if handled {

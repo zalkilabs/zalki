@@ -54,3 +54,12 @@ func TestDeliveryTransitionsPreserveCompletedAndUncertainAttempts(t *testing.T) 
 		t.Fatal("unknown session state accepted", err)
 	}
 }
+
+func TestQueuedApprovalViewCannotBePersisted(t *testing.T) {
+	if StatusQueuedForApproval.valid() || StatusQueuedForApproval.canAcknowledge() {
+		t.Fatal("derived approval view was accepted as a persisted status")
+	}
+	if _, err := transition(StatusAttempting, StatusQueuedForApproval); ErrorCodeOf(err) != CodeInvalidTransition {
+		t.Fatal("derived approval view became a journal transition", err)
+	}
+}

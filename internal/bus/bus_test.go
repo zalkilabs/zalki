@@ -138,7 +138,7 @@ func TestApprovalAndRetirementPreventTransport(t *testing.T) {
 	}
 	id := newID()
 	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: id, Body: "test"})
-	if err != nil || msg.Status != "not_sent_pending_approval" {
+	if err != nil || msg.Status != StatusApprovalBlocked {
 		t.Fatalf("%+v %v", msg, err)
 	}
 	if _, err := store.Ack(target.ID, targetKey, id); err == nil {

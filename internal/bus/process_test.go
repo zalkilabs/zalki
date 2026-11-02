@@ -86,6 +86,17 @@ func TestProcessFingerprintTracksRealExit(t *testing.T) {
 	if processLiveness(ref) != "alive" {
 		t.Fatal("live child not identified")
 	}
+	store := fixtureStore(t)
+	session, key := register(t, store, "cursor")
+	armedLease(t, store, session.ID, key)
+	current, err := store.session(session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current.Owner = ref
+	if err := store.saveSession(current); err != nil {
+		t.Fatal(err)
+	}
 	if err := cmd.Process.Kill(); err != nil {
 		t.Fatal(err)
 	}
@@ -93,4 +104,12 @@ func TestProcessFingerprintTracksRealExit(t *testing.T) {
 	if processLiveness(ref) != "exited" {
 		t.Fatal("exited child remained alive")
 	}
+	if _, err := store.Prune(false, nil); err != nil {
+		t.Fatal(err)
+	}
+	current, err = store.session(session.ID)
+	if err != nil || !current.Retired || current.Listener != nil {
+		t.Fatal("positive owner exit did not retire the session and release its lease", err)
+	}
+
 }

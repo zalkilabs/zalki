@@ -220,7 +220,7 @@ func TestReplyKeepsReadAcknowledgementWhenDeliveryRefused(t *testing.T) {
 	}
 	service := Service{Store: store}
 	reply, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: key, MessageID: parent.ID, Body: "pong"})
-	if err != nil || reply.Status != "not_sent_pending_approval" {
+	if err != nil || reply.Status != StatusApprovalBlocked {
 		t.Fatalf("reply crossed a pending approval: %+v %v", reply, err)
 	}
 	stored, err := store.message(parent.ID)

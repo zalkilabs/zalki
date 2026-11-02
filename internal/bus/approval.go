@@ -14,6 +14,12 @@ const approvalQueueCap = 8
 
 const approvalQueuedNote = "queued until the permission prompt is answered"
 
+// IsQueuedForApproval distinguishes a held message from a legacy final refusal.
+// The derived queued_for_approval view is never written to the journal.
+func (msg Message) IsQueuedForApproval() bool {
+	return msg.Held && msg.Status == StatusApprovalBlocked
+}
+
 // holdForApproval marks msg as waiting on the target's permission prompt.
 // The caller holds the journal lock and then saves the message with
 // rememberApprovalHold so the session count matches the journal.
@@ -81,7 +87,7 @@ func (s Store) queuedApprovalsRead(target string, skipUnreadable bool) ([]Messag
 			}
 			return nil, err
 		}
-		if msg.To == target && msg.Held && msg.Status == StatusApprovalBlocked {
+		if msg.To == target && msg.IsQueuedForApproval() {
 			queued = append(queued, msg)
 		}
 	}
@@ -99,7 +105,7 @@ func (s Store) settleQueued(msg Message, reason string) error {
 	if err != nil {
 		return err
 	}
-	if !current.Held || current.Status != StatusApprovalBlocked {
+	if !current.IsQueuedForApproval() {
 		return nil
 	}
 	current.Held = false
@@ -125,7 +131,7 @@ func (s Store) approvalHolds() (map[string]int, []string, error) {
 			unreadable = append(unreadable, id)
 			continue
 		}
-		if msg.Held && msg.Status == StatusApprovalBlocked {
+		if msg.IsQueuedForApproval() {
 			counts[msg.To]++
 		}
 	}
@@ -316,7 +322,7 @@ func (s *Service) releaseApprovalQueue(ctx context.Context, actor string) error 
 			if err != nil {
 				return err
 			}
-			if !currentMsg.Held || currentMsg.Status != StatusApprovalBlocked {
+			if !currentMsg.IsQueuedForApproval() {
 				continue
 			}
 			currentMsg.Held = false

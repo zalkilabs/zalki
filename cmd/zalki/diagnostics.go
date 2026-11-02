@@ -19,6 +19,9 @@ func newListCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := service.NoticeExitedSessions(cmd.Context()); err != nil {
+				return err
+			}
 			return encodeOutput(cmd, sessions)
 		},
 	}
@@ -61,6 +64,11 @@ func newPruneCommand(opts *commandOptions) *cobra.Command {
 			report, err := service.Store.PruneRetired(dryRun, selected, retiredOlderThan)
 			if err != nil {
 				return err
+			}
+			if !dryRun {
+				if err := service.NoticeExitedSessions(cmd.Context()); err != nil {
+					return err
+				}
 			}
 			return encodeOutput(cmd, report)
 		},

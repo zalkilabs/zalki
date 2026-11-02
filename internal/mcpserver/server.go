@@ -41,14 +41,15 @@ func messageReceipt(message bus.Message, err error) (MessageReceipt, error) {
 	if err != nil || receipt.Acknowledged {
 		return receipt, err
 	}
+	if message.IsQueuedForApproval() {
+		receipt.Status = bus.StatusQueuedForApproval
+		receipt.Note = "Queued until the target's permission prompt is answered."
+		receipt.Error, receipt.Code = "", ""
+		return receipt, err
+	}
 	switch message.Status {
 	case bus.StatusApprovalBlocked:
 		receipt.Note = "Not sent: target awaiting approval; no automatic retry."
-		// Held messages and legacy refusals share this status. Only the
-		// queue's receipt promises delivery after the permission prompt.
-		if receipt.Error == "queued until the permission prompt is answered" {
-			receipt.Note = "Queued until the target's permission prompt is answered."
-		}
 	case bus.StatusPendingActivity:
 		receipt.Note = "Deferred until the next delivery hook."
 	case bus.StatusSubmitted, bus.StatusTransportWritten, bus.StatusWakeWritten:
@@ -103,6 +104,10 @@ func messageViews(messages []bus.Message) []MessageView {
 			CreatedAt: msg.CreatedAt, Status: msg.Status, AcknowledgedAt: msg.AcknowledgedAt}
 		if msg.Receipt != nil {
 			view.Error, view.Code = msg.Receipt.Error, msg.Receipt.Code
+		}
+		if msg.IsQueuedForApproval() {
+			view.Status = bus.StatusQueuedForApproval
+			view.Error, view.Code = "", ""
 		}
 		views = append(views, view)
 	}

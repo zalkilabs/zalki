@@ -31,9 +31,11 @@ const (
 	StatusContextEmitted   DeliveryStatus = "hook_context_emitted"
 	StatusNotSent          DeliveryStatus = "not_sent"
 	StatusApprovalBlocked  DeliveryStatus = "not_sent_pending_approval"
-	StatusCommandFailed    DeliveryStatus = "command_failed"
-	StatusUnknownTimeout   DeliveryStatus = "unknown_after_timeout"
-	StatusUnknownWrite     DeliveryStatus = "unknown_after_write"
+	// StatusQueuedForApproval is a derived response value, never a valid persisted status.
+	StatusQueuedForApproval DeliveryStatus = "queued_for_approval"
+	StatusCommandFailed     DeliveryStatus = "command_failed"
+	StatusUnknownTimeout    DeliveryStatus = "unknown_after_timeout"
+	StatusUnknownWrite      DeliveryStatus = "unknown_after_write"
 )
 
 func (s DeliveryStatus) valid() bool {
