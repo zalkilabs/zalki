@@ -9,7 +9,8 @@ import (
 
 // Called under the journal lock, after retention. Dry-run also accounts for
 // records retention would remove, so its deletion list matches an applied run.
-func (s Store) deleteOrphanFlood(dryRun bool, report *PruneReport) error {
+func (r *pruneRun) deleteOrphanFlood() error {
+	s, dryRun, report := r.store, r.dryRun, &r.report
 	dir := filepath.Join(s.Dir, "flood")
 	if _, err := os.Lstat(dir); errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -23,10 +24,6 @@ func (s Store) deleteOrphanFlood(dryRun bool, report *PruneReport) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
-	}
-	deleted := map[string]bool{}
-	for _, item := range report.DeletedSessions {
-		deleted[item.ID] = true
 	}
 	for _, entry := range entries {
 		base := entry.Name()
@@ -48,7 +45,7 @@ func (s Store) deleteOrphanFlood(dryRun bool, report *PruneReport) error {
 		// Validated canonical names are safe paths, even for an adapter that
 		// is no longer installed. Quota contents need not be readable or valid.
 		id := kind + ":" + native
-		if !deleted[id] {
+		if !r.deleted[id] {
 			if _, err := os.Lstat(filepath.Join(s.Dir, "sessions", base)); err == nil {
 				continue
 			} else if !errors.Is(err, os.ErrNotExist) {

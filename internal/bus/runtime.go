@@ -223,3 +223,23 @@ func (s *Service) RuntimeInfo() RuntimeInfo {
 	}
 	return CurrentRuntimeInfo()
 }
+
+func (s Store) rawRuntimes() ([]RuntimeInfo, error) {
+	files, err := filepath.Glob(filepath.Join(s.Dir, "runtimes", "*.json"))
+	if err != nil {
+		return nil, err
+	}
+	items := []RuntimeInfo{}
+	for _, path := range files {
+		var v RuntimeInfo
+		if err := readJSON(path, &v); err != nil {
+			return nil, err
+		}
+		if _, err := UUID(v.ID); err != nil || filepath.Base(path) != v.ID+".json" {
+			return nil, errors.New("runtime file identity mismatch")
+		}
+		items = append(items, v)
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].StartedAt < items[j].StartedAt })
+	return items, nil
+}

@@ -150,19 +150,13 @@ func (s Store) approvalHolds() (map[string]int, []string, error) {
 // reconcileApprovalHolds repairs a count an older build dropped when it rewrote
 // a session. Retired targets are settled, because no later hook will release them.
 // The caller holds the journal lock.
-func (s Store) reconcileApprovalHolds(dryRun bool, report *PruneReport) error {
+func (s Store) reconcileApprovalHolds(dryRun bool, report *PruneReport, retiring map[string]bool) error {
 	counts, unreadable, err := s.approvalHolds()
 	if err != nil {
 		return err
 	}
 	for _, id := range unreadable {
 		report.Sessions = append(report.Sessions, PruneItem{ID: id, Reason: "message_unreadable"})
-	}
-	retiring := map[string]bool{}
-	for _, item := range report.Sessions {
-		if item.Reason == "explicit_cleanup" || item.Reason == "owner_exited" {
-			retiring[item.ID] = true
-		}
 	}
 	sessions, err := s.rawSessions()
 	if err != nil {
