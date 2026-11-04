@@ -80,7 +80,7 @@ func newRootCommand(home string) *cobra.Command {
 		newMCPCommand(opts), newHookCommand(opts), newCursorListenCommand(opts),
 		newSendCommand(opts), newListCommand(opts), newDoctorCommand(opts),
 		newPruneCommand(opts), newSetupCommand(opts, false), newSetupCommand(opts, true),
-		newLifecycleCommand(opts, "upgrade"), newLifecycleCommand(opts, "uninstall"),
+		newUpgradeCommand(opts), newUninstallCommand(opts),
 		&cobra.Command{
 			Use: "version", Short: "Print the zalki build version", Args: cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, _ []string) error {

@@ -119,11 +119,11 @@ the CLI JSON format is unchanged.
 
 ```sh
 zalki doctor
-zalki upgrade --apply
+zalki upgrade
 zalki uninstall --apply
 ```
 
-Upgrade and uninstall preview changes when `--apply` is omitted.
+Uninstall previews changes when `--apply` is omitted.
 Use `--state` to choose the state directory.
 
 ### Retired sessions
@@ -147,16 +147,27 @@ removed.
 
 ### Upgrading
 
-Use the same build for every Zalki process sharing a state directory. This
-build skips unreadable or unsupported sessions in lists and discovery, reports
-a skipped count, and keeps exact access strict. Older releases can still fail
-entire scans when they encounter a newer record. After installing a new binary:
+```sh
+zalki upgrade
+```
 
-1. Run `zalki upgrade --apply`.
-2. Reconnect the Zalki MCP server in every open Claude, Codex and Cursor
-   session (or restart those sessions).
-3. In each Cursor conversation, cancel any running `cursor-listen` task, then
-   arm one new task from its startup guidance.
+For a Homebrew install this upgrades the binary with `brew upgrade --cask`, then
+the new build refreshes client integration configuration (settings are backed
+up first). Normal success prints `Upgrade successful`; you are only given more
+to do if something fails. `zalki upgrade --dry-run` previews the configuration
+changes without upgrading or editing anything. If you already ran
+`brew upgrade` yourself, run `zalki upgrade` afterwards; it is safe to repeat.
+
+For an install that Homebrew does not manage, `zalki upgrade` fails rather than
+claim an upgrade. Install the new binary the way you installed this one, then
+run `zalki upgrade --config-only` to refresh configuration alone.
+
+Use the same build for every Zalki process sharing a state directory. Lists
+and discovery skip unreadable or unsupported sessions, report a skipped count,
+and keep exact access strict. Older releases can still fail entire scans when
+they encounter a newer record. `zalki doctor` reports running builds and client
+compatibility. If an incompatible session needs the newer code, reconnect its
+Zalki MCP server; in Cursor, also cancel and re-arm its `cursor-listen` task.
 
 `state-formats.json` is created lazily; rc.5 ignores it. An unreadable or
 unsupported marker fences writes with an "upgrade zalki" error while known data
@@ -165,7 +176,7 @@ it only after confirming every running Zalki build is this version or newer.
 Do not remove a valid marker to bypass an unsupported format.
 
 Message history and pending messages are kept. Do not delete the state
-directory to recover from a mixed-build error; finish the steps above instead.
+directory to recover from a mixed-build error.
 
 ## Development
 
