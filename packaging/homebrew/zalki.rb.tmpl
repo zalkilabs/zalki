@@ -19,6 +19,7 @@ cask "zalki" do
 
   caveats <<~EOS
     Configure integrations explicitly with zalki install --apply.
+    Upgrade the binary and refresh integrations together with zalki upgrade.
     Run zalki uninstall --apply before brew uninstall zalki.
     Keep the same native config-directory environment when installing or upgrading integrations.
   EOS

@@ -54,7 +54,7 @@ func (declare Declare) plan(request Request) (installationPlan, error) {
 		return plan, err
 	}
 	if request.Action == "install" && manifest.exists && (manifest.record.Binary != request.Binary || !equalJSON(manifest.record.Targets, next.Targets)) {
-		return plan, errors.New("zalki is installed at another binary or configuration path; use upgrade --apply")
+		return plan, errors.New("zalki is installed at another binary or configuration path; run zalki upgrade --config-only")
 	}
 	plan.edits, err = planSettingsEdits(request.Action, manifest.record, next, declarations)
 	if err != nil {

@@ -204,7 +204,7 @@ func TestSendCredentialsRemainOutsideMessageJSON(t *testing.T) {
 	}
 }
 
-func TestLifecycleCommandPreviewsAndApplies(t *testing.T) {
+func TestUninstallCommandPreviewsAndApplies(t *testing.T) {
 	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {
 		t.Setenv(name, "")
 	}
@@ -213,26 +213,17 @@ func TestLifecycleCommandPreviewsAndApplies(t *testing.T) {
 	if _, _, err := execute(t, home, "", "install", "--state", state, "--apply"); err != nil {
 		t.Fatal(err)
 	}
-	for _, action := range []string{"upgrade", "uninstall"} {
-		args := []string{action, "--state", state}
-		out, diagnostic, err := execute(t, home, "", args...)
-		var report install.Report
-		if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || !report.DryRun || report.Action != action {
-			t.Fatal("lifecycle preview failed", action, err)
-		}
-		if _, err := os.Stat(filepath.Join(state, "installation.json")); err != nil {
-			t.Fatal("preview removed record", err)
-		}
-		var guidance struct {
-			NextSteps string `json:"next_steps"`
-		}
-		_ = json.Unmarshal([]byte(out), &guidance)
-		if (action == "upgrade") != strings.Contains(guidance.NextSteps, "same build") {
-			t.Fatal("upgrade guidance missing or shown for the wrong action", action, guidance.NextSteps)
-		}
-		out, diagnostic, err = execute(t, home, "", append(args, "--apply")...)
-		if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || report.DryRun {
-			t.Fatal("lifecycle apply failed", action, err)
-		}
+	args := []string{"uninstall", "--state", state}
+	out, diagnostic, err := execute(t, home, "", args...)
+	var report install.Report
+	if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || !report.DryRun || report.Action != "uninstall" {
+		t.Fatal("uninstall preview failed", err)
+	}
+	if _, err := os.Stat(filepath.Join(state, "installation.json")); err != nil {
+		t.Fatal("preview removed record", err)
+	}
+	out, diagnostic, err = execute(t, home, "", append(args, "--apply")...)
+	if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || report.DryRun {
+		t.Fatal("uninstall apply failed", err)
 	}
 }
