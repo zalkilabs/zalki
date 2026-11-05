@@ -39,8 +39,8 @@ by these fixtures.
 | `list_messages` normal page | 24 KiB message-page budget | Serialized response views; not the whole mirrored MCP result |
 | Exact message lookup | Complete body, no normal page truncation | May produce a much larger response |
 
-Relevant code is in `internal/bus/message.go`, `transport.go`, `store.go`,
-`reply_transaction.go`, and `inbox.go`; `internal/mcpserver/server.go`;
+Relevant code is in `internal/bus/message.go`, `service.go`, `store.go`,
+`message_reply.go`, and `message_inbox.go`; `internal/mcpserver/server.go`;
 `cmd/zalki/session.go`; and the owning adapter files. This branch changes none
 of those files.
 
