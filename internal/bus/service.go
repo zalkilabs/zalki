@@ -52,41 +52,14 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 	if err != nil {
 		return Message{}, err
 	}
-	var held Message
-	err = s.Store.locked(func() error {
-		current, err := s.Store.session(target.ID)
-		if err != nil {
-			return err
-		}
-		if current.Retired || current.Generation != target.Generation {
-			return fail(CodeUnavailable, "destination registration changed before delivery")
-		}
-		if s.Store.sessionLiveness(current) == LivenessExited {
-			return fail(CodeUnavailable, "destination owner process exited before delivery")
-		}
-		if current.State == StateApproval {
-			stored, err := s.Store.message(id)
-			if err != nil {
-				return err
-			}
-			if err := s.Store.holdForApproval(&stored); err != nil {
-				return err
-			}
-			if err := s.Store.saveReservation(stored); err != nil {
-				return err
-			}
-			held = stored
-			return nil
-		}
-		target = current
-		return nil
-	})
+	current, held, err := s.revalidateTarget(id, target)
 	if held.ID != "" {
 		return held, nil
 	}
 	if err != nil {
 		return s.Store.Finish(id, Receipt{At: timestamp(), Status: StatusNotSent, Error: err.Error(), cause: err})
 	}
+	target = current
 	if target.Receive.HookDelivery {
 		msg, err = s.Store.Finish(id, Receipt{At: timestamp(), Status: StatusPendingActivity})
 		if err != nil {
@@ -98,6 +71,51 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 	if s.Deliver != nil && target.Receive.Inbox == InboxNative {
 		deliver = s.Deliver
 	}
+	receipt := s.runTransport(ctx, deliver, msg, target)
+	result, err := s.Store.Finish(id, receipt)
+	if err == nil && target.State == StateBusy {
+		result.BusyDelivery = target.Receive.BusyDelivery
+	}
+	return result, err
+}
+
+// revalidateTarget rechecks the destination under the journal lock, since the
+// registration may have changed after reservation. A target in approval state
+// is not delivered to: the message is held and returned instead.
+func (s *Service) revalidateTarget(id string, target Session) (current Session, held Message, err error) {
+	err = s.Store.locked(func() error {
+		var err error
+		current, err = s.Store.session(target.ID)
+		if err != nil {
+			return err
+		}
+		if current.Retired || current.Generation != target.Generation {
+			return fail(CodeUnavailable, "destination registration changed before delivery")
+		}
+		if s.Store.sessionLiveness(current) == LivenessExited {
+			return fail(CodeUnavailable, "destination owner process exited before delivery")
+		}
+		if current.State != StateApproval {
+			return nil
+		}
+		stored, err := s.Store.message(id)
+		if err != nil {
+			return err
+		}
+		if err := s.Store.holdForApproval(&stored); err != nil {
+			return err
+		}
+		if err := s.Store.saveReservation(stored); err != nil {
+			return err
+		}
+		held = stored
+		return nil
+	})
+	return current, held, err
+}
+
+// runTransport calls the adapter and records the outcome without message content.
+func (s *Service) runTransport(ctx context.Context, deliver func(context.Context, Message, Session) Receipt, msg Message, target Session) Receipt {
 	s.Store.logEvent(slog.LevelDebug, "transport.started", messageEvent(msg))
 	started := time.Now()
 	receipt := deliver(ctx, s.Store.withLabel(msg), target)
@@ -110,16 +128,20 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 		data.Code = CodeUnavailable
 	}
 	data.Duration = time.Since(started)
-	level := slog.LevelInfo
-	if receipt.Error != "" || receipt.Status == StatusNotSent || receipt.Status == StatusCommandFailed || receipt.Status == StatusUnknownTimeout || receipt.Status == StatusUnknownWrite || receipt.Status == StatusWakeUncertain {
-		level = slog.LevelWarn
+	s.Store.logEvent(receiptLogLevel(receipt), "transport.completed", data)
+	return receipt
+}
+
+// receiptLogLevel warns for outcomes where delivery failed or is uncertain.
+func receiptLogLevel(receipt Receipt) slog.Level {
+	switch receipt.Status {
+	case StatusNotSent, StatusCommandFailed, StatusUnknownTimeout, StatusUnknownWrite, StatusWakeUncertain:
+		return slog.LevelWarn
 	}
-	s.Store.logEvent(level, "transport.completed", data)
-	result, err := s.Store.Finish(id, receipt)
-	if err == nil && target.State == StateBusy {
-		result.BusyDelivery = target.Receive.BusyDelivery
+	if receipt.Error != "" {
+		return slog.LevelWarn
 	}
-	return result, err
+	return slog.LevelInfo
 }
 
 func validateMessageBody(body, key string) error {
