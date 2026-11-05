@@ -12,7 +12,9 @@
 //	model.go, status.go       shared types, delivery and session states, errors
 //	store*.go, identity.go    journal Store, record read/merge/write, state-format fencing, IDs
 //	session*.go, discovery.go session registry, names and destination resolution, discovery
-//	message*.go, service.go   send, inbox and message queries, reply, Service and delivery receipts
+//	message*.go, service.go   send, inbox and message queries, reply, Service and delivery
+//	receipt.go, envelope.go   delivery receipts; how a message is rendered for its recipient
+//	endpoint.go               messaging-socket inspection and checks
 //	hook*.go                  native hook entry point, lifecycle transitions, completed prompts
 //	adapter*.go               adapter contracts, client compatibility, hook contract capture
 //	listener.go, liveness.go  listener leases and evidence-based liveness

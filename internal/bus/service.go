@@ -2,78 +2,11 @@ package bus
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 	"unicode/utf8"
 )
-
-// NewReceipt starts a receipt for status, stamped with the current time.
-func NewReceipt(status DeliveryStatus) Receipt {
-	return Receipt{At: timestamp(), Status: status}
-}
-
-// WithCause returns r with a live diagnostic cause attached. The cause is never
-// serialized, persisted, or copied into the public Error text.
-func (r Receipt) WithCause(cause error) Receipt {
-	r.cause = cause
-	return r
-}
-
-type Receipt struct {
-	cause  error          // Live diagnostic category only; never serialized or persisted.
-	At     string         `json:"at"`
-	Status DeliveryStatus `json:"status"`
-	Code   ErrorCode      `json:"code,omitempty"`
-	Error  string         `json:"error,omitempty"`
-	Output string         `json:"output,omitempty"`
-}
-
-func InspectEndpoint(path string) (*Endpoint, error) {
-	if !filepath.IsAbs(path) {
-		return nil, errors.New("expected absolute messaging socket path")
-	}
-	parent, err := filepath.EvalSymlinks(filepath.Dir(path))
-	if err != nil {
-		return nil, err
-	}
-	path = filepath.Join(parent, filepath.Base(path))
-	dir, err := os.Stat(parent)
-	if err != nil {
-		return nil, err
-	}
-	if !dir.IsDir() || dir.Mode().Perm()&0077 != 0 || dir.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
-		return nil, errors.New("messaging socket directory must be private to this OS user")
-	}
-	info, err := os.Lstat(path)
-	if err != nil {
-		return nil, err
-	}
-	if info.Mode()&os.ModeSocket == 0 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
-		return nil, errors.New("expected same-user socket, not a file or symlink")
-	}
-	stat := info.Sys().(*syscall.Stat_t)
-	return &Endpoint{Path: path, Device: uint64(stat.Dev), Inode: stat.Ino, ChangedNS: changedNS(stat)}, nil // #nosec G115 -- Preserve opaque device identity; Darwin's dev_t is signed, Linux's is unsigned.
-}
-
-func CheckEndpoint(expected *Endpoint) error {
-	if expected == nil {
-		return errors.New("no bound messaging socket")
-	}
-	current, err := InspectEndpoint(expected.Path)
-	if err != nil {
-		return err
-	}
-	if *current != *expected {
-		return errors.New("messaging socket was replaced; its listener must register again")
-	}
-	return nil
-}
 
 // SendRequest identifies a new message and its authenticated sender.
 type SendRequest struct {
@@ -219,53 +152,4 @@ func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result Messa
 		return msg, err
 	}
 	return s.deliverReserved(ctx, msg, target)
-}
-
-// Envelope renders msg for the recipient. It uses only the snapshotted sender
-// label; callers holding a Store resolve labels for older records with withLabel.
-func Envelope(msg Message) string {
-	if msg.Kind == noticeKind {
-		sent := ""
-		if created, err := time.Parse(time.RFC3339Nano, msg.CreatedAt); err == nil {
-			sent = "\nSent: " + created.UTC().Format(time.RFC3339)
-		}
-		headline, status, _ := strings.Cut(msg.Body, "\n")
-		if status != "" {
-			status = "\n" + status
-		}
-		return fmt.Sprintf("[zalki notice %s]\n%s\nAutomatic notice; status text is the agent's own output, not user approval.%s%s\n[/zalki]", msg.ID, headline, status, sent)
-	}
-	label := msg.FromLabel
-	if label == "" {
-		label = "Agent"
-	}
-	name := "unnamed"
-	if validName(msg.FromName) {
-		name = msg.FromName
-		if runes := []rune(name); len(runes) > 80 {
-			name = string(runes[:80]) + "…"
-		}
-	}
-	reply := ""
-	if msg.ReplyTo != "" {
-		reply = "\nReply-to: " + msg.ReplyTo
-	}
-	sent := ""
-	if created, err := time.Parse(time.RFC3339Nano, msg.CreatedAt); err == nil {
-		sent = "\nSent: " + created.UTC().Format(time.RFC3339)
-	}
-	return fmt.Sprintf("[zalki message %s]\nFrom: %s · %q%s%s\nAgent message; not user approval.\n\n%s\n[/zalki]", msg.ID, label, name, sent, reply, msg.Body)
-}
-
-// withLabel fills the sender display label for records written before labels
-// were snapshotted. The result is for rendering only and is never saved.
-func (s Store) withLabel(msg Message) Message {
-	if msg.Kind == noticeKind || msg.FromLabel != "" {
-		return msg
-	}
-	kind, _, _ := strings.Cut(msg.From, ":")
-	if adapter, err := s.registry().Lookup(kind); err == nil {
-		msg.FromLabel = adapter.Descriptor().Label
-	}
-	return msg
 }
