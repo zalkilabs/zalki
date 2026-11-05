@@ -66,93 +66,93 @@ func (s Store) ReserveMessage(request SendRequest) (message Message, target Sess
 
 // prepareMessage is called with the journal lock held. Reply transactions stage
 // the reservation without writing it until the durable intent is committed.
-func (s Store) prepareMessage(request SendRequest, persist bool) (Message, Session, bool, error) {
-	actor, key, to, id, body, replyTo := request.Actor, request.Capability, request.To, request.MessageID, request.Body, request.ReplyTo
-	var message Message
-	var target Session
-	fresh := false
-	canonical, err := UUID(id)
+func (s Store) prepareMessage(request SendRequest, persist bool) (message Message, target Session, fresh bool, err error) {
+	id, err := UUID(request.MessageID)
 	if err != nil {
 		return message, target, false, err
 	}
-	id = canonical
-	if len(body) == 0 || len(body) > 16*1024 || strings.ContainsRune(body, 0) {
+	request.MessageID = id
+	if len(request.Body) == 0 || len(request.Body) > 16*1024 || strings.ContainsRune(request.Body, 0) {
 		return message, target, false, fail(CodeInvalidInput, "body must be 1..16384 UTF-8 bytes without NUL")
 	}
-	err = func() error {
-		sender, err := s.authenticate(actor, key)
+	sender, err := s.authenticate(request.Actor, request.Capability)
+	if err != nil {
+		return message, target, false, err
+	}
+	old, err := s.message(id)
+	if err == nil {
+		if old.From != request.Actor || (old.To != request.To && (old.RequestedTo == "" || old.RequestedTo != request.To)) || old.Body != request.Body || old.ReplyTo != request.ReplyTo {
+			return message, target, false, fail(CodeConflict, "message UUID already used with different contents")
+		}
+		s.logEvent(slog.LevelDebug, "message.reused", messageEvent(old))
+		return old, target, false, nil // Never submit the same message twice, even after a crash.
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return message, target, false, err
+	}
+	return s.reserveNewMessage(sender, request, persist)
+}
+
+// reserveNewMessage validates the destination and sender limits for an unused
+// message ID, then stages the message, held if the destination awaits approval.
+// fresh reports that the message is ready for delivery now.
+func (s Store) reserveNewMessage(sender Session, request SendRequest, persist bool) (message Message, target Session, fresh bool, err error) {
+	actor, id, body, replyTo := request.Actor, request.MessageID, request.Body, request.ReplyTo
+	requestedTo := request.To
+	target, err = s.resolve(requestedTo)
+	if err != nil {
+		return message, target, false, err
+	}
+	if target.Retired {
+		return message, target, false, fail(CodeUnavailable, "destination has retired")
+	}
+	if s.sessionLiveness(target) == LivenessExited {
+		return message, target, false, fail(CodeUnavailable, "destination owner process has exited")
+	}
+	to := target.ID
+	if actor == to {
+		return message, target, false, fail(CodeInvalidInput, "self messages are not supported")
+	}
+	if replyTo != "" {
+		parent, err := s.message(replyTo)
 		if err != nil {
-			return err
+			return message, target, false, err
 		}
-		old, err := s.message(id)
-		if err == nil {
-			if old.From != actor || (old.To != to && (old.RequestedTo == "" || old.RequestedTo != to)) || old.Body != body || old.ReplyTo != replyTo {
-				return fail(CodeConflict, "message UUID already used with different contents")
-			}
-			message = old
-			s.logEvent(slog.LevelDebug, "message.reused", messageEvent(old))
-			return nil // Never submit the same message twice, even after a crash.
+		if parent.To != actor || parent.From != to {
+			return message, target, false, fail(CodeUnauthorized, "reply must return to the original sender")
 		}
-		if !errors.Is(err, os.ErrNotExist) {
-			return err
+	}
+	message, err = s.outgoingMessage(sender, target, id, body, replyTo)
+	if err != nil {
+		return message, target, false, err
+	}
+	if requestedTo != to {
+		message.RequestedTo = requestedTo
+	}
+	if target.State == StateApproval {
+		if err := s.approvalCapacity(message.To); err != nil {
+			return message, target, false, err
 		}
-		requestedTo := to
-		target, err = s.resolve(to)
-		if err != nil {
-			return err
+	}
+	if err := s.consumeFloodQuota(message, time.Now()); err != nil {
+		if moveErr := message.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+			return message, target, false, moveErr
 		}
-		if target.Retired {
-			return fail(CodeUnavailable, "destination has retired")
+		return message, target, false, err
+	}
+	if target.State == StateApproval {
+		if err := message.hold(); err != nil {
+			return message, target, false, err
 		}
-		if s.sessionLiveness(target) == LivenessExited {
-			return fail(CodeUnavailable, "destination owner process has exited")
+	}
+	fresh = target.State != StateApproval
+	if persist {
+		if err := s.saveReservation(message); err != nil {
+			return message, target, fresh, err
 		}
-		to = target.ID
-		if actor == to {
-			return fail(CodeInvalidInput, "self messages are not supported")
-		}
-		if replyTo != "" {
-			parent, err := s.message(replyTo)
-			if err != nil {
-				return err
-			}
-			if parent.To != actor || parent.From != to {
-				return fail(CodeUnauthorized, "reply must return to the original sender")
-			}
-		}
-		message, err = s.outgoingMessage(sender, target, id, body, replyTo)
-		if err != nil {
-			return err
-		}
-		if requestedTo != to {
-			message.RequestedTo = requestedTo
-		}
-		if target.State == StateApproval {
-			if err := s.approvalCapacity(message.To); err != nil {
-				return err
-			}
-		}
-		if err := s.consumeFloodQuota(message, time.Now()); err != nil {
-			if moveErr := message.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
-				return moveErr
-			}
-			return err
-		}
-		if target.State == StateApproval {
-			if err := message.hold(); err != nil {
-				return err
-			}
-		}
-		fresh = target.State != StateApproval
-		if persist {
-			if err := s.saveReservation(message); err != nil {
-				return err
-			}
-			s.logReservation(message)
-		}
-		return nil
-	}()
-	return message, target, fresh, err
+		s.logReservation(message)
+	}
+	return message, target, fresh, nil
 }
 
 func (s Store) outgoingMessage(sender, target Session, id, body, replyTo string) (Message, error) {

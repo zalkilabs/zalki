@@ -41,7 +41,7 @@ func (s Store) QueryMessages(query MessageQuery) ([]Message, error) {
 // ReadMessages supports exact lookup without scanning the journal. History
 // summaries omit bodies unless requested; canonical records are never changed.
 func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
-	actor, key, history, limit := query.Actor, query.Capability, query.History || query.Sent, query.Limit
+	limit := query.Limit
 	if limit == 0 {
 		limit = 5
 	}
@@ -52,90 +52,124 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 		return MessageBatch{}, fail(CodeInvalidInput, "to and preview require sent:true")
 	}
 	batch := MessageBatch{Messages: []Message{}}
-	items := []Message{}
 	err := s.readLocked(func() error {
-		current, err := s.authenticate(actor, key)
+		current, err := s.authenticate(query.Actor, query.Capability)
 		if err != nil {
 			return err
 		}
-		recipient := query.To
-		if recipient != "" {
-			// Canonical IDs work even after a recipient's session was deleted.
-			if _, err := s.sessionPath(recipient); err != nil {
-				target, err := s.resolve(recipient)
-				if err != nil {
-					return err
-				}
-				recipient = target.ID
-			}
-		}
-		view := func(message Message, omitBody bool) Message {
-			result := inboxView(message, current, omitBody)
-			if query.Preview && !result.BodyDeferred {
-				result.BodyPreview = bodyPreview(message.Body)
-			}
-			return result
-		}
-		if query.MessageID != "" {
-			message, err := s.message(query.MessageID)
-			if err != nil {
-				return err
-			}
-			if message.From != actor && message.To != actor {
-				return fail(CodeUnauthorized, "message belongs to another session")
-			}
-			if query.Sent && message.From != actor {
-				return fail(CodeNotFound, "message was not sent by this session")
-			}
-			if recipient != "" && message.To != recipient {
-				return fail(CodeNotFound, "message was not sent to this recipient")
-			}
-			items = append(items, view(message, false))
-			return nil
-		}
-		var cursor *Message
-		if query.Cursor != "" {
-			anchor, err := s.message(query.Cursor)
-			if err != nil {
-				return err
-			}
-			if anchor.From != actor && anchor.To != actor {
-				return fail(CodeUnauthorized, "cursor belongs to another session")
-			}
-			cursor = &anchor
-		}
-		if err := s.eachMessage(func(_ string, item Message, readErr error) error {
-			if readErr != nil {
-				return readErr
-			}
-			if item.From == actor || item.To == actor {
-				if query.Sent && item.From != actor {
-					return nil
-				}
-				if recipient != "" && item.To != recipient {
-					return nil
-				}
-				if !history && (item.To != actor || item.TargetGeneration != current.Generation || item.AcknowledgedAt != "" || !item.Status.canAcknowledge()) {
-					return nil
-				}
-				if cursor != nil && !messageComesBefore(*cursor, item, history) {
-					return nil
-				}
-				items = append(items, view(item, history && !query.IncludeBody))
-			}
-			return nil
-		}); err != nil {
+		read := messageRead{query: query, current: current, history: query.History || query.Sent}
+		if read.recipient, err = s.canonicalRecipient(query.To); err != nil {
 			return err
 		}
-		sort.Slice(items, func(i, j int) bool { return messageComesBefore(items[i], items[j], history) })
-		if len(items) > limit {
-			batch.More = true
-			items = items[:limit]
+		if query.MessageID != "" {
+			message, err := s.readExactMessage(read)
+			if err == nil {
+				batch.Messages = []Message{message}
+			}
+			return err
 		}
-		return nil
+		batch.Messages, batch.More, err = s.scanMessages(read, limit)
+		return err
 	})
-	batch.Messages = items
 	return batch, err
+}
+
+// messageRead is the authenticated view of one ReadMessages call, captured under
+// the journal lock so exact lookup and scanning apply the same filters.
+type messageRead struct {
+	query     MessageQuery
+	current   Session
+	recipient string // canonical ID of the Sent filter, or empty
+	history   bool
+}
+
+func (r messageRead) view(message Message, omitBody bool) Message {
+	result := inboxView(message, r.current, omitBody)
+	if r.query.Preview && !result.BodyDeferred {
+		result.BodyPreview = bodyPreview(message.Body)
+	}
+	return result
+}
+
+// canonicalRecipient maps a name or ID to a session ID. Canonical IDs work even
+// after the recipient's session was deleted.
+func (s Store) canonicalRecipient(to string) (string, error) {
+	if to == "" {
+		return "", nil
+	}
+	if _, err := s.sessionPath(to); err == nil {
+		return to, nil
+	}
+	target, err := s.resolve(to)
+	if err != nil {
+		return "", err
+	}
+	return target.ID, nil
+}
+
+func (s Store) readExactMessage(r messageRead) (Message, error) {
+	actor := r.query.Actor
+	message, err := s.message(r.query.MessageID)
+	if err != nil {
+		return Message{}, err
+	}
+	if message.From != actor && message.To != actor {
+		return Message{}, fail(CodeUnauthorized, "message belongs to another session")
+	}
+	if r.query.Sent && message.From != actor {
+		return Message{}, fail(CodeNotFound, "message was not sent by this session")
+	}
+	if r.recipient != "" && message.To != r.recipient {
+		return Message{}, fail(CodeNotFound, "message was not sent to this recipient")
+	}
+	return r.view(message, false), nil
+}
+
+// scanMessages returns up to limit matching messages in display order and
+// whether more remain. On failure it retains the views collected before the error.
+func (s Store) scanMessages(r messageRead, limit int) (items []Message, more bool, err error) {
+	items = []Message{}
+	actor := r.query.Actor
+	var cursor *Message
+	if r.query.Cursor != "" {
+		anchor, err := s.message(r.query.Cursor)
+		if err != nil {
+			return items, false, err
+		}
+		if anchor.From != actor && anchor.To != actor {
+			return items, false, fail(CodeUnauthorized, "cursor belongs to another session")
+		}
+		cursor = &anchor
+	}
+	if err := s.eachMessage(func(_ string, item Message, readErr error) error {
+		if readErr != nil {
+			return readErr
+		}
+		if item.From != actor && item.To != actor {
+			return nil
+		}
+		if r.query.Sent && item.From != actor {
+			return nil
+		}
+		if r.recipient != "" && item.To != r.recipient {
+			return nil
+		}
+		if !r.history && (item.To != actor || item.TargetGeneration != r.current.Generation || item.AcknowledgedAt != "" || !item.Status.canAcknowledge()) {
+			return nil
+		}
+		if cursor != nil && !messageComesBefore(*cursor, item, r.history) {
+			return nil
+		}
+		items = append(items, r.view(item, r.history && !r.query.IncludeBody))
+		return nil
+	}); err != nil {
+		return items, false, err
+	}
+	sort.Slice(items, func(i, j int) bool { return messageComesBefore(items[i], items[j], r.history) })
+	if len(items) > limit {
+		return items[:limit], true, nil
+	}
+	return items, false, nil
 }
 
 // bodyPreview produces one display line with a byte cap on UTF-8 boundaries.
