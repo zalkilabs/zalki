@@ -52,16 +52,7 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 			"Process liveness does not establish an attached terminal.",
 			"Untracked processes have an unknown loaded build; they may predate runtime tracking.",
 		}}
-	for _, kind := range s.registry().Kinds() {
-		adapter, _ := s.registry().Lookup(kind)
-		d := adapter.Descriptor()
-		binary, err := exec.LookPath(d.Executable)
-		diagnostic := AgentDiagnostic{Kind: kind, Label: d.Label, Binary: binary, Found: err == nil, Receive: adapter.ReceiveCapabilities(Session{})}
-		annotateClientCompatibility(&diagnostic)
-		annotateAdapterCompatibility(&diagnostic, adapter)
-		report.Agents = append(report.Agents, diagnostic)
-		report.Notes = append(report.Notes, d.Notes...)
-	}
+	s.diagnoseAgents(&report)
 	var sessions []Session
 	var runtimes []RuntimeInfo
 	err := s.readLocked(func() error {
@@ -81,19 +72,35 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 		return report, err
 	}
 	s.nativeNames(sessions)
+	if err := s.diagnoseSessions(&report, sessions); err != nil {
+		return report, err
+	}
+	diagnoseRuntimes(&report, runtimes)
+	return report, nil
+}
+
+// diagnoseAgents reports each registered client's executable and compatibility.
+func (s Store) diagnoseAgents(report *DiagnosticReport) {
+	for _, kind := range s.registry().Kinds() {
+		adapter, _ := s.registry().Lookup(kind)
+		d := adapter.Descriptor()
+		binary, err := exec.LookPath(d.Executable)
+		diagnostic := AgentDiagnostic{Kind: kind, Label: d.Label, Binary: binary, Found: err == nil, Receive: adapter.ReceiveCapabilities(Session{})}
+		annotateClientCompatibility(&diagnostic)
+		annotateAdapterCompatibility(&diagnostic, adapter)
+		report.Agents = append(report.Agents, diagnostic)
+		report.Notes = append(report.Notes, d.Notes...)
+	}
+}
+
+func (s Store) diagnoseSessions(report *DiagnosticReport, sessions []Session) error {
 	for _, v := range sessions {
 		d := SessionDiagnostic{ID: v.ID, Kind: v.Kind, Name: v.Name, State: v.State, Retired: v.Retired,
 			RetiredReason: v.RetiredReason, Liveness: s.sessionLiveness(v), Owner: v.Owner,
-			UpdatedAt: v.UpdatedAt, HookBuild: v.HookBuild, HookBuildStatus: "unknown"}
-		if v.HookBuild != "" && report.Runtime.DiskBuild != "" {
-			d.HookBuildStatus = "current"
-			if v.HookBuild != report.Runtime.DiskBuild {
-				d.HookBuildStatus = "outdated"
-			}
-		}
+			UpdatedAt: v.UpdatedAt, HookBuild: v.HookBuild, HookBuildStatus: hookBuildStatus(v.HookBuild, report.Runtime.DiskBuild)}
 		adapter, err := s.registry().Lookup(v.Kind)
 		if err != nil {
-			return report, err
+			return err
 		}
 		d.Receive = adapter.ReceiveCapabilities(v)
 		if health, ok := adapter.(HealthAdapter); ok {
@@ -104,6 +111,24 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 		d.RecoveryHint = recoveryHint(d, adapter)
 		report.Sessions = append(report.Sessions, d)
 	}
+	return nil
+}
+
+// hookBuildStatus compares a session's hook build with this binary on disk.
+func hookBuildStatus(hookBuild, diskBuild string) string {
+	switch {
+	case hookBuild == "" || diskBuild == "":
+		return "unknown"
+	case hookBuild != diskBuild:
+		return "outdated"
+	default:
+		return "current"
+	}
+}
+
+// diagnoseRuntimes lists live tracked Zalki processes, then any other running
+// zalki process as untracked.
+func diagnoseRuntimes(report *DiagnosticReport, runtimes []RuntimeInfo) {
 	tracked := map[int]bool{}
 	for _, v := range runtimes {
 		info := runtimeHealth(v)
@@ -123,7 +148,5 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 	} else {
 		report.Notes = append(report.Notes, "OS process inspection unavailable: "+err.Error())
 	}
-
 	sort.Slice(report.UntrackedProcesses, func(i, j int) bool { return report.UntrackedProcesses[i].PID < report.UntrackedProcesses[j].PID })
-	return report, nil
 }
