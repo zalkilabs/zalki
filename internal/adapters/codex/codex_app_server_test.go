@@ -217,7 +217,7 @@ func listenCodexControl(t *testing.T) (string, net.Listener) {
 		t.Fatal(err)
 	}
 	socketPath := filepath.Join(runtime, "control.sock")
-	listener, err := net.Listen("unix", socketPath)
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", socketPath)
 	if errors.Is(err, syscall.EPERM) {
 		t.Skip("execution sandbox blocks Unix socket bind")
 	}

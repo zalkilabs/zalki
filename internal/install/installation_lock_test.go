@@ -48,7 +48,7 @@ func TestInstallationProcessHelper(t *testing.T) {
 
 func installationProcess(t *testing.T, home, state, mode string) (func(), func() string) {
 	t.Helper()
-	command := exec.Command(os.Args[0], "-test.run=^TestInstallationProcessHelper$")
+	command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestInstallationProcessHelper$")
 	command.Env = append(os.Environ(), "ZALKI_INSTALL_TEST_HOME="+home, "ZALKI_INSTALL_TEST_STATE="+state, "ZALKI_INSTALL_TEST_MODE="+mode)
 	input, err := command.StdinPipe()
 	if err != nil {
