@@ -1,9 +1,10 @@
-// Package fsutil holds small durable-write helpers shared by the journal and installer.
+// Package fsutil holds small durable-write and path helpers shared by the journal, the installer and the adapter registry.
 package fsutil
 
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // WriteExclusive creates path with mode 0600 and fails if it already exists.
@@ -51,4 +52,9 @@ func SyncDir(path string) error {
 	}
 	defer dir.Close() //nolint:errcheck // Sync reports durability errors before descriptor cleanup.
 	return dir.Sync()
+}
+
+// SafeRelativePath reports whether path is a clean relative path that stays below its root.
+func SafeRelativePath(path string) bool {
+	return path != "" && path != "." && !filepath.IsAbs(path) && filepath.Clean(path) == path && path != ".." && !strings.HasPrefix(path, ".."+string(filepath.Separator))
 }

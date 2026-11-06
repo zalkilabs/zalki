@@ -44,7 +44,7 @@ func applyConfiguration(cmd *cobra.Command, opts *commandOptions) error {
 	if err != nil {
 		return err
 	}
-	paths, err := install.Apply(opts.registry.Configuration, binary, service.Store.Dir, opts.home)
+	paths, err := install.Apply(installDeclarations(opts.registry), binary, service.Store.Dir, opts.home)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func writeConfigurationDrafts(cmd *cobra.Command, opts *commandOptions, out stri
 	if err != nil {
 		return err
 	}
-	if err := install.WriteSetup(opts.registry.Configuration, binary, service.Store.Dir, out, opts.home); err != nil {
+	if err := install.WriteSetup(installDeclarations(opts.registry), binary, service.Store.Dir, out, opts.home); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(cmd.OutOrStdout(), "Configuration drafts written to", out); err != nil {

@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // declared is the configuration declaration type that adapters return. It is
 // the only name in this file that depends on where that type lives. Tests read
 // its fields by name, so changing this alias is the whole migration.
-type declared = install.ConfigFile
+type declared = model.ConfigDeclaration
 
 // configAdapter is a fake client that declares installation files.
 type configAdapter struct {

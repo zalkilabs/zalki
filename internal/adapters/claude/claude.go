@@ -16,6 +16,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/adapters/internal/socketio"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Adapter implements the Claude client.
@@ -24,8 +25,12 @@ type Adapter struct{ bus.StandardHooks }
 // New returns the Claude adapter.
 func New() Adapter { return Adapter{} }
 
-func (a Adapter) Configuration(binary string, args []string) []install.ConfigFile {
-	return []install.ConfigFile{
+// Configuration declares the Claude hook and MCP files. The patches are built with
+// the installer's helpers (install.HookConfig, install.HookCommand and
+// install.MCPConfig): clients may depend on those helpers, but not on the
+// installer's file specification, so the result is a model.ConfigDeclaration.
+func (a Adapter) Configuration(binary string, args []string) []model.ConfigDeclaration {
+	return []model.ConfigDeclaration{
 		{Path: ".claude/settings.json", ConfigRootEnv: "CLAUDE_CONFIG_DIR", Draft: "claude-hooks.json", JSON: install.HookConfig(a.Descriptor().Hooks, install.HookCommand(binary, args, "claude"), false)},
 		{Path: ".claude.json", ConfigRootEnv: "CLAUDE_CONFIG_DIR", Draft: "claude-mcp.json", JSON: install.MCPConfig(binary, args, true)},
 	}

@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // stubCodexAdapter stands in for the real Codex adapter, which lives in internal/adapters
@@ -170,8 +171,8 @@ func (stubCursorAdapter) DecodeState(in StateInput) (json.RawMessage, error) {
 	setCursorState(&v, state)
 	return v.AdapterState, nil
 }
-func (stubCursorAdapter) Configuration(binary string, args []string) []install.ConfigFile {
-	return []install.ConfigFile{{Path: ".fixture/mcp.json", Draft: "fixture-mcp.json", JSON: install.MCPConfig(binary, args, false)}}
+func (stubCursorAdapter) Configuration(binary string, args []string) []model.ConfigDeclaration {
+	return []model.ConfigDeclaration{{Path: ".fixture/mcp.json", Draft: "fixture-mcp.json", JSON: install.MCPConfig(binary, args, false)}}
 }
 
 // testRegistry registers dispatch stubs; real client tests live in adapters.

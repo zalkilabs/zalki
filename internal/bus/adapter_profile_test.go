@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestAdapterDefinesItsOwnConfigurationOverride(t *testing.T) {
@@ -16,14 +17,14 @@ func TestAdapterDefinesItsOwnConfigurationOverride(t *testing.T) {
 	t.Setenv("FOURTH_CONFIG_DIR", profile)
 	adapter := configFixtureAdapter{
 		fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: InboxNative},
-		files:          []install.ConfigFile{{Path: ".fourth/mcp.json", ConfigRootEnv: "FOURTH_CONFIG_DIR", Draft: "fourth-mcp.json", JSON: install.MCPConfig("/fixture/zalki", nil, false)}},
+		files:          []model.ConfigDeclaration{{Path: ".fourth/mcp.json", ConfigRootEnv: "FOURTH_CONFIG_DIR", Draft: "fourth-mcp.json", JSON: install.MCPConfig("/fixture/zalki", nil, false)}},
 	}
 	registry, err := NewRegistry(adapter)
 	if err != nil {
 		t.Fatal(err)
 	}
 	state := filepath.Join(home, "state")
-	if _, err := install.Manage(registry.Configuration, install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(installDeclare(registry), install.Request{Action: "install", Binary: "/fixture/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	target := filepath.Join(profile, "mcp.json")
@@ -31,7 +32,7 @@ func TestAdapterDefinesItsOwnConfigurationOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("FOURTH_CONFIG_DIR", "")
-	if _, err := install.Manage(registry.Configuration, install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	if _, err := install.Manage(installDeclare(registry), install.Request{Action: "uninstall", Binary: "", StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(target)
