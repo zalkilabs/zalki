@@ -118,49 +118,70 @@ func (r *pruneRun) execute() error {
 	return r.deleteExitedRuntimes(runtimes)
 }
 
+// sweepSessions handles each session in ID order: retired records are deleted
+// or have a leftover lease released, and live sessions are retired when they
+// were selected or their owner exited.
 func (r *pruneRun) sweepSessions(sessions []Session) error {
 	for _, v := range sessions {
-		// Old retired records can retain a lease. Release it without changing the
-		// retirement; records old enough for retention are removed instead.
+		var err error
 		if v.Retired {
-			if retiredLongEnough(v.UpdatedAt, r.now, r.retention) {
-				if err := r.deleteRetired(v); err != nil {
-					return err
-				}
-				continue
-			}
-			if v.Listener == nil {
-				continue
-			}
-			r.report.Sessions = append(r.report.Sessions, PruneItem{v.ID, "lease_released"})
-			if !r.dryRun {
-				releaseListenerLease(&v)
-				v.UpdatedAt = timestamp()
-				if err := r.store.saveSession(v); err != nil {
-					return err
-				}
-			}
-			continue
+			err = r.sweepRetired(v)
+		} else {
+			err = r.retireIfDue(v)
 		}
-		reason := ""
-		if r.selected[v.ID] {
-			reason = "explicit_cleanup"
-		} else if r.store.sessionLiveness(v) == LivenessExited {
-			reason = "owner_exited"
-		}
-		if reason == "" {
-			continue
-		}
-		r.retired[v.ID] = true
-		r.report.Sessions = append(r.report.Sessions, PruneItem{v.ID, reason})
-		if !r.dryRun {
-			retireSession(&v, reason)
-			if err := r.store.saveSession(v); err != nil {
-				return err
-			}
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// sweepRetired deletes a retired record that is old enough. Otherwise, old
+// retired records can retain a lease: it is released without changing the
+// retirement. Releasing sets UpdatedAt to now, which also restarts the
+// retention window (characterized, not endorsed).
+func (r *pruneRun) sweepRetired(v Session) error {
+	if retiredLongEnough(v.UpdatedAt, r.now, r.retention) {
+		return r.deleteRetired(v)
+	}
+	if v.Listener == nil {
+		return nil
+	}
+	r.report.Sessions = append(r.report.Sessions, PruneItem{v.ID, "lease_released"})
+	if r.dryRun {
+		return nil
+	}
+	releaseListenerLease(&v)
+	v.UpdatedAt = timestamp()
+	return r.store.saveSession(v)
+}
+
+// retireIfDue retires a live session that was selected or whose owner exited.
+// The decision is reported before the record is saved; a dry run stops there.
+func (r *pruneRun) retireIfDue(v Session) error {
+	reason := r.retirementReason(v)
+	if reason == "" {
+		return nil
+	}
+	r.retired[v.ID] = true
+	r.report.Sessions = append(r.report.Sessions, PruneItem{v.ID, reason})
+	if r.dryRun {
+		return nil
+	}
+	retireSession(&v, reason)
+	return r.store.saveSession(v)
+}
+
+// retirementReason says why a live session is retired, or "" if it is not. An
+// explicit selection wins, and liveness is only read when it was not selected.
+func (r *pruneRun) retirementReason(v Session) string {
+	if r.selected[v.ID] {
+		return "explicit_cleanup"
+	}
+	if r.store.sessionLiveness(v) == LivenessExited {
+		return "owner_exited"
+	}
+	return ""
 }
 
 func (r *pruneRun) deleteExitedRuntimes(runtimes []RuntimeInfo) error {
