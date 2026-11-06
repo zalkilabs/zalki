@@ -27,6 +27,7 @@ linters:
           allow:
             - $gostd
             - github.com/zalkilabs/zalki/internal/fsutil$
+            - github.com/zalkilabs/zalki/internal/journal$
             - github.com/zalkilabs/zalki/internal/logging$
             - github.com/zalkilabs/zalki/internal/procwatch$
             # Adapter configuration declarations remain a supported dependency.
@@ -45,6 +46,12 @@ linters:
             - $gostd
             - github.com/zalkilabs/zalki/internal/fsutil$
             - github.com/pelletier/go-toml/v2$
+        journal:
+          files: ["**/internal/journal/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/zalkilabs/zalki/internal/fsutil$
         composition:
           files: ["**/internal/adapters/*.go", "!$test"]
           list-mode: strict
