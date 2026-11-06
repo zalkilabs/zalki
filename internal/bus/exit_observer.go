@@ -169,16 +169,16 @@ func (o *exitObserver) stopOnUpgrade(err error) bool {
 // already look exited (a sweep, and the start-up check). It skips anything it
 // cannot trust: non-canonical names, symlinks, unreadable, future-schema or
 // unknown-adapter sessions. Prune reports unsupported session records.
+//
+// It works in this order: stop if writing is not allowed; watch the root; if the
+// root is missing or not a directory, reconcile with nothing wanted and stop; if
+// it cannot be read, stop WITHOUT reconciling (characterized, not endorsed: the
+// old registrations stay); scan the targets; reconcile; then send the notices.
 func (o *exitObserver) sync(ctx context.Context) {
 	if !o.canWrite() {
 		return
 	}
-	s := o.service
-	if o.source != nil && !o.rootUnusable {
-		if err := o.source.WatchDir(o.root); err != nil {
-			s.Store.logEvent(slog.LevelDebug, "watch.observer_skipped", eventData{Err: err})
-		}
-	}
+	o.watchRoot()
 	info, err := os.Lstat(o.root)
 	if err != nil || !info.IsDir() {
 		o.reconcile(map[processKey]ProcessRef{}, map[processKey][]string{})
@@ -188,40 +188,75 @@ func (o *exitObserver) sync(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	wanted, owners := map[processKey]ProcessRef{}, map[processKey][]string{}
-	var exited []string
+	scan := o.scanWatchTargets(entries)
+	o.reconcile(scan.wanted, scan.owners)
+	o.noticeExited(ctx, scan.exited)
+}
+
+// watchRoot asks the exit source to watch the watches directory. A failure is
+// only logged, and nothing is asked when the root was marked unusable.
+func (o *exitObserver) watchRoot() {
+	if o.source == nil || o.rootUnusable {
+		return
+	}
+	if err := o.source.WatchDir(o.root); err != nil {
+		o.service.Store.logEvent(slog.LevelDebug, "watch.observer_skipped", eventData{Err: err})
+	}
+}
+
+// watchScan is what one pass over the watched targets found.
+type watchScan struct {
+	wanted map[processKey]ProcessRef // owner processes to watch
+	owners map[processKey][]string   // watched owner process -> targets it owns
+	exited []string                  // targets that already look exited
+}
+
+// scanWatchTargets looks at every canonical target directory in entries.
+func (o *exitObserver) scanWatchTargets(entries []os.DirEntry) watchScan {
+	scan := watchScan{wanted: map[processKey]ProcessRef{}, owners: map[processKey][]string{}}
 	for _, entry := range entries {
 		id, ok := watchNameID(entry.Name())
 		if !ok || !entry.Type().IsDir() {
 			continue
 		}
-		dir := filepath.Join(o.root, entry.Name())
-		// Register the directory before reading it, so a watch added in between
-		// raises an event instead of being missed.
-		if o.source != nil {
-			if err := o.source.WatchDir(dir); err != nil {
-				s.Store.logEvent(slog.LevelDebug, "watch.observer_skipped", eventData{Actor: id, Err: err})
-			}
-		}
-		if files, err := os.ReadDir(dir); err != nil || len(files) == 0 {
-			continue
-		}
-		v, err := s.Store.session(id)
-		if err != nil {
+		o.scanWatchTarget(&scan, id, filepath.Join(o.root, entry.Name()))
+	}
+	return scan
+}
+
+// scanWatchTarget classifies one target directory: skipped, exited, or owned by
+// a process to watch. The directory is registered with the exit source before it
+// is read, so a watch added in between raises an event instead of being missed;
+// that happens even if the directory turns out to be empty.
+func (o *exitObserver) scanWatchTarget(scan *watchScan, id, dir string) {
+	s := o.service
+	if o.source != nil {
+		if err := o.source.WatchDir(dir); err != nil {
 			s.Store.logEvent(slog.LevelDebug, "watch.observer_skipped", eventData{Actor: id, Err: err})
-			continue
-		}
-		if v.Retired || s.Store.sessionLiveness(v) == LivenessExited {
-			exited = append(exited, id)
-			continue
-		}
-		if v.Owner != nil && v.Owner.PID > 1 {
-			key := keyOf(*v.Owner)
-			wanted[key] = *v.Owner
-			owners[key] = append(owners[key], id)
 		}
 	}
-	o.reconcile(wanted, owners)
+	if files, err := os.ReadDir(dir); err != nil || len(files) == 0 {
+		return
+	}
+	v, err := s.Store.session(id)
+	if err != nil {
+		s.Store.logEvent(slog.LevelDebug, "watch.observer_skipped", eventData{Actor: id, Err: err})
+		return
+	}
+	if v.Retired || s.Store.sessionLiveness(v) == LivenessExited {
+		scan.exited = append(scan.exited, id)
+		return
+	}
+	if v.Owner != nil && v.Owner.PID > 1 {
+		key := keyOf(*v.Owner)
+		scan.wanted[key] = *v.Owner
+		scan.owners[key] = append(scan.owners[key], id)
+	}
+}
+
+// noticeExited sends the ended notice of each target, and stops as soon as the
+// context is done.
+func (o *exitObserver) noticeExited(ctx context.Context, exited []string) {
 	for _, id := range exited {
 		if ctx.Err() != nil {
 			return
