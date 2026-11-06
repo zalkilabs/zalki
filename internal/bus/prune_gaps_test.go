@@ -1,9 +1,12 @@
 package bus
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -333,5 +336,81 @@ func TestPruneReportsApprovalDecisionsInOrderAndDryRunMatchesApply(t *testing.T)
 	}
 	if current := journalMessage(t, store, steadyMsg.ID); !current.Held || current.Status != StatusApprovalBlocked {
 		t.Fatalf("a matching live queue was touched: %+v", current)
+	}
+}
+
+// exitedOwner records an owned child process, then kills and reaps it. The
+// deadline also bounds cleanup if a fixture operation fails before the kill.
+func exitedOwner(t *testing.T, store Store, sessions ...Session) {
+	t.Helper()
+	selfProcess(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	t.Cleanup(cancel)
+	cmd := exec.CommandContext(ctx, "sleep", "60")
+	cmd.WaitDelay = time.Second
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	waited := false
+	t.Cleanup(func() {
+		if !waited {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+		}
+	})
+	p, err := readProcess(cmd.Process.Pid)
+	if err != nil || p.Start == "" {
+		t.Fatalf("cannot identify fixture owner: %+v %v", p, err)
+	}
+	ref := &ProcessRef{PID: p.PID, Start: p.Start, Role: "client"}
+	for _, v := range sessions {
+		v.Owner = ref
+		if err := store.locked(func() error { return store.saveSession(v) }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		t.Fatalf("owner fixture exceeded its deadline: %v", err)
+	}
+	if err := cmd.Process.Kill(); err != nil {
+		t.Fatal(err)
+	}
+	_ = cmd.Wait()
+	waited = true
+	if processLiveness(ref) != LivenessExited {
+		t.Fatal("the owner is still alive")
+	}
+}
+
+// When selection and owner exit both apply, explicit cleanup wins. Keep an
+// unselected session with the same exited owner as a positive liveness control.
+func TestPruneReportsExplicitCleanupBeforeOwnerExited(t *testing.T) {
+	store := fixtureStore(t)
+	selected, _ := register(t, store, "cursor")
+	unselected, _ := register(t, store, "cursor")
+	exitedOwner(t, store, selected, unselected)
+	before := map[string][]byte{
+		selected.ID:   sessionBytes(t, store, selected.ID),
+		unselected.ID: sessionBytes(t, store, unselected.ID),
+	}
+	want := []PruneItem{{ID: selected.ID, Reason: "explicit_cleanup"}, {ID: unselected.ID, Reason: "owner_exited"}}
+	slices.SortFunc(want, func(a, b PruneItem) int { return strings.Compare(a.ID, b.ID) })
+	for _, dry := range []bool{true, false} {
+		report, err := store.Prune(dry, []string{selected.ID})
+		if err != nil || !slices.Equal(report.Sessions, want) {
+			t.Fatalf("dry=%v: reported %v (%v), want %v", dry, report.Sessions, err, want)
+		}
+		for _, item := range want {
+			current, err := store.session(item.ID)
+			if err != nil || current.Retired != !dry {
+				t.Fatalf("dry=%v: %s retired=%v (%v)", dry, item.ID, current.Retired, err)
+			}
+			if !dry && (current.State != StateRetired || current.RetiredReason != item.Reason) {
+				t.Fatalf("retirement of %s: state=%q reason=%q, want retired for %q", item.ID, current.State, current.RetiredReason, item.Reason)
+			}
+		}
+		if dry {
+			assertSessionBytes(t, store, before)
+		}
 	}
 }
