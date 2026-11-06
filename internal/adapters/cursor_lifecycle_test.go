@@ -261,7 +261,7 @@ func TestRetirementReleasesTheListenerLease(t *testing.T) {
 			if _, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: fromKey, To: to.ID, MessageID: newTestID(), Body: "after retire"}); err == nil {
 				t.Fatal("sent to a retired session")
 			}
-			conn, err := net.DialTimeout("unix", endpoint, time.Second)
+			conn, err := (&net.Dialer{Timeout: time.Second}).DialContext(t.Context(), "unix", endpoint)
 			if err != nil {
 				t.Fatal("retired listener was not still accepting", err)
 			}
@@ -294,7 +294,7 @@ func waitUntilListening(t *testing.T, endpoint string) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		conn, err := net.DialTimeout("unix", endpoint, 50*time.Millisecond)
+		conn, err := (&net.Dialer{Timeout: 50 * time.Millisecond}).DialContext(t.Context(), "unix", endpoint)
 		if err == nil {
 			_ = conn.SetDeadline(time.Now().Add(time.Second))
 			_, writeErr := conn.Write([]byte("{}\n"))

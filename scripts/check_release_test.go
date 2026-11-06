@@ -102,7 +102,7 @@ func fixture(t *testing.T) string {
 
 func runCheck(t *testing.T, dir, expected string) (string, error) {
 	t.Helper()
-	cmd := exec.Command("sh", "check-release.sh", dir, expected)
+	cmd := exec.CommandContext(t.Context(), "sh", "check-release.sh", dir, expected)
 	output, err := cmd.CombinedOutput()
 	return string(output), err
 }
@@ -165,7 +165,7 @@ func TestInvalidCaskInputs(t *testing.T) {
 		"invalid-version":       {"../release", arm64, amd64},
 	} {
 		t.Run(name, func(t *testing.T) {
-			cmd := exec.Command("sh", append([]string{"homebrew-cask.sh"}, args...)...)
+			cmd := exec.CommandContext(t.Context(), "sh", append([]string{"homebrew-cask.sh"}, args...)...)
 			if out, err := cmd.Output(); err == nil || len(out) != 0 {
 				t.Fatalf("invalid input produced a cask: err=%v, output=%s", err, out)
 			}
@@ -175,7 +175,7 @@ func TestInvalidCaskInputs(t *testing.T) {
 
 func TestUnsignedReleaseCannotPassSigningGate(t *testing.T) {
 	dir := fixture(t)
-	cmd := exec.Command("sh", "check-release.sh", dir, fixtureVersion)
+	cmd := exec.CommandContext(t.Context(), "sh", "check-release.sh", dir, fixtureVersion)
 	cmd.Env = append(os.Environ(), "ZALKI_REQUIRE_SIGNED=1")
 	if out, err := cmd.CombinedOutput(); err == nil {
 		t.Fatal("unsigned fixture accepted as a signed release", string(out))

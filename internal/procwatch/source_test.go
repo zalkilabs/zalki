@@ -25,7 +25,7 @@ func openExitSource(t *testing.T) Source {
 
 func startChild(t *testing.T) (*exec.Cmd, Identity) {
 	t.Helper()
-	child := exec.Command("sleep", "30")
+	child := exec.CommandContext(t.Context(), "sleep", "30")
 	if err := child.Start(); err != nil {
 		t.Fatal(err)
 	}

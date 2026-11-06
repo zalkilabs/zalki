@@ -73,7 +73,7 @@ func TestOwnerCaptureUsesNativeAncestorAndLabelsBackend(t *testing.T) {
 
 func TestProcessFingerprintTracksRealExit(t *testing.T) {
 	selfProcess(t)
-	cmd := exec.Command("sleep", "30")
+	cmd := exec.CommandContext(t.Context(), "sleep", "30")
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}

@@ -23,7 +23,7 @@ func TestClaudeSocketHelper(t *testing.T) {
 		t.Skip("subprocess helper")
 	}
 	path := filepath.Join(os.Getenv("ZALKI_SOCKET_DIR"), fmt.Sprintf("%d.sock", os.Getpid()))
-	listener, err := net.Listen("unix", path)
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", path)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -25,7 +25,7 @@ func TestLiveSmokeRunnerWithEmulatedClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(probeDir)
-	probe, err := net.Listen("unix", filepath.Join(probeDir, "probe.sock"))
+	probe, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", filepath.Join(probeDir, "probe.sock"))
 	if errors.Is(err, syscall.EPERM) {
 		t.Skip("execution sandbox blocks Unix socket bind")
 	}
