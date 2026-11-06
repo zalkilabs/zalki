@@ -1,16 +1,14 @@
 package bus
 
 import (
-	"errors"
-	"os"
-	"syscall"
+	"sync"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // exitSource turns operating-system notifications into events for the exit
-// observer. It is handle-based and portable: only the per-platform files
-// (exit_source_darwin.go, exit_source_linux.go, exit_source_other.go) touch file
-// descriptors, kqueue, inotify or other OS types, so another platform needs one
-// new file implementing this interface and newExitSource.
+// observer. The production wrapper converts procwatch's raw identities and
+// events; observer tests can supply this domain-facing interface directly.
 //
 // Implementations must be safe for concurrent use. None of the methods may block
 // on the event consumer: the observer calls them from the goroutine that reads
@@ -49,7 +47,7 @@ type exitEvent struct {
 
 // errExitSourceUnsupported means the platform has no implementation; the
 // observer then relies on its periodic sweep alone.
-var errExitSourceUnsupported = errors.New("process exit notifications are not supported on this platform")
+var errExitSourceUnsupported = procwatch.ErrUnsupported
 
 // processKey identifies one process incarnation, so a reused PID is a new key.
 type processKey struct {
@@ -59,7 +57,84 @@ type processKey struct {
 
 func keyOf(ref ProcessRef) processKey { return processKey{ref.PID, ref.Start} }
 
-// processGone is readProcess's evidence that the process no longer exists.
-func processGone(err error) bool {
-	return errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ESRCH)
+// processExitSource keeps the observer's domain contract separate from the raw
+// OS source. Its forwarding goroutine stops even when no event consumer remains.
+type processExitSource struct {
+	source procwatch.Source
+	events chan exitEvent
+	done   chan struct{}
+	once   sync.Once
+	wg     sync.WaitGroup
+}
+
+func newExitSource() (exitSource, error) {
+	source, err := procwatch.NewSource()
+	if err != nil {
+		return nil, err
+	}
+	return adaptExitSource(source), nil
+}
+
+func adaptExitSource(source procwatch.Source) *processExitSource {
+	s := &processExitSource{source: source, events: make(chan exitEvent), done: make(chan struct{})}
+	s.wg.Add(1)
+	go s.forward()
+	return s
+}
+
+func (s *processExitSource) WatchProcess(ref ProcessRef) error {
+	return s.source.WatchProcess(procwatch.Identity{PID: ref.PID, Start: ref.Start})
+}
+
+func (s *processExitSource) Unwatch(ref ProcessRef) {
+	s.source.Unwatch(procwatch.Identity{PID: ref.PID, Start: ref.Start})
+}
+
+func (s *processExitSource) WatchDir(path string) error { return s.source.WatchDir(path) }
+
+func (s *processExitSource) Events() <-chan exitEvent { return s.events }
+
+func (s *processExitSource) forward() {
+	defer s.wg.Done()
+	events := s.source.Events()
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				return
+			}
+			select {
+			case s.events <- domainExitEvent(event):
+			case <-s.done:
+				return
+			}
+		case <-s.done:
+			return
+		}
+	}
+}
+
+func domainExitEvent(event procwatch.Event) exitEvent {
+	var kind exitEventKind
+	switch event.Kind {
+	case procwatch.ProcessExited:
+		kind = exitProcess
+	case procwatch.DirectoryChanged:
+		kind = exitDirChanged
+	case procwatch.SourceFailed:
+		kind = exitSourceFailed
+	}
+	// Raw exit evidence has no role. The observer correlates only PID/start,
+	// then re-reads the session and its domain owner under the journal lock.
+	return exitEvent{Kind: kind, Process: ProcessRef{PID: event.Process.PID, Start: event.Process.Start}}
+}
+
+func (s *processExitSource) Close() error {
+	var err error
+	s.once.Do(func() {
+		close(s.done)
+		err = s.source.Close()
+		s.wg.Wait()
+	})
+	return err
 }

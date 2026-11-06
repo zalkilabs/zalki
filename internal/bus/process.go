@@ -4,6 +4,8 @@ import (
 	"errors"
 	"os"
 	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // PID alone is insufficient: a later process can reuse it. Start identifies the
@@ -14,13 +16,11 @@ type ProcessRef struct {
 	Role  string `json:"role"`
 }
 
-type processInfo struct {
-	PID, PPID int
-	Start     string
-	Name      string
-	UID       uint32
-	Zombie    bool
-}
+type processInfo = procwatch.Info
+
+func readProcess(pid int) (processInfo, error) { return procwatch.Read(pid) }
+
+func namedProcesses(name string) ([]processInfo, error) { return procwatch.Named(name) }
 
 func processLiveness(ref *ProcessRef) Liveness { return probeProcess(ref, readProcess) }
 
