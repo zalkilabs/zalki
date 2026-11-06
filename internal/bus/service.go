@@ -57,7 +57,7 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 		return held, nil
 	}
 	if err != nil {
-		return s.Store.Finish(id, Receipt{At: timestamp(), Status: StatusNotSent, Error: err.Error(), cause: err})
+		return s.Store.Finish(id, Receipt{At: timestamp(), Status: StatusNotSent, Error: err.Error()}.WithCause(err))
 	}
 	target = current
 	if target.Receive.HookDelivery {
@@ -122,7 +122,7 @@ func (s *Service) runTransport(ctx context.Context, deliver func(context.Context
 	data := messageEvent(msg)
 	data.ReceiptStatus = receipt.Status
 	data.Code = receipt.Code
-	data.Err = receipt.cause
+	data.Err = receipt.Cause()
 	data.Agent = target.Kind
 	if receipt.Error != "" && data.Code == "" {
 		data.Code = CodeUnavailable
@@ -137,6 +137,9 @@ func receiptLogLevel(receipt Receipt) slog.Level {
 	switch receipt.Status {
 	case StatusNotSent, StatusCommandFailed, StatusUnknownTimeout, StatusUnknownWrite, StatusWakeUncertain:
 		return slog.LevelWarn
+	case StatusAttempting, StatusSubmitted, StatusTransportWritten, StatusPendingActivity,
+		StatusWakeWritten, StatusContextEmitted, StatusApprovalBlocked, StatusQueuedForApproval:
+		// These outcomes still warn when the receipt carries public error text.
 	}
 	if receipt.Error != "" {
 		return slog.LevelWarn

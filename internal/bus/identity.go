@@ -5,7 +5,8 @@ import (
 	"encoding/hex"
 	"regexp"
 	"strings"
-	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -29,4 +30,4 @@ func newID() string {
 }
 
 // Fixed-width fractional seconds make journal ordering lexicographically stable.
-func timestamp() string { return time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z") }
+func timestamp() string { return model.Timestamp() }
