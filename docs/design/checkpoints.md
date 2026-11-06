@@ -47,8 +47,10 @@ before any change that opens a new trust boundary (plugins, managed jobs).
 | --- | --- | --- |
 | `type processInfo = procwatch.Info` | `internal/bus/process.go` | Step 5 (model moves), when bus uses `procwatch.Info` directly |
 | Done-aware forwarding source wrapper | `internal/bus/exit_source.go` | Step 5, with domain process values |
-| Unused-by-production lock primitives | deferred from `internal/journal` | Step 3b (introduced with their caller) |
 | Installer-helper exception for clients | `install.HookConfig`, `HookCommand`, `MCPConfig`, `ShellQuote` | A helper-extraction decision before step 6b |
+
+Any compatibility aliases and forwarders introduced by step 5 must be added
+here when they exist, with their removal step.
 
 ## Log
 
@@ -140,3 +142,74 @@ Findings and follow-up decisions:
 - Coverage was not measured in this checkpoint. Earlier coverage estimates are
   omitted because their exact revision, build selection and command were not
   recorded here. Measure a comparable baseline on a quiet machine.
+
+### Checkpoint 2: main at 60e5e87 (after steps 3b and 4b and the installer complexity pass)
+
+Static analysis only, at `60e5e87f1292d3cd786b30cad181aee726f647e4`, on
+**darwin/arm64, Go 1.26.10, CGO_ENABLED=1**, with default build tags. The pinned
+linter, enabled linters, thresholds and file selection match checkpoint 1;
+canonical dependency rules now reflect the merged package moves. Structural
+counts use the same `arch-metrics` selection described above. The [main CI run](https://github.com/zalkilabs/zalki/actions/runs/42255740018)
+completed successfully. Coverage was not re-measured.
+
+| Measure | Before refactor (595c334) | Checkpoint 1 (8e1fb80) | Checkpoint 2 (60e5e87) |
+| --- | ---: | ---: | ---: |
+| Production strict-lint findings | 55 | 52 | 47 |
+| gocognit | 34 | 29 | 25 |
+| gocyclo | 3 | 4 | 4 |
+| noctx | 1 | 1 | 0 |
+| exhaustive / nilerr | 8 / 4 | 9 / 4 | 9 / 4 |
+| Test `thelper` findings | 4 | 54 | 9 |
+| `bus` production files / physical lines | n/a | 43 / 6220 | 43 / 6212 |
+| `Store` methods (files) | n/a | 99 (26) | 99 (26) |
+| Exported declarations in `bus` | n/a | 188 | 188 |
+
+Findings:
+
+- Since checkpoint 1 the
+  installer functions `removeConfig` (56), `mergeConfig` (54),
+  `applyConfigEdits` (28) and `validateInstallationPatch` (24) left the list,
+  each reduced to 6 or less, with no new findings introduced.
+- Boundaries: `bus` has no raw file-lock or flock calls left (they live in
+  `journal`), no `bus` file imports `install`, and the depguard rules report
+  nothing.
+- Test hygiene recovered from 54 to 9 `thelper` findings; the 9 left are the
+  assertion-bearing `check` closures in `internal/journal/codec_test.go`, kept
+  unmarked on purpose so failures point at the real assertion.
+- The `noctx` finding is resolved: command cancellation reaches the Homebrew
+  subprocess, and pipe waiting is bounded. This does not establish cancellation
+  of all descendant processes.
+- Remaining production complexity (gocognit): `Store.prepareReply` 47,
+  `reconcileApprovalHolds` 43, `argumentHints` 34, `exitObserver.sync` 31,
+  `pruneRun.sweepSessions` 30, then `floodState.admit`, `deleteOrphanFlood` and
+  `EmitPending` at 28. Each has its characterization gaps measured and a
+  test-first plan; these refactors land before the type moves because they touch
+  the same files.
+- `Store` breadth and `bus` exported declarations are unchanged and will not
+  move until step 5 (model types) and step 6 (agent contract).
+
+Known behaviors found by characterization and deliberately left unchanged,
+each open as a separate decision. The installer and reply items are pinned by
+tests merged on main; the prune, flood and hook items are pinned by
+pending, unmerged characterization work at this checkpoint. Tests
+label them "characterized, not endorsed" so they do not read as promises:
+
+- Installer: an emptied hook event stays as an empty list; a settings file that
+  only held our entry is re-indented to `{}`; a whitespace-only settings file is
+  a syntax error while an empty file is an empty object; the first pass of
+  `applyConfigEdits` can leave a backup and parent directories behind when a
+  later edit is refused; validation of a patch with faults in two different
+  keys reports one of them in unspecified map order.
+- Prune: releasing a listener lease refreshes the updated time of a retired
+  session still within the current retention window, extending its retention.
+  Sessions already expired under that window are deleted before lease release.
+- Flood: on the exact-retry and conflict paths admission returns before
+  validating later arrivals.
+- Replies: a refused reply still acknowledges the parent message.
+- Hooks: for an unreachable approval target, `EmitPending` returns an empty
+  context with no error and settles queued approvals.
+
+Outstanding architecture work, not yet planned in detail: extracting flood
+admission as a value-in/value-out rule. Its in-memory state currently mutates
+map entries and reuses slice storage, including on refusal paths; separating
+that mutation from admission needs its own plan.
