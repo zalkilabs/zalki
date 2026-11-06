@@ -217,7 +217,7 @@ func (s Store) Ack(actor, key, id string) (result Message, resultErr error) {
 		if msg.To != actor {
 			return fail(CodeUnauthorized, "only the bound recipient can acknowledge")
 		}
-		if !msg.Status.canAcknowledge() {
+		if !msg.Status.CanAcknowledge() {
 			return fail(CodeInvalidTransition, "cannot acknowledge a message that was not sent")
 		}
 		first := msg.AcknowledgedAt == ""

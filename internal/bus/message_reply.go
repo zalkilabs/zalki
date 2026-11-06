@@ -74,7 +74,7 @@ func (s Store) replyParent(actor, id string) (Message, error) {
 	if parent.Kind == noticeKind {
 		return parent, fail(CodeInvalidInput, "this is an automatic notice; use send_message to %s", parent.From)
 	}
-	if !parent.Status.canAcknowledge() {
+	if !parent.Status.CanAcknowledge() {
 		return parent, fail(CodeInvalidTransition, "cannot acknowledge a message that was not sent")
 	}
 	return parent, nil
@@ -219,7 +219,7 @@ func validateReplyTransaction(dir, path string, tx replyTransaction) error {
 	if tx.Reply.ID != replyID(tx.Reply.From, tx.ParentID, tx.Reply.Body) {
 		return fail(CodeInvalidIdentity, "reply transaction has an invalid retry identity")
 	}
-	if !tx.Reply.Status.valid() {
+	if !tx.Reply.Status.Valid() {
 		return fail(CodeInvalidTransition, "invalid reply transaction status")
 	}
 	return nil
@@ -233,7 +233,7 @@ func (s Store) matchingReplyParent(tx replyTransaction) (Message, error) {
 	if err != nil {
 		return parent, err
 	}
-	if parent.To != tx.Reply.From || parent.From != tx.Reply.To || !parent.Status.canAcknowledge() {
+	if parent.To != tx.Reply.From || parent.From != tx.Reply.To || !parent.Status.CanAcknowledge() {
 		return parent, fail(CodeConflict, "reply transaction does not match its parent")
 	}
 	return parent, nil

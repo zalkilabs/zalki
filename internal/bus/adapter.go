@@ -7,18 +7,23 @@ import (
 	"io"
 	"regexp"
 	"sort"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
-type InboxMode string
-type DeliveryTiming string
+// InboxMode is the compatibility name for model.InboxMode.
+type InboxMode = model.InboxMode
+
+// DeliveryTiming is the compatibility name for model.DeliveryTiming.
+type DeliveryTiming = model.DeliveryTiming
 
 const (
-	InboxNative          InboxMode      = "native"
-	InboxJournal         InboxMode      = "journal"
-	DeliveryNextTurn     DeliveryTiming = "next_turn"
-	DeliveryBetweenTools DeliveryTiming = "between_tools"
-	DeliveryNextHook     DeliveryTiming = "next_hook"
-	DeliveryNotification DeliveryTiming = "native_notification"
+	InboxNative          = model.InboxNative
+	InboxJournal         = model.InboxJournal
+	DeliveryNextTurn     = model.DeliveryNextTurn
+	DeliveryBetweenTools = model.DeliveryBetweenTools
+	DeliveryNextHook     = model.DeliveryNextHook
+	DeliveryNotification = model.DeliveryNotification
 )
 
 type AdapterDescriptor struct {
