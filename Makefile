@@ -3,6 +3,7 @@
 GORELEASER ?= goreleaser
 GOVULNCHECK ?= govulncheck
 GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
+GOCOGNIT ?= go run github.com/uudashr/gocognit/cmd/gocognit@v1.2.0
 
 build:
 	go build -o bin/zalki ./cmd/zalki
@@ -20,8 +21,16 @@ test-required: build
 vet:
 	go vet ./...
 
+# Any command that fails (a finding, a tool error) stops make with a non-zero exit.
+# - noctx runs on production code only: the tests still have 12 calls without a
+#   context (a later test-only change can move them to CommandContext).
+# - The gocognit budget is a ratchet: no production function above 30. Lower it
+#   over time. make lint-strict keeps reporting at 20 (.golangci.yml), so the
+#   checkpoint numbers stay comparable with the old baseline.
 lint:
 	$(GOLANGCI_LINT) run ./cmd/... ./internal/... ./scripts/...
+	$(GOLANGCI_LINT) run --enable-only noctx --tests=false ./cmd/... ./internal/... ./scripts/...
+	$(GOCOGNIT) -over 30 -ignore '_test\.go' cmd internal scripts
 
 # Report-only: stricter linters (complexity, function length, API hygiene) used
 # at architecture checkpoints. Findings are informational and do not fail.
