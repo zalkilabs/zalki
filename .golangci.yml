@@ -31,6 +31,12 @@ linters:
             # Adapter configuration declarations remain a supported dependency.
             - github.com/zalkilabs/zalki/internal/install$
             - golang.org/x/sys/unix$
+        process-mechanisms:
+          files: ["**/internal/procwatch/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+            - golang.org/x/sys/unix$
         installer:
           files: ["**/internal/install/*.go", "!$test"]
           list-mode: strict
