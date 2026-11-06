@@ -2,14 +2,11 @@ package bus
 
 import (
 	"encoding/json"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
-type Endpoint struct {
-	Path      string `json:"path"`
-	Device    uint64 `json:"device"`
-	Inode     uint64 `json:"inode"`
-	ChangedNS int64  `json:"changed_ns"`
-}
+type Endpoint = model.Endpoint
 
 type Session struct {
 	Schema       int             `json:"schema"`
@@ -47,23 +44,9 @@ type Session struct {
 
 // ListenerLease identifies the one armed listener of a registration. Only the
 // process holding the matching in-memory Lease may confirm, validate or clear it.
-type ListenerLease struct {
-	ID         string   `json:"id"`
-	Generation string   `json:"generation"`
-	Endpoint   Endpoint `json:"endpoint"`
-}
+type ListenerLease = model.ListenerLease
 
-type ReceiveCapabilities struct {
-	IdleWake         bool           `json:"idle_wake"`
-	Delivery         string         `json:"delivery"`
-	Inbox            InboxMode      `json:"inbox"`
-	BusyDelivery     DeliveryTiming `json:"busy_delivery"`
-	LifecycleHooks   bool           `json:"lifecycle_hooks"`
-	HookDelivery     bool           `json:"hook_delivery"`
-	RequiresListener bool           `json:"requires_listener"`
-	RequiresEndpoint bool           `json:"requires_endpoint"`
-	Experimental     bool           `json:"experimental"`
-}
+type ReceiveCapabilities = model.ReceiveCapabilities
 
 type Message struct {
 	// BusyDelivery describes the target at this delivery attempt, not the

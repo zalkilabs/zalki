@@ -4,16 +4,17 @@ import (
 	"errors"
 	"os"
 	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// Liveness is the evidence-based state of a session or recorded process.
-// Unknown is not evidence of exit and must never be treated as stale by age.
-type Liveness string
+// Liveness is the compatibility name for model.Liveness.
+type Liveness = model.Liveness
 
 const (
-	LivenessAlive   Liveness = "alive"
-	LivenessExited  Liveness = "exited"
-	LivenessUnknown Liveness = "unknown"
+	LivenessAlive   = model.LivenessAlive
+	LivenessExited  = model.LivenessExited
+	LivenessUnknown = model.LivenessUnknown
 )
 
 // LivenessView is the session evidence an adapter may use to decide liveness.
