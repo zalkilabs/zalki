@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/journal"
 )
 
 // ListenerStatus is core's evidence about a registration's native listener.
@@ -50,21 +52,21 @@ func (s Store) listenerLockPath(kind, actor string) string {
 // remove unlinks the file only in that case.
 func (s Store) removeFreeListenerLock(kind, actor string, remove bool) (bool, error) {
 	path := s.listenerLockPath(kind, actor)
-	fd, err := syscall.Open(path, syscall.O_RDWR|syscall.O_NOFOLLOW, 0)
+	fd, err := journal.OpenLockFile(path, false)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-	defer syscall.Close(fd) //nolint:errcheck // Descriptor cleanup after the nonblocking lock attempt.
-	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	defer journal.CloseLockFile(fd) //nolint:errcheck // Descriptor cleanup after the nonblocking lock attempt.
+	if err := journal.LockExclusive(fd, true); err != nil {
 		if errors.Is(err, syscall.EWOULDBLOCK) {
 			return false, nil
 		}
 		return false, err
 	}
-	defer syscall.Flock(fd, syscall.LOCK_UN) //nolint:errcheck // Closing the descriptor also releases the lock.
+	defer journal.Unlock(fd) //nolint:errcheck // Closing the descriptor also releases the lock.
 	if !remove {
 		return true, nil
 	}
@@ -77,14 +79,14 @@ func (s Store) removeFreeListenerLock(kind, actor string, remove bool) (bool, er
 // lockHeld reports whether some process holds the registration's lifetime lock.
 // A missing or unlocked lock file is not evidence of a live listener.
 func (s Store) lockHeld(v Session) bool {
-	fd, err := syscall.Open(s.listenerLockPath(v.Kind, v.ID), syscall.O_RDWR|syscall.O_NOFOLLOW, 0)
+	fd, err := journal.OpenLockFile(s.listenerLockPath(v.Kind, v.ID), false)
 	if err != nil {
 		return false
 	}
-	defer syscall.Close(fd) //nolint:errcheck // Descriptor cleanup after the liveness check.
-	err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB)
+	defer journal.CloseLockFile(fd) //nolint:errcheck // Descriptor cleanup after the liveness check.
+	err = journal.LockExclusive(fd, true)
 	if err == nil {
-		_ = syscall.Flock(fd, syscall.LOCK_UN) // Closing the descriptor also releases the lock.
+		_ = journal.Unlock(fd) // Closing the descriptor also releases the lock.
 		return false
 	}
 	return errors.Is(err, syscall.EWOULDBLOCK)
@@ -149,44 +151,33 @@ var listenerLockBeforeFlock func(path string)
 func acquireListenerLock(path string) (int, error) {
 	var last error
 	for range 3 {
-		fd, err := syscall.Open(path, syscall.O_CREAT|syscall.O_RDWR|syscall.O_NOFOLLOW, 0600)
+		fd, err := journal.OpenLockFile(path, true)
 		if err != nil {
 			return -1, err
 		}
 		if listenerLockBeforeFlock != nil {
 			listenerLockBeforeFlock(path)
 		}
-		if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-			_ = syscall.Close(fd)
+		if err := journal.LockExclusive(fd, true); err != nil {
+			_ = journal.CloseLockFile(fd)
 			return -1, fail(CodeConflict, "this conversation already has a listener; keep its original native task")
 		}
 		linked, err := lockFileStillLinked(fd, path)
 		if err != nil {
-			_ = syscall.Close(fd)
+			_ = journal.CloseLockFile(fd)
 			return -1, err
 		}
 		if linked {
 			return fd, nil
 		}
-		_ = syscall.Close(fd)
+		_ = journal.CloseLockFile(fd)
 		last = fail(CodeConflict, "listener lock changed while it was being acquired")
 	}
 	return -1, last
 }
 
 func lockFileStillLinked(fd int, path string) (bool, error) {
-	var opened syscall.Stat_t
-	if err := syscall.Fstat(fd, &opened); err != nil {
-		return false, err
-	}
-	var current syscall.Stat_t
-	if err := syscall.Stat(path, &current); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
-		}
-		return false, err
-	}
-	return opened.Dev == current.Dev && opened.Ino == current.Ino, nil
+	return journal.Linked(fd, path)
 }
 
 // Generation is the registration generation this lease was acquired for.
@@ -322,8 +313,8 @@ func (l *Lease) Close(cause error) {
 			l.store.logEvent(slog.LevelWarn, "listener.cleanup_failed", eventData{Actor: l.actor, Err: err})
 		}
 	}
-	_ = syscall.Flock(l.fd, syscall.LOCK_UN) // Closing the descriptor also releases the lock.
-	_ = syscall.Close(l.fd)
+	_ = journal.Unlock(l.fd) // Closing the descriptor also releases the lock.
+	_ = journal.CloseLockFile(l.fd)
 	level, event := slog.LevelInfo, "listener.stopped"
 	if !l.confirmed {
 		event = "listener.start_failed"
