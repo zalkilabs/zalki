@@ -126,41 +126,22 @@ func (s Store) readExactMessage(r messageRead) (Message, error) {
 }
 
 // scanMessages returns up to limit matching messages in display order and
-// whether more remain. On failure it retains the views collected before the error.
+// whether more remain. On failure it retains the views collected before the
+// error, in scan order, and the view is never nil. The cursor is checked before
+// anything is scanned; a record that cannot be read stops the scan.
 func (s Store) scanMessages(r messageRead, limit int) (items []Message, more bool, err error) {
 	items = []Message{}
-	actor := r.query.Actor
-	var cursor *Message
-	if r.query.Cursor != "" {
-		anchor, err := s.message(r.query.Cursor)
-		if err != nil {
-			return items, false, err
-		}
-		if anchor.From != actor && anchor.To != actor {
-			return items, false, fail(CodeUnauthorized, "cursor belongs to another session")
-		}
-		cursor = &anchor
+	cursor, err := s.scanCursor(r.query)
+	if err != nil {
+		return items, false, err
 	}
 	if err := s.eachMessage(func(_ string, item Message, readErr error) error {
 		if readErr != nil {
 			return readErr
 		}
-		if item.From != actor && item.To != actor {
-			return nil
+		if r.matches(item, cursor) {
+			items = append(items, r.view(item, r.history && !r.query.IncludeBody))
 		}
-		if r.query.Sent && item.From != actor {
-			return nil
-		}
-		if r.recipient != "" && item.To != r.recipient {
-			return nil
-		}
-		if !r.history && (item.To != actor || item.TargetGeneration != r.current.Generation || item.AcknowledgedAt != "" || !item.Status.canAcknowledge()) {
-			return nil
-		}
-		if cursor != nil && !messageComesBefore(*cursor, item, r.history) {
-			return nil
-		}
-		items = append(items, r.view(item, r.history && !r.query.IncludeBody))
 		return nil
 	}); err != nil {
 		return items, false, err
@@ -170,6 +151,55 @@ func (s Store) scanMessages(r messageRead, limit int) (items []Message, more boo
 		return items[:limit], true, nil
 	}
 	return items, false, nil
+}
+
+// scanCursor loads the message a page starts after, or nil when there is no
+// cursor. The cursor must be a message the caller sent or received.
+func (s Store) scanCursor(query MessageQuery) (*Message, error) {
+	if query.Cursor == "" {
+		return nil, nil
+	}
+	anchor, err := s.message(query.Cursor)
+	if err != nil {
+		return nil, err
+	}
+	if anchor.From != query.Actor && anchor.To != query.Actor {
+		return nil, fail(CodeUnauthorized, "cursor belongs to another session")
+	}
+	return &anchor, nil
+}
+
+// matches reports whether a record belongs in this read. It checks, in order,
+// that the caller is concerned, that inbox mode only gets open work, and that
+// the record comes after the cursor.
+func (r messageRead) matches(item Message, cursor *Message) bool {
+	if !r.concernsCaller(item) {
+		return false
+	}
+	if !r.history && !r.isOpenInboxWork(item) {
+		return false
+	}
+	return cursor == nil || messageComesBefore(*cursor, item, r.history)
+}
+
+// concernsCaller applies the caller filters: the record is from or to the
+// caller, with Sent it was sent by the caller, and with To it went to that
+// recipient.
+func (r messageRead) concernsCaller(item Message) bool {
+	actor := r.query.Actor
+	if item.From != actor && item.To != actor {
+		return false
+	}
+	if r.query.Sent && item.From != actor {
+		return false
+	}
+	return r.recipient == "" || item.To == r.recipient
+}
+
+// isOpenInboxWork is true for a message to the caller, for the caller's
+// current registration, not yet acknowledged and still acknowledgeable.
+func (r messageRead) isOpenInboxWork(item Message) bool {
+	return item.To == r.query.Actor && item.TargetGeneration == r.current.Generation && item.AcknowledgedAt == "" && item.Status.canAcknowledge()
 }
 
 // bodyPreview produces one display line with a byte cap on UTF-8 boundaries.
