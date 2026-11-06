@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/install"
@@ -18,6 +20,9 @@ const (
 	upgradeSuccess  = "Upgrade successful"
 	configOnlyDone  = "Configuration refreshed"
 	brewUpgradeHint = "brew upgrade --cask " + caskName
+	// brewPipeWaitDelay bounds inherited output-pipe waits after brew exits
+	// or its context is cancelled.
+	brewPipeWaitDelay = 2 * time.Second
 )
 
 // binaryLocation describes how the running binary was installed. Resolved is the
@@ -119,7 +124,7 @@ func runUpgrade(cmd *cobra.Command, opts *commandOptions, f upgradeFlags) error 
 		if err != nil {
 			return err
 		}
-		if err := runBrewUpgrade(brew); err != nil {
+		if err := runBrewUpgrade(cmd.Context(), brew); err != nil {
 			return err
 		}
 		return finishWithNewBinary(cmd, where.Binary)
@@ -168,11 +173,13 @@ func refreshConfiguration(cmd *cobra.Command, opts *commandOptions, binary strin
 	return nil
 }
 
-// Brew output is hidden on success; on failure its tail explains why.
-func runBrewUpgrade(brew string) error {
+// Brew output is hidden on success; on failure its tail explains why. A
+// cancelled context stops brew and fails the upgrade before any handoff.
+func runBrewUpgrade(ctx context.Context, brew string) error {
 	var out bytes.Buffer
-	c := exec.Command(brew, "upgrade", "--cask", caskName)
+	c := exec.CommandContext(ctx, brew, "upgrade", "--cask", caskName)
 	c.Stdout, c.Stderr = &out, &out
+	c.WaitDelay = brewPipeWaitDelay
 	if err := c.Run(); err != nil {
 		detail := strings.TrimSpace(out.String())
 		if len(detail) > 2000 {
