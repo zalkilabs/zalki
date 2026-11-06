@@ -1,11 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 type upgradeFixture struct {
@@ -225,5 +230,88 @@ func TestCaskPrefix(t *testing.T) {
 		if _, ok := caskPrefix(path); ok {
 			t.Fatal("non-cask path recognized", path)
 		}
+	}
+}
+
+// Cancellation stops the immediate brew process and bounds waiting for a
+// descendant that retains its output pipe, without handing off configuration.
+func TestUpgradeCancelStopsBrewBeforeHandoff(t *testing.T) {
+	pidFile := filepath.Join(t.TempDir(), "pipe-holder.pid")
+	t.Setenv("ZALKI_TEST_BREW_PIPE_PID", pidFile)
+	f := newUpgradeFixture(t, `/bin/sh -c 'printf "%s\n" "$$" > "$ZALKI_TEST_BREW_PIPE_PID"; exec /bin/sleep 30' &
+wait "$!"
+`, "echo 'Upgrade successful'\n")
+	before := f.manifestBytes(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd := newRootCommand(f.home)
+	var output, diagnostic bytes.Buffer
+	cmd.SetIn(strings.NewReader(""))
+	cmd.SetOut(&output)
+	cmd.SetErr(&diagnostic)
+	cmd.SetArgs([]string{"upgrade", "--state", f.state})
+	result := make(chan error, 1)
+	finished := false
+	var holder *os.Process
+	t.Cleanup(func() {
+		cancel()
+		if holder != nil {
+			if err := holder.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+				t.Error("kill test pipe holder:", err)
+			}
+			_ = holder.Release()
+		}
+		if !finished {
+			select {
+			case <-result:
+			case <-time.After(5 * time.Second):
+				t.Error("upgrade did not exit during cleanup")
+			}
+		}
+	})
+	go func() { result <- cmd.ExecuteContext(ctx) }()
+	// The child publishes its own PID after starting with the output pipe open.
+	holder = waitForBrewPipeHolder(t, pidFile)
+	cancelled := time.Now()
+	cancel()
+	select {
+	case err := <-result:
+		finished = true
+		if err == nil || !strings.Contains(err.Error(), "configuration was not changed") {
+			t.Fatal("cancelled upgrade did not fail as an upgrade error", err)
+		}
+		if elapsed := time.Since(cancelled); elapsed > 10*time.Second {
+			t.Fatal("cancelled upgrade returned too late", elapsed)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("cancelled upgrade is still waiting for brew")
+	}
+	if output.String() != "" || f.logged(t, f.childLog) != "" || f.manifestBytes(t) != before {
+		t.Fatal("cancelled upgrade handed off or changed configuration", output.String())
+	}
+}
+
+func waitForBrewPipeHolder(t *testing.T, pidFile string) *os.Process {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		data, err := os.ReadFile(pidFile)
+		if err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		if text := strings.TrimSpace(string(data)); text != "" {
+			pid, err := strconv.Atoi(text)
+			if err != nil || pid <= 0 {
+				t.Fatalf("invalid pipe-holder PID %q: %v", text, err)
+			}
+			process, err := os.FindProcess(pid)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return process
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("brew pipe holder never started")
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
