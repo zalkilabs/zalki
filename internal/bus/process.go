@@ -75,6 +75,11 @@ func ownerFrom(adapter AdapterDescriptor, pid int, read func(int) (processInfo, 
 	return nil
 }
 
+// rememberOwner keeps the recorded owner process and hook build of a session up
+// to date. Under the journal lock it does this, in this order: load the session
+// (a missing one is not an error), update the owner if the session is not
+// retired or this is a refresh, always update the hook build, and save only if
+// something changed.
 func (s Store) rememberOwner(id, kind string, refresh bool) error {
 	return s.locked(func() error {
 		v, err := s.session(id)
@@ -86,21 +91,7 @@ func (s Store) rememberOwner(id, kind string, refresh bool) error {
 		}
 		changed := false
 		if !v.Retired || refresh {
-			if !s.tracksOwnProcess(kind) {
-				// A shared helper or daemon is not this session. Drop one that
-				// an older build recorded.
-				if refresh && v.Owner != nil {
-					v.Owner, changed = nil, true
-				}
-			} else if v.Owner == nil || refresh {
-				if owner := s.nativeOwner(kind); owner != nil {
-					v.Owner, changed = owner, true
-				} else if refresh && processLiveness(v.Owner) == LivenessExited {
-					// A trusted new prompt proves resumed activity even when the
-					// OS cannot supply a replacement owner fingerprint.
-					v.Owner, changed = nil, true
-				}
-			}
+			changed = s.updateOwner(&v, kind, refresh)
 		}
 		build := currentExecutable.loadedBuild
 		if v.HookBuild != build {
@@ -111,4 +102,33 @@ func (s Store) rememberOwner(id, kind string, refresh bool) error {
 		}
 		return nil
 	})
+}
+
+// updateOwner decides the owner of a session and reports whether it changed v.
+// A shared helper or daemon is not this session, so an adapter that does not
+// track its own process never gets an owner, and a refresh drops one that an
+// older build recorded. Otherwise an owner is looked up when there is none or
+// on refresh: a found one is recorded, and if none is found a refresh drops a
+// recorded owner that has exited. A trusted new prompt proves resumed activity
+// even when the OS cannot supply a replacement owner fingerprint.
+func (s Store) updateOwner(v *Session, kind string, refresh bool) bool {
+	if !s.tracksOwnProcess(kind) {
+		if refresh && v.Owner != nil {
+			v.Owner = nil
+			return true
+		}
+		return false
+	}
+	if v.Owner != nil && !refresh {
+		return false
+	}
+	if owner := s.nativeOwner(kind); owner != nil {
+		v.Owner = owner
+		return true
+	}
+	if refresh && processLiveness(v.Owner) == LivenessExited {
+		v.Owner = nil
+		return true
+	}
+	return false
 }
