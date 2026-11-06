@@ -1,6 +1,8 @@
 package journal
 
 import (
+	"errors"
+	"os"
 	"syscall"
 )
 
@@ -39,4 +41,23 @@ func Unlock(fd int) error {
 // It does not explicitly unlock first or hide an already-closed descriptor.
 func CloseLockFile(fd int) error {
 	return syscall.Close(fd)
+}
+
+// Linked reports whether path names the device and inode referenced by fd.
+// A missing path reports false without error; other syscall errors pass through
+// unchanged. It follows path's final symbolic link, matching syscall.Stat.
+// The caller owns synchronization and decides whether to retry a changed path.
+func Linked(fd int, path string) (bool, error) {
+	var opened syscall.Stat_t
+	if err := syscall.Fstat(fd, &opened); err != nil {
+		return false, err
+	}
+	var current syscall.Stat_t
+	if err := syscall.Stat(path, &current); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return opened.Dev == current.Dev && opened.Ino == current.Ino, nil
 }
