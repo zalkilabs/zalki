@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/fsutil"
+	"github.com/zalkilabs/zalki/internal/journal"
 )
 
 type replyTransaction struct {
@@ -82,7 +82,7 @@ func (s Store) prepareReply(request ReplyRequest) (msg Message, target Session, 
 		if err := privateDir(dir); err != nil {
 			return err
 		}
-		if err := fsutil.SyncDir(s.Dir); err != nil {
+		if err := journal.SyncDir(s.Dir); err != nil {
 			return err
 		}
 		path := filepath.Join(dir, msg.ID+".json")
@@ -177,5 +177,5 @@ func (s Store) applyReplyTransaction(path string, tx replyTransaction) error {
 	if err := os.Remove(path); err != nil {
 		return err
 	}
-	return fsutil.SyncDir(filepath.Dir(path))
+	return journal.SyncDir(filepath.Dir(path))
 }

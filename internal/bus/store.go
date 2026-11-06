@@ -62,15 +62,15 @@ func (s Store) lockedMode(fn func() error, readOnly bool) error {
 			return err
 		}
 	}
-	fd, err := syscall.Open(filepath.Join(s.Dir, "lock"), syscall.O_CREAT|syscall.O_RDWR|syscall.O_NOFOLLOW, 0600)
+	fd, err := journal.OpenLockFile(filepath.Join(s.Dir, "lock"), true)
 	if err != nil {
 		return err
 	}
-	defer syscall.Close(fd) //nolint:errcheck // Closing also releases the journal lock.
-	if err := syscall.Flock(fd, syscall.LOCK_EX); err != nil {
+	defer journal.CloseLockFile(fd) //nolint:errcheck // Closing also releases the journal lock.
+	if err := journal.LockExclusive(fd, false); err != nil {
 		return err
 	}
-	defer syscall.Flock(fd, syscall.LOCK_UN) //nolint:errcheck // Descriptor close also releases the lock.
+	defer journal.Unlock(fd) //nolint:errcheck // Descriptor close also releases the lock.
 	compatibility := s.CheckWriteCompatibility()
 	if compatibility != nil && !readOnly {
 		return compatibility

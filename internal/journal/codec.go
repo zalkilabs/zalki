@@ -69,3 +69,9 @@ func EncodeJSON(value any, limit int) ([]byte, error) {
 func WriteAtomic(path string, data []byte) error {
 	return fsutil.WriteAtomic(path, data)
 }
+
+// SyncDir syncs the directory at path and returns the filesystem error unchanged.
+// The caller decides which publication or removal requires this durability step.
+func SyncDir(path string) error {
+	return fsutil.SyncDir(path)
+}
