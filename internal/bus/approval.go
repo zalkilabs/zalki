@@ -154,7 +154,9 @@ func (s Store) approvalHolds() (map[string]int, []string, error) {
 
 // reconcileApprovalHolds repairs a count an older build dropped when it rewrote
 // a session. Retired targets are settled, because no later hook will release them.
-// The caller holds the journal lock.
+// The caller holds the journal lock. Decisions are reported in this order:
+// unreadable messages, sessions in scan order, then targets with no session
+// record in ID order. Each decision is reported before a dry run stops.
 func (s Store) reconcileApprovalHolds(dryRun bool, report *PruneReport, retiring map[string]bool) error {
 	counts, unreadable, err := s.approvalHolds()
 	if err != nil {
@@ -173,41 +175,63 @@ func (s Store) reconcileApprovalHolds(dryRun bool, report *PruneReport, retiring
 	}
 	for _, v := range sessions {
 		seen[v.ID] = true
-		count := counts[v.ID]
-		if v.Retired || retiring[v.ID] {
-			if count == 0 && v.ApprovalHeld == 0 {
-				continue
-			}
-			reason := "approval_recounted"
-			if count > 0 {
-				reason = "approval_settled"
-			}
-			report.Sessions = append(report.Sessions, PruneItem{ID: v.ID, Reason: reason})
-			if dryRun {
-				continue
-			}
-			if count > 0 {
-				if err := s.settleReadableApprovalQueue(v.ID, "destination has retired"); err != nil {
-					return err
-				}
-			}
-			if err := s.clearApprovalHeld(v.ID); err != nil {
-				return err
-			}
-			continue
-		}
-		if v.ApprovalHeld == count {
-			continue
-		}
-		report.Sessions = append(report.Sessions, PruneItem{ID: v.ID, Reason: "approval_recounted"})
-		if dryRun {
-			continue
-		}
-		v.ApprovalHeld = count
-		if err := s.saveSession(v); err != nil {
+		if err := s.reconcileSessionHold(v, counts[v.ID], v.Retired || retiring[v.ID], dryRun, report); err != nil {
 			return err
 		}
 	}
+	return s.settleMissingTargets(counts, seen, dryRun, report)
+}
+
+// reconcileSessionHold fixes the approval count of one session. A retired (or
+// about to be retired) session is settled; a live one is recounted.
+func (s Store) reconcileSessionHold(v Session, count int, retired, dryRun bool, report *PruneReport) error {
+	if retired {
+		return s.settleRetiredHold(v, count, dryRun, report)
+	}
+	return s.recountHold(v, count, dryRun, report)
+}
+
+// settleRetiredHold settles the queued approvals of a retired session and
+// clears its count. A session with no queue and no count is left alone. The
+// decision is reported before the dry-run check.
+func (s Store) settleRetiredHold(v Session, count int, dryRun bool, report *PruneReport) error {
+	if count == 0 && v.ApprovalHeld == 0 {
+		return nil
+	}
+	reason := "approval_recounted"
+	if count > 0 {
+		reason = "approval_settled"
+	}
+	report.Sessions = append(report.Sessions, PruneItem{ID: v.ID, Reason: reason})
+	if dryRun {
+		return nil
+	}
+	if count > 0 {
+		if err := s.settleReadableApprovalQueue(v.ID, "destination has retired"); err != nil {
+			return err
+		}
+	}
+	return s.clearApprovalHeld(v.ID)
+}
+
+// recountHold sets the approval count of a live session to the number of
+// messages that are queued for it. The decision is reported before the
+// dry-run check.
+func (s Store) recountHold(v Session, count int, dryRun bool, report *PruneReport) error {
+	if v.ApprovalHeld == count {
+		return nil
+	}
+	report.Sessions = append(report.Sessions, PruneItem{ID: v.ID, Reason: "approval_recounted"})
+	if dryRun {
+		return nil
+	}
+	v.ApprovalHeld = count
+	return s.saveSession(v)
+}
+
+// settleMissingTargets settles the queues of targets that have no session
+// record, in ID order. The decision is reported before the dry-run check.
+func (s Store) settleMissingTargets(counts map[string]int, seen map[string]bool, dryRun bool, report *PruneReport) error {
 	missing := []string{}
 	for id, count := range counts {
 		if !seen[id] && count > 0 {
