@@ -36,6 +36,7 @@ var required = []requiredTest{
 	{"adapters/claude", "TestClaudeCanceledBeforeDialDoesNotSend"},
 	{"bus", "TestLiveSmokeRunnerWithEmulatedClient"},
 	{"bus", "TestProcessFingerprintTracksRealExit"},
+	{"bus", "TestRememberOwnerFindsItsParentInAControlledChild"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {
