@@ -187,7 +187,7 @@ func (s Store) Finish(id string, receipt Receipt) (Message, error) {
 		receipt = *msg.Receipt // Preserve a racing ACK and report only durable state.
 		data := messageEvent(msg)
 		data.ReceiptStatus, data.Code = receipt.Status, receipt.Code
-		data.Err = receipt.cause
+		data.Err = receipt.Cause()
 		level := slog.LevelDebug
 		if msg.Status == StatusNotSent {
 			level = slog.LevelWarn
