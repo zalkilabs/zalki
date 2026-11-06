@@ -50,7 +50,7 @@ func (s Store) logEvent(level slog.Level, event string, data eventData) {
 		attrs = append(attrs, slog.String("hook_event", data.HookEvent))
 	}
 	switch data.HookStage {
-	case "adapter", "decode", "capture", "event", "normalize", "identity", "owner", "handler", "register", "name", "startup", "output", "state":
+	case "adapter", "decode", "capture", "event", "normalize", "identity", "owner", "handler", "watch", "approval", "register", "name", "startup", "output", "state":
 		attrs = append(attrs, slog.String("hook_stage", data.HookStage))
 	}
 	if data.Status.valid() {
@@ -71,7 +71,7 @@ func (s Store) logEvent(level slog.Level, event string, data eventData) {
 	}
 	if code != "" {
 		switch code {
-		case CodeInvalidInput, CodeInvalidIdentity, CodeUnauthorized, CodeConflict, CodeUnavailable, CodeNotFound, CodeUnsupportedSchema, CodeInvalidTransition, CodeInternal:
+		case CodeInvalidInput, CodeInvalidIdentity, CodeUnauthorized, CodeConflict, CodeUnavailable, CodeRateLimited, CodeNotFound, CodeUnsupportedSchema, CodeInvalidTransition, CodeInternal:
 		default:
 			code = CodeInternal
 		}

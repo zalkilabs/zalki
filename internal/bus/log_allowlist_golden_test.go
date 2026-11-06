@@ -25,11 +25,12 @@ import (
 //     kind and a valid UUID, written as kind:lower-case-uuid.
 //  3. agent: kept only if it is a registered adapter kind.
 //  4. hook_event: kept only if it is one of the standard hook events.
-//  5. hook_stage: kept only if it is one of 13 fixed words.
+//  5. hook_stage: kept only if it is one of the 15 fixed hook stages.
 //  6. status, receipt_status, state: kept only if they are valid values.
 //  7. error_kind: the class of Err (never its text); only if Err is set.
 //  8. error_code: Code, or the code of Err when Code is empty; a code outside
-//     the nine known ones is written as "internal" (it does not fall back to Err).
+//     the ten known ones (including rate_limited) is written as "internal"
+//     (it does not fall back to Err).
 //  9. duration_ms: only if the duration is above zero.
 // 10. reused=true: only if Reused is set.
 // A nil logger, or a level the logger does not log, builds and emits nothing.
@@ -174,7 +175,9 @@ func TestLogEventKeepsOnlyValidIdentifiers(t *testing.T) {
 }
 
 func TestLogEventKeepsOnlyKnownAgentsEventsAndStages(t *testing.T) {
-	stages := []string{"adapter", "decode", "capture", "event", "normalize", "identity", "owner", "handler", "register", "name", "startup", "output", "state"}
+	// Fifteen stages: "watch" and "approval" are set by Service.Hook and used to be
+	// dropped from the logs (fixed together with the rate_limited code).
+	stages := []string{"adapter", "decode", "capture", "event", "normalize", "identity", "owner", "handler", "watch", "approval", "register", "name", "startup", "output", "state"}
 	cases := make([]logCase, 0, 8+len(stages))
 	cases = append(cases, []logCase{
 		{"a registered agent is kept", eventData{Agent: "cursor"}, []string{"agent=cursor"}},
@@ -216,15 +219,15 @@ func TestLogEventNeverWritesErrorText(t *testing.T) {
 }
 
 func TestLogEventErrorCodePrecedenceAndAllowlist(t *testing.T) {
-	known := []ErrorCode{CodeInvalidInput, CodeInvalidIdentity, CodeUnauthorized, CodeConflict, CodeUnavailable, CodeNotFound, CodeUnsupportedSchema, CodeInvalidTransition, CodeInternal}
+	known := []ErrorCode{CodeInvalidInput, CodeInvalidIdentity, CodeUnauthorized, CodeConflict, CodeUnavailable, CodeRateLimited, CodeNotFound, CodeUnsupportedSchema, CodeInvalidTransition, CodeInternal}
 	cases := make([]logCase, 0, len(known)+5)
 	for _, code := range known {
 		cases = append(cases, logCase{"the code " + string(code) + " is kept", eventData{Code: code}, []string{"error_code=" + string(code)}})
 	}
 	cases = append(cases,
 		logCase{"an unknown code is written as internal", eventData{Code: "secret-code"}, []string{"error_code=internal"}},
-		// Characterized, not endorsed: a real code is hidden as internal.
-		logCase{"a rate limit is written as internal", eventData{Code: CodeRateLimited}, []string{"error_code=internal"}},
+		// A rate limit used to be written as internal (the code was missing from the list).
+		logCase{"a rate limit is kept", eventData{Code: CodeRateLimited}, []string{"error_code=rate_limited"}},
 		// Two faults at once: Code is looked at first and does not fall back to Err.
 		logCase{"a code set together with an error: the code wins", eventData{Code: CodeUnavailable, Err: fail(CodeConflict, "x")}, []string{"error_kind=other", "error_code=unavailable"}},
 		logCase{"an unknown code with a known error: internal, not the error's code", eventData{Code: "secret-code", Err: fail(CodeConflict, "x")}, []string{"error_kind=other", "error_code=internal"}},
