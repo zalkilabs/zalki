@@ -137,77 +137,120 @@ func validateInstallationPatch(patch map[string]any) error {
 	return nil
 }
 
+// zalkiMCPServer is the name of the one MCP server the installer manages.
+const zalkiMCPServer = "zalki"
+
 func managedMCPName(servers map[string]any) (string, error) {
 	if len(servers) == 1 {
-		if _, ok := servers["zalki"].(map[string]any); ok {
-			return "zalki", nil
+		if _, ok := servers[zalkiMCPServer].(map[string]any); ok {
+			return zalkiMCPServer, nil
 		}
 	}
 	return "", errors.New("invalid recorded MCP entry; expected exactly one zalki server")
 }
 
+// removeConfig takes the entries recorded in patch out of a JSON settings
+// file. It needs a patch that validateInstallationPatch has accepted: every
+// caller reads the patch from an installation record that was validated when
+// it was loaded (see readInstallationManifest), so the shape of patch is not
+// checked again here.
 func removeConfig(before []byte, patch map[string]any) ([]byte, error) {
 	var current map[string]any
 	if err := json.Unmarshal(before, &current); err != nil || current == nil {
 		return nil, errors.New("settings must be a JSON object")
 	}
 	for key, value := range patch {
-		switch key {
-		case "version": // Cursor schema version is shared with unrelated hooks.
-		case "mcpServers":
-			owned, ok := value.(map[string]any)
-			if !ok {
-				return nil, errors.New("invalid recorded MCP entry")
-			}
-			name, err := managedMCPName(owned)
-			if err != nil {
-				return nil, err
-			}
-			servers, ok := current[key].(map[string]any)
-			if current[key] == nil {
-				continue
-			}
-			if !ok {
-				return nil, errors.New("mcpServers is not an object")
-			}
-			if found, exists := servers[name]; exists {
-				if !equalJSON(found, owned[name]) {
-					return nil, fmt.Errorf("managed %s MCP entry was edited; review it before removing or upgrading", name)
-				}
-				delete(servers, name)
-			}
-		case "hooks":
-			hooks, ok := current[key].(map[string]any)
-			if current[key] == nil {
-				continue
-			}
-			if !ok {
-				return nil, errors.New("hooks is not an object")
-			}
-			for event, additions := range value.(map[string]any) {
-				entries, ok := hooks[event].([]any)
-				if hooks[event] == nil {
-					continue
-				}
-				if !ok {
-					return nil, errors.New("hook event is not an array")
-				}
-				kept := []any{}
-				for _, entry := range entries {
-					owned := false
-					for _, addition := range additions.([]any) {
-						owned = owned || equalJSON(entry, addition)
-					}
-					if !owned {
-						kept = append(kept, entry)
-					}
-				}
-				hooks[event] = kept
-			}
-		default:
-			return nil, errors.New("unexpected installation patch key")
+		if err := removePatchKey(current, key, value); err != nil {
+			return nil, err
 		}
 	}
+	return encodeSettings(current)
+}
+
+// removePatchKey removes what one top-level key of a recorded patch added.
+func removePatchKey(current map[string]any, key string, value any) error {
+	switch key {
+	case "version": // Cursor schema version is shared with unrelated hooks.
+		return nil
+	case "mcpServers":
+		return removeManagedMCPServer(current, value.(map[string]any))
+	case "hooks":
+		return removeOwnedHooks(current, value.(map[string]any))
+	default:
+		return errors.New("unexpected installation patch key")
+	}
+}
+
+// removeManagedMCPServer deletes the zalki MCP server unless the user edited it.
+func removeManagedMCPServer(current, owned map[string]any) error {
+	if current["mcpServers"] == nil {
+		return nil
+	}
+	servers, ok := current["mcpServers"].(map[string]any)
+	if !ok {
+		return errors.New("mcpServers is not an object")
+	}
+	found, exists := servers[zalkiMCPServer]
+	if !exists {
+		return nil
+	}
+	if !equalJSON(found, owned[zalkiMCPServer]) {
+		return fmt.Errorf("managed %s MCP entry was edited; review it before removing or upgrading", zalkiMCPServer)
+	}
+	delete(servers, zalkiMCPServer)
+	return nil
+}
+
+// removeOwnedHooks removes the recorded hook entries, event by event, and
+// keeps every entry the user added.
+func removeOwnedHooks(current, owned map[string]any) error {
+	if current["hooks"] == nil {
+		return nil
+	}
+	hooks, ok := current["hooks"].(map[string]any)
+	if !ok {
+		return errors.New("hooks is not an object")
+	}
+	for event, additions := range owned {
+		if err := removeOwnedHookEntries(hooks, event, additions.([]any)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// removeOwnedHookEntries drops the entries of one hook event that equal a
+// recorded addition. An event that is left empty stays as an empty list.
+func removeOwnedHookEntries(hooks map[string]any, event string, additions []any) error {
+	if hooks[event] == nil {
+		return nil
+	}
+	entries, ok := hooks[event].([]any)
+	if !ok {
+		return errors.New("hook event is not an array")
+	}
+	kept := []any{}
+	for _, entry := range entries {
+		if !containsJSON(additions, entry) {
+			kept = append(kept, entry)
+		}
+	}
+	hooks[event] = kept
+	return nil
+}
+
+// containsJSON reports whether list has an item that encodes like wanted.
+func containsJSON(list []any, wanted any) bool {
+	for _, item := range list {
+		if equalJSON(item, wanted) {
+			return true
+		}
+	}
+	return false
+}
+
+// encodeSettings writes a settings object in the format the installer uses.
+func encodeSettings(current map[string]any) ([]byte, error) {
 	data, err := json.MarshalIndent(current, "", "  ")
 	return append(data, '\n'), err
 }
@@ -295,45 +338,71 @@ func mcpNamedTable(data []byte, name string) (map[string]any, error) {
 	return entry, nil
 }
 
+// applyConfigEdits checks and prepares every edit, then writes them in order.
+// If a write fails, it attempts to restore the prefix including the failed edit.
 func applyConfigEdits(edits []configEdit) error {
-	stamp := backupStamp()
-	for i := range edits {
-		e := &edits[i]
-		current, exists, err := configBytes(e.path)
-		if err != nil {
-			return err
-		}
-		if exists != e.existed || !bytes.Equal(current, e.before) {
-			return fmt.Errorf("%s changed during planning; rerun the command", e.path)
-		}
-		if err := os.MkdirAll(filepath.Dir(e.path), 0700); err != nil {
-			return err
-		}
-		if exists {
-			e.backup = e.path + ".zalki-backup-" + stamp
-			if err := fsutil.WriteExclusive(e.backup, e.before); err != nil {
-				return err
-			}
-		}
+	if err := prepareConfigEdits(edits); err != nil {
+		return err
 	}
 	for i, edit := range edits {
-		var err error
-		if edit.remove {
-			err = os.Remove(edit.path)
-		} else {
-			err = fsutil.WriteAtomic(edit.path, edit.after)
-		}
-		if err != nil {
-			var rollback error
-			for _, prior := range edits[:i+1] {
-				if prior.existed {
-					rollback = errors.Join(rollback, fsutil.WriteAtomic(prior.path, prior.before))
-				} else if e := os.Remove(prior.path); e != nil && !errors.Is(e, os.ErrNotExist) {
-					rollback = errors.Join(rollback, e)
-				}
-			}
-			return errors.Join(err, rollback)
+		if err := writeConfigEdit(edit); err != nil {
+			return errors.Join(err, rollbackConfigEdits(edits[:i+1]))
 		}
 	}
 	return nil
+}
+
+// prepareConfigEdits checks and prepares each edit in order, setting its backup
+// path. Earlier directories and backups may remain if a later edit is refused.
+func prepareConfigEdits(edits []configEdit) error {
+	stamp := backupStamp()
+	for i := range edits {
+		if err := prepareConfigEdit(&edits[i], stamp); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// prepareConfigEdit prepares one edit: it checks that the file is unchanged,
+// creates its directory and backs up the existing file.
+func prepareConfigEdit(e *configEdit, stamp string) error {
+	current, exists, err := configBytes(e.path)
+	if err != nil {
+		return err
+	}
+	if exists != e.existed || !bytes.Equal(current, e.before) {
+		return fmt.Errorf("%s changed during planning; rerun the command", e.path)
+	}
+	if err := os.MkdirAll(filepath.Dir(e.path), 0700); err != nil {
+		return err
+	}
+	if exists {
+		e.backup = e.path + ".zalki-backup-" + stamp
+		return fsutil.WriteExclusive(e.backup, e.before)
+	}
+	return nil
+}
+
+// writeConfigEdit removes the file or replaces it with the new content.
+func writeConfigEdit(edit configEdit) error {
+	if edit.remove {
+		return os.Remove(edit.path)
+	}
+	return fsutil.WriteAtomic(edit.path, edit.after)
+}
+
+// rollbackConfigEdits restores the files of the given edits: files that
+// existed get their old content, new files are removed. It returns every
+// error it met, joined.
+func rollbackConfigEdits(edits []configEdit) error {
+	var rollback error
+	for _, prior := range edits {
+		if prior.existed {
+			rollback = errors.Join(rollback, fsutil.WriteAtomic(prior.path, prior.before))
+		} else if e := os.Remove(prior.path); e != nil && !errors.Is(e, os.ErrNotExist) {
+			rollback = errors.Join(rollback, e)
+		}
+	}
+	return rollback
 }

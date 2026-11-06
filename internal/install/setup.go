@@ -60,74 +60,110 @@ func WriteSetup(declare Declare, binary, state, out, home string) error {
 	return fsutil.WriteExclusive(filepath.Join(out, "targets.json"), append(data, '\n'))
 }
 
+// mergeConfig adds the entries of patch to a JSON settings file. It refuses
+// to change entries the user already has in a different form.
 func mergeConfig(existing []byte, patch map[string]any) ([]byte, error) {
-	current := map[string]any{}
-	if len(existing) > 0 {
-		if err := json.Unmarshal(existing, &current); err != nil {
-			return nil, err
-		}
-		if current == nil {
-			return nil, errors.New("settings must be a JSON object")
-		}
+	current, err := decodeSettingsToMerge(existing)
+	if err != nil {
+		return nil, err
 	}
 	for key, value := range patch {
-		switch key {
-		case "version":
-			if old, exists := current[key]; exists && old != float64(1) {
-				return nil, errors.New("unsupported existing Cursor hook schema version")
-			}
-			current[key] = value
-		case "mcpServers":
-			servers, ok := current[key].(map[string]any)
-			if current[key] != nil && !ok {
-				return nil, errors.New("existing mcpServers is not an object")
-			}
-			if servers == nil {
-				servers = map[string]any{}
-			}
-			wanted := value.(map[string]any)["zalki"]
-			if old, exists := servers["zalki"]; exists {
-				a, _ := json.Marshal(old)
-				b, _ := json.Marshal(wanted)
-				if string(a) != string(b) {
-					return nil, errors.New("an existing zalki MCP server differs; review it before replacing")
-				}
-			}
-			servers["zalki"] = wanted
-			current[key] = servers
-		case "hooks":
-			hooks, ok := current[key].(map[string]any)
-			if current[key] != nil && !ok {
-				return nil, errors.New("existing hooks is not an object")
-			}
-			if hooks == nil {
-				hooks = map[string]any{}
-			}
-			for event, addition := range value.(map[string]any) {
-				entries, ok := hooks[event].([]any)
-				if hooks[event] != nil && !ok {
-					return nil, errors.New("existing hook event is not an array")
-				}
-				wanted, _ := json.Marshal(addition.([]any)[0])
-				found := false
-				for _, entry := range entries {
-					encoded, _ := json.Marshal(entry)
-					if string(encoded) == string(wanted) {
-						found = true
-					}
-				}
-				if !found {
-					entries = append(entries, addition.([]any)[0])
-				}
-				hooks[event] = entries
-			}
-			current[key] = hooks
-		default:
-			return nil, errors.New("unexpected settings key")
+		if err := mergePatchKey(current, key, value); err != nil {
+			return nil, err
 		}
 	}
-	data, err := json.MarshalIndent(current, "", "  ")
-	return append(data, '\n'), err
+	return encodeSettings(current)
+}
+
+// decodeSettingsToMerge reads a settings file. An empty file counts as an
+// empty object.
+func decodeSettingsToMerge(existing []byte) (map[string]any, error) {
+	current := map[string]any{}
+	if len(existing) == 0 {
+		return current, nil
+	}
+	if err := json.Unmarshal(existing, &current); err != nil {
+		return nil, err
+	}
+	if current == nil {
+		return nil, errors.New("settings must be a JSON object")
+	}
+	return current, nil
+}
+
+// mergePatchKey merges what one top-level key of a patch adds.
+func mergePatchKey(current map[string]any, key string, value any) error {
+	switch key {
+	case "version":
+		return mergeSchemaVersion(current, value)
+	case "mcpServers":
+		return mergeMCPServer(current, value)
+	case "hooks":
+		return mergeHooks(current, value)
+	default:
+		return errors.New("unexpected settings key")
+	}
+}
+
+// mergeSchemaVersion sets the Cursor hook schema version. It refuses another
+// version that is already there.
+func mergeSchemaVersion(current map[string]any, version any) error {
+	if old, exists := current["version"]; exists && old != float64(1) {
+		return errors.New("unsupported existing Cursor hook schema version")
+	}
+	current["version"] = version
+	return nil
+}
+
+// mergeMCPServer adds the zalki MCP server. It refuses a different server
+// with the same name.
+func mergeMCPServer(current map[string]any, value any) error {
+	servers, ok := current["mcpServers"].(map[string]any)
+	if current["mcpServers"] != nil && !ok {
+		return errors.New("existing mcpServers is not an object")
+	}
+	if servers == nil {
+		servers = map[string]any{}
+	}
+	wanted := value.(map[string]any)[zalkiMCPServer]
+	if old, exists := servers[zalkiMCPServer]; exists && !equalJSON(old, wanted) {
+		return errors.New("an existing zalki MCP server differs; review it before replacing")
+	}
+	servers[zalkiMCPServer] = wanted
+	current["mcpServers"] = servers
+	return nil
+}
+
+// mergeHooks adds the wanted hook of each event next to the hooks the user has.
+func mergeHooks(current map[string]any, value any) error {
+	hooks, ok := current["hooks"].(map[string]any)
+	if current["hooks"] != nil && !ok {
+		return errors.New("existing hooks is not an object")
+	}
+	if hooks == nil {
+		hooks = map[string]any{}
+	}
+	for event, addition := range value.(map[string]any) {
+		if err := mergeHookEvent(hooks, event, addition); err != nil {
+			return err
+		}
+	}
+	current["hooks"] = hooks
+	return nil
+}
+
+// mergeHookEvent appends the wanted entry to one hook event unless it is there.
+func mergeHookEvent(hooks map[string]any, event string, addition any) error {
+	entries, ok := hooks[event].([]any)
+	if hooks[event] != nil && !ok {
+		return errors.New("existing hook event is not an array")
+	}
+	wanted := addition.([]any)[0]
+	if !containsJSON(entries, wanted) {
+		entries = append(entries, wanted)
+	}
+	hooks[event] = entries
+	return nil
 }
 
 type configEdit struct {
