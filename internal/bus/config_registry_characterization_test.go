@@ -39,6 +39,15 @@ func registryOf(t *testing.T, adapters ...bus.Adapter) *bus.Registry {
 	return registry
 }
 
+// registryFor returns a builder that creates the registry in the subtest that
+// uses it, so a setup failure is reported for that subtest.
+func registryFor(adapters ...bus.Adapter) func(*testing.T) *bus.Registry {
+	return func(t *testing.T) *bus.Registry {
+		t.Helper()
+		return registryOf(t, adapters...)
+	}
+}
+
 // summary reduces declarations to comparable literals, so expectations stay
 // independent of the declaration type.
 type summary struct {
@@ -54,6 +63,15 @@ func summarize(files []declared) []summary {
 	return out
 }
 
+// refusalCase is one way a registry must refuse to return configuration.
+type refusalCase struct {
+	name          string
+	registry      func(t *testing.T) *bus.Registry
+	binary, state string
+	wantText      string
+	wantCode      bus.ErrorCode
+}
+
 func TestRegistryConfigurationRefusals(t *testing.T) {
 	const kind = "alpha"
 	good := declared{Path: ".a/one.json", Draft: "a-one.json", JSON: jsonPatch("mcpServers")}
@@ -62,26 +80,20 @@ func TestRegistryConfigurationRefusals(t *testing.T) {
 		change(&file)
 		return file
 	}
-	tests := []struct {
-		name          string
-		registry      func(t *testing.T) *bus.Registry
-		binary, state string
-		wantText      string
-		wantCode      bus.ErrorCode
-	}{
+	fixed := []refusalCase{
 		{"nil registry", func(*testing.T) *bus.Registry { return nil }, "/bin/zalki", "/state",
 			"internal: agent registry is not configured", "internal"},
-		{"relative binary", func(t *testing.T) *bus.Registry { return registryOf(t, declaring(kind, good)) }, "zalki", "/state",
+		{"relative binary", registryFor(declaring(kind, good)), "zalki", "/state",
 			"binary and state paths must be absolute", "internal"},
-		{"relative state", func(t *testing.T) *bus.Registry { return registryOf(t, declaring(kind, good)) }, "/bin/zalki", "state",
+		{"relative state", registryFor(declaring(kind, good)), "/bin/zalki", "state",
 			"binary and state paths must be absolute", "internal"},
-		{"empty binary", func(t *testing.T) *bus.Registry { return registryOf(t, declaring(kind, good)) }, "", "/state",
+		{"empty binary", registryFor(declaring(kind, good)), "", "/state",
 			"binary and state paths must be absolute", "internal"},
-		{"no adapter implements the interface", func(t *testing.T) *bus.Registry { return registryOf(t, nativeAdapter(kind)) }, "/bin/zalki", "/state",
+		{"no adapter implements the interface", registryFor(nativeAdapter(kind)), "/bin/zalki", "/state",
 			"no adapter declares installation configuration", "internal"},
-		{"an adapter that declares nothing", func(t *testing.T) *bus.Registry { return registryOf(t, declaring(kind)) }, "/bin/zalki", "/state",
+		{"an adapter that declares nothing", registryFor(declaring(kind)), "/bin/zalki", "/state",
 			"no adapter declares installation configuration", "internal"},
-		{"empty registry", func(t *testing.T) *bus.Registry { return registryOf(t) }, "/bin/zalki", "/state",
+		{"empty registry", registryFor(), "/bin/zalki", "/state",
 			"no adapter declares installation configuration", "internal"},
 	}
 	unsafe := map[string]declared{
@@ -96,16 +108,6 @@ func TestRegistryConfigurationRefusals(t *testing.T) {
 		"parent draft":           with(func(f *declared) { f.Draft = "../a-one.json" }),
 		"unsafe and ambiguous":   with(func(f *declared) { f.Path = "/abs.json"; f.TOML = "x = 1" }),
 		"unsafe wins over empty": with(func(f *declared) { f.Path = "../x"; f.JSON = map[string]any{} }),
-	}
-	for name, file := range unsafe {
-		tests = append(tests, struct {
-			name          string
-			registry      func(t *testing.T) *bus.Registry
-			binary, state string
-			wantText      string
-			wantCode      bus.ErrorCode
-		}{"unsafe: " + name, func(t *testing.T) *bus.Registry { return registryOf(t, declaring(kind, file)) }, "/bin/zalki", "/state",
-			"alpha declares an unsafe configuration path", "internal"})
 	}
 	const unique = "agent configuration paths and draft names must be unique"
 	other := declared{Path: ".b/two.json", Draft: "b-two.json", JSON: jsonPatch("hooks")}
@@ -125,15 +127,15 @@ func TestRegistryConfigurationRefusals(t *testing.T) {
 		{"uniqueness is checked before the JSON/TOML rule", []bus.Adapter{declaring(kind, good, with(func(f *declared) { f.JSON = nil }))}, unique},
 		{"one bad adapter refuses the whole set", []bus.Adapter{declaring(kind, other), declaring("beta", with(func(f *declared) { f.Path = "../x" }))}, "beta declares an unsafe configuration path"},
 	}
+	tests := make([]refusalCase, 0, len(fixed)+len(unsafe)+len(more))
+	tests = append(tests, fixed...)
+	for name, file := range unsafe {
+		tests = append(tests, refusalCase{"unsafe: " + name, registryFor(declaring(kind, file)), "/bin/zalki", "/state",
+			"alpha declares an unsafe configuration path", "internal"})
+	}
 	for _, test := range more {
 		adapters := test.files
-		tests = append(tests, struct {
-			name          string
-			registry      func(t *testing.T) *bus.Registry
-			binary, state string
-			wantText      string
-			wantCode      bus.ErrorCode
-		}{test.name, func(t *testing.T) *bus.Registry { return registryOf(t, adapters...) }, "/bin/zalki", "/state", test.text, "internal"})
+		tests = append(tests, refusalCase{test.name, registryFor(adapters...), "/bin/zalki", "/state", test.text, "internal"})
 	}
 
 	for _, test := range tests {
