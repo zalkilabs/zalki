@@ -3,21 +3,12 @@ package bus
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"regexp"
-	"strings"
 
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
-
-func UUID(s string) (string, error) {
-	s = strings.ToLower(s)
-	if !uuidPattern.MatchString(s) {
-		return "", fail(CodeInvalidIdentity, "expected an exact session/message UUID")
-	}
-	return s, nil
-}
+// UUID forwards canonical identity validation to model.
+func UUID(s string) (string, error) { return model.UUID(s) }
 
 func newID() string {
 	b := make([]byte, 16)

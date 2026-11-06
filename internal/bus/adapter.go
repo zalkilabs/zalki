@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"regexp"
 	"sort"
 
 	"github.com/zalkilabs/zalki/internal/model"
@@ -84,7 +83,8 @@ type CompatibilityAdapter interface {
 
 type Registry struct{ adapters map[string]Adapter }
 
-var kindPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+// validKind forwards syntax validation without consulting the registry.
+func validKind(kind string) bool { return model.ValidKind(kind) }
 
 func NewRegistry(adapters ...Adapter) (*Registry, error) {
 	r := &Registry{adapters: make(map[string]Adapter, len(adapters))}
@@ -93,7 +93,7 @@ func NewRegistry(adapters ...Adapter) (*Registry, error) {
 			return nil, errors.New("nil agent adapter")
 		}
 		d := adapter.Descriptor()
-		if !kindPattern.MatchString(d.Kind) || !validName(d.Label) {
+		if !validKind(d.Kind) || !validName(d.Label) {
 			return nil, errors.New("invalid agent kind or display label")
 		}
 		if _, exists := r.adapters[d.Kind]; exists {

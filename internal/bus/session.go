@@ -31,7 +31,7 @@ func (s Store) sessionID(kind, id string) (string, error) {
 // Cleanup can inspect the existence of a removed adapter's record safely.
 func (s Store) sessionRecordPath(id string) (string, error) {
 	parts := strings.Split(id, ":")
-	if len(parts) != 2 || !kindPattern.MatchString(parts[0]) {
+	if len(parts) != 2 || !validKind(parts[0]) {
 		return "", fail(CodeInvalidIdentity, "use the complete kind:UUID returned by list_agents")
 	}
 	uuid, err := UUID(parts[1])
