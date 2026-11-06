@@ -190,7 +190,7 @@ Findings:
 
 Known behaviors found by characterization and deliberately left unchanged,
 each open as a separate decision. The installer and reply items are pinned by
-tests merged on main; the prune, flood and hook items are pinned by
+tests merged on main; the prune, flood, hook, read and log items are pinned by
 pending, unmerged characterization work at this checkpoint. Tests
 label them "characterized, not endorsed" so they do not read as promises:
 
@@ -208,6 +208,12 @@ label them "characterized, not endorsed" so they do not read as promises:
 - Replies: a refused reply still acknowledges the parent message.
 - Hooks: for an unreachable approval target, `EmitPending` returns an empty
   context with no error and settles queued approvals.
+- Reads: a malformed message record returns an error together with the views
+  already collected, in scan order before sorting.
+- Logs: `CodeRateLimited` is absent from the event error-code allowlist, so
+  rate-limit errors are logged as `internal`. The existing `exhaustive` finding
+  identifies this behavior. A log-only correction is tracked separately;
+  alias-related warning changes do not demonstrate a behavior fix.
 
 Outstanding architecture work, not yet planned in detail: extracting flood
 admission as a value-in/value-out rule. Its in-memory state currently mutates
