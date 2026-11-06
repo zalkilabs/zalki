@@ -15,6 +15,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Adapter implements the Codex client.
@@ -23,10 +24,14 @@ type Adapter struct{ bus.StandardHooks }
 // New returns the Codex adapter.
 func New() Adapter { return Adapter{} }
 
-func (a Adapter) Configuration(binary string, args []string) []install.ConfigFile {
+// Configuration declares the Codex hook and MCP files. Hook patches use
+// install.HookConfig and install.HookCommand; the MCP declaration uses TOML.
+// Clients may depend on those helpers, but the file specification belongs to
+// the installer, so the result is a model.ConfigDeclaration.
+func (a Adapter) Configuration(binary string, args []string) []model.ConfigDeclaration {
 	command, _ := json.Marshal(binary)
 	arguments, _ := json.Marshal(append(append([]string{}, args...), "mcp"))
-	return []install.ConfigFile{
+	return []model.ConfigDeclaration{
 		{Path: ".codex/hooks.json", ConfigRootEnv: "CODEX_HOME", Draft: "codex-hooks.json", JSON: install.HookConfig(a.Descriptor().Hooks, install.HookCommand(binary, args, "codex"), false)},
 		{Path: ".codex/config.toml", ConfigRootEnv: "CODEX_HOME", Draft: "codex-mcp.toml", TOML: fmt.Sprintf("\n[mcp_servers.zalki]\ncommand = %s\nargs = %s\n", command, arguments)},
 	}

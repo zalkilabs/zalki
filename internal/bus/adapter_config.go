@@ -6,16 +6,17 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/fsutil"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // ConfigurationAdapter declares the client integration files used by installation.
 type ConfigurationAdapter interface {
-	Configuration(string, []string) []install.ConfigFile
+	Configuration(string, []string) []model.ConfigDeclaration
 }
 
 // Configuration returns only paths declared by the registered adapters.
-func (r *Registry) Configuration(binary, state string) ([]install.ConfigFile, error) {
+func (r *Registry) Configuration(binary, state string) ([]model.ConfigDeclaration, error) {
 	if r == nil {
 		return nil, errNoRegistry
 	}
@@ -23,7 +24,7 @@ func (r *Registry) Configuration(binary, state string) ([]install.ConfigFile, er
 		return nil, errors.New("binary and state paths must be absolute")
 	}
 	args := []string{"--state", state}
-	files := []install.ConfigFile{}
+	files := []model.ConfigDeclaration{}
 	paths, drafts := map[string]bool{}, map[string]bool{"targets.json": true}
 	for _, kind := range r.Kinds() {
 		adapter := r.adapters[kind]
@@ -32,7 +33,7 @@ func (r *Registry) Configuration(binary, state string) ([]install.ConfigFile, er
 			continue
 		}
 		for _, file := range configuration.Configuration(binary, append([]string{}, args...)) {
-			if !install.SafePath(file.Path) || !install.SafePath(file.Draft) || filepath.Base(file.Draft) != file.Draft {
+			if !fsutil.SafeRelativePath(file.Path) || !fsutil.SafeRelativePath(file.Draft) || filepath.Base(file.Draft) != file.Draft {
 				return nil, fmt.Errorf("%s declares an unsafe configuration path", kind)
 			}
 			if paths[file.Path] || drafts[file.Draft] {

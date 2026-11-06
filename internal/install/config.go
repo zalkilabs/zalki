@@ -30,11 +30,6 @@ func (file ConfigFile) target(home string) (string, error) {
 	return filepath.Join(root, filepath.Base(file.Path)), nil
 }
 
-// SafePath reports whether path is a clean relative path that stays below its root.
-func SafePath(path string) bool {
-	return path != "" && path != "." && !filepath.IsAbs(path) && filepath.Clean(path) == path && path != ".." && !strings.HasPrefix(path, ".."+string(filepath.Separator))
-}
-
 // HookCommand builds the shell command a client runs for lifecycle hooks.
 func HookCommand(binary string, args []string, kind string) string {
 	parts := append([]string{binary}, args...)

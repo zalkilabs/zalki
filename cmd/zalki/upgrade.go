@@ -155,7 +155,7 @@ func manageConfiguration(opts *commandOptions, binary string, apply bool) (insta
 	if err != nil {
 		return install.Report{}, err
 	}
-	return install.Manage(opts.registry.Configuration, install.Request{
+	return install.Manage(installDeclarations(opts.registry), install.Request{
 		Action: "upgrade", Binary: binary, StateDir: service.Store.Dir, HomeDir: opts.home, Apply: apply,
 	})
 }

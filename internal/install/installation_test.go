@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/install"
 )
@@ -283,5 +282,5 @@ func TestUnsupportedInstallationSchemaDoesNotChangeConfiguration(t *testing.T) {
 
 // declare uses the built-in adapters so these tests cover real client configuration.
 func declare(binary, state string) ([]install.ConfigFile, error) {
-	return adapters.Builtin().Configuration(binary, state)
+	return configDeclare(binary, state)
 }

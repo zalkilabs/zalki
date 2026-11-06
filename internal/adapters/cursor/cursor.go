@@ -13,6 +13,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Adapter implements the Cursor client.
@@ -21,10 +22,14 @@ type Adapter struct{ bus.StandardHooks }
 // New returns the Cursor adapter.
 func New() Adapter { return Adapter{} }
 
-func (a Adapter) Configuration(binary string, args []string) []install.ConfigFile {
+// Configuration declares the Cursor hook and MCP files. The patches are built with
+// the installer's helpers (install.HookConfig, install.HookCommand and
+// install.MCPConfig): clients may depend on those helpers, but not on the
+// installer's file specification, so the result is a model.ConfigDeclaration.
+func (a Adapter) Configuration(binary string, args []string) []model.ConfigDeclaration {
 	hooks := install.HookConfig(a.Descriptor().Hooks, install.HookCommand(binary, args, "cursor"), true)
 	hooks["version"] = 1
-	return []install.ConfigFile{
+	return []model.ConfigDeclaration{
 		{Path: ".cursor/hooks.json", Draft: "cursor-hooks.json", JSON: hooks},
 		{Path: ".cursor/mcp.json", Draft: "cursor-mcp.json", JSON: install.MCPConfig(binary, args, false)},
 	}
