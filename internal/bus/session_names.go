@@ -3,24 +3,16 @@ package bus
 import (
 	"os"
 	"strings"
-	"unicode"
-	"unicode/utf8"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Native titles are labels, not identities or instructions. Reject control
 // characters rather than silently rewriting a name into a different address.
-func validName(name string) bool {
-	return name != "" && strings.TrimSpace(name) == name && len(name) <= 512 && utf8.ValidString(name) &&
-		!strings.ContainsFunc(name, unicode.IsControl)
-}
+func validName(name string) bool { return model.ValidName(name) }
 
 // NativeID returns the client's session ID, including the fallback for legacy records.
-func NativeID(v Session) string {
-	if v.NativeID != "" {
-		return v.NativeID
-	}
-	return strings.TrimPrefix(v.ID, v.Kind+":")
-}
+func NativeID(v Session) string { return model.NativeID(v) }
 
 func (s Store) nativeNames(sessions []Session) {
 	indexes := map[string]map[string]string{}
