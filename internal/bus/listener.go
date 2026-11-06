@@ -10,19 +10,17 @@ import (
 	"syscall"
 
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// ListenerStatus is core's evidence about a registration's native listener.
-type ListenerStatus string
+// ListenerStatus is the compatibility name for model.ListenerStatus.
+type ListenerStatus = model.ListenerStatus
 
 const (
-	ListenerNone    ListenerStatus = "none"
-	ListenerRunning ListenerStatus = "running"
-	// ListenerStale has a lease record whose endpoint or lifetime lock is gone.
-	ListenerStale ListenerStatus = "stale"
-	// ListenerUnleased has a process holding the lifetime lock without a lease,
-	// such as a listener started by a build that predates leases.
-	ListenerUnleased ListenerStatus = "unleased"
+	ListenerNone     = model.ListenerNone
+	ListenerRunning  = model.ListenerRunning
+	ListenerStale    = model.ListenerStale
+	ListenerUnleased = model.ListenerUnleased
 )
 
 // Lease is one process's exclusive ownership of a registration's listener. It

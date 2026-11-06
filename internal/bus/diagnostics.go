@@ -141,7 +141,7 @@ func diagnoseRuntimes(report *DiagnosticReport, runtimes []RuntimeInfo) {
 	if processes, err := namedProcesses("zalki"); err == nil {
 		for _, p := range processes {
 			if p.PID != os.Getpid() && !tracked[p.PID] {
-				report.UntrackedProcesses = append(report.UntrackedProcesses, ProcessRef{p.PID, p.Start, "untracked_zalki"})
+				report.UntrackedProcesses = append(report.UntrackedProcesses, ProcessRef{PID: p.PID, Start: p.Start, Role: "untracked_zalki"})
 				tracked[p.PID] = true
 			}
 		}

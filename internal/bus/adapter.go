@@ -100,7 +100,7 @@ func NewRegistry(adapters ...Adapter) (*Registry, error) {
 			return nil, fmt.Errorf("duplicate agent adapter %q", d.Kind)
 		}
 		capabilities := adapter.ReceiveCapabilities(Session{})
-		if err := capabilities.validate(); err != nil {
+		if err := capabilities.Validate(); err != nil {
 			return nil, fmt.Errorf("%s capabilities: %w", d.Kind, err)
 		}
 		if capabilities.LifecycleHooks != (len(d.Hooks) > 0) {
@@ -147,21 +147,6 @@ func (r *Registry) Kinds() []string {
 }
 
 func (s Store) registry() *Registry { return s.Registry }
-
-func (c ReceiveCapabilities) validate() error {
-	if c.Delivery == "" || (c.Inbox != InboxNative && c.Inbox != InboxJournal) {
-		return errors.New("delivery and inbox mode must be declared")
-	}
-	if c.HookDelivery && c.Inbox != InboxJournal {
-		return errors.New("hook delivery requires a journal inbox")
-	}
-	switch c.BusyDelivery {
-	case DeliveryNextTurn, DeliveryBetweenTools, DeliveryNextHook, DeliveryNotification:
-	default:
-		return errors.New("busy delivery timing must be declared")
-	}
-	return nil
-}
 
 // StandardHooks supplies default lifecycle behavior for adapters that need none of their own.
 type StandardHooks struct{}

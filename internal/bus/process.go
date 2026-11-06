@@ -5,16 +5,13 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // PID alone is insufficient: a later process can reuse it. Start identifies the
 // original OS process; Role distinguishes an interactive client from a backend.
-type ProcessRef struct {
-	PID   int    `json:"pid"`
-	Start string `json:"start"`
-	Role  string `json:"role"`
-}
+type ProcessRef = model.ProcessRef
 
 type processInfo = procwatch.Info
 

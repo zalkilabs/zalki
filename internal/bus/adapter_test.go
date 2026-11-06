@@ -205,7 +205,7 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 			if c.Inbox != test.inbox || c.BusyDelivery != test.timing || c.IdleWake != test.idle || c.RequiresListener != test.listener || c.Experimental != test.experimental {
 				t.Fatalf("unexpected receive profile: %+v", c)
 			}
-			if err := c.validate(); err != nil {
+			if err := c.Validate(); err != nil {
 				t.Fatal(err)
 			}
 		})
