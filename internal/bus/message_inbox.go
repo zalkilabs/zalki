@@ -210,49 +210,82 @@ func inboxView(message Message, current Session, omitBody bool) Message {
 	return message
 }
 
+const (
+	// hookContextMessages is the most messages one hook call puts in the context.
+	hookContextMessages = 5
+	// hookContextBytes is the most bytes one hook call puts in the context.
+	hookContextBytes = 24 * 1024
+)
+
 // EmitPending is called by trusted lifecycle hooks for journal inbox adapters.
+// If saving a message fails part way, the context built so far is returned
+// together with the error.
 func (s Store) EmitPending(actor string) (string, error) {
 	var context strings.Builder
-	err := s.locked(func() error {
-		current, err := s.session(actor)
-		if err != nil {
-			return err
+	err := s.locked(func() error { return s.emitPendingLocked(actor, &context) })
+	return context.String(), err
+}
+
+// emitPendingLocked runs EmitPending under the journal lock. Its order is:
+// load the session, require hook delivery, resolve the approval queue (an
+// unreachable target ends here with no error), read the pending messages,
+// then emit them into out.
+func (s Store) emitPendingLocked(actor string, out *strings.Builder) error {
+	current, err := s.session(actor)
+	if err != nil {
+		return err
+	}
+	if !current.Receive.HookDelivery {
+		return errors.New("this adapter does not support hook delivery")
+	}
+	resolved, err := s.resolveApprovalQueue(current, true)
+	if err != nil || resolved.unreachable {
+		return err
+	}
+	pending, err := s.pendingForHook(actor, current)
+	if err != nil {
+		return err
+	}
+	return s.emitPendingContext(pending, out)
+}
+
+// pendingForHook returns the unacknowledged hook-pending messages sent to actor
+// for the current registration, oldest first. An unreadable record is an error.
+func (s Store) pendingForHook(actor string, current Session) ([]Message, error) {
+	pending := []Message{}
+	if err := s.eachMessage(func(_ string, msg Message, readErr error) error {
+		if readErr != nil {
+			return readErr
 		}
-		if !current.Receive.HookDelivery {
-			return errors.New("this adapter does not support hook delivery")
-		}
-		resolved, err := s.resolveApprovalQueue(current, true)
-		if err != nil || resolved.unreachable {
-			return err
-		}
-		pending := []Message{}
-		if err := s.eachMessage(func(_ string, msg Message, readErr error) error {
-			if readErr != nil {
-				return readErr
-			}
-			if msg.To == actor && msg.TargetGeneration == current.Generation && hookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
-				pending = append(pending, msg)
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-		sort.Slice(pending, func(i, j int) bool { return pending[i].CreatedAt < pending[j].CreatedAt })
-		for i, msg := range pending {
-			body := Envelope(s.withLabel(msg)) + "\n\n"
-			if i >= 5 || context.Len()+len(body) > 24*1024 {
-				break
-			}
-			if err := msg.emitContext(); err != nil {
-				return err
-			}
-			if err := s.saveMessage(msg); err != nil {
-				return err
-			}
-			s.logEvent(slog.LevelInfo, "message.context_emitted", messageEvent(msg))
-			context.WriteString(body)
+		if msg.To == actor && msg.TargetGeneration == current.Generation && hookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
+			pending = append(pending, msg)
 		}
 		return nil
-	})
-	return context.String(), err
+	}); err != nil {
+		return nil, err
+	}
+	sort.Slice(pending, func(i, j int) bool { return pending[i].CreatedAt < pending[j].CreatedAt })
+	return pending, nil
+}
+
+// emitPendingContext marks messages as context-emitted and adds their
+// envelopes to out. It stops, leaving the rest pending, at the first message
+// that is over the count cap or would push out over the byte cap; a smaller
+// later message is not skipped ahead.
+func (s Store) emitPendingContext(pending []Message, out *strings.Builder) error {
+	for i, msg := range pending {
+		body := Envelope(s.withLabel(msg)) + "\n\n"
+		if i >= hookContextMessages || out.Len()+len(body) > hookContextBytes {
+			break
+		}
+		if err := msg.emitContext(); err != nil {
+			return err
+		}
+		if err := s.saveMessage(msg); err != nil {
+			return err
+		}
+		s.logEvent(slog.LevelInfo, "message.context_emitted", messageEvent(msg))
+		out.WriteString(body)
+	}
+	return nil
 }
