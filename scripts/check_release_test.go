@@ -191,11 +191,13 @@ func TestInvalidReleaseCannotPass(t *testing.T) {
 		mutate func(*testing.T, string)
 	}{
 		{"corrupt-archive", func(t *testing.T, dir string) {
+			t.Helper()
 			if err := os.WriteFile(filepath.Join(dir, "zalki_"+fixtureVersion+"_source.tar.gz"), []byte("corrupt"), 0600); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{"missing-source-file", func(t *testing.T, dir string) {
+			t.Helper()
 			files := sourceFiles()
 			delete(files, "zalki-source/go.mod")
 			files["zalki-source/goXmod"] = "not a module file"
@@ -203,12 +205,14 @@ func TestInvalidReleaseCannotPass(t *testing.T) {
 			checksums(t, dir)
 		}},
 		{"missing-completion", func(t *testing.T, dir string) {
+			t.Helper()
 			files := binaryFiles()
 			delete(files, "completions/_zalki")
 			archive(t, filepath.Join(dir, "zalki_"+fixtureVersion+"_darwin_amd64.tar.gz"), files)
 			checksums(t, dir)
 		}},
 		{"missing-checksum-entry", func(t *testing.T, dir string) {
+			t.Helper()
 			path := filepath.Join(dir, "checksums.txt")
 			data, err := os.ReadFile(path)
 			if err != nil {

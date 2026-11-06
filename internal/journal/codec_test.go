@@ -40,8 +40,11 @@ func TestReadJSON(t *testing.T) {
 		check func(t *testing.T, got sample, err error)
 	}{
 		{
-			name:  "decodes a regular file",
-			setup: func(t *testing.T, dir string) string { return writeFile(t, dir, "r.json", `{"name":"a","count":2}`) },
+			name: "decodes a regular file",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				return writeFile(t, dir, "r.json", `{"name":"a","count":2}`)
+			},
 			limit: 1024,
 			check: func(t *testing.T, got sample, err error) {
 				if err != nil || got != (sample{Name: "a", Count: 2}) {
@@ -50,8 +53,11 @@ func TestReadJSON(t *testing.T) {
 			},
 		},
 		{
-			name:  "a file of exactly the limit is accepted",
-			setup: func(t *testing.T, dir string) string { return writeFile(t, dir, "r.json", `{"name":"abc"}`) },
+			name: "a file of exactly the limit is accepted",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				return writeFile(t, dir, "r.json", `{"name":"abc"}`)
+			},
 			limit: len(`{"name":"abc"}`),
 			check: func(t *testing.T, got sample, err error) {
 				if err != nil || got.Name != "abc" {
@@ -60,8 +66,11 @@ func TestReadJSON(t *testing.T) {
 			},
 		},
 		{
-			name:  "one byte over the limit is invalid",
-			setup: func(t *testing.T, dir string) string { return writeFile(t, dir, "r.json", `{"name":"abc"}`) },
+			name: "one byte over the limit is invalid",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				return writeFile(t, dir, "r.json", `{"name":"abc"}`)
+			},
 			limit: len(`{"name":"abc"}`) - 1,
 			check: func(t *testing.T, _ sample, err error) {
 				if !errors.Is(err, journal.ErrInvalidFile) {
@@ -71,7 +80,7 @@ func TestReadJSON(t *testing.T) {
 		},
 		{
 			name:  "a missing file is not-exist",
-			setup: func(t *testing.T, dir string) string { return filepath.Join(dir, "missing.json") },
+			setup: func(_ *testing.T, dir string) string { return filepath.Join(dir, "missing.json") },
 			limit: 1024,
 			check: func(t *testing.T, _ sample, err error) {
 				if !errors.Is(err, os.ErrNotExist) || errors.Is(err, journal.ErrInvalidFile) {
@@ -82,6 +91,7 @@ func TestReadJSON(t *testing.T) {
 		{
 			name: "a directory is invalid",
 			setup: func(t *testing.T, dir string) string {
+				t.Helper()
 				path := filepath.Join(dir, "d.json")
 				if err := os.Mkdir(path, 0700); err != nil {
 					t.Fatal(err)
@@ -98,6 +108,7 @@ func TestReadJSON(t *testing.T) {
 		{
 			name: "a symbolic link is invalid even when its target is fine",
 			setup: func(t *testing.T, dir string) string {
+				t.Helper()
 				target := writeFile(t, dir, "target.json", `{"name":"a"}`)
 				link := filepath.Join(dir, "link.json")
 				if err := os.Symlink(target, link); err != nil {
@@ -113,8 +124,11 @@ func TestReadJSON(t *testing.T) {
 			},
 		},
 		{
-			name:  "malformed JSON reports the decoder's syntax error",
-			setup: func(t *testing.T, dir string) string { return writeFile(t, dir, "r.json", `{"name":`) },
+			name: "malformed JSON reports the decoder's syntax error",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				return writeFile(t, dir, "r.json", `{"name":`)
+			},
 			limit: 1024,
 			check: func(t *testing.T, _ sample, err error) {
 				var syntax *json.SyntaxError
@@ -124,8 +138,11 @@ func TestReadJSON(t *testing.T) {
 			},
 		},
 		{
-			name:  "a value of the wrong type reports the decoder's type error",
-			setup: func(t *testing.T, dir string) string { return writeFile(t, dir, "r.json", `{"name":5}`) },
+			name: "a value of the wrong type reports the decoder's type error",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				return writeFile(t, dir, "r.json", `{"name":5}`)
+			},
 			limit: 1024,
 			check: func(t *testing.T, _ sample, err error) {
 				var typeErr *json.UnmarshalTypeError
@@ -137,6 +154,7 @@ func TestReadJSON(t *testing.T) {
 		{
 			name: "an unreadable file reports a permission error",
 			setup: func(t *testing.T, dir string) string {
+				t.Helper()
 				skipIfRoot(t)
 				path := writeFile(t, dir, "r.json", `{"name":"a"}`)
 				if err := os.Chmod(path, 0); err != nil {

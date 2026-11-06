@@ -31,6 +31,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 			name:     "register and send",
 			prefixes: []string{"state-formats", "messages", "flood", "sessions/alpha"},
 			run: func(t *testing.T, _, _ *fakeAdapter, svc bus.Service, from, to agent) {
+				t.Helper()
 				send(t, svc, from, to)
 			},
 		},
@@ -38,6 +39,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 			name:     "reply",
 			prefixes: []string{"state-formats", "messages"},
 			run: func(t *testing.T, _, _ *fakeAdapter, svc bus.Service, from, to agent) {
+				t.Helper()
 				msg := send(t, svc, from, to)
 				if _, err := svc.Reply(context.Background(), bus.ReplyRequest{Actor: to.ID, Capability: to.Key, MessageID: msg.ID, Body: "yo"}); err != nil {
 					t.Fatal(err)
@@ -48,6 +50,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 			name:     "transport refuses",
 			prefixes: []string{"messages"},
 			run: func(t *testing.T, _, beta *fakeAdapter, svc bus.Service, from, to agent) {
+				t.Helper()
 				beta.script(func(context.Context, bus.Message, bus.Session) bus.Receipt {
 					receipt := bus.NewReceipt(bus.StatusNotSent)
 					receipt.Code, receipt.Error, receipt.Output = bus.CodeUnavailable, "no route", "native output"
@@ -61,6 +64,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 			prefixes: []string{"messages", "sessions/beta"},
 			skip:     []string{".receive."},
 			run: func(t *testing.T, _, _ *fakeAdapter, svc bus.Service, from, to agent) {
+				t.Helper()
 				if err := svc.Store.Update(to.ID, bus.StateApproval, false); err != nil {
 					t.Fatal(err)
 				}
@@ -72,6 +76,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 			prefixes: []string{"sessions/beta"},
 			skip:     []string{".receive."},
 			run: func(t *testing.T, _, _ *fakeAdapter, svc bus.Service, _, to agent) {
+				t.Helper()
 				if err := svc.Store.Update(to.ID, bus.StateRetired, true); err != nil {
 					t.Fatal(err)
 				}
