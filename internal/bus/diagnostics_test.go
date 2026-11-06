@@ -202,3 +202,14 @@ func TestCursorResumedPromptReplacesExitedOwnerEvidence(t *testing.T) {
 		t.Fatalf("actual prompt left stale owner evidence sticky: %+v %v", resumed.Owner, err)
 	}
 }
+
+func TestHookBuildStatus(t *testing.T) {
+	for _, c := range []struct{ hook, disk, want string }{
+		{"", "", "unknown"}, {"a", "", "unknown"}, {"", "a", "unknown"},
+		{"a", "a", "current"}, {"a", "b", "outdated"},
+	} {
+		if got := hookBuildStatus(c.hook, c.disk); got != c.want {
+			t.Errorf("hookBuildStatus(%q, %q) = %q, want %q", c.hook, c.disk, got, c.want)
+		}
+	}
+}

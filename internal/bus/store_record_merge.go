@@ -37,111 +37,134 @@ func mergeRecordValue(previous, next json.RawMessage, typ reflect.Type) (json.Ra
 	}
 	switch typ.Kind() {
 	case reflect.Struct:
-		var oldFields, newFields map[string]json.RawMessage
-		if err := json.Unmarshal(previous, &oldFields); err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(next, &newFields); err != nil {
-			return nil, err
-		}
-		for i := range typ.NumField() {
-			field := typ.Field(i)
-			if !field.IsExported() {
-				continue
-			}
-			name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
-			if name == "-" {
-				continue
-			}
-			if name == "" {
-				name = field.Name
-			}
-			prior := oldFields[name]
-			for key, raw := range oldFields {
-				if strings.EqualFold(key, name) {
-					if prior == nil {
-						prior = raw
-					}
-					delete(oldFields, key)
-				}
-			}
-			if raw, exists := newFields[name]; exists {
-				merged, err := mergeRecordValue(prior, raw, field.Type)
-				if err != nil {
-					return nil, err
-				}
-				newFields[name] = merged
-			}
-		}
-		for name, raw := range newFields {
-			oldFields[name] = raw
-		}
-		return json.Marshal(oldFields)
+		return mergeStruct(previous, next, typ)
 	case reflect.Map:
 		if typ.Key().Kind() != reflect.String {
 			return next, nil
 		}
-		var oldFields, newFields map[string]json.RawMessage
-		if err := json.Unmarshal(previous, &oldFields); err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(next, &newFields); err != nil {
-			return nil, err
-		}
-		// Removed map entries stay removed; only retained entries carry extensions.
-		for key, raw := range newFields {
-			merged, err := mergeRecordValue(oldFields[key], raw, typ.Elem())
-			if err != nil {
-				return nil, err
-			}
-			newFields[key] = merged
-		}
-		return json.Marshal(newFields)
+		return mergeMap(previous, next, typ)
 	case reflect.Slice:
-		// Flood arrivals are identified by UUID, not array position: a sliding
-		// window can remove entries from the front before a later rewrite.
-		elem := typ.Elem()
-		if elem.Kind() != reflect.Struct {
-			return next, nil
-		}
-		id, exists := elem.FieldByName("ID")
-		if !exists || id.Tag.Get("json") != "id" {
-			return next, nil
-		}
-		var oldItems, newItems []json.RawMessage
-		if err := json.Unmarshal(previous, &oldItems); err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(next, &newItems); err != nil {
-			return nil, err
-		}
-		byID := map[string]json.RawMessage{}
-		for _, raw := range oldItems {
-			var key struct {
-				ID string `json:"id"`
-			}
-			if err := json.Unmarshal(raw, &key); err != nil {
-				return nil, err
-			}
-			byID[key.ID] = raw
-		}
-		for i, raw := range newItems {
-			var key struct {
-				ID string `json:"id"`
-			}
-			if err := json.Unmarshal(raw, &key); err != nil {
-				return nil, err
-			}
-			merged, err := mergeRecordValue(byID[key.ID], raw, elem)
-			if err != nil {
-				return nil, err
-			}
-			newItems[i] = merged
-		}
-		return json.Marshal(newItems)
+		return mergeSlice(previous, next, typ)
 	default:
 		return next, nil
 	}
+}
+
+// decodeObjects splits two JSON objects into raw fields, previous first.
+func decodeObjects(previous, next json.RawMessage) (oldFields, newFields map[string]json.RawMessage, err error) {
+	if err := json.Unmarshal(previous, &oldFields); err != nil {
+		return nil, nil, err
+	}
+	if err := json.Unmarshal(next, &newFields); err != nil {
+		return nil, nil, err
+	}
+	return oldFields, newFields, nil
+}
+
+// mergeStruct keeps previous fields the type does not own and merges those it does.
+func mergeStruct(previous, next json.RawMessage, typ reflect.Type) (json.RawMessage, error) {
+	oldFields, newFields, err := decodeObjects(previous, next)
+	if err != nil {
+		return nil, err
+	}
+	for i := range typ.NumField() {
+		field := typ.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
+		if name == "-" {
+			continue
+		}
+		if name == "" {
+			name = field.Name
+		}
+		prior := oldFields[name]
+		for key, raw := range oldFields {
+			if strings.EqualFold(key, name) {
+				if prior == nil {
+					prior = raw
+				}
+				delete(oldFields, key)
+			}
+		}
+		if raw, exists := newFields[name]; exists {
+			merged, err := mergeRecordValue(prior, raw, field.Type)
+			if err != nil {
+				return nil, err
+			}
+			newFields[name] = merged
+		}
+	}
+	for name, raw := range newFields {
+		oldFields[name] = raw
+	}
+	return json.Marshal(oldFields)
+}
+
+// mergeMap removes entries absent from next; only retained entries carry extensions.
+func mergeMap(previous, next json.RawMessage, typ reflect.Type) (json.RawMessage, error) {
+	oldFields, newFields, err := decodeObjects(previous, next)
+	if err != nil {
+		return nil, err
+	}
+	for key, raw := range newFields {
+		merged, err := mergeRecordValue(oldFields[key], raw, typ.Elem())
+		if err != nil {
+			return nil, err
+		}
+		newFields[key] = merged
+	}
+	return json.Marshal(newFields)
+}
+
+// mergeSlice matches array items by "id", not position: a sliding window (flood
+// arrivals) can remove entries from the front before a later rewrite. Slices
+// without struct items that carry an id are replaced whole.
+func mergeSlice(previous, next json.RawMessage, typ reflect.Type) (json.RawMessage, error) {
+	elem := typ.Elem()
+	if elem.Kind() != reflect.Struct {
+		return next, nil
+	}
+	id, exists := elem.FieldByName("ID")
+	if !exists || id.Tag.Get("json") != "id" {
+		return next, nil
+	}
+	var oldItems, newItems []json.RawMessage
+	if err := json.Unmarshal(previous, &oldItems); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(next, &newItems); err != nil {
+		return nil, err
+	}
+	byID := map[string]json.RawMessage{}
+	for _, raw := range oldItems {
+		key, err := itemID(raw)
+		if err != nil {
+			return nil, err
+		}
+		byID[key] = raw
+	}
+	for i, raw := range newItems {
+		key, err := itemID(raw)
+		if err != nil {
+			return nil, err
+		}
+		merged, err := mergeRecordValue(byID[key], raw, elem)
+		if err != nil {
+			return nil, err
+		}
+		newItems[i] = merged
+	}
+	return json.Marshal(newItems)
+}
+
+func itemID(raw json.RawMessage) (string, error) {
+	var key struct {
+		ID string `json:"id"`
+	}
+	err := json.Unmarshal(raw, &key)
+	return key.ID, err
 }
 
 // recordUpdate carries preservation data only for an exceptional first write
@@ -163,14 +186,9 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 	if err != nil {
 		return err
 	}
-	var nextHeader struct {
-		Schema int `json:"schema"`
-	}
-	if err := json.Unmarshal(next, &nextHeader); err != nil {
+	nextSchema, err := checkSchema(next, supported)
+	if err != nil {
 		return err
-	}
-	if nextHeader.Schema < 0 || nextHeader.Schema > supported {
-		return fail(CodeUnsupportedSchema, "unsupported journal schema %d; upgrade zalki", nextHeader.Schema)
 	}
 	var previous json.RawMessage
 	if err := readJSON(path, &previous); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -180,32 +198,13 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 		previous = update.previous
 	}
 	if len(previous) != 0 {
-		var header struct {
-			Schema int `json:"schema"`
-		}
-		if err := json.Unmarshal(previous, &header); err != nil {
+		if _, err := checkSchema(previous, supported); err != nil {
 			return err
 		}
-		if header.Schema < 0 || header.Schema > supported {
-			return fail(CodeUnsupportedSchema, "unsupported journal schema %d; upgrade zalki", header.Schema)
-		}
-	}
-	if len(previous) != 0 && len(update.removed) != 0 {
-		fields := map[string]json.RawMessage{}
-		if err := json.Unmarshal(previous, &fields); err != nil {
-			return err
-		}
-		for key := range fields {
-			for _, name := range update.removed {
-				if strings.EqualFold(key, name) {
-					delete(fields, key)
-					break
-				}
+		if len(update.removed) != 0 {
+			if previous, err = dropFields(previous, update.removed); err != nil {
+				return err
 			}
-		}
-		previous, err = json.Marshal(fields)
-		if err != nil {
-			return err
 		}
 	}
 	raw, err := mergeRecordJSON(previous, value)
@@ -223,7 +222,7 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 		return fail(CodeInvalidIdentity, "record path is outside state directory")
 	}
 	family, _, _ := strings.Cut(relative, string(os.PathSeparator))
-	version := nextHeader.Schema
+	version := nextSchema
 	if version == 0 {
 		version = 1
 	}
@@ -231,6 +230,38 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 		return err
 	}
 	return fsutil.WriteAtomic(path, encoded)
+}
+
+// checkSchema returns the record's schema version and rejects one this build
+// does not support.
+func checkSchema(raw json.RawMessage, supported int) (int, error) {
+	var header struct {
+		Schema int `json:"schema"`
+	}
+	if err := json.Unmarshal(raw, &header); err != nil {
+		return 0, err
+	}
+	if header.Schema < 0 || header.Schema > supported {
+		return 0, fail(CodeUnsupportedSchema, "unsupported journal schema %d; upgrade zalki", header.Schema)
+	}
+	return header.Schema, nil
+}
+
+// dropFields removes obsolete fields, matched case-insensitively, from a record.
+func dropFields(record json.RawMessage, removed []string) (json.RawMessage, error) {
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(record, &fields); err != nil {
+		return nil, err
+	}
+	for key := range fields {
+		for _, name := range removed {
+			if strings.EqualFold(key, name) {
+				delete(fields, key)
+				break
+			}
+		}
+	}
+	return json.Marshal(fields)
 }
 
 // futureRecord is used only to protect cleanup candidates. Corrupt old records
