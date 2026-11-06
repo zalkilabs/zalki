@@ -86,13 +86,13 @@ func (s Store) appendAgentAndHookAttrs(attrs []slog.Attr, data eventData) []slog
 
 // appendStatusAttrs adds status, receipt_status and state, each only if valid.
 func appendStatusAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
-	if data.Status.valid() {
+	if data.Status.Valid() {
 		attrs = append(attrs, slog.String("status", string(data.Status)))
 	}
-	if data.ReceiptStatus.valid() {
+	if data.ReceiptStatus.Valid() {
 		attrs = append(attrs, slog.String("receipt_status", string(data.ReceiptStatus)))
 	}
-	if data.State.valid() {
+	if data.State.Valid() {
 		attrs = append(attrs, slog.String("state", string(data.State)))
 	}
 	return attrs

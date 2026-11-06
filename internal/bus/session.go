@@ -192,7 +192,7 @@ func (s Store) authenticate(id, key string) (Session, error) {
 }
 
 func (s Store) Update(id string, state SessionState, retire bool) error {
-	if !state.valid() || (state == StateRetired) != retire {
+	if !state.Valid() || (state == StateRetired) != retire {
 		return fail(CodeInvalidTransition, "invalid session state/retirement transition")
 	}
 	return s.locked(func() error {

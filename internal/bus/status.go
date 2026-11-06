@@ -1,60 +1,34 @@
 package bus
 
-import (
-	"errors"
-	"fmt"
-	"os"
-)
+import "github.com/zalkilabs/zalki/internal/model"
 
-type DeliveryStatus string
+// DeliveryStatus is the compatibility name for model.DeliveryStatus.
+type DeliveryStatus = model.DeliveryStatus
 
-type SessionState string
+// SessionState is the compatibility name for model.SessionState.
+type SessionState = model.SessionState
 
 const (
-	StateReady    SessionState = "ready"
-	StateBusy     SessionState = "busy"
-	StateApproval SessionState = "approval"
-	StateRetired  SessionState = "retired"
+	StateReady              = model.StateReady
+	StateBusy               = model.StateBusy
+	StateApproval           = model.StateApproval
+	StateRetired            = model.StateRetired
+	StatusAttempting        = model.StatusAttempting
+	StatusSubmitted         = model.StatusSubmitted
+	StatusTransportWritten  = model.StatusTransportWritten
+	StatusPendingActivity   = model.StatusPendingActivity
+	StatusWakeWritten       = model.StatusWakeWritten
+	StatusWakeUncertain     = model.StatusWakeUncertain
+	StatusContextEmitted    = model.StatusContextEmitted
+	StatusNotSent           = model.StatusNotSent
+	StatusApprovalBlocked   = model.StatusApprovalBlocked
+	StatusQueuedForApproval = model.StatusQueuedForApproval
+	StatusCommandFailed     = model.StatusCommandFailed
+	StatusUnknownTimeout    = model.StatusUnknownTimeout
+	StatusUnknownWrite      = model.StatusUnknownWrite
 )
 
-func (s SessionState) valid() bool {
-	return s == StateReady || s == StateBusy || s == StateApproval || s == StateRetired
-}
-
-const (
-	StatusAttempting       DeliveryStatus = "attempting"
-	StatusSubmitted        DeliveryStatus = "submitted"
-	StatusTransportWritten DeliveryStatus = "transport_written"
-	StatusPendingActivity  DeliveryStatus = "pending_next_activity"
-	StatusWakeWritten      DeliveryStatus = "wake_hint_written"
-	StatusWakeUncertain    DeliveryStatus = "wake_hint_uncertain"
-	StatusContextEmitted   DeliveryStatus = "hook_context_emitted"
-	StatusNotSent          DeliveryStatus = "not_sent"
-	StatusApprovalBlocked  DeliveryStatus = "not_sent_pending_approval"
-	// StatusQueuedForApproval is a derived response value, never a valid persisted status.
-	StatusQueuedForApproval DeliveryStatus = "queued_for_approval"
-	StatusCommandFailed     DeliveryStatus = "command_failed"
-	StatusUnknownTimeout    DeliveryStatus = "unknown_after_timeout"
-	StatusUnknownWrite      DeliveryStatus = "unknown_after_write"
-)
-
-func (s DeliveryStatus) valid() bool {
-	switch s {
-	case StatusAttempting, StatusSubmitted, StatusTransportWritten, StatusPendingActivity,
-		StatusWakeWritten, StatusWakeUncertain, StatusContextEmitted, StatusNotSent,
-		StatusApprovalBlocked, StatusCommandFailed, StatusUnknownTimeout, StatusUnknownWrite:
-		return true
-	}
-	return false
-}
-
-func hookPendingStatus(s DeliveryStatus) bool {
-	return s == StatusPendingActivity || s == StatusWakeWritten || s == StatusWakeUncertain
-}
-
-func (s DeliveryStatus) canAcknowledge() bool {
-	return s.valid() && s != StatusNotSent && s != StatusApprovalBlocked && s != StatusCommandFailed
-}
+func hookPendingStatus(s DeliveryStatus) bool { return model.HookPendingStatus(s) }
 
 // Attempts accept delivery receipts; pending states may emit hook context.
 // Emitted context wins a racing wake receipt. Only a held approval may return
@@ -63,7 +37,7 @@ func transition(from, to DeliveryStatus, held bool) (DeliveryStatus, error) {
 	if held && from == StatusApprovalBlocked && (to == StatusAttempting || to == StatusPendingActivity || to == StatusNotSent) {
 		return to, nil
 	}
-	if !to.valid() || to == StatusAttempting {
+	if !to.Valid() || to == StatusAttempting {
 		return from, fail(CodeInvalidTransition, "invalid delivery receipt %q", to)
 	}
 	// Hook context may be emitted while a wake transport is completing.
@@ -145,43 +119,28 @@ func (msg *Message) applyReceipt(receipt Receipt) error {
 	return nil
 }
 
-type ErrorCode string
+// ErrorCode is the compatibility name for model.ErrorCode.
+type ErrorCode = model.ErrorCode
 
 const (
-	CodeInvalidInput      ErrorCode = "invalid_input"
-	CodeInvalidIdentity   ErrorCode = "invalid_identity"
-	CodeUnauthorized      ErrorCode = "unauthorized"
-	CodeConflict          ErrorCode = "conflict"
-	CodeUnavailable       ErrorCode = "unavailable"
-	CodeRateLimited       ErrorCode = "rate_limited"
-	CodeNotFound          ErrorCode = "not_found"
-	CodeUnsupportedSchema ErrorCode = "unsupported_schema"
-	CodeInvalidTransition ErrorCode = "invalid_transition"
-	CodeInternal          ErrorCode = "internal"
+	CodeInvalidInput      = model.CodeInvalidInput
+	CodeInvalidIdentity   = model.CodeInvalidIdentity
+	CodeUnauthorized      = model.CodeUnauthorized
+	CodeConflict          = model.CodeConflict
+	CodeUnavailable       = model.CodeUnavailable
+	CodeRateLimited       = model.CodeRateLimited
+	CodeNotFound          = model.CodeNotFound
+	CodeUnsupportedSchema = model.CodeUnsupportedSchema
+	CodeInvalidTransition = model.CodeInvalidTransition
+	CodeInternal          = model.CodeInternal
 )
 
-type Error struct {
-	Code    ErrorCode
-	Message string
+// Error is the compatibility name for model.Error.
+type Error = model.Error
+
+func fail(code ErrorCode, format string, args ...any) error {
+	return model.NewError(code, format, args...)
 }
 
-func (e *Error) Error() string { return string(e.Code) + ": " + e.Message }
-func fail(code ErrorCode, format string, args ...any) error {
-	return &Error{Code: code, Message: fmt.Sprintf(format, args...)}
-}
-func ErrorCodeOf(err error) ErrorCode {
-	if err == nil {
-		return ""
-	}
-	var coded *Error
-	if errors.As(err, &coded) {
-		return coded.Code
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return CodeNotFound
-	}
-	if errors.Is(err, os.ErrPermission) {
-		return CodeUnauthorized
-	}
-	return CodeInternal
-}
+// ErrorCodeOf forwards error classification to model without changing state.
+func ErrorCodeOf(err error) ErrorCode { return model.ErrorCodeOf(err) }

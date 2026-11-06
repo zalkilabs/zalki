@@ -55,7 +55,7 @@ func TestDeliveryTransitionsPreserveCompletedAndUncertainAttempts(t *testing.T) 
 }
 
 func TestQueuedApprovalViewCannotBePersisted(t *testing.T) {
-	if StatusQueuedForApproval.valid() || StatusQueuedForApproval.canAcknowledge() {
+	if StatusQueuedForApproval.Valid() || StatusQueuedForApproval.CanAcknowledge() {
 		t.Fatal("derived approval view was accepted as a persisted status")
 	}
 	if _, err := transition(StatusAttempting, StatusQueuedForApproval, false); ErrorCodeOf(err) != CodeInvalidTransition {

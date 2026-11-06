@@ -199,7 +199,7 @@ func (r messageRead) concernsCaller(item Message) bool {
 // isOpenInboxWork is true for a message to the caller, for the caller's
 // current registration, not yet acknowledged and still acknowledgeable.
 func (r messageRead) isOpenInboxWork(item Message) bool {
-	return item.To == r.query.Actor && item.TargetGeneration == r.current.Generation && item.AcknowledgedAt == "" && item.Status.canAcknowledge()
+	return item.To == r.query.Actor && item.TargetGeneration == r.current.Generation && item.AcknowledgedAt == "" && item.Status.CanAcknowledge()
 }
 
 // bodyPreview produces one display line with a byte cap on UTF-8 boundaries.
