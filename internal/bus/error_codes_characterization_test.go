@@ -21,37 +21,39 @@ func TestCallerVisibleErrorCodes(t *testing.T) {
 		call func(t *testing.T, store bus.Store, from, to agent) error
 		want bus.ErrorCode
 	}{
-		{"send with another session's capability", func(t *testing.T, store bus.Store, from, to agent) error {
+		{"send with another session's capability", func(_ *testing.T, store bus.Store, from, to agent) error {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: to.Key, To: to.ID, Body: "hi"})
 		}, "unauthorized"},
-		{"send to a session that does not exist", func(t *testing.T, store bus.Store, from, _ agent) error {
+		{"send to a session that does not exist", func(_ *testing.T, store bus.Store, from, _ agent) error {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: missing, Body: "hi"})
 		}, "not_found"},
 		{"send to a retired session", func(t *testing.T, store bus.Store, from, to agent) error {
+			t.Helper()
 			if err := store.Update(to.ID, bus.StateRetired, true); err != nil {
 				t.Fatal(err)
 			}
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "hi"})
 		}, "unavailable"},
-		{"send with an explicit message ID that is not a UUID", func(t *testing.T, store bus.Store, from, to agent) error {
+		{"send with an explicit message ID that is not a UUID", func(_ *testing.T, store bus.Store, from, to agent) error {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, MessageID: "invalid", Body: "hi"})
 		}, "invalid_identity"},
-		{"send an empty body", func(t *testing.T, store bus.Store, from, to agent) error {
+		{"send an empty body", func(_ *testing.T, store bus.Store, from, to agent) error {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID})
 		}, "invalid_input"},
-		{"send a body with NUL", func(t *testing.T, store bus.Store, from, to agent) error {
+		{"send a body with NUL", func(_ *testing.T, store bus.Store, from, to agent) error {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "a\x00b"})
 		}, "invalid_input"},
-		{"send a body over 16 KiB", func(t *testing.T, store bus.Store, from, to agent) error {
+		{"send a body over 16 KiB", func(_ *testing.T, store bus.Store, from, to agent) error {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: strings.Repeat("x", 16*1024+1)})
 		}, "invalid_input"},
-		{"send a body with invalid UTF-8", func(t *testing.T, store bus.Store, from, to agent) error {
+		{"send a body with invalid UTF-8", func(_ *testing.T, store bus.Store, from, to agent) error {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "\xff"})
 		}, "invalid_input"},
-		{"send the sender's own capability", func(t *testing.T, store bus.Store, from, to agent) error {
+		{"send the sender's own capability", func(_ *testing.T, store bus.Store, from, to agent) error {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "key " + from.Key})
 		}, "invalid_input"},
 		{"retry a message ID with a different body", func(t *testing.T, store bus.Store, from, to agent) error {
+			t.Helper()
 			id := newUUID(t)
 			if err := send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, MessageID: id, Body: "one"}); err != nil {
 				t.Fatal(err)
@@ -59,37 +61,40 @@ func TestCallerVisibleErrorCodes(t *testing.T) {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, MessageID: id, Body: "two"})
 		}, "conflict"},
 		{"acknowledge as someone other than the recipient", func(t *testing.T, store bus.Store, from, to agent) error {
+			t.Helper()
 			msg := sendOK(t, store, from, to)
 			_, err := store.Ack(from.ID, from.Key, msg.ID)
 			return err
 		}, "unauthorized"},
-		{"acknowledge a message that does not exist", func(t *testing.T, store bus.Store, _, to agent) error {
+		{"acknowledge a message that does not exist", func(_ *testing.T, store bus.Store, _, to agent) error {
 			_, err := store.Ack(to.ID, to.Key, "11111111-1111-4111-8111-111111111111")
 			return err
 		}, "not_found"},
-		{"acknowledge with a malformed message ID", func(t *testing.T, store bus.Store, _, to agent) error {
+		{"acknowledge with a malformed message ID", func(_ *testing.T, store bus.Store, _, to agent) error {
 			_, err := store.Ack(to.ID, to.Key, "../escape")
 			return err
 		}, "invalid_identity"},
-		{"read messages with the wrong capability", func(t *testing.T, store bus.Store, _, to agent) error {
+		{"read messages with the wrong capability", func(_ *testing.T, store bus.Store, _, to agent) error {
 			_, err := store.Messages(to.ID, "wrong")
 			return err
 		}, "unauthorized"},
-		{"update to retired without retiring", func(t *testing.T, store bus.Store, _, to agent) error {
+		{"update to retired without retiring", func(_ *testing.T, store bus.Store, _, to agent) error {
 			return store.Update(to.ID, bus.StateRetired, false)
 		}, "invalid_transition"},
-		{"update to a live state while retiring", func(t *testing.T, store bus.Store, _, to agent) error {
+		{"update to a live state while retiring", func(_ *testing.T, store bus.Store, _, to agent) error {
 			return store.Update(to.ID, bus.StateBusy, true)
 		}, "invalid_transition"},
 		{"register an unsupported agent kind", func(t *testing.T, store bus.Store, _, _ agent) error {
+			t.Helper()
 			_, _, err := store.Register("unknown", newUUID(t), "/workspace", nil)
 			return err
 		}, "invalid_input"},
-		{"register with a native ID that could forge a record", func(t *testing.T, store bus.Store, _, _ agent) error {
+		{"register with a native ID that could forge a record", func(_ *testing.T, store bus.Store, _, _ agent) error {
 			_, _, err := store.Register("alpha", "id\nforged", "/workspace", nil)
 			return err
 		}, "invalid_identity"},
 		{"use a store without an agent registry", func(t *testing.T, _ bus.Store, _, _ agent) error {
+			t.Helper()
 			_, _, err := bus.Store{Dir: filepath.Join(t.TempDir(), "state")}.Register("alpha", newUUID(t), "/workspace", nil)
 			return err
 		}, "internal"},
