@@ -90,6 +90,14 @@ linters:
     nolintlint:
       require-explanation: true
       require-specific: true
+    # Checkpoint-only settings; these linters remain disabled in make lint.
+    gocyclo:
+      min-complexity: 15
+    gocognit:
+      min-complexity: 20
+    funlen:
+      lines: 80
+      statements: 50
     revive:
       rules:
         - name: error-return

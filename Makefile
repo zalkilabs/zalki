@@ -1,4 +1,4 @@
-.PHONY: build test test-required vet lint fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check
+.PHONY: build test test-required vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check
 
 GORELEASER ?= goreleaser
 GOVULNCHECK ?= govulncheck
@@ -22,6 +22,16 @@ vet:
 
 lint:
 	$(GOLANGCI_LINT) run ./cmd/... ./internal/... ./scripts/...
+
+# Report-only: stricter linters (complexity, function length, API hygiene) used
+# at architecture checkpoints. Findings are informational and do not fail.
+lint-strict:
+	$(GOLANGCI_LINT) run --config .golangci.yml --enable gocyclo,gocognit,funlen,gocritic,unparam,prealloc,misspell,thelper,nilerr,noctx,errname,copyloopvar,perfsprint,unconvert,wastedassign,predeclared,usestdlibvars,nakedret,exhaustive --issues-exit-code 0 ./cmd/... ./internal/... ./scripts/...
+
+# Structural report for architecture checkpoints; fails on a boundary violation.
+arch-metrics:
+	go run ./scripts/arch-metrics
+	$(GOLANGCI_LINT) run --config .golangci.yml --enable-only depguard ./cmd/... ./internal/... ./scripts/...
 
 fmt:
 	gofmt -w cmd internal scripts
