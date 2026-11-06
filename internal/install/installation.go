@@ -102,36 +102,63 @@ func equalJSON(a, b any) bool {
 	return bytes.Equal(x, y)
 }
 
+// validateInstallationPatch checks a patch read from an installation record.
+// An empty patch is refused first. Then each key is checked in map order and
+// the first fault is returned, so a patch with faults in two keys may be refused
+// with either message.
 func validateInstallationPatch(patch map[string]any) error {
 	if len(patch) == 0 {
 		return errors.New("empty installation patch")
 	}
 	for key, value := range patch {
-		switch key {
-		case "version":
-			if value != float64(1) {
-				return errors.New("unsupported recorded hook version")
-			}
-		case "mcpServers":
-			servers, ok := value.(map[string]any)
-			if !ok {
-				return errors.New("invalid recorded MCP entry")
-			}
-			if _, err := managedMCPName(servers); err != nil {
-				return err
-			}
-		case "hooks":
-			hooks, ok := value.(map[string]any)
-			if !ok {
-				return errors.New("invalid recorded hooks")
-			}
-			for _, value := range hooks {
-				if entries, ok := value.([]any); !ok || len(entries) == 0 {
-					return errors.New("invalid recorded hook entries")
-				}
-			}
-		default:
-			return errors.New("unexpected recorded settings key")
+		if err := validatePatchKey(key, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validatePatchKey checks the value of one top-level key of a recorded patch.
+func validatePatchKey(key string, value any) error {
+	switch key {
+	case "version":
+		return validateRecordedVersion(value)
+	case "mcpServers":
+		return validateRecordedMCPServers(value)
+	case "hooks":
+		return validateRecordedHooks(value)
+	default:
+		return errors.New("unexpected recorded settings key")
+	}
+}
+
+// validateRecordedVersion accepts only the hook schema version 1.
+func validateRecordedVersion(value any) error {
+	if value != float64(1) {
+		return errors.New("unsupported recorded hook version")
+	}
+	return nil
+}
+
+// validateRecordedMCPServers accepts an object that holds exactly the zalki server.
+func validateRecordedMCPServers(value any) error {
+	servers, ok := value.(map[string]any)
+	if !ok {
+		return errors.New("invalid recorded MCP entry")
+	}
+	_, err := managedMCPName(servers)
+	return err
+}
+
+// validateRecordedHooks accepts an object whose events are all non-empty lists.
+func validateRecordedHooks(value any) error {
+	hooks, ok := value.(map[string]any)
+	if !ok {
+		return errors.New("invalid recorded hooks")
+	}
+	for _, event := range hooks {
+		if entries, ok := event.([]any); !ok || len(entries) == 0 {
+			return errors.New("invalid recorded hook entries")
 		}
 	}
 	return nil
