@@ -54,7 +54,7 @@ internal/journal      bounded record codec, atomic replace,
                       directory sync, lock primitives            -> fsutil
 internal/procwatch    raw OS process identity and probes,
                       exit sources (kqueue, pidfd)               -> stdlib, x/sys
-internal/adapters/*   built-in clients                           -> agent, model (+ listener port)
+internal/adapters/*   built-in clients                           -> agent, model (+ listener/endpoint ports; install helper exception)
 internal/plugin       out-of-process native adapters             -> agent, model
 event subscription    CLI/application port owned by bus; consumer uses protocol
 internal/install, fsutil, logging   unchanged
@@ -90,7 +90,12 @@ Prerequisites that the first draft skipped:
   concrete `bus.Store` and a `Lease` with private store, key, fd and endpoint
   state. `ConfigurationAdapter` exposes `install.ConfigFile`. Before moving the
   SPI, define a consumer-owned listener port and decide where the configuration
-  DTOs live; prove them on Cursor first.
+  DTOs live; prove them on Cursor first. Native endpoint inspection/checks,
+  identity/envelope helpers, diagnostics and the Codex build-version handshake
+  are additional bus edges that need value ownership or composition injection.
+  Clients also call installer configuration builders and quoting helpers;
+  retain that existing leaf dependency explicitly in the first refactor, or
+  review another extraction before claiming the client import list is closed.
 
 ## Migration
 
@@ -111,8 +116,10 @@ behavior at the boundary being moved. Six mechanical PRs understated the work.
    operations. `bus` keeps transaction and recovery orchestration.
 4. **Listener port and configuration DTOs.** Prove them on Cursor.
 5. **model.** Move each type with its behavior; add explicit bridges for any
-   private state still needed (for example a constructor for `Receipt` with a
-   cause). Pure rules (status machine, flood admission, approval resolution,
+   private state still needed. `Receipt.WithCause` already exists: replace its
+   private-field literal with that setter, add a nonserializing cause accessor
+   for current private reads, and preserve both when moving the type. Pure
+   rules (status machine, flood admission, approval resolution,
    prune decisions) follow as functions over values with file-free table tests.
 6. **agent SPI.** Only after 4 and 5. Add the `depguard` rules in the same PR.
 7. **Trim.** Unexport names that nothing needs, excluding JSON protocol fields
