@@ -81,9 +81,11 @@ Prerequisites that the first draft skipped:
   `journal` supplies bounded codecs, atomic replacement, directory sync and
   lock primitives *beneath* a bus-controlled transaction, with explicit error
   translation. Recovery is never moved before or after the lock to satisfy
-  imports, and the lifetime-lock then journal-lock ordering in `listener.go`
-  is preserved. State-format family lists and domain error classification stay
-  with the domain.
+  imports. Any lifetime-lock acquisition while the journal lock is held must
+  be non-blocking; a `Lease` may take the journal lock while holding its
+  lifetime lock. Preserve that deadlock-avoidance invariant rather than assuming
+  one universal acquisition order (`listener.go`). State-format family lists
+  and domain error classification stay with the domain.
 - **Adapters are not "agent plus model only" yet.** Cursor's `Listen` takes a
   concrete `bus.Store` and a `Lease` with private store, key, fd and endpoint
   state. `ConfigurationAdapter` exposes `install.ConfigFile`. Before moving the
