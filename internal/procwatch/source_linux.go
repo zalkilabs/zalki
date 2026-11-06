@@ -1,6 +1,6 @@
 //go:build linux
 
-package bus
+package procwatch
 
 import (
 	"encoding/binary"
@@ -11,18 +11,18 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// pidfdSource implements exitSource with pidfd (a descriptor that becomes
+// pidfdSource implements Source with pidfd (a descriptor that becomes
 // readable when its process exits) and inotify for directory changes, both
 // multiplexed through one epoll descriptor.
 type pidfdSource struct {
 	epfd, inotify int
 	wakeR, wakeW  int
 	mu            sync.Mutex
-	pidfds        map[int]ProcessRef // pidfd -> ref
-	byKey         map[processKey]int // ref -> pidfd
-	wds           map[int]string     // inotify watch -> path
+	pidfds        map[int]Identity // pidfd -> ref
+	byKey         map[Identity]int // ref -> pidfd
+	wds           map[int]string   // inotify watch -> path
 	paths         map[string]int
-	events        chan exitEvent
+	events        chan Event
 	done          chan struct{}
 	once          sync.Once
 	wg            sync.WaitGroup
@@ -31,20 +31,21 @@ type pidfdSource struct {
 const inotifyMask = unix.IN_CREATE | unix.IN_DELETE | unix.IN_MOVED_FROM | unix.IN_MOVED_TO |
 	unix.IN_CLOSE_WRITE | unix.IN_DELETE_SELF | unix.IN_MOVE_SELF | unix.IN_ONLYDIR | unix.IN_DONT_FOLLOW
 
-func newExitSource() (exitSource, error) {
+// NewSource opens the platform process and directory notification source.
+func NewSource() (Source, error) {
 	// Probe pidfd support first: a kernel before 5.3 gets the sweep alone.
 	probe, err := unix.PidfdOpen(1, 0)
 	if err != nil && errors.Is(err, syscall.ENOSYS) {
-		return nil, errExitSourceUnsupported
+		return nil, ErrUnsupported
 	}
 	if err == nil {
 		_ = unix.Close(probe)
 	}
 	s := &pidfdSource{
-		pidfds: map[int]ProcessRef{}, byKey: map[processKey]int{}, wds: map[int]string{}, paths: map[string]int{},
-		events: make(chan exitEvent, 64), done: make(chan struct{}),
+		pidfds: map[int]Identity{}, byKey: map[Identity]int{}, wds: map[int]string{}, paths: map[string]int{},
+		events: make(chan Event, 64), done: make(chan struct{}),
 	}
-	closeAll := func(err error) (exitSource, error) {
+	closeAll := func(err error) (Source, error) {
 		for _, fd := range []int{s.epfd, s.inotify, s.wakeR, s.wakeW} {
 			if fd > 0 {
 				_ = unix.Close(fd)
@@ -77,30 +78,32 @@ func (s *pidfdSource) epollAdd(fd int) error {
 	return unix.EpollCtl(s.epfd, unix.EPOLL_CTL_ADD, fd, &unix.EpollEvent{Events: unix.EPOLLIN, Fd: int32(fd)}) //nolint:gosec // G115: descriptors are non-negative and small.
 }
 
-func (s *pidfdSource) Events() <-chan exitEvent { return s.events }
+// Events returns the raw notifications produced by this source.
+func (s *pidfdSource) Events() <-chan Event { return s.events }
 
 // emit never blocks the caller; the event is dropped once the source is closed.
-func (s *pidfdSource) emit(ev exitEvent) { go s.send(ev) }
+func (s *pidfdSource) emit(ev Event) { go s.send(ev) }
 
-func (s *pidfdSource) send(ev exitEvent) {
+func (s *pidfdSource) send(ev Event) {
 	select {
 	case s.events <- ev:
 	case <-s.done:
 	}
 }
 
-func (s *pidfdSource) WatchProcess(ref ProcessRef) error {
+// WatchProcess watches one process incarnation without waiting for a consumer.
+func (s *pidfdSource) WatchProcess(ref Identity) error {
 	if ref.PID <= 1 {
 		return errors.New("invalid process id")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.byKey[keyOf(ref)]; ok {
+	if _, ok := s.byKey[ref]; ok {
 		return nil
 	}
 	fd, err := unix.PidfdOpen(ref.PID, 0)
 	if errors.Is(err, syscall.ESRCH) {
-		s.emit(exitEvent{Kind: exitProcess, Process: ref})
+		s.emit(Event{Kind: ProcessExited, Process: ref})
 		return nil
 	}
 	if err != nil {
@@ -108,11 +111,11 @@ func (s *pidfdSource) WatchProcess(ref ProcessRef) error {
 	}
 	// Verify after opening: the pidfd pins the incarnation we check, so a reused
 	// pid is caught here rather than attached to the wrong process.
-	current, err := readProcess(ref.PID)
+	current, err := Read(ref.PID)
 	switch {
 	case processGone(err) || (err == nil && current.Start != ref.Start):
 		_ = unix.Close(fd)
-		s.emit(exitEvent{Kind: exitProcess, Process: ref})
+		s.emit(Event{Kind: ProcessExited, Process: ref})
 		return nil
 	case err != nil:
 		_ = unix.Close(fd)
@@ -122,14 +125,15 @@ func (s *pidfdSource) WatchProcess(ref ProcessRef) error {
 		_ = unix.Close(fd)
 		return err
 	}
-	s.pidfds[fd], s.byKey[keyOf(ref)] = ref, fd
+	s.pidfds[fd], s.byKey[ref] = ref, fd
 	return nil
 }
 
-func (s *pidfdSource) Unwatch(ref ProcessRef) {
+// Unwatch removes the matching process incarnation, if it is watched.
+func (s *pidfdSource) Unwatch(ref Identity) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if fd, ok := s.byKey[keyOf(ref)]; ok {
+	if fd, ok := s.byKey[ref]; ok {
 		s.dropProcess(fd)
 	}
 }
@@ -137,13 +141,14 @@ func (s *pidfdSource) Unwatch(ref ProcessRef) {
 // dropProcess forgets and closes a pidfd. The caller holds s.mu.
 func (s *pidfdSource) dropProcess(fd int) {
 	if ref, ok := s.pidfds[fd]; ok {
-		delete(s.byKey, keyOf(ref))
+		delete(s.byKey, ref)
 		delete(s.pidfds, fd)
 		_ = unix.EpollCtl(s.epfd, unix.EPOLL_CTL_DEL, fd, nil)
 		_ = unix.Close(fd)
 	}
 }
 
+// WatchDir watches direct changes to a directory without following symlinks.
 func (s *pidfdSource) WatchDir(path string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -170,7 +175,7 @@ func (s *pidfdSource) loop() {
 			select {
 			case <-s.done: // closed under us
 			default:
-				s.send(exitEvent{Kind: exitSourceFailed})
+				s.send(Event{Kind: SourceFailed})
 			}
 			return
 		}
@@ -195,7 +200,7 @@ func (s *pidfdSource) procExited(fd int) {
 	}
 	s.mu.Unlock()
 	if ok {
-		s.send(exitEvent{Kind: exitProcess, Process: ref})
+		s.send(Event{Kind: ProcessExited, Process: ref})
 	}
 }
 
@@ -227,10 +232,11 @@ func (s *pidfdSource) drainInotify() {
 		}
 	}
 	if changed {
-		s.send(exitEvent{Kind: exitDirChanged})
+		s.send(Event{Kind: DirectoryChanged})
 	}
 }
 
+// Close stops notifications and releases OS handles; repeated calls are safe.
 func (s *pidfdSource) Close() error {
 	var err error
 	s.once.Do(func() {
@@ -241,7 +247,7 @@ func (s *pidfdSource) Close() error {
 		for fd := range s.pidfds {
 			_ = unix.Close(fd)
 		}
-		s.pidfds, s.byKey, s.wds, s.paths = map[int]ProcessRef{}, map[processKey]int{}, map[int]string{}, map[string]int{}
+		s.pidfds, s.byKey, s.wds, s.paths = map[int]Identity{}, map[Identity]int{}, map[int]string{}, map[string]int{}
 		s.mu.Unlock()
 		for _, fd := range []int{s.inotify, s.wakeR, s.wakeW, s.epfd} {
 			if closeErr := unix.Close(fd); err == nil {

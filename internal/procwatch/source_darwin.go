@@ -1,6 +1,6 @@
 //go:build darwin
 
-package bus
+package procwatch
 
 import (
 	"errors"
@@ -10,16 +10,16 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// kqueueSource implements exitSource with kqueue: EVFILT_PROC/NOTE_EXIT for
+// kqueueSource implements Source with kqueue: EVFILT_PROC/NOTE_EXIT for
 // process exit (it works for any process of the same user, not only children)
 // and EVFILT_VNODE for directory changes.
 type kqueueSource struct {
 	kq     int
 	mu     sync.Mutex
-	procs  map[int]ProcessRef // watched pid -> ref
-	dirs   map[string]int     // path -> open descriptor
+	procs  map[int]Identity // watched pid -> ref
+	dirs   map[string]int   // path -> open descriptor
 	byFD   map[int]string
-	events chan exitEvent
+	events chan Event
 	done   chan struct{}
 	once   sync.Once
 	wg     sync.WaitGroup
@@ -27,7 +27,8 @@ type kqueueSource struct {
 
 const kqueueWake = 0 // identifier of the EVFILT_USER event that stops the loop
 
-func newExitSource() (exitSource, error) {
+// NewSource opens the platform process and directory notification source.
+func NewSource() (Source, error) {
 	kq, err := unix.Kqueue()
 	if err != nil {
 		return nil, err
@@ -39,22 +40,23 @@ func newExitSource() (exitSource, error) {
 		return nil, err
 	}
 	s := &kqueueSource{
-		kq: kq, procs: map[int]ProcessRef{}, dirs: map[string]int{}, byFD: map[int]string{},
-		events: make(chan exitEvent, 64), done: make(chan struct{}),
+		kq: kq, procs: map[int]Identity{}, dirs: map[string]int{}, byFD: map[int]string{},
+		events: make(chan Event, 64), done: make(chan struct{}),
 	}
 	s.wg.Add(1)
 	go s.loop()
 	return s, nil
 }
 
-func (s *kqueueSource) Events() <-chan exitEvent { return s.events }
+// Events returns the raw notifications produced by this source.
+func (s *kqueueSource) Events() <-chan Event { return s.events }
 
 // emit never blocks the caller; the event is dropped once the source is closed.
-func (s *kqueueSource) emit(ev exitEvent) {
+func (s *kqueueSource) emit(ev Event) {
 	go s.send(ev)
 }
 
-func (s *kqueueSource) send(ev exitEvent) {
+func (s *kqueueSource) send(ev Event) {
 	select {
 	case s.events <- ev:
 	case <-s.done:
@@ -83,7 +85,8 @@ func (s *kqueueSource) register(change unix.Kevent_t) error {
 	}
 }
 
-func (s *kqueueSource) WatchProcess(ref ProcessRef) error {
+// WatchProcess watches one process incarnation without waiting for a consumer.
+func (s *kqueueSource) WatchProcess(ref Identity) error {
 	if ref.PID <= 1 {
 		return errors.New("invalid process id")
 	}
@@ -91,30 +94,30 @@ func (s *kqueueSource) WatchProcess(ref ProcessRef) error {
 	defer s.mu.Unlock()
 	if known, ok := s.procs[ref.PID]; ok {
 		if known.Start != ref.Start {
-			s.emit(exitEvent{Kind: exitProcess, Process: ref}) // the pid now belongs to another process
+			s.emit(Event{Kind: ProcessExited, Process: ref}) // the pid now belongs to another process
 		}
 		return nil
 	}
 	add := unix.Kevent_t{Ident: uint64(ref.PID), Filter: unix.EVFILT_PROC, Flags: unix.EV_ADD | unix.EV_ONESHOT, Fflags: unix.NOTE_EXIT}
 	if err := s.register(add); err != nil {
 		if errors.Is(err, syscall.ESRCH) {
-			s.emit(exitEvent{Kind: exitProcess, Process: ref})
+			s.emit(Event{Kind: ProcessExited, Process: ref})
 			return nil
 		}
 		return err
 	}
 	// Verify after registering: the registration pins the incarnation we check.
-	current, err := readProcess(ref.PID)
+	current, err := Read(ref.PID)
 	switch {
 	case processGone(err):
-		s.emit(exitEvent{Kind: exitProcess, Process: ref})
+		s.emit(Event{Kind: ProcessExited, Process: ref})
 		return nil
 	case err != nil:
 		s.deleteProc(ref.PID)
 		return err
 	case current.Start != ref.Start:
 		s.deleteProc(ref.PID)
-		s.emit(exitEvent{Kind: exitProcess, Process: ref})
+		s.emit(Event{Kind: ProcessExited, Process: ref})
 		return nil
 	}
 	s.procs[ref.PID] = ref
@@ -126,7 +129,8 @@ func (s *kqueueSource) deleteProc(pid int) {
 	_ = s.register(del)
 }
 
-func (s *kqueueSource) Unwatch(ref ProcessRef) {
+// Unwatch removes the matching process incarnation, if it is watched.
+func (s *kqueueSource) Unwatch(ref Identity) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if known, ok := s.procs[ref.PID]; ok && known.Start == ref.Start {
@@ -135,6 +139,7 @@ func (s *kqueueSource) Unwatch(ref ProcessRef) {
 	}
 }
 
+// WatchDir watches direct changes to a directory without following symlinks.
 func (s *kqueueSource) WatchDir(path string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -169,7 +174,7 @@ func (s *kqueueSource) loop() {
 			select {
 			case <-s.done: // closed under us
 			default:
-				s.send(exitEvent{Kind: exitSourceFailed})
+				s.send(Event{Kind: SourceFailed})
 			}
 			return
 		}
@@ -194,7 +199,7 @@ func (s *kqueueSource) procExited(pid int) {
 	delete(s.procs, pid)
 	s.mu.Unlock()
 	if ok {
-		s.send(exitEvent{Kind: exitProcess, Process: ref})
+		s.send(Event{Kind: ProcessExited, Process: ref})
 	}
 }
 
@@ -209,9 +214,10 @@ func (s *kqueueSource) dirChanged(fd int, flags uint32) {
 		}
 		s.mu.Unlock()
 	}
-	s.send(exitEvent{Kind: exitDirChanged})
+	s.send(Event{Kind: DirectoryChanged})
 }
 
+// Close stops notifications and releases OS handles; repeated calls are safe.
 func (s *kqueueSource) Close() error {
 	var err error
 	s.once.Do(func() {
@@ -223,7 +229,7 @@ func (s *kqueueSource) Close() error {
 		for fd := range s.byFD {
 			_ = unix.Close(fd)
 		}
-		s.dirs, s.byFD, s.procs = map[string]int{}, map[int]string{}, map[int]ProcessRef{}
+		s.dirs, s.byFD, s.procs = map[string]int{}, map[int]string{}, map[int]Identity{}
 		s.mu.Unlock()
 		if closeErr := unix.Close(s.kq); err == nil {
 			err = closeErr
