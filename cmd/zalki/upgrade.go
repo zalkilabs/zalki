@@ -20,25 +20,25 @@ const (
 	brewUpgradeHint = "brew upgrade --cask " + caskName
 )
 
-// installation describes how the running binary was installed. Resolved is the
+// binaryLocation describes how the running binary was installed. Resolved is the
 // real executable; Binary is the stable path clients are configured with.
-type installation struct {
+type binaryLocation struct {
 	Binary, Resolved string
 }
 
 // Tests replace these to run against disposable fixtures.
 var (
-	locateInstallation = func() (installation, error) {
+	locateInstallation = func() (binaryLocation, error) {
 		binary, err := installationBinary()
 		if err != nil {
-			return installation{}, err
+			return binaryLocation{}, err
 		}
 		executable, err := os.Executable()
 		if err != nil {
-			return installation{}, err
+			return binaryLocation{}, err
 		}
 		resolved, err := filepath.EvalSymlinks(executable)
-		return installation{Binary: binary, Resolved: resolved}, err
+		return binaryLocation{Binary: binary, Resolved: resolved}, err
 	}
 	lookPath = exec.LookPath
 )
@@ -71,8 +71,12 @@ type upgradePreview struct {
 	BinaryUpgrade string `json:"binary_upgrade"`
 }
 
+type upgradeFlags struct {
+	dryRun, configOnly, finish, deprecatedApply bool
+}
+
 func newUpgradeCommand(opts *commandOptions) *cobra.Command {
-	var dryRun, configOnly, finish, deprecatedApply bool
+	var f upgradeFlags
 	cmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade zalki and refresh client integration configuration",
@@ -82,53 +86,53 @@ func newUpgradeCommand(opts *commandOptions) *cobra.Command {
 			"For installs not managed by Homebrew, install the new binary yourself and run " +
 			"`zalki upgrade --config-only`.",
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if dryRun && deprecatedApply {
-				return errors.New("--dry-run and --apply cannot be combined")
-			}
-			if finish {
-				configOnly = true
-			}
-			where, err := locateInstallation()
-			if err != nil {
-				return err
-			}
-			prefix, cask := caskPrefix(where.Resolved)
-			if dryRun {
-				return previewUpgrade(cmd, opts, where.Binary, cask, configOnly)
-			}
-			if !configOnly {
-				if !cask {
-					return errors.New("zalki was not installed with Homebrew, so it cannot upgrade its own binary; " +
-						"install the new version the way you installed this one, then run `zalki upgrade --config-only`")
-				}
-				brew, err := findBrew(prefix)
-				if err != nil {
-					return err
-				}
-				if err := runBrewUpgrade(brew); err != nil {
-					return err
-				}
-				return finishWithNewBinary(cmd, where.Binary)
-			}
-			if err := refreshConfiguration(cmd, opts, where.Binary); err != nil {
-				return err
-			}
-			message := configOnlyDone
-			if finish {
-				message = upgradeSuccess
-			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), message)
-			return err
-		},
+		RunE: func(cmd *cobra.Command, _ []string) error { return runUpgrade(cmd, opts, f) },
 	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview configuration changes without upgrading the binary or editing settings")
-	cmd.Flags().BoolVar(&configOnly, "config-only", false, "refresh configuration for the installed binary without upgrading it")
-	cmd.Flags().BoolVar(&finish, "finish-upgrade", false, "internal: refresh configuration after the binary upgrade")
-	cmd.Flags().BoolVar(&deprecatedApply, "apply", false, "deprecated; upgrade applies by default")
+	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "preview configuration changes without upgrading the binary or editing settings")
+	cmd.Flags().BoolVar(&f.configOnly, "config-only", false, "refresh configuration for the installed binary without upgrading it")
+	cmd.Flags().BoolVar(&f.finish, "finish-upgrade", false, "internal: refresh configuration after the binary upgrade")
+	cmd.Flags().BoolVar(&f.deprecatedApply, "apply", false, "deprecated; upgrade applies by default")
 	_ = cmd.Flags().MarkHidden("finish-upgrade")
 	_ = cmd.Flags().MarkHidden("apply")
 	return cmd
+}
+
+func runUpgrade(cmd *cobra.Command, opts *commandOptions, f upgradeFlags) error {
+	if f.dryRun && f.deprecatedApply {
+		return errors.New("--dry-run and --apply cannot be combined")
+	}
+	configOnly := f.configOnly || f.finish
+	where, err := locateInstallation()
+	if err != nil {
+		return err
+	}
+	prefix, cask := caskPrefix(where.Resolved)
+	if f.dryRun {
+		return previewUpgrade(cmd, opts, where.Binary, cask, configOnly)
+	}
+	if !configOnly {
+		if !cask {
+			return errors.New("zalki was not installed with Homebrew, so it cannot upgrade its own binary; " +
+				"install the new version the way you installed this one, then run `zalki upgrade --config-only`")
+		}
+		brew, err := findBrew(prefix)
+		if err != nil {
+			return err
+		}
+		if err := runBrewUpgrade(brew); err != nil {
+			return err
+		}
+		return finishWithNewBinary(cmd, where.Binary)
+	}
+	if err := refreshConfiguration(cmd, opts, where.Binary); err != nil {
+		return err
+	}
+	message := configOnlyDone
+	if f.finish {
+		message = upgradeSuccess
+	}
+	_, err = fmt.Fprintln(cmd.OutOrStdout(), message)
+	return err
 }
 
 func previewUpgrade(cmd *cobra.Command, opts *commandOptions, binary string, cask, configOnly bool) error {

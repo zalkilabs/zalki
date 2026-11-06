@@ -42,29 +42,7 @@ func newRootCommand(home string) *cobra.Command {
 				return fmt.Errorf("Claude is enabled by default; remove the obsolete --experimental-claude flag")
 			}
 		}
-		path := opts.logFile
-		var stateRoot string
-		if path == "" {
-			path = filepath.Join(opts.state, "logs", "zalki.jsonl")
-			var err error
-			stateRoot, err = filepath.Abs(opts.state)
-			if err != nil {
-				return err
-			}
-		}
-		if path != "-" {
-			var err error
-			path, err = filepath.Abs(path)
-			if err != nil {
-				return err
-			}
-		}
-		logger, err := logging.New(logging.Config{Level: opts.logLevel, File: path, ExistingStateDir: stateRoot}, cmd.ErrOrStderr())
-		if err != nil {
-			return err
-		}
-		opts.logger = logger.With("app", "zalki", "version", bus.BuildVersion(), "pid", os.Getpid(), "component", cmd.Name())
-		return nil
+		return opts.initLogger(cmd)
 	}
 	root.PersistentFlags().StringVar(&opts.state, "state", filepath.Join(home, ".local", "state", "zalki"), "shared private registry directory")
 	// Keep installed preview hooks working until upgrade rewrites their arguments.
@@ -79,7 +57,7 @@ func newRootCommand(home string) *cobra.Command {
 	root.AddCommand(
 		newMCPCommand(opts), newHookCommand(opts), newCursorListenCommand(opts),
 		newSendCommand(opts), newListCommand(opts), newDoctorCommand(opts),
-		newPruneCommand(opts), newSetupCommand(opts, false), newSetupCommand(opts, true),
+		newPruneCommand(opts), newSetupCommand(opts), newInstallCommand(opts),
 		newUpgradeCommand(opts), newUninstallCommand(opts),
 		&cobra.Command{
 			Use: "version", Short: "Print the zalki build version", Args: cobra.NoArgs,
@@ -91,6 +69,34 @@ func newRootCommand(home string) *cobra.Command {
 	)
 	observeCommands(root, opts)
 	return root
+}
+
+// initLogger opens the diagnostic log selected by --log-file and --log-level,
+// defaulting to a private file in the state directory.
+func (opts *commandOptions) initLogger(cmd *cobra.Command) error {
+	path := opts.logFile
+	var stateRoot string
+	if path == "" {
+		path = filepath.Join(opts.state, "logs", "zalki.jsonl")
+		var err error
+		stateRoot, err = filepath.Abs(opts.state)
+		if err != nil {
+			return err
+		}
+	}
+	if path != "-" {
+		var err error
+		path, err = filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+	}
+	logger, err := logging.New(logging.Config{Level: opts.logLevel, File: path, ExistingStateDir: stateRoot}, cmd.ErrOrStderr())
+	if err != nil {
+		return err
+	}
+	opts.logger = logger.With("app", "zalki", "version", bus.BuildVersion(), "pid", os.Getpid(), "component", cmd.Name())
+	return nil
 }
 
 func observeCommands(root *cobra.Command, opts *commandOptions) {
