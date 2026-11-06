@@ -18,6 +18,11 @@ linters:
     - revive
     - nolintlint
     - depguard
+    # No findings in the code today; noctx is checked in the Makefile (see lint).
+    - errname
+    - copyloopvar
+    - predeclared
+    - usestdlibvars
   settings:
     depguard:
       rules:
@@ -90,7 +95,8 @@ linters:
     nolintlint:
       require-explanation: true
       require-specific: true
-    # Checkpoint-only settings; these linters remain disabled in make lint.
+    # Checkpoint-only golangci-lint settings. The separate production
+    # gocognit command in make lint uses its own threshold.
     gocyclo:
       min-complexity: 15
     gocognit:
