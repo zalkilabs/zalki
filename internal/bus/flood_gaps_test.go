@@ -231,7 +231,9 @@ func TestPruneFloodKeepsFutureRecordsAndNonJSONFilesAndListsTheRest(t *testing.T
 	future := "cursor_" + newID() + ".json"
 	write(future, `{"schema":`+jsonNumber(recordSchema+1)+`,"extra":"kept"}`)
 	// The bare name is a valid <kind>_<uuid>; only the missing .json keeps it.
-	notRecords := []string{"cursor_" + newID(), "cursor_" + newID() + ".json.bak", "cursor_" + newID() + ".txt", "README"}
+	// An uppercase UUID is valid input to UUID(), but not a canonical filename.
+	upper := "cursor_" + strings.ToUpper("0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d") + ".json"
+	notRecords := []string{"cursor_" + newID(), "cursor_" + newID() + ".json.bak", "cursor_" + newID() + ".txt", "README", upper}
 	for _, base := range notRecords {
 		write(base, "keep")
 	}
