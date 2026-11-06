@@ -28,14 +28,38 @@ type deliveryLease interface {
 	WakeEmitted(messageID string)
 }
 
+// ListenerHandle is the listener's view of a core-owned lease. The listener uses
+// it from one goroutine; core retains authentication, fencing and journal IO.
+type ListenerHandle interface {
+	// Generation identifies the registration for which this handle was acquired.
+	Generation() string
+	// Arm binds the handle to the inspected endpoint.
+	Arm(*bus.Endpoint) error
+	// Confirm applies adapter state after readiness was announced. Core runs the
+	// policy inside its journal transaction, so the policy must be fast and pure.
+	Confirm(func(bus.SessionView) (json.RawMessage, error)) error
+	// ValidateDelivery checks recipient, generation, pending state and prior ACK.
+	ValidateDelivery(messageID string) (acknowledged bool, err error)
+	// RejectHint records a rejected notification without exposing its contents.
+	RejectHint(error)
+	// WakeEmitted records output written for a validated message.
+	WakeEmitted(messageID string)
+	// Close releases this handle's lease and lifetime lock. It is idempotent.
+	Close(cause error)
+}
+
 var errListenerOutput = errors.New("Cursor listener output failed")
 
 // Listen must be started by the current Cursor model as one native Shell
 // background task with notify_on_output matching "ZALKI_WAKE ". Only Cursor
 // can register that native task; starting this from a hook would not wake a model.
 // It blocks on socket accept and consumes no model turns while there is no mail.
-func Listen(ctx context.Context, store bus.Store, actor, key string, output io.Writer) (resultErr error) {
-	lease, err := store.AcquireListenerLease(actor, key)
+// The caller supplies lease acquisition and endpoint inspection; neither callback
+// changes the listener's lease lifecycle or owns its socket.
+// Acquisition must return a usable handle on success; on error the listener
+// ignores the handle. A failed acquisition owns no listener resources.
+func Listen(ctx context.Context, acquire func(actor, key string) (ListenerHandle, error), inspect func(string) (*bus.Endpoint, error), actor, key string, output io.Writer) (resultErr error) {
+	lease, err := acquire(actor, key)
 	if err != nil {
 		return err
 	}
@@ -59,7 +83,7 @@ func Listen(ctx context.Context, store bus.Store, actor, key string, output io.W
 	if err := os.Chmod(listener.Addr().String(), 0600); err != nil {
 		return err
 	}
-	endpoint, err := bus.InspectEndpoint(listener.Addr().String())
+	endpoint, err := inspect(listener.Addr().String())
 	if err != nil {
 		return err
 	}

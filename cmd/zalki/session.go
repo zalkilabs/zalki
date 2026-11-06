@@ -15,6 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// The composition root binds the core lease to the client-owned port.
+var _ cursor.ListenerHandle = (*bus.Lease)(nil)
+
 func newMCPCommand(opts *commandOptions) *cobra.Command {
 	return &cobra.Command{
 		Use: "mcp", Short: "Serve the zalki MCP tools over stdio", Args: cobra.NoArgs,
@@ -102,7 +105,14 @@ func newCursorListenCommand(opts *commandOptions) *cobra.Command {
 				return err
 			}
 			defer lease.Close() //nolint:errcheck // Stale runtime records can be pruned after shutdown.
-			return cursor.Listen(cmd.Context(), service.Store, actor, key, cmd.OutOrStdout())
+			acquire := func(actor, key string) (cursor.ListenerHandle, error) {
+				lease, err := service.Store.AcquireListenerLease(actor, key)
+				if err != nil {
+					return nil, err
+				}
+				return lease, nil
+			}
+			return cursor.Listen(cmd.Context(), acquire, bus.InspectEndpoint, actor, key, cmd.OutOrStdout())
 		},
 	}
 	cmd.Flags().StringVar(&actor, "actor", os.Getenv("ZALKI_ACTOR"), "your own Cursor actor ID (defaults to ZALKI_ACTOR)")

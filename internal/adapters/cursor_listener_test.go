@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"sync"
 	"syscall"
@@ -13,6 +14,18 @@ import (
 	"github.com/zalkilabs/zalki/internal/adapters/cursor"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
+
+// listenCursorWithStore keeps listener fixtures on the real lease implementation.
+func listenCursorWithStore(ctx context.Context, store bus.Store, actor, key string, output io.Writer) error {
+	acquire := func(actor, key string) (cursor.ListenerHandle, error) {
+		lease, err := store.AcquireListenerLease(actor, key)
+		if err != nil {
+			return nil, err
+		}
+		return lease, nil
+	}
+	return cursor.Listen(ctx, acquire, bus.InspectEndpoint, actor, key, output)
+}
 
 type wakeOutput struct {
 	mu    sync.Mutex
@@ -43,7 +56,7 @@ func TestCursorWakeListenerAndDelivery(t *testing.T) {
 	defer cancel()
 	out := &wakeOutput{ready: make(chan struct{})}
 	done := make(chan error, 1)
-	go func() { done <- cursor.Listen(ctx, store, to.ID, toKey, out) }()
+	go func() { done <- listenCursorWithStore(ctx, store, to.ID, toKey, out) }()
 	select {
 	case err := <-done:
 		if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
@@ -54,7 +67,7 @@ func TestCursorWakeListenerAndDelivery(t *testing.T) {
 		t.Fatal("listener startup timed out")
 	case <-out.ready:
 	}
-	if err := cursor.Listen(ctx, store, to.ID, toKey, &bytes.Buffer{}); err == nil {
+	if err := listenCursorWithStore(ctx, store, to.ID, toKey, &bytes.Buffer{}); err == nil {
 		t.Fatal("allowed duplicate listeners for one conversation")
 	}
 	sessions, err := store.List()

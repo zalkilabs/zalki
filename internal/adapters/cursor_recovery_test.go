@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/adapters/cursor"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -122,7 +121,7 @@ func startRecoveryListener(t *testing.T, store bus.Store, actor, key string) (fu
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	out := &wakeOutput{ready: make(chan struct{})}
 	done := make(chan error, 1)
-	go func() { done <- cursor.Listen(ctx, store, actor, key, out) }()
+	go func() { done <- listenCursorWithStore(ctx, store, actor, key, out) }()
 	select {
 	case err := <-done:
 		cancel()

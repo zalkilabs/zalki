@@ -27,6 +27,18 @@ import (
 // Live smoke composes the real adapter registry from outside package bus.
 // Core tests keep a Codex stub, which cannot execute the native queue.
 
+// listenSmokeCursor keeps the smoke receiver on the real core lease lifecycle.
+func listenSmokeCursor(ctx context.Context, store bus.Store, actor, key string, output io.Writer) error {
+	acquire := func(actor, key string) (cursor.ListenerHandle, error) {
+		lease, err := store.AcquireListenerLease(actor, key)
+		if err != nil {
+			return nil, err
+		}
+		return lease, nil
+	}
+	return cursor.Listen(ctx, acquire, bus.InspectEndpoint, actor, key, output)
+}
+
 type smokeObservation struct {
 	Client     string             `json:"client"`
 	Version    string             `json:"installed_version,omitempty"`
@@ -148,7 +160,7 @@ func TestLiveClients(t *testing.T) {
 	signals := newSmokeSignals()
 	listenerDone := make(chan struct{})
 	var listenerErr error
-	go func() { listenerErr = cursor.Listen(ctx, store, source.ID, key, signals); close(listenerDone) }()
+	go func() { listenerErr = listenSmokeCursor(ctx, store, source.ID, key, signals); close(listenerDone) }()
 	defer func() {
 		cancel()
 		select {

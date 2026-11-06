@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/adapters/cursor"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -75,7 +74,7 @@ func TestCursorReplacementRegistrationFencesARunningListener(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	started := time.Now()
-	if err := cursor.Listen(ctx, store, old.ID, key, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "already has a listener") || time.Since(started) > time.Second {
+	if err := listenCursorWithStore(ctx, store, old.ID, key, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "already has a listener") || time.Since(started) > time.Second {
 		t.Fatal("a second listener was not promptly refused for lifetime lock ownership", err)
 	}
 	report, err := store.Diagnostics()
@@ -351,7 +350,7 @@ func TestCursorRecoveryOutputFailureDoesNotLoop(t *testing.T) {
 	to, _ := registerAdapterSession(t, store, "cursor")
 	service := bus.Service{Store: store}
 	key := recoveryKey(t, cursorHook(t, &service, to.ID, "postToolUse", "", 0))
-	err := cursor.Listen(context.Background(), store, to.ID, key, failedListenerOutput{})
+	err := listenCursorWithStore(context.Background(), store, to.ID, key, failedListenerOutput{})
 	if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
 		t.Skipf("execution sandbox forbids binding a Unix socket: %v", err)
 	}
