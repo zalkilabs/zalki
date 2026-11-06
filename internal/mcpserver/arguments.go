@@ -16,18 +16,14 @@ type argumentAlias struct {
 
 // Run before SDK schema validation so a typo teaches the caller the contract.
 // Normalize declared aliases before validation; all other unknown fields are
-// rejected. Argument values are never echoed.
+// rejected. Built-in alias and field errors omit argument values; validator
+// errors are returned verbatim.
 func argumentHints(definitions []toolSpec) mcp.Middleware {
 	accepted := map[string][]string{}
 	specs := map[string]toolSpec{}
 	for _, definition := range definitions {
-		name := definition.name
-		specs[name] = definition
-		accepted[name] = []string{}
-		for field := range definition.input.Properties {
-			accepted[name] = append(accepted[name], field)
-		}
-		slices.Sort(accepted[name])
+		specs[definition.name] = definition
+		accepted[definition.name] = acceptedFields(definition)
 	}
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, request mcp.Request) (mcp.Result, error) {
@@ -40,25 +36,9 @@ func argumentHints(definitions []toolSpec) mcp.Middleware {
 			if !known || json.Unmarshal(params.Arguments, &arguments) != nil {
 				return next(ctx, method, request)
 			}
-			changed, err := normalizeAliases(definition.aliases, arguments)
-			if err != nil {
-				return argumentError(err), nil
-			}
-			fields := accepted[params.Name]
-			var unknown []string
-			for field := range arguments {
-				if !slices.Contains(fields, field) {
-					unknown = append(unknown, fmt.Sprintf("%q", field))
-				}
-			}
-			if len(unknown) != 0 {
-				slices.Sort(unknown)
-				return argumentError(fmt.Errorf("unknown fields %s; %s accepts %s.%s", strings.Join(unknown, ", "), definition.name, strings.Join(fields, ", "), definition.hint)), nil
-			}
-			if definition.validate != nil {
-				if err := definition.validate(arguments); err != nil {
-					return argumentError(err), nil
-				}
+			changed, refusal := checkToolArguments(definition, accepted[params.Name], arguments)
+			if refusal != nil {
+				return refusal, nil
 			}
 			if changed {
 				params.Arguments, _ = json.Marshal(arguments)
@@ -66,6 +46,49 @@ func argumentHints(definitions []toolSpec) mcp.Middleware {
 			return next(ctx, method, request)
 		}
 	}
+}
+
+// acceptedFields lists the canonical field names of a tool in sorted order.
+func acceptedFields(definition toolSpec) []string {
+	fields := make([]string, 0, len(definition.input.Properties))
+	for field := range definition.input.Properties {
+		fields = append(fields, field)
+	}
+	slices.Sort(fields)
+	return fields
+}
+
+// checkToolArguments runs the argument checks in this order: aliases,
+// unknown fields, then the tool's own validator. It returns the first
+// refusal as a tool error. On success it reports whether an alias was
+// rewritten in arguments.
+func checkToolArguments(definition toolSpec, fields []string, arguments map[string]json.RawMessage) (changed bool, refusal *mcp.CallToolResult) {
+	changed, err := normalizeAliases(definition.aliases, arguments)
+	if err != nil {
+		return false, argumentError(err)
+	}
+	if unknown := unknownFields(arguments, fields); len(unknown) != 0 {
+		return false, argumentError(fmt.Errorf("unknown fields %s; %s accepts %s.%s", strings.Join(unknown, ", "), definition.name, strings.Join(fields, ", "), definition.hint))
+	}
+	if definition.validate != nil {
+		if err := definition.validate(arguments); err != nil {
+			return false, argumentError(err)
+		}
+	}
+	return changed, nil
+}
+
+// unknownFields returns the quoted names of the arguments that are not
+// accepted, sorted.
+func unknownFields(arguments map[string]json.RawMessage, fields []string) []string {
+	var unknown []string
+	for field := range arguments {
+		if !slices.Contains(fields, field) {
+			unknown = append(unknown, fmt.Sprintf("%q", field))
+		}
+	}
+	slices.Sort(unknown)
+	return unknown
 }
 
 func argumentError(err error) *mcp.CallToolResult {
