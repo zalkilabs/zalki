@@ -1,7 +1,6 @@
 package bus
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -9,7 +8,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/zalkilabs/zalki/internal/fsutil"
+	"github.com/zalkilabs/zalki/internal/journal"
 )
 
 type Store struct {
@@ -89,32 +88,17 @@ func (s Store) lockedMode(fn func() error, readOnly bool) error {
 const maxStateFileBytes = 128 * 1024
 
 func readJSON(path string, target any) error {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return err
-	}
-	if !info.Mode().IsRegular() || info.Size() > maxStateFileBytes {
-		return errors.New("invalid state file")
-	}
-	b, err := os.ReadFile(path) //nolint:gosec // G304: path is inside the validated journal directory
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(b, target)
+	return journal.ReadJSON(path, maxStateFileBytes, target)
 }
 
 // encodeStateJSON validates exactly what will reach disk, not the compact
 // input. No writer may publish bytes that readJSON would reject by size.
 func encodeStateJSON(value any) ([]byte, error) {
-	b, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return nil, err
+	b, err := journal.EncodeJSON(value, maxStateFileBytes)
+	if size, ok := err.(*journal.SizeError); ok { //nolint:errorlint // Only the direct limit error is ours; wrapped encoder failures pass through.
+		return nil, fail(CodeInvalidInput, "encoded state record is %d bytes; limit is %d bytes", size.Size, size.Limit)
 	}
-	b = append(b, '\n')
-	if len(b) > maxStateFileBytes {
-		return nil, fail(CodeInvalidInput, "encoded state record is %d bytes; limit is %d bytes", len(b), maxStateFileBytes)
-	}
-	return b, nil
+	return b, err
 }
 
 func writeJSON(path string, value any) error {
@@ -122,5 +106,5 @@ func writeJSON(path string, value any) error {
 	if err != nil {
 		return err
 	}
-	return fsutil.WriteAtomic(path, b)
+	return journal.WriteAtomic(path, b)
 }
