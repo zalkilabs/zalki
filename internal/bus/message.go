@@ -135,13 +135,13 @@ func (s Store) reserveNewMessage(sender Session, request SendRequest, persist bo
 		}
 	}
 	if err := s.consumeFloodQuota(message, time.Now()); err != nil {
-		if moveErr := message.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+		if moveErr := message.SettleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
 			return message, target, false, moveErr
 		}
 		return message, target, false, err
 	}
 	if target.State == StateApproval {
-		if err := message.hold(); err != nil {
+		if err := message.Hold(); err != nil {
 			return message, target, false, err
 		}
 	}
@@ -174,7 +174,7 @@ func (s Store) Finish(id string, receipt Receipt) (Message, error) {
 			return err
 		}
 		candidate := msg
-		if err := candidate.applyReceipt(receipt); err != nil {
+		if err := candidate.ApplyReceipt(receipt); err != nil {
 			return err
 		}
 		if err := s.saveMessage(candidate); err != nil {

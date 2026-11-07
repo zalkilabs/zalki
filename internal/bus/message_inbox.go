@@ -308,7 +308,7 @@ func (s Store) emitPendingContext(pending []Message, out *strings.Builder) error
 		if i >= hookContextMessages || out.Len()+len(body) > hookContextBytes {
 			break
 		}
-		if err := msg.emitContext(); err != nil {
+		if err := msg.EmitContext(); err != nil {
 			return err
 		}
 		if err := s.saveMessage(msg); err != nil {

@@ -40,7 +40,7 @@ func (s Store) holdForApproval(msg *Message) error {
 	if err := s.approvalCapacity(msg.To); err != nil {
 		return err
 	}
-	return msg.hold()
+	return msg.Hold()
 }
 
 // approvalCapacity checks before flood admission without changing message state.
@@ -124,7 +124,7 @@ func (s Store) settleQueued(msg Message, reason string) error {
 	if !current.IsQueuedForApproval() {
 		return nil
 	}
-	if err := current.settleNotSent(CodeUnavailable, reason); err != nil {
+	if err := current.SettleNotSent(CodeUnavailable, reason); err != nil {
 		return err
 	}
 	return s.saveMessage(current)
@@ -331,7 +331,7 @@ func (s Store) releaseReadyApprovals(current Session, queued []Message) ([]Messa
 			}
 			continue
 		}
-		if err := msg.releaseHeld(next); err != nil {
+		if err := msg.ReleaseHeld(next); err != nil {
 			return nil, err
 		}
 		if err := s.saveMessage(msg); err != nil {

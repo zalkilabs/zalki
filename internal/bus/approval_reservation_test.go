@@ -10,7 +10,7 @@ func TestHeldReservationWriteFailureRollsBackTheCount(t *testing.T) {
 	store := fixtureStore(t)
 	target, _ := register(t, store, "cursor")
 	msg := Message{ID: newID(), To: target.ID, Status: StatusAttempting}
-	if err := msg.hold(); err != nil {
+	if err := msg.Hold(); err != nil {
 		t.Fatal(err)
 	}
 	// A directory at the final filename forces atomic rename to fail, even as root.
