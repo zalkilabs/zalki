@@ -15,7 +15,7 @@ func TestContractCaptureExcludesPrivateValues(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	title := "private project title"
 	event := agent.HookInput{Event: "sessionStart", ConversationID: "private native identity", CWD: "/private/workstation/project", WorkspaceRoots: []string{"/private/workstation/project"}, Prompt: "private prompt and credential", SessionTitle: &title}
-	if err := captureHookContract(stubCursorAdapter{}, event); err != nil {
+	if err := captureHookContract(t.Context(), stubCursorAdapter{}, event); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(root, "cursor-unknown.json")
@@ -31,7 +31,7 @@ func TestContractCaptureExcludesPrivateValues(t *testing.T) {
 	if !strings.Contains(string(raw), "/fixture/workspace") || !strings.Contains(string(raw), "conversation_id") {
 		t.Fatal("capture lost the native schema shape")
 	}
-	if err := captureHookContract(stubCursorAdapter{}, event); err != nil {
+	if err := captureHookContract(t.Context(), stubCursorAdapter{}, event); err != nil {
 		t.Fatal("capture should preserve an existing fixture", err)
 	}
 }

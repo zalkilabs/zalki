@@ -45,7 +45,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 	if !ok {
 		return errors.New("this adapter does not support lifecycle hooks")
 	}
-	event, id, err := s.decodeHook(kind, input, adapter, hooks, &trace)
+	event, id, err := s.decodeHook(ctx, kind, input, adapter, hooks, &trace)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 }
 
 // decodeHook captures the native contract before mapping and normalizing it.
-func (s *Service) decodeHook(kind string, input io.Reader, adapter agent.Adapter, hooks agent.HookAdapter, trace *hookTrace) (agent.HookInput, string, error) {
+func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, adapter agent.Adapter, hooks agent.HookAdapter, trace *hookTrace) (agent.HookInput, string, error) {
 	var event agent.HookInput
 	trace.stage = "decode"
 	if err := json.NewDecoder(io.LimitReader(input, 128*1024)).Decode(&event); err != nil {
@@ -102,7 +102,7 @@ func (s *Service) decodeHook(kind string, input io.Reader, adapter agent.Adapter
 		return event, "", err
 	}
 	trace.stage = "capture"
-	if err := captureHookContract(adapter, event); err != nil {
+	if err := captureHookContract(ctx, adapter, event); err != nil {
 		return event, "", err
 	}
 	trace.stage = "event"

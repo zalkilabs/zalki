@@ -73,8 +73,8 @@ func (b *versionBuffer) Write(p []byte) (int, error) {
 
 func execClientPath(name string) (string, error) { return exec.LookPath(name) }
 
-func probeClientVersion(path string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func probeClientVersion(ctx context.Context, path string) string {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, path, "--version")
 	var output versionBuffer
@@ -86,14 +86,14 @@ func probeClientVersion(path string) string {
 	return clientVersionPattern.FindString(output.buffer.String())
 }
 
-func annotateClientCompatibility(diagnostic *AgentDiagnostic) {
+func annotateClientCompatibility(ctx context.Context, diagnostic *AgentDiagnostic) {
 	diagnostic.FixtureVersions = append([]string(nil), clientFixtureVersions[diagnostic.Kind]...)
 	if !diagnostic.Found {
 		diagnostic.Compatibility = "not_installed"
 		diagnostic.RecoveryHint = "Install this client before configuring its integration."
 		return
 	}
-	diagnostic.Version = probeClientVersion(diagnostic.Binary)
+	diagnostic.Version = probeClientVersion(ctx, diagnostic.Binary)
 	if diagnostic.Version == "" {
 		diagnostic.Compatibility = "version_unavailable"
 		diagnostic.RecoveryHint = "Check the client's --version command, then run the opt-in live smoke test."

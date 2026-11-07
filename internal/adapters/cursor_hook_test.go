@@ -87,7 +87,7 @@ func TestCursorStartupUsesNativeHookSchema(t *testing.T) {
 func TestCursorDoctorSuggestsArmingAnUnarmedListener(t *testing.T) {
 	store := adapterTestStore(t)
 	target, _ := registerAdapterSession(t, store, "cursor")
-	report, err := store.Diagnostics()
+	report, err := store.Diagnostics(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestCursorDoctorReportsAPreLeaseListener(t *testing.T) {
 	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		t.Fatal(err)
 	}
-	report, err := store.Diagnostics()
+	report, err := store.Diagnostics(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
