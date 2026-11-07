@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -16,7 +17,7 @@ func (Adapter) TracksOwnProcess() bool { return false }
 // leave the socket file in place, so a gone pid is exited before a matching
 // inode counts as alive. A live pid without a stored start time may have been
 // reused, so it is not alive by itself.
-func (Adapter) Liveness(v bus.LivenessView, probes bus.LivenessProbes) bus.Liveness {
+func (Adapter) Liveness(v agent.LivenessView, probes agent.LivenessProbes) bus.Liveness {
 	if pid, ok := messagingSocketPID(v.Endpoint); ok && probes.Presence != nil && probes.Presence(pid) == bus.LivenessExited {
 		return bus.LivenessExited
 	}

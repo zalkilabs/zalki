@@ -144,7 +144,7 @@ func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string,
 	return true, json.NewEncoder(output).Encode(map[string]string{field: text})
 }
 
-func (Adapter) Health(s bus.HealthHost, v bus.Session) (string, string) {
+func (Adapter) Health(s agent.HealthHost, v bus.Session) (string, string) {
 	switch s.Listener(v) {
 	case bus.ListenerRunning:
 		return "native_background_shell_output", "running"

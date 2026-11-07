@@ -1,7 +1,5 @@
 package bus
 
-type HealthHost interface{ Listener(Session) ListenerStatus }
-
 // hookRuntime is bound to one hook's session and lifecycle event; transaction
 // operations act only on that session and only as that event allows.
 type hookRuntime struct {

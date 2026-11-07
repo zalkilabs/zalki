@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"sort"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
@@ -91,7 +92,7 @@ func (s Store) diagnoseSessions(report *DiagnosticReport, sessions []Session) er
 			return err
 		}
 		d.Receive = adapter.ReceiveCapabilities(v)
-		if health, ok := adapter.(HealthAdapter); ok {
+		if health, ok := adapter.(agent.HealthAdapter); ok {
 			d.TransportHealth, d.ListenerHealth = health.Health(hookRuntime{store: s}, v)
 		} else {
 			d.TransportHealth = "unknown"

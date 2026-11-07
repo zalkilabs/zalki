@@ -100,7 +100,7 @@ func (Adapter) HandleHook(s agent.HookHost, event agent.HookInput, id string, ou
 	return true, json.NewEncoder(output).Encode(map[string]bool{"continue": false})
 }
 
-func (Adapter) Health(_ bus.HealthHost, v bus.Session) (string, string) {
+func (Adapter) Health(_ agent.HealthHost, v bus.Session) (string, string) {
 	root := codexConfigRoot(v)
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {

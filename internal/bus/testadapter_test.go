@@ -27,7 +27,9 @@ func (stubCodexAdapter) Deliver(context.Context, Message, Session) Receipt {
 	return NewReceipt(StatusSubmitted)
 }
 
-func (stubCodexAdapter) Health(HealthHost, Session) (string, string) { return "native_queue_only", "" }
+func (stubCodexAdapter) Health(agent.HealthHost, Session) (string, string) {
+	return "native_queue_only", ""
+}
 
 // stubClaudeAdapter provides the native-inbox dispatch contract for core tests.
 // Real socket, metadata, configuration and hook registration tests live in adapters.
