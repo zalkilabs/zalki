@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/adapters/claude"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -49,7 +50,7 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 	id := newTestID()
 	t.Setenv("CLAUDE_CODE_SESSION_ID", strings.ToUpper(id))
 	t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", endpoint.Path)
-	registration, err := adapter.RegisterHook(bus.HookInput{SessionID: id})
+	registration, err := adapter.RegisterHook(agent.HookInput{SessionID: id})
 	if err != nil || registration.Endpoint == nil || *registration.Endpoint != *endpoint || registration.PreserveGeneration {
 		t.Fatal("matching native identity did not bind the exact endpoint", err)
 	}
@@ -60,7 +61,7 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 	// checking RegisterHook in isolation from Service and the Builtin registry.
 	store := adapterTestStore(t)
 	service := bus.Service{Store: store}
-	input, err := json.Marshal(bus.HookInput{SessionID: id, CWD: "/workspace", Event: "SessionStart"})
+	input, err := json.Marshal(agent.HookInput{SessionID: id, CWD: "/workspace", Event: "SessionStart"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +81,7 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 		t.Fatal("rejected startup replaced the receiving registration")
 	}
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
-	if _, err := adapter.RegisterHook(bus.HookInput{SessionID: id}); err != nil {
+	if _, err := adapter.RegisterHook(agent.HookInput{SessionID: id}); err != nil {
 		t.Fatal("an absent environment identity must allow the hook identity", err)
 	}
 	if err := listener.Close(); err != nil {

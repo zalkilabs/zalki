@@ -4,6 +4,8 @@ import (
 	"context"
 	"reflect"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 // registryOrderAdapter records only the callbacks NewRegistry may invoke.
@@ -33,7 +35,7 @@ func (registryOrderAdapter) Deliver(context.Context, Message, Session) Receipt {
 
 type registryOrderHooks struct {
 	registryOrderAdapter
-	StandardHooks
+	agent.StandardHooks
 }
 
 // Characterized, not endorsed: the first failing registry check decides the

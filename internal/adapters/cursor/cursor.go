@@ -11,13 +11,14 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Adapter implements the Cursor client.
-type Adapter struct{ bus.StandardHooks }
+type Adapter struct{ agent.StandardHooks }
 
 // New returns the Cursor adapter.
 func New() Adapter { return Adapter{} }
@@ -80,7 +81,7 @@ func (a Adapter) LookupName(v bus.Session, _ map[string]map[string]string) (stri
 	return cursorNameInRoots(roots, bus.NativeID(v)), "cursor_session_metadata"
 }
 
-func (Adapter) NormalizeHook(event bus.HookInput) (bus.HookInput, error) {
+func (Adapter) NormalizeHook(event agent.HookInput) (agent.HookInput, error) {
 	// Cursor reports an aborted or errored turn as a stop with a native status.
 	// Core only knows canonical events, so it must see an interruption, not a
 	// completed Stop. A stop with no status is unchanged.
@@ -96,8 +97,8 @@ func (Adapter) NormalizeHook(event bus.HookInput) (bus.HookInput, error) {
 	return event, nil
 }
 
-func (Adapter) HandleHook(host bus.HookHost, event bus.HookInput, id string, output io.Writer) (bool, error) {
-	s, ok := host.(bus.LifecycleHost)
+func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error) {
+	s, ok := host.(agent.LifecycleHost)
 	if !ok {
 		return false, errors.New("Cursor hook host lacks listener lifecycle support")
 	}
@@ -165,7 +166,7 @@ func (Adapter) RecoveryHint(d bus.SessionDiagnostic) string {
 	return ""
 }
 
-func (Adapter) StartupOutput(startup bus.StartupContext) (any, error) {
+func (Adapter) StartupOutput(startup agent.StartupContext) (any, error) {
 	id, key, state, context := startup.Actor, startup.Capability, startup.StateDir, startup.Instructions
 	binary, err := os.Executable()
 	if err != nil {
@@ -220,34 +221,34 @@ func cursorNameInRoots(roots []string, id string) string {
 // resumeOnPrompt reactivates a conversation Cursor resumed without another
 // sessionStart, retaining its identity and capability. A user who resumes an
 // aborted conversation also re-enables one recovery attempt.
-func resumeOnPrompt(v bus.SessionView) (bus.LifecycleChange, error) {
+func resumeOnPrompt(v bus.SessionView) (agent.LifecycleChange, error) {
 	state := decodeCursorState(v.AdapterState)
 	if state.RecoverySuppressed {
 		state.RecoveryAttempted = false
 	}
 	state.RecoverySuppressed = false
-	return bus.LifecycleChange{Transition: bus.TransitionPromptReactivate, AdapterState: encodeCursorState(state)}, nil
+	return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate, AdapterState: encodeCursorState(state)}, nil
 }
 
 // suppressRecovery keeps an aborted, failed or capped turn from being continued
 // by a recovery follow-up until the user prompts again.
-func suppressRecovery(v bus.SessionView) (bus.LifecycleChange, error) {
+func suppressRecovery(v bus.SessionView) (agent.LifecycleChange, error) {
 	state := decodeCursorState(v.AdapterState)
 	state.RecoverySuppressed = true
-	return bus.LifecycleChange{Transition: bus.TransitionReady, AdapterState: encodeCursorState(state)}, nil
+	return agent.LifecycleChange{Transition: agent.TransitionReady, AdapterState: encodeCursorState(state)}, nil
 }
 
 // claimRecovery allows one recovery context per unarmed interval, not per tool
 // call or stop iteration, so a denied setup cannot become a retry loop.
 // Successful listener registration resets it. Core retires any stale listener
 // lease with the reissued capability.
-func claimRecovery(v bus.SessionView) (bus.RecoveryDecision, error) {
+func claimRecovery(v bus.SessionView) (agent.RecoveryDecision, error) {
 	state := decodeCursorState(v.AdapterState)
 	if state.RecoverySuppressed || state.RecoveryAttempted {
-		return bus.RecoveryDecision{}, nil
+		return agent.RecoveryDecision{}, nil
 	}
 	state.RecoveryAttempted = true
-	return bus.RecoveryDecision{Recover: true, AdapterState: encodeCursorState(state)}, nil
+	return agent.RecoveryDecision{Recover: true, AdapterState: encodeCursorState(state)}, nil
 }
 
 // Cursor metadata has the same 128 KiB bound as the former journal reader, but

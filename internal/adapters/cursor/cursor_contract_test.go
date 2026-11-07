@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -71,7 +72,7 @@ func TestRecordedCursorHookAndMetadataContract(t *testing.T) {
 	}
 	t.Run(fixture.Kind, func(t *testing.T) {
 		adapter := New()
-		var hook bus.HookInput
+		var hook agent.HookInput
 		if err := json.Unmarshal(fixture.Hook, &hook); err != nil {
 			t.Fatal(err)
 		}

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -25,7 +26,7 @@ func TestRecordedCodexHookAndMetadataContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	adapter := New()
-	var hook bus.HookInput
+	var hook agent.HookInput
 	if err := json.Unmarshal(fixture.Hook, &hook); err != nil {
 		t.Fatal(err)
 	}

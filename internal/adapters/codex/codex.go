@@ -13,13 +13,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Adapter implements the Codex client.
-type Adapter struct{ bus.StandardHooks }
+type Adapter struct{ agent.StandardHooks }
 
 // New returns the Codex adapter.
 func New() Adapter { return Adapter{} }
@@ -38,7 +39,7 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 }
 
 func (Adapter) Descriptor() bus.AdapterDescriptor {
-	return bus.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: bus.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Notes: []string{
+	return bus.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Notes: []string{
 		"A Codex backend can outlive its terminal.",
 		"Codex 0.164.0 or newer can receive tool output on a loaded thread without resuming or steering it. Between-tool delivery is advertised only after this process has verified that app-server. Otherwise the message waits on codex queue. An unconfirmed or ambiguous write is not retried.",
 	}}
@@ -84,11 +85,11 @@ func (a Adapter) LookupName(v bus.Session, indexes map[string]map[string]string)
 	return indexes[index][bus.NativeID(v)], "codex_session_index"
 }
 
-func (Adapter) RegisterHook(event bus.HookInput) (bus.HookRegistration, error) {
-	return bus.HookRegistration{PreserveGeneration: event.Source == "compact"}, nil
+func (Adapter) RegisterHook(event agent.HookInput) (agent.HookRegistration, error) {
+	return agent.HookRegistration{PreserveGeneration: event.Source == "compact"}, nil
 }
 
-func (Adapter) HandleHook(s bus.HookHost, event bus.HookInput, id string, output io.Writer) (bool, error) {
+func (Adapter) HandleHook(s agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error) {
 	if event.Event != "UserPromptSubmit" {
 		return false, nil
 	}

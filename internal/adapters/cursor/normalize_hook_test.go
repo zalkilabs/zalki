@@ -3,7 +3,7 @@ package cursor
 import (
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 // Core decides completion from canonical events, so the adapter must turn each
@@ -21,7 +21,7 @@ func TestNormalizeHookMapsNativeStopStatusToCanonicalEvents(t *testing.T) {
 		{"session end ignores status", "SessionEnd", "aborted", "SessionEnd"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := Adapter{}.NormalizeHook(bus.HookInput{Event: tc.event, Status: tc.status})
+			got, err := Adapter{}.NormalizeHook(agent.HookInput{Event: tc.event, Status: tc.status})
 			if err != nil || got.Event != tc.want {
 				t.Fatalf("event %q status %q: got %q, %v; want %q", tc.event, tc.status, got.Event, err, tc.want)
 			}

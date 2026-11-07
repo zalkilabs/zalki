@@ -11,12 +11,13 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type fixtureAdapter struct {
-	StandardHooks
+	agent.StandardHooks
 	kind       string
 	inbox      InboxMode
 	deliveries *atomic.Int32
@@ -103,7 +104,7 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 				t.Fatal(err)
 			}
 			uuid := newID()
-			input, _ := json.Marshal(HookInput{SessionID: uuid, CWD: "/workspace", Event: "start"})
+			input, _ := json.Marshal(agent.HookInput{SessionID: uuid, CWD: "/workspace", Event: "start"})
 			service := Service{Store: store}
 			var output bytes.Buffer
 			if err := service.Hook(adapter.kind, bytes.NewReader(input), &output); err != nil {
@@ -158,7 +159,7 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 			if err != nil || len(items) != 2 || items[0].Receive.Inbox != inbox {
 				t.Fatalf("%+v %v", items, err)
 			}
-			input, _ = json.Marshal(HookInput{SessionID: uuid, Event: "end"})
+			input, _ = json.Marshal(agent.HookInput{SessionID: uuid, Event: "end"})
 			if err := service.Hook(adapter.kind, bytes.NewReader(input), &output); err != nil {
 				t.Fatal(err)
 			}

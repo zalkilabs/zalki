@@ -6,12 +6,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 // Capture is opt-in and allowlisted: no prompts, tool input, environment,
 // credentials, native IDs, titles, or workstation paths reach the fixture.
-func captureHookContract(adapter Adapter, event HookInput) error {
+func captureHookContract(adapter Adapter, event agent.HookInput) error {
 	root := os.Getenv("ZALKI_CAPTURE_CONTRACTS")
 	if root == "" {
 		return nil

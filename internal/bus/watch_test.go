@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
@@ -315,7 +317,7 @@ type blockedStopAdapter struct {
 	release chan struct{}
 }
 
-func (a *blockedStopAdapter) HandleHook(_ HookHost, event HookInput, _ string, _ io.Writer) (bool, error) {
+func (a *blockedStopAdapter) HandleHook(_ agent.HookHost, event agent.HookInput, _ string, _ io.Writer) (bool, error) {
 	if event.Event == "Stop" && a.entered != nil {
 		close(a.entered)
 		<-a.release
@@ -340,7 +342,7 @@ func TestWatchSubscribedDuringStopSurvivesThatCompletion(t *testing.T) {
 	var once sync.Once
 	release := func() { once.Do(func() { close(adapter.release) }) }
 	t.Cleanup(release)
-	stop, _ := json.Marshal(HookInput{SessionID: strings.TrimPrefix(target.ID, "claude:"), Event: "Stop"})
+	stop, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(target.ID, "claude:"), Event: "Stop"})
 	done := make(chan error, 1)
 	go func() { done <- service.Hook("claude", bytes.NewReader(stop), &bytes.Buffer{}) }()
 	select {

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func TestContractCaptureExcludesPrivateValues(t *testing.T) {
@@ -12,7 +14,7 @@ func TestContractCaptureExcludesPrivateValues(t *testing.T) {
 	t.Setenv("ZALKI_CAPTURE_CONTRACTS", root)
 	t.Setenv("PATH", t.TempDir())
 	title := "private project title"
-	event := HookInput{Event: "sessionStart", ConversationID: "private native identity", CWD: "/private/workstation/project", WorkspaceRoots: []string{"/private/workstation/project"}, Prompt: "private prompt and credential", SessionTitle: &title}
+	event := agent.HookInput{Event: "sessionStart", ConversationID: "private native identity", CWD: "/private/workstation/project", WorkspaceRoots: []string{"/private/workstation/project"}, Prompt: "private prompt and credential", SessionTitle: &title}
 	if err := captureHookContract(stubCursorAdapter{}, event); err != nil {
 		t.Fatal(err)
 	}

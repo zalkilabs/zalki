@@ -9,7 +9,7 @@ import (
 var (
 	_ bus.Adapter               = Adapter{}
 	_ bus.NameAdapter           = Adapter{}
-	_ bus.HookAdapter           = Adapter{}
+	_ agent.HookAdapter         = Adapter{}
 	_ bus.HealthAdapter         = Adapter{}
 	_ bus.ConfigurationAdapter  = Adapter{}
 	_ bus.RecoveryHintAdapter   = Adapter{}

@@ -1,15 +1,5 @@
 package bus
 
-// HookHost exposes bounded lifecycle operations, never the service, registry,
-// transport override, or arbitrary journal read/write access. Adapters that own
-// client state may additionally use LifecycleHost, not arbitrary credential
-// reads or rotation.
-type HookHost interface {
-	UpdateSession(string, SessionState, bool) error
-	EmitPending(string) (string, error)
-	CompletedNativePrompt(string, string) (string, error)
-}
-
 type HealthHost interface{ Listener(Session) ListenerStatus }
 
 // hookRuntime is bound to one hook's session and lifecycle event; transaction
