@@ -62,19 +62,8 @@ func (s *Service) observeExits(ctx context.Context, sweep time.Duration, open fu
 	if source, err := open(); err != nil {
 		s.Store.logEvent(slog.LevelDebug, "watch.observer_sweep_only", eventData{Err: err})
 	} else {
-		o.source, events = source, source.Events()
-		o.closeSource = func() {
-			// Close releases all process/directory watches and stops the producer.
-			_ = source.Close()
-			o.source, o.closeSource = nil, nil
-			clear(o.procs)
-			clear(o.owners)
-		}
-		defer func() {
-			if o.closeSource != nil {
-				o.closeSource()
-			}
-		}()
+		o.source, o.ownedSource, events = source, source, source.Events()
+		defer o.closeSource()
 	}
 	settle := time.NewTimer(time.Hour)
 	settle.Stop()
@@ -132,10 +121,21 @@ type exitObserver struct {
 	root         string
 	rootUnusable bool
 	fenced       bool             // Sticky until this observer's context ends, even if the marker changes.
-	source       procwatch.Source // nil in sweep-only mode
-	closeSource  func()           // Retains ownership after source failure; clears itself after Close.
+	source       procwatch.Source // Usable watcher; nil in sweep-only mode.
+	ownedSource  procwatch.Source // Retains ownership after source failure until Close.
 	procs        map[procwatch.Identity]struct{}
 	owners       map[procwatch.Identity][]string // watched owner process -> targets it owns
+}
+
+// closeSource releases ownership even when notifications have failed.
+func (o *exitObserver) closeSource() {
+	if o.ownedSource == nil {
+		return
+	}
+	_ = o.ownedSource.Close()
+	o.source, o.ownedSource = nil, nil
+	clear(o.procs)
+	clear(o.owners)
 }
 
 // canWrite is checked before directory creation, scans and every delivery.
@@ -158,9 +158,7 @@ func (o *exitObserver) stopOnUpgrade(err error) bool {
 	}
 	if !o.fenced {
 		o.fenced = true
-		if o.closeSource != nil {
-			o.closeSource()
-		}
+		o.closeSource()
 		o.service.Store.logEvent(slog.LevelWarn, "watch.observer_upgrade_required", eventData{Err: err})
 	}
 	return true
