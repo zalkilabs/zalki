@@ -19,6 +19,3 @@ func newID() string {
 	h := hex.EncodeToString(b)
 	return h[:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
 }
-
-// Fixed-width fractional seconds make journal ordering lexicographically stable.
-func timestamp() string { return model.Timestamp() }

@@ -195,8 +195,8 @@ func TestPruneLeaseReleaseRestartsTheRetentionWindow(t *testing.T) {
 func queuedFor(t *testing.T, store Store, sender Session, target string) Message {
 	t.Helper()
 	msg := Message{
-		Schema: recordSchema, ID: newID(), From: sender.ID, To: target, Body: "waits", CreatedAt: timestamp(),
-		Status: StatusApprovalBlocked, Held: true, Receipt: &Receipt{At: timestamp(), Status: StatusApprovalBlocked, Error: model.ApprovalQueuedNote},
+		Schema: recordSchema, ID: newID(), From: sender.ID, To: target, Body: "waits", CreatedAt: model.Timestamp(),
+		Status: StatusApprovalBlocked, Held: true, Receipt: &Receipt{At: model.Timestamp(), Status: StatusApprovalBlocked, Error: model.ApprovalQueuedNote},
 	}
 	if current, err := store.session(target); err == nil {
 		msg.TargetGeneration = current.Generation

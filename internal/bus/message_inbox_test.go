@@ -3,6 +3,8 @@ package bus
 import (
 	"fmt"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestInboxFiltersBeforeLimitWithoutLosingUnreadWork(t *testing.T) {
@@ -23,7 +25,7 @@ func TestInboxFiltersBeforeLimitWithoutLosingUnreadWork(t *testing.T) {
 		case i == 27:
 			msg.Status = StatusNotSent
 		default:
-			msg.AcknowledgedAt = timestamp()
+			msg.AcknowledgedAt = model.Timestamp()
 		}
 		if err := store.saveMessage(msg); err != nil {
 			t.Fatal(err)

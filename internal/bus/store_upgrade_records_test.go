@@ -195,7 +195,7 @@ func TestMessageExtensionsSurviveReceiptsAcknowledgementAndHookEmission(t *testi
 func TestWatchAndFloodExtensionsSurviveRefreshAndAdmission(t *testing.T) {
 	store := fixtureStore(t)
 	from, _, target, _ := registerPair(t, store, "codex", "cursor")
-	watch := Watch{Watcher: from.ID, Target: target.ID, CreatedAt: timestamp(), ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)}
+	watch := Watch{Watcher: from.ID, Target: target.ID, CreatedAt: model.Timestamp(), ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)}
 	if err := store.saveWatch(watch); err != nil {
 		t.Fatal(err)
 	}

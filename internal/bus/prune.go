@@ -154,7 +154,7 @@ func (r *pruneRun) sweepRetired(v Session) error {
 		return nil
 	}
 	releaseListenerLease(&v)
-	v.UpdatedAt = timestamp()
+	v.UpdatedAt = model.Timestamp()
 	return r.store.saveSession(v)
 }
 

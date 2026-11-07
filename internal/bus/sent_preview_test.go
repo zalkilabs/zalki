@@ -8,6 +8,8 @@ import (
 	"testing"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
@@ -98,7 +100,7 @@ func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 func TestSentPreviewCannotExposeNativeInbox(t *testing.T) {
 	store := fixtureStore(t)
 	actor, key, peer, peerKey := registerPair(t, store, "codex", "cursor")
-	msg := Message{ID: newID(), From: peer.ID, To: actor.ID, TargetGeneration: actor.Generation, Body: "native secret", CreatedAt: timestamp(), Status: StatusSubmitted}
+	msg := Message{ID: newID(), From: peer.ID, To: actor.ID, TargetGeneration: actor.Generation, Body: "native secret", CreatedAt: model.Timestamp(), Status: StatusSubmitted}
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}

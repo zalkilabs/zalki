@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func journalSnapshot(t *testing.T, store Store) map[string]string {
@@ -166,7 +168,7 @@ func TestFutureMarkerDefersReplyRecoveryAndRetainsUnknownIntentFields(t *testing
 		t.Fatal(err)
 	}
 	reply := Message{Schema: 1, ID: replyID(target.ID, parent.ID, "answer"), From: target.ID, To: from.ID, ReplyTo: parent.ID, Body: "answer", Status: StatusAttempting, TargetGeneration: from.Generation}
-	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: timestamp(), Reply: reply}
+	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: model.Timestamp(), Reply: reply}
 	txPath := filepath.Join(store.Dir, "transactions", reply.ID+".json")
 	if err := os.MkdirAll(filepath.Dir(txPath), 0700); err != nil {
 		t.Fatal(err)

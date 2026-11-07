@@ -4,13 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestExactLookupAvoidsUnrelatedJournalReadsAndPreservesHistory(t *testing.T) {
 	store := fixtureStore(t)
 	sender, _, receiver, key := registerPair(t, store, "codex", "cursor")
 	other, otherKey := register(t, store, "cursor")
-	msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "review result", CreatedAt: timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
+	msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "review result", CreatedAt: model.Timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +37,7 @@ func TestExactLookupAvoidsUnrelatedJournalReadsAndPreservesHistory(t *testing.T)
 func TestHistoryBodiesAreOptInAndNativeBodiesStayDeferred(t *testing.T) {
 	store := fixtureStore(t)
 	sender, key, receiver, toKey := registerPair(t, store, "cursor", "codex")
-	msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "review result", CreatedAt: timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
+	msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "review result", CreatedAt: model.Timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}

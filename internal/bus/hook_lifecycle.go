@@ -91,11 +91,11 @@ func (h hookRuntime) ApplyLifecycle(policy func(SessionView) (agent.LifecycleCha
 		}
 		switch change.Transition {
 		case agent.TransitionPromptReactivate:
-			v.State, v.UpdatedAt, v.Retired, v.RetiredReason = StateBusy, timestamp(), false, ""
+			v.State, v.UpdatedAt, v.Retired, v.RetiredReason = StateBusy, model.Timestamp(), false, ""
 		case agent.TransitionReady:
 			// As in Update, a stop never revives a retired conversation.
 			if !v.Retired {
-				v.State, v.UpdatedAt = StateReady, timestamp()
+				v.State, v.UpdatedAt = StateReady, model.Timestamp()
 			}
 		}
 		if err := h.store.applyAdapterState(&v, change.AdapterState); err != nil {

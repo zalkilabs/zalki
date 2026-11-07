@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/journal"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type replyTransaction struct {
@@ -131,7 +133,7 @@ func (s Store) chargeRefusedReply(msg *Message) error {
 // it: reservation, acknowledgement of the parent, removal of the intent.
 func (s Store) commitReplyIntent(parent, msg Message, fresh bool) error {
 	if parent.AcknowledgedAt == "" {
-		parent.AcknowledgedAt = timestamp()
+		parent.AcknowledgedAt = model.Timestamp()
 	}
 	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: parent.AcknowledgedAt, Reply: msg}
 	dir := filepath.Join(s.Dir, "transactions")

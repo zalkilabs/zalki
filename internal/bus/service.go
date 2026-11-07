@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // SendRequest identifies a new message and its authenticated sender.
@@ -57,11 +59,11 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 		return held, nil
 	}
 	if err != nil {
-		return s.Store.Finish(id, Receipt{At: timestamp(), Status: StatusNotSent, Error: err.Error()}.WithCause(err))
+		return s.Store.Finish(id, Receipt{At: model.Timestamp(), Status: StatusNotSent, Error: err.Error()}.WithCause(err))
 	}
 	target = current
 	if target.Receive.HookDelivery {
-		msg, err = s.Store.Finish(id, Receipt{At: timestamp(), Status: StatusPendingActivity})
+		msg, err = s.Store.Finish(id, Receipt{At: model.Timestamp(), Status: StatusPendingActivity})
 		if err != nil {
 			return msg, err
 		}

@@ -138,7 +138,7 @@ func (s Store) register(kind, id, cwd string, endpoint *Endpoint, compact bool) 
 	key := newID() + newID()
 	hash := sha256.Sum256([]byte(key))
 	native, _ := canonicalNativeID(id)
-	session = Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: StateReady, UpdatedAt: timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
+	session = Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: StateReady, UpdatedAt: model.Timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
 	if names, ok := adapter.(agent.NameAdapter); ok {
 		session.NativeConfigDir = names.ConfigDir()
 	}
@@ -213,7 +213,7 @@ func (s Store) Update(id string, state SessionState, retire bool) error {
 		if retire {
 			retireSession(&current, "session_end")
 		} else {
-			current.State, current.UpdatedAt = state, timestamp()
+			current.State, current.UpdatedAt = state, model.Timestamp()
 		}
 		if err := s.saveSession(current); err != nil {
 			return err
@@ -284,6 +284,6 @@ func (s Store) ListWithWarnings() ([]Session, int, error) {
 
 // retireSession clears all active state, including any listener generation fence.
 func retireSession(v *Session, reason string) {
-	v.Retired, v.State, v.RetiredReason, v.Task, v.UpdatedAt = true, StateRetired, reason, "", timestamp()
+	v.Retired, v.State, v.RetiredReason, v.Task, v.UpdatedAt = true, StateRetired, reason, "", model.Timestamp()
 	releaseListenerLease(v)
 }
