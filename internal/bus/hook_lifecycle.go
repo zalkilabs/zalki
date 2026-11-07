@@ -7,17 +7,14 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // SessionView is the copy of a session that an adapter policy may inspect
 // inside a lifecycle transaction. It carries no credential, and its adapter
 // state is a fresh copy, so retaining or mutating it cannot reach the journal.
-type SessionView struct {
-	Actor, Kind, Generation string
-	State                   SessionState
-	Retired                 bool
-	AdapterState            json.RawMessage
-}
+type SessionView = model.SessionView
 
 // LifecycleTransition names a shared-state change core performs on behalf of
 // an adapter. Which transitions a hook may request depends on its event.
