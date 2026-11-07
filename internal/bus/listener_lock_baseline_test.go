@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/journal"
 )
 
 func requireRawLockError(t *testing.T, err error, want syscall.Errno, text string) {
@@ -48,7 +50,7 @@ func TestLockPathErrorsKeepTheirRawTypeAndText(t *testing.T) {
 			if called {
 				t.Fatal("invalid global lock path permitted domain work")
 			}
-			fd, err := acquireListenerLock(listenerPath)
+			fd, err := acquireListenerLock(listenerPath, journal.OpenLockFile)
 			if fd != -1 {
 				syscall.Close(fd)
 				t.Fatalf("invalid lifetime path returned fd %d", fd)
@@ -114,7 +116,7 @@ func TestPrivateDirectoryRejectionsKeepTheirTextAndPrecedeLockCreation(t *testin
 
 func TestListenerLinkedDistinguishesMissingAndReplacementInodes(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "listener.lock")
-	fd, err := acquireListenerLock(path)
+	fd, err := acquireListenerLock(path, journal.OpenLockFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,14 +143,19 @@ func TestListenerLinkedDistinguishesMissingAndReplacementInodes(t *testing.T) {
 func TestListenerUnlinkRetryIsBoundedAndKeepsConflictText(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "listener.lock")
 	attempts := 0
-	listenerLockBeforeFlock = func(path string) {
+	open := func(path string, create bool) (int, error) {
+		fd, err := journal.OpenLockFile(path, create)
+		if err != nil {
+			return fd, err
+		}
 		attempts++
 		if err := os.Remove(path); err != nil {
-			t.Fatal(err)
+			_ = journal.CloseLockFile(fd)
+			return -1, err
 		}
+		return fd, nil
 	}
-	t.Cleanup(func() { listenerLockBeforeFlock = nil })
-	fd, err := acquireListenerLock(path)
+	fd, err := acquireListenerLock(path, open)
 	if fd != -1 {
 		syscall.Close(fd)
 		t.Fatalf("unlinked lock returned fd %d", fd)
