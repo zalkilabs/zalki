@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // Liveness is the compatibility name for model.Liveness.
@@ -72,13 +73,13 @@ func (s Store) sessionLiveness(v Session) Liveness {
 func (s Store) livenessProbes() LivenessProbes {
 	return LivenessProbes{
 		Endpoint: CheckEndpoint,
-		Presence: func(pid int) Liveness { return processPresence(pid, readProcess) },
+		Presence: func(pid int) Liveness { return processPresence(pid, procwatch.Read) },
 	}
 }
 
 // processPresence is exit evidence without a start-time fingerprint. A live
 // pid is not "alive": the pid may have been reused by an unrelated process.
-func processPresence(pid int, read func(int) (processInfo, error)) Liveness {
+func processPresence(pid int, read func(int) (procwatch.Info, error)) Liveness {
 	if pid <= 1 {
 		return LivenessUnknown
 	}

@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // These tests close the gap found in Store.rememberOwner (process.go): no test
@@ -228,7 +230,7 @@ func TestRememberOwnerChild(t *testing.T) {
 	if nonce == "" {
 		return
 	}
-	parent, err := readProcess(os.Getppid())
+	parent, err := procwatch.Read(os.Getppid())
 	if inspectionForbidden(err) {
 		fmt.Println(childSkipLine + err.Error())
 		return
@@ -316,7 +318,7 @@ func childRetiredRecordsOnRefresh(t *testing.T, store Store, want ProcessRef) {
 // TestRememberOwnerFindsItsParentInAControlledChild runs the child above and
 // requires its success line.
 func TestRememberOwnerFindsItsParentInAControlledChild(t *testing.T) {
-	self, err := readProcess(os.Getpid())
+	self, err := procwatch.Read(os.Getpid())
 	if inspectionForbidden(err) {
 		t.Skipf("process inspection is not permitted here: %v", err)
 	}

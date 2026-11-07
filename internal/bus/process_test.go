@@ -6,11 +6,13 @@ import (
 	"os/exec"
 	"syscall"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
-func selfProcess(t *testing.T) processInfo {
+func selfProcess(t *testing.T) procwatch.Info {
 	t.Helper()
-	p, err := readProcess(os.Getpid())
+	p, err := procwatch.Read(os.Getpid())
 	if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
 		t.Skipf("sandbox forbids process inspection: %v", err)
 	}
@@ -24,19 +26,19 @@ func TestProcessProbeDistinguishesExitReuseAndUnknown(t *testing.T) {
 	ref := &ProcessRef{PID: 42, Start: "original", Role: "client"}
 	for _, test := range []struct {
 		name string
-		p    processInfo
+		p    procwatch.Info
 		err  error
 		want Liveness
 	}{
-		{"alive", processInfo{Start: "original", UID: uint32(os.Getuid())}, nil, "alive"},
-		{"PID reused", processInfo{Start: "new", UID: uint32(os.Getuid())}, nil, "exited"},
-		{"zombie", processInfo{Start: "original", UID: uint32(os.Getuid()), Zombie: true}, nil, "exited"},
-		{"gone", processInfo{}, syscall.ESRCH, "exited"},
-		{"permission denied", processInfo{}, syscall.EPERM, "unknown"},
-		{"inspection failed", processInfo{}, errors.New("unavailable"), "unknown"},
+		{"alive", procwatch.Info{Start: "original", UID: uint32(os.Getuid())}, nil, "alive"},
+		{"PID reused", procwatch.Info{Start: "new", UID: uint32(os.Getuid())}, nil, "exited"},
+		{"zombie", procwatch.Info{Start: "original", UID: uint32(os.Getuid()), Zombie: true}, nil, "exited"},
+		{"gone", procwatch.Info{}, syscall.ESRCH, "exited"},
+		{"permission denied", procwatch.Info{}, syscall.EPERM, "unknown"},
+		{"inspection failed", procwatch.Info{}, errors.New("unavailable"), "unknown"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := probeProcess(ref, func(int) (processInfo, error) { return test.p, test.err }); got != test.want {
+			if got := probeProcess(ref, func(int) (procwatch.Info, error) { return test.p, test.err }); got != test.want {
 				t.Fatalf("got %s want %s", got, test.want)
 			}
 		})
@@ -49,12 +51,12 @@ func TestProcessProbeDistinguishesExitReuseAndUnknown(t *testing.T) {
 func TestOwnerCaptureUsesNativeAncestorAndLabelsBackend(t *testing.T) {
 	for _, test := range []struct{ kind, name, role string }{{"cursor", "agent", "client"}, {"claude", "claude", "client"}, {"codex", "codex", "backend"}} {
 		t.Run(test.kind, func(t *testing.T) {
-			read := func(pid int) (processInfo, error) {
+			read := func(pid int) (procwatch.Info, error) {
 				name, parent := "sh", 99
 				if pid == 99 {
 					name, parent = test.name, 1
 				}
-				return processInfo{PID: pid, PPID: parent, Name: name, Start: "start", UID: uint32(os.Getuid())}, nil
+				return procwatch.Info{PID: pid, PPID: parent, Name: name, Start: "start", UID: uint32(os.Getuid())}, nil
 			}
 			adapter, err := testRegistry().Lookup(test.kind)
 			if err != nil {
@@ -66,7 +68,7 @@ func TestOwnerCaptureUsesNativeAncestorAndLabelsBackend(t *testing.T) {
 			}
 		})
 	}
-	if ref := ownerFrom((stubCursorAdapter{}).Descriptor(), 100, func(int) (processInfo, error) { return processInfo{}, syscall.EPERM }); ref != nil {
+	if ref := ownerFrom((stubCursorAdapter{}).Descriptor(), 100, func(int) (procwatch.Info, error) { return procwatch.Info{}, syscall.EPERM }); ref != nil {
 		t.Fatal("invented an owner without OS evidence")
 	}
 }
@@ -78,7 +80,7 @@ func TestProcessFingerprintTracksRealExit(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
-	p, err := readProcess(cmd.Process.Pid)
+	p, err := procwatch.Read(cmd.Process.Pid)
 	if err != nil {
 		t.Fatal(err)
 	}

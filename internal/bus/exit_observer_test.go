@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // Short enough that a test waiting for a sweep is quick, long enough that
@@ -132,7 +134,7 @@ var (
 	deadOwner = ProcessRef{PID: 1 << 30, Start: "1", Role: "client"}
 	selfOwner = func(t *testing.T) *ProcessRef {
 		t.Helper()
-		p, err := readProcess(os.Getpid())
+		p, err := procwatch.Read(os.Getpid())
 		if err != nil {
 			t.Fatal(err)
 		}

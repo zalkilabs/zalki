@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // These tests close gaps found in pruneRun.sweepSessions (prune.go) and
@@ -358,7 +360,7 @@ func exitedOwner(t *testing.T, store Store, sessions ...Session) {
 			_ = cmd.Wait()
 		}
 	})
-	p, err := readProcess(cmd.Process.Pid)
+	p, err := procwatch.Read(cmd.Process.Pid)
 	if err != nil || p.Start == "" {
 		t.Fatalf("cannot identify fixture owner: %+v %v", p, err)
 	}
