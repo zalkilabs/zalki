@@ -73,20 +73,20 @@ func TestHeldApprovalTransitionsDoNotReopenLegacyRefusals(t *testing.T) {
 		}
 	}
 	legacy := Message{Status: StatusApprovalBlocked}
-	if err := legacy.releaseHeld(StatusAttempting); ErrorCodeOf(err) != CodeInvalidTransition || legacy.Held || legacy.Status != StatusApprovalBlocked {
+	if err := legacy.ReleaseHeld(StatusAttempting); ErrorCodeOf(err) != CodeInvalidTransition || legacy.Held || legacy.Status != StatusApprovalBlocked {
 		t.Fatal("release helper changed a legacy refusal", err)
 	}
 	msg := Message{Status: StatusAttempting}
-	if err := msg.hold(); err != nil || !msg.IsQueuedForApproval() || msg.Receipt.Error != approvalQueuedNote {
+	if err := msg.Hold(); err != nil || !msg.IsQueuedForApproval() || msg.Receipt.Error != approvalQueuedNote {
 		t.Fatal("hold did not preserve canonical journal state", err)
 	}
-	if err := msg.releaseHeld(StatusPendingActivity); err != nil || msg.Held || msg.Receipt.Status != StatusPendingActivity {
+	if err := msg.ReleaseHeld(StatusPendingActivity); err != nil || msg.Held || msg.Receipt.Status != StatusPendingActivity {
 		t.Fatal("hook release lost its receipt", err)
 	}
-	if err := msg.emitContext(); err != nil {
+	if err := msg.EmitContext(); err != nil {
 		t.Fatal(err)
 	}
-	if err := msg.applyReceipt(Receipt{Status: StatusWakeWritten}); err != nil || msg.Status != StatusContextEmitted {
+	if err := msg.ApplyReceipt(Receipt{Status: StatusWakeWritten}); err != nil || msg.Status != StatusContextEmitted {
 		t.Fatal("racing wake overwrote emitted context", err)
 	}
 }

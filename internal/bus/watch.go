@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // watchTTL is how long a one-shot completion watch stays armed.
@@ -16,7 +18,7 @@ const watchTTL = 12 * time.Hour
 
 // noticeKind marks an automatic completion notice so it cannot be mistaken for
 // a message the target chose to send.
-const noticeKind = "notice"
+const noticeKind = model.NoticeKind
 
 // statusLineLimit is the maximum status text copied from a Stop hook.
 const statusLineLimit = 200
@@ -251,7 +253,7 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 		}
 		if current.State == StateApproval {
 			if err := s.Store.holdForApproval(&msg); err != nil {
-				if moveErr := msg.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+				if moveErr := msg.SettleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
 					return moveErr
 				}
 			}

@@ -100,7 +100,7 @@ func (s Store) refuseReply(sender Session, actor string, parent Message, body st
 	target.ID = parent.From
 	msg, err = s.outgoingMessage(sender, target, replyID(actor, parent.ID, body), body, parent.ID)
 	if err == nil {
-		err = msg.settleNotSent(code, refusalReason)
+		err = msg.SettleNotSent(code, refusalReason)
 	}
 	if err == nil {
 		err = s.chargeRefusedReply(&msg)
@@ -120,7 +120,7 @@ func (s Store) chargeRefusedReply(msg *Message) error {
 		err = lookupErr
 	}
 	if err != nil {
-		if moveErr := msg.settleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+		if moveErr := msg.SettleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
 			return moveErr
 		}
 	}
