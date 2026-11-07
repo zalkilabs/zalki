@@ -6,7 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // forwardingHost returns a real bound host, a supplied target and the session
@@ -60,12 +64,21 @@ func assertForwardingChanges(t *testing.T, store Store, before map[string]string
 	}
 }
 
-// Characterized, not endorsed: UpdateSession forwards the supplied actor, even
-// when it differs from the actor bound to this trusted compiled-adapter host.
-func TestHookHostUpdateSessionForwardsSuppliedActor(t *testing.T) {
+// Item 0 characterized cross-actor forwarding. The host now refuses it while
+// preserving the matching actor's existing state update behavior.
+func TestHookHostUpdateSessionUsesBoundActor(t *testing.T) {
 	for _, crossActor := range []bool{false, true} {
 		t.Run(forwardingCase(crossActor), func(t *testing.T) {
 			host, target, _, _ := forwardingHost(t, "cursor", crossActor)
+			if crossActor {
+				seedBindingLease(t, host.store, target)
+				forwardingMessage(t, host.store, target, StatusPendingActivity)
+				before := journalSnapshot(t, host.store)
+				assertActorRefusal(t, host.UpdateSession(target.ID, StateBusy, false))
+				assertActorRefusal(t, host.UpdateSession(target.ID, StateRetired, true))
+				assertForwardingChanges(t, host.store, before)
+				return
+			}
 			original, err := host.store.session(target.ID)
 			if err != nil {
 				t.Fatal(err)
@@ -80,7 +93,7 @@ func TestHookHostUpdateSessionForwardsSuppliedActor(t *testing.T) {
 			}
 			original.State, original.UpdatedAt = StateBusy, current.UpdatedAt
 			if !reflect.DeepEqual(current, original) {
-				t.Fatal("host changed more than the supplied session's state and timestamp")
+				t.Fatal("host changed more than the bound session's state and timestamp")
 			}
 			path, err := host.store.sessionPath(target.ID)
 			if err != nil {
@@ -91,46 +104,55 @@ func TestHookHostUpdateSessionForwardsSuppliedActor(t *testing.T) {
 	}
 }
 
-// Characterized, not endorsed: the forwarded Store operation validates the
-// transition before identity. No host actor check takes precedence today.
-func TestHookHostUpdateSessionForwardsErrors(t *testing.T) {
-	host, target, _, _ := forwardingHost(t, "cursor", true)
+// Binding now precedes Store validation. Same-actor errors and the matching
+// missing-session no-op remain unchanged from the item-0 characterization.
+func TestHookHostUpdateSessionErrorsFollowActorCheck(t *testing.T) {
+	host, target, other, _ := forwardingHost(t, "cursor", false)
 	for _, test := range []struct {
 		name, id string
-		state    SessionState
-		want     string
 	}{
-		{"cross actor invalid transition", target.ID, StateRetired, "invalid_transition: invalid session state/retirement transition"},
-		{"transition before malformed identity", "not an actor", StateRetired, "invalid_transition: invalid session state/retirement transition"},
-		{"malformed identity", "not an actor", StateBusy, "invalid_identity: use the complete kind:UUID returned by list_agents"},
+		{"other actor and invalid transition", other.ID},
+		{"malformed identity and invalid transition", "not an actor"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			before := journalSnapshot(t, host.store)
-			if err := host.UpdateSession(test.id, test.state, false); err == nil || err.Error() != test.want {
-				t.Fatalf("error=%v, want %q", err, test.want)
-			}
+			assertActorRefusal(t, host.UpdateSession(test.id, StateRetired, false))
 			assertForwardingChanges(t, host.store, before)
 		})
 	}
 	before := journalSnapshot(t, host.store)
-	if err := host.UpdateSession("cursor:"+newID(), StateBusy, false); err != nil {
-		t.Fatal("unknown supplied session should remain a no-op", err)
+	assertActorRefusal(t, host.UpdateSession("not an actor", StateBusy, false))
+	err := host.UpdateSession(target.ID, StateRetired, false)
+	if model.ErrorCodeOf(err) != model.CodeInvalidTransition || err.Error() != "invalid_transition: invalid session state/retirement transition" {
+		t.Fatalf("same-actor error=%v, want unchanged invalid transition", err)
+	}
+	missing := "cursor:" + newID()
+	assertActorRefusal(t, host.UpdateSession(missing, StateBusy, false))
+	host.actor = missing
+	if err := host.UpdateSession(missing, StateBusy, false); err != nil {
+		t.Fatal("matching unknown session should remain a no-op", err)
 	}
 	assertForwardingChanges(t, host.store, before)
 }
 
-// Characterized, not endorsed: EmitPending can emit another actor's context.
-// It still emits once, changes only that message, and never acknowledges it.
-func TestHookHostEmitPendingForwardsSuppliedActor(t *testing.T) {
+// Another actor's context must remain private and pending. A matching host
+// still emits its own envelope once, without acknowledging it.
+func TestHookHostEmitPendingUsesBoundActor(t *testing.T) {
 	for _, crossActor := range []bool{false, true} {
 		t.Run(forwardingCase(crossActor), func(t *testing.T) {
 			host, target, other, _ := forwardingHost(t, "cursor", crossActor)
 			msg := forwardingMessage(t, host.store, target, StatusPendingActivity)
 			forwardingMessage(t, host.store, other, StatusPendingActivity)
 			before := journalSnapshot(t, host.store)
+			if crossActor {
+				assertStringActorRefusal(t, host.EmitPending, target.ID)
+				assertStringActorRefusal(t, host.EmitPending, target.ID)
+				assertForwardingChanges(t, host.store, before)
+				return
+			}
 			text, err := host.EmitPending(target.ID)
 			if err != nil || text != Envelope(msg)+"\n\n" {
-				t.Fatalf("context=%q error=%v, want only supplied actor's envelope", text, err)
+				t.Fatalf("context=%q error=%v, want bound actor's envelope", text, err)
 			}
 			current, err := host.store.message(msg.ID)
 			if err != nil || current.Status != StatusContextEmitted || current.AcknowledgedAt != "" {
@@ -146,35 +168,42 @@ func TestHookHostEmitPendingForwardsSuppliedActor(t *testing.T) {
 	}
 }
 
-// Characterized, not endorsed: EmitPending forwards lookup, capability and
-// record errors rather than rejecting the other actor at the host boundary.
-func TestHookHostEmitPendingForwardsErrors(t *testing.T) {
-	host, target, _, _ := forwardingHost(t, "cursor", true)
+// Binding wins over another actor's lookup, capability or malformed-record
+// error; matching actors retain those existing downstream errors.
+func TestHookHostEmitPendingErrorsFollowActorCheck(t *testing.T) {
+	host, target, other, _ := forwardingHost(t, "cursor", false)
 	native, _ := register(t, host.store, "codex")
 	before := journalSnapshot(t, host.store)
-	if text, err := host.EmitPending(native.ID); text != "" || err == nil || err.Error() != "this adapter does not support hook delivery" {
-		t.Fatalf("context=%q error=%v, want supplied actor's capability error", text, err)
+	assertStringActorRefusal(t, host.EmitPending, native.ID)
+	nativeHost := hookRuntime{store: host.store, actor: native.ID, kind: native.Kind}
+	if text, err := nativeHost.EmitPending(native.ID); text != "" || err == nil || err.Error() != "this adapter does not support hook delivery" {
+		t.Fatalf("context=%q error=%v, want bound actor's capability error", text, err)
 	}
-	assertForwardingChanges(t, host.store, before)
-	before = journalSnapshot(t, host.store)
-	if text, err := host.EmitPending("cursor:" + newID()); text != "" || !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("context=%q error=%v, want supplied actor's missing record", text, err)
+	missing := "cursor:" + newID()
+	assertStringActorRefusal(t, host.EmitPending, missing)
+	missingHost := host
+	missingHost.actor = missing
+	if text, err := missingHost.EmitPending(missing); text != "" || !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("context=%q error=%v, want bound actor's missing record", text, err)
 	}
 	assertForwardingChanges(t, host.store, before)
 	msg := forwardingMessage(t, host.store, target, StatusPendingActivity)
 	corruptForwardingMessage(t, host.store, msg.ID)
 	before = journalSnapshot(t, host.store)
+	wrongHost := host
+	wrongHost.actor = other.ID
+	assertStringActorRefusal(t, wrongHost.EmitPending, target.ID)
 	text, err := host.EmitPending(target.ID)
 	var syntax *json.SyntaxError
 	if text != "" || !errors.As(err, &syntax) {
-		t.Fatalf("context=%q error=%v, want malformed record error", text, err)
+		t.Fatalf("context=%q error=%v, want bound actor's malformed record error", text, err)
 	}
 	assertForwardingChanges(t, host.store, before)
 }
 
-// Characterized, not endorsed: CompletedNativePrompt uses the supplied actor
-// to inspect a completed envelope, including one addressed to another actor.
-func TestHookHostCompletedNativePromptForwardsSuppliedActor(t *testing.T) {
+// Completed envelope evidence belongs to the bound actor. The original exact
+// reason and read-only behavior remain for a matching actor.
+func TestHookHostCompletedNativePromptUsesBoundActor(t *testing.T) {
 	for _, crossActor := range []bool{false, true} {
 		t.Run(forwardingCase(crossActor), func(t *testing.T) {
 			host, target, other, key := forwardingHost(t, "codex", crossActor)
@@ -185,42 +214,173 @@ func TestHookHostCompletedNativePromptForwardsSuppliedActor(t *testing.T) {
 			}
 			before := journalSnapshot(t, host.store)
 			prompt := Envelope(msg)
-			reason, err := host.CompletedNativePrompt(target.ID, prompt)
-			if err != nil || reason != "Zalki queued message already acknowledged; no additional model turn is needed." {
-				t.Fatalf("reason=%q error=%v, want supplied actor's completed prompt", reason, err)
-			}
-			if reason, err := host.CompletedNativePrompt(other.ID, prompt); err != nil || reason != "" {
-				t.Fatalf("another recipient matched the envelope: %q %v", reason, err)
-			}
-			if reason, err := host.CompletedNativePrompt(target.ID, prompt+" changed"); err != nil || reason != "" {
-				t.Fatalf("altered prompt matched the envelope: %q %v", reason, err)
+			if crossActor {
+				assertPromptActorRefusal(t, host, target.ID, prompt)
+				assertPromptActorRefusal(t, host, target.ID, prompt+" changed")
+				assertPromptResult(t, host, other.ID, prompt, "")
+			} else {
+				assertPromptResult(t, host, target.ID, prompt, "Zalki queued message already acknowledged; no additional model turn is needed.")
+				assertPromptActorRefusal(t, host, other.ID, prompt)
+				assertPromptResult(t, host, target.ID, prompt+" changed", "")
 			}
 			assertForwardingChanges(t, host.store, before)
 		})
 	}
 }
 
-// Characterized, not endorsed: prompt framing is checked before any session
-// identity, and a recognized envelope forwards its journal read error.
-func TestHookHostCompletedNativePromptForwardsErrors(t *testing.T) {
-	host, target, _, _ := forwardingHost(t, "codex", true)
+// Binding now precedes prompt framing and journal errors. Ignored prompts,
+// missing messages and malformed records retain their same-actor behavior.
+func TestHookHostCompletedNativePromptErrorsFollowActorCheck(t *testing.T) {
+	host, target, other, _ := forwardingHost(t, "codex", false)
 	before := journalSnapshot(t, host.store)
-	if reason, err := host.CompletedNativePrompt("not an actor", "ordinary prompt"); err != nil || reason != "" {
-		t.Fatalf("ordinary prompt checked host identity: %q %v", reason, err)
+	for _, prompt := range []string{"ordinary prompt", "[zalki message not-a-uuid"} {
+		assertPromptActorRefusal(t, host, other.ID, prompt)
+		if reason, err := host.CompletedNativePrompt(target.ID, prompt); err != nil || reason != "" {
+			t.Fatalf("bound actor's ignored prompt=%q error=%v", reason, err)
+		}
 	}
-	if reason, err := host.CompletedNativePrompt(target.ID, "[zalki message "+newID()+"]\nmissing message"); err != nil || reason != "" {
-		t.Fatalf("missing message should be ignored: %q %v", reason, err)
+	assertPromptActorRefusal(t, host, "not an actor", "ordinary prompt")
+	missingPrompt := "[zalki message " + newID() + "]\nmissing message"
+	assertPromptActorRefusal(t, host, other.ID, missingPrompt)
+	if reason, err := host.CompletedNativePrompt(target.ID, missingPrompt); err != nil || reason != "" {
+		t.Fatalf("missing message should be ignored for bound actor: %q %v", reason, err)
 	}
 	assertForwardingChanges(t, host.store, before)
 	msg := forwardingMessage(t, host.store, target, StatusSubmitted)
 	corruptForwardingMessage(t, host.store, msg.ID)
 	before = journalSnapshot(t, host.store)
+	wrongHost := host
+	wrongHost.actor = other.ID
+	assertPromptActorRefusal(t, wrongHost, target.ID, Envelope(msg))
 	reason, err := host.CompletedNativePrompt(target.ID, Envelope(msg))
 	var syntax *json.SyntaxError
 	if reason != "" || !errors.As(err, &syntax) {
-		t.Fatalf("reason=%q error=%v, want malformed record error", reason, err)
+		t.Fatalf("reason=%q error=%v, want bound actor's malformed record error", reason, err)
 	}
 	assertForwardingChanges(t, host.store, before)
+}
+
+func assertActorRefusal(t *testing.T, err error) {
+	t.Helper()
+	const want = "unauthorized: hook operation must use its bound session"
+	if err == nil || model.ErrorCodeOf(err) != model.CodeUnauthorized || err.Error() != want {
+		t.Fatalf("error=%v, want code unauthorized and exact text %q", err, want)
+	}
+}
+
+func assertStringActorRefusal(t *testing.T, call func(string) (string, error), id string) {
+	t.Helper()
+	text, err := call(id)
+	assertActorRefusal(t, err)
+	if text != "" {
+		t.Fatal("refusal returned context")
+	}
+}
+
+func assertPromptActorRefusal(t *testing.T, host hookRuntime, id, prompt string) {
+	t.Helper()
+	text, err := host.CompletedNativePrompt(id, prompt)
+	assertActorRefusal(t, err)
+	if text != "" {
+		t.Fatal("refusal returned a completion reason")
+	}
+}
+
+func assertPromptResult(t *testing.T, host hookRuntime, id, prompt, want string) {
+	t.Helper()
+	reason, err := host.CompletedNativePrompt(id, prompt)
+	if err != nil || reason != want {
+		t.Fatalf("reason=%q error=%v, want %q and no error", reason, err, want)
+	}
+}
+
+type bindingOperation struct {
+	name string
+	call func(hookRuntime, string) (string, error)
+}
+
+func bindingOperations(prompt string) []bindingOperation {
+	return []bindingOperation{
+		{"UpdateSession", func(h hookRuntime, id string) (string, error) { return "", h.UpdateSession(id, StateBusy, false) }},
+		{"EmitPending", func(h hookRuntime, id string) (string, error) { return h.EmitPending(id) }},
+		{"CompletedNativePrompt", func(h hookRuntime, id string) (string, error) { return h.CompletedNativePrompt(id, prompt) }},
+	}
+}
+
+func TestHookHostRejectsUnboundOrDifferentActor(t *testing.T) {
+	host, _, other, _ := forwardingHost(t, "cursor", false)
+	for _, operation := range bindingOperations("ordinary prompt") {
+		t.Run(operation.name, func(t *testing.T) {
+			for _, test := range []struct {
+				name, actor, id string
+				zeroStore       bool
+			}{
+				{"empty_binding_empty_id", "", "", true},
+				{"empty_binding_registered_id", "", other.ID, false},
+				{"empty_id", host.actor, "", false},
+				{"different_actor", host.actor, other.ID, false},
+				{"different_kind", host.actor, "codex:" + strings.TrimPrefix(host.actor, "cursor:"), false},
+				{"noncanonical_spelling", host.actor, strings.ToUpper(host.actor), false},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					before := journalSnapshot(t, host.store)
+					candidate := host
+					candidate.actor = test.actor
+					if test.zeroStore {
+						candidate = hookRuntime{}
+					}
+					text, err := operation.call(candidate, test.id)
+					assertActorRefusal(t, err)
+					if text != "" {
+						t.Fatal("refusal returned output")
+					}
+					assertForwardingChanges(t, host.store, before)
+				})
+			}
+		})
+	}
+}
+
+func TestHookHostChecksActorBeforeStoreIO(t *testing.T) {
+	prompt := "[zalki message 00000000-0000-4000-8000-000000000001]\nmissing message"
+	for _, operation := range bindingOperations(prompt) {
+		t.Run(operation.name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "never-created")
+			host := hookRuntime{store: Store{Dir: dir, Registry: testRegistry()}, actor: "cursor:00000000-0000-4000-8000-000000000002"}
+			text, err := operation.call(host, "cursor:00000000-0000-4000-8000-000000000003")
+			assertActorRefusal(t, err)
+			if text != "" {
+				t.Fatal("refusal returned output")
+			}
+			if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("host entered Store before actor check: %v", err)
+			}
+		})
+	}
+}
+
+func TestUnboundHookRuntimeStillSupportsHealth(t *testing.T) {
+	store := fixtureStore(t)
+	target, _ := register(t, store, "cursor")
+	seedBindingLease(t, store, target)
+	target, err := store.session(target.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := journalSnapshot(t, store)
+	var health agent.HealthHost = hookRuntime{store: store}
+	if got := health.Listener(target); got != model.ListenerStale || got != store.listenerStatus(target) {
+		t.Fatalf("unbound health=%s, want unchanged stale-listener evidence", got)
+	}
+	assertForwardingChanges(t, store, before)
+}
+
+func seedBindingLease(t *testing.T, store Store, target Session) {
+	t.Helper()
+	target.Listener = &model.ListenerLease{ID: newID(), Generation: target.Generation, Endpoint: model.Endpoint{Path: filepath.Join(store.Dir, "missing.sock")}}
+	if err := store.locked(func() error { return store.saveSession(target) }); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func corruptForwardingMessage(t *testing.T, store Store, id string) {

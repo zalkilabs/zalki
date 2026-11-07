@@ -43,9 +43,11 @@ type HookAdapter interface {
 }
 
 // HookHost exposes bounded lifecycle operations, never the service, registry,
-// transport override, or arbitrary journal read/write access. Adapters that own
-// client state may additionally use LifecycleHost, not arbitrary credential
-// reads or rotation.
+// transport override, or arbitrary journal read/write access. Core's host
+// requires a nonempty bound actor and an identical supplied id for each
+// operation, rejecting mismatches before Store calls or prompt parsing.
+// Adapters that own client state may additionally use LifecycleHost, not
+// arbitrary credential reads or rotation.
 type HookHost interface {
 	UpdateSession(string, model.SessionState, bool) error
 	EmitPending(string) (string, error)
