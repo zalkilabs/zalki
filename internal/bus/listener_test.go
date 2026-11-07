@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -111,24 +112,32 @@ func TestAcquireDropsALockUnlinkedBeforeFlock(t *testing.T) {
 	store := fixtureStore(t)
 	to, key := register(t, store, "cursor")
 	unlinked := false
-	listenerLockBeforeFlock = func(path string) {
+	open := func(path string, create bool) (int, error) {
+		fd, err := journal.OpenLockFile(path, create)
+		if err != nil {
+			return fd, err
+		}
 		if !unlinked {
 			if err := os.Remove(path); err != nil {
-				t.Errorf("unlink lock: %v", err)
+				_ = journal.CloseLockFile(fd)
+				return -1, err
 			}
 			unlinked = true
 		}
+		return fd, nil
 	}
-	t.Cleanup(func() { listenerLockBeforeFlock = nil })
-	lease, err := store.AcquireListenerLease(to.ID, key)
+	fd, err := acquireListenerLock(store.listenerLockPath(to.Kind, to.ID), open)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { lease.Close(nil) })
+	t.Cleanup(func() { _ = journal.CloseLockFile(fd) })
 	if !unlinked {
 		t.Fatal("lock file was not unlinked between open and flock")
 	}
-	if _, err := store.AcquireListenerLease(to.ID, key); ErrorCodeOf(err) != CodeConflict {
+	if second, err := store.AcquireListenerLease(to.ID, key); ErrorCodeOf(err) != CodeConflict {
+		if second != nil {
+			second.Close(nil)
+		}
 		t.Fatal("a second lease acquired the replacement lock file", err)
 	}
 }

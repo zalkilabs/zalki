@@ -128,30 +128,23 @@ func (s Store) AcquireListenerLease(actor, key string) (lease *Lease, err error)
 	if err != nil {
 		return nil, err
 	}
-	fd, err := acquireListenerLock(s.listenerLockPath(v.Kind, actor))
+	fd, err := acquireListenerLock(s.listenerLockPath(v.Kind, actor), journal.OpenLockFile)
 	if err != nil {
 		return nil, err
 	}
 	return &Lease{store: s, actor: actor, kind: v.Kind, key: key, id: newID(), gen: v.Generation, fd: fd}, nil
 }
 
-// listenerLockBeforeFlock runs after the lock file is opened and before it is
-// flocked. Tests unlink the path in that gap.
-var listenerLockBeforeFlock func(path string)
-
 // acquireListenerLock flocks path and keeps the descriptor only while it still
 // refers to the directory entry. Prune can unlink the file after open and
 // before flock; the flock would then succeed on an unlinked inode and a second
 // acquire would lock a new file at the same path.
-func acquireListenerLock(path string) (int, error) {
+func acquireListenerLock(path string, open func(string, bool) (int, error)) (int, error) {
 	var last error
 	for range 3 {
-		fd, err := journal.OpenLockFile(path, true)
+		fd, err := open(path, true)
 		if err != nil {
 			return -1, err
-		}
-		if listenerLockBeforeFlock != nil {
-			listenerLockBeforeFlock(path)
 		}
 		if err := journal.LockExclusive(fd, true); err != nil {
 			_ = journal.CloseLockFile(fd)
