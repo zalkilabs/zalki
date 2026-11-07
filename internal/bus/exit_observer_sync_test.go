@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // These tests close gaps found in exitObserver.sync (exit_observer.go). They
@@ -33,10 +35,10 @@ import (
 //     Step 6 happens before any notice is sent.
 
 // newSyncObserver is an observer for one service, over the given source.
-func newSyncObserver(service Service, source exitSource) *exitObserver {
+func newSyncObserver(service Service, source procwatch.Source) *exitObserver {
 	return &exitObserver{
 		service: &service, root: filepath.Join(service.Store.Dir, "watches"), source: source,
-		procs: map[processKey]ProcessRef{}, owners: map[processKey][]string{},
+		procs: map[procwatch.Identity]struct{}{}, owners: map[procwatch.Identity][]string{},
 	}
 }
 
@@ -90,9 +92,9 @@ func TestSyncWithAMissingRootUnwatchesEveryOwner(t *testing.T) {
 		t.Run(remove.name, func(t *testing.T) {
 			fresh := newFakeExitSource()
 			observer := newSyncObserver(service, fresh)
-			observer.procs[keyOf(*owner)] = *owner
-			observer.owners[keyOf(*owner)] = []string{"cursor:" + newID()}
-			if err := fresh.WatchProcess(*owner); err != nil {
+			observer.procs[procwatch.Identity{PID: owner.PID, Start: owner.Start}] = struct{}{}
+			observer.owners[procwatch.Identity{PID: owner.PID, Start: owner.Start}] = []string{"cursor:" + newID()}
+			if err := fresh.WatchProcess(procwatch.Identity{PID: owner.PID, Start: owner.Start}); err != nil {
 				t.Fatal(err)
 			}
 			if err := remove.setup(observer.root); err != nil {
@@ -127,9 +129,9 @@ func TestSyncKeepsRegistrationsWhenTheRootCannotBeRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(o.root, 0700) })
-	o.procs[keyOf(*owner)] = *owner
-	o.owners[keyOf(*owner)] = []string{"cursor:" + newID()}
-	if err := fake.WatchProcess(*owner); err != nil {
+	o.procs[procwatch.Identity{PID: owner.PID, Start: owner.Start}] = struct{}{}
+	o.owners[procwatch.Identity{PID: owner.PID, Start: owner.Start}] = []string{"cursor:" + newID()}
+	if err := fake.WatchProcess(procwatch.Identity{PID: owner.PID, Start: owner.Start}); err != nil {
 		t.Fatal(err)
 	}
 	o.sync(context.Background())
@@ -155,7 +157,7 @@ func TestSyncIgnoresDirectoryWatchFailures(t *testing.T) {
 	if len(source.attempts) != 3 || source.attempts[0] != o.root {
 		t.Fatalf("directory watches tried: %v", source.attempts)
 	}
-	if !source.watchingProcess(*owner) || len(o.owners) != 1 || o.owners[keyOf(*owner)][0] != live.ID {
+	if !source.watchingProcess(*owner) || len(o.owners) != 1 || o.owners[procwatch.Identity{PID: owner.PID, Start: owner.Start}][0] != live.ID {
 		t.Fatalf("the live owner was not registered despite the failures: %v %v", source.procs, o.owners)
 	}
 	if counter.count() != 1 {

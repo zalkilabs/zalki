@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 type observerFormatLog struct {
@@ -56,7 +58,7 @@ func TestObserverFutureMarkerCreatesNothingAndNeverDelivers(t *testing.T) {
 			paused := make(chan struct{}, 2)
 			service.Store.Logger = slog.New(observerFormatLog{Handler: slog.NewJSONHandler(&log, nil), paused: paused})
 			var opened atomic.Int32
-			stop := runObserver(t, service, testSweep, func() (exitSource, error) { opened.Add(1); return newFakeExitSource(), nil })
+			stop := runObserver(t, service, testSweep, func() (procwatch.Source, error) { opened.Add(1); return newFakeExitSource(), nil })
 			waitForObserverFence(t, paused)
 			if after := journalSnapshot(t, store); !reflect.DeepEqual(before, after) {
 				t.Fatal("observer changed fenced state")
@@ -109,7 +111,7 @@ func TestObserverFormatFenceAfterStartupStaysIdleUntilShutdown(t *testing.T) {
 	setOwner(t, store, target.ID, &deadOwner)
 	futureStateMarker(t, store)
 	before := journalSnapshot(t, store)
-	source.events <- exitEvent{Kind: exitDirChanged}
+	source.events <- procwatch.Event{Kind: procwatch.DirectoryChanged}
 	waitForObserverFence(t, paused)
 	// The producer must be gone before cancellation, rather than queueing events
 	// while the fenced consumer waits for its context to end.
@@ -123,7 +125,7 @@ func TestObserverFormatFenceAfterStartupStaysIdleUntilShutdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	repaired := journalSnapshot(t, store)
-	source.events <- exitEvent{Kind: exitProcess, Process: *owner}
+	source.events <- procwatch.Event{Kind: procwatch.ProcessExited, Process: procwatch.Identity{PID: owner.PID, Start: owner.Start}}
 	select {
 	case <-paused:
 		t.Fatal("late format fence logged more than once")

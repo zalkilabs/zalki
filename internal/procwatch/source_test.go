@@ -207,3 +207,41 @@ func TestExitSourceClosesPromptlyAndIsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestExitSourceCloseWithUndrainedEvents(t *testing.T) {
+	source := openExitSource(t)
+	child, ref := startChild(t)
+	if err := child.Process.Kill(); err != nil {
+		t.Fatal(err)
+	}
+	if err := child.Wait(); err == nil {
+		t.Fatal("killed child unexpectedly succeeded")
+	}
+	// These immediate exit notifications exceed the source's channel capacity.
+	// Nobody drains them; Close must release blocked producers via done.
+	for range 80 {
+		if err := source.WatchProcess(ref); err != nil {
+			t.Fatal(err)
+		}
+	}
+	done := make(chan error, 1)
+	go func() { done <- source.Close() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Close waited for an event consumer")
+	}
+	if err := source.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case _, ok := <-source.Events():
+		if !ok {
+			t.Fatal("Close closed Events")
+		}
+	default:
+	}
+}

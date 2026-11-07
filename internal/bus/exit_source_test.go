@@ -32,7 +32,7 @@ func TestObserverNoticesAKilledChildWithinASecondWithoutTheSweep(t *testing.T) {
 	service.Deliver = counter.hook
 	child, ref := startChild(t)
 	watchedTarget(t, service, &ref)
-	runObserver(t, service, neverSweeps, newExitSource)
+	runObserver(t, service, neverSweeps, procwatch.NewSource)
 	time.Sleep(300 * time.Millisecond)
 	if counter.count() != 0 {
 		t.Fatal("noticed while the process was running")
@@ -57,7 +57,7 @@ func TestObserverPicksUpAWatchArmedLaterThroughTheRealDirectoryEvent(t *testing.
 	counter := &noticeCounter{}
 	service.Deliver = counter.hook
 	child, ref := startChild(t)
-	stop := runObserver(t, service, neverSweeps, newExitSource)
+	stop := runObserver(t, service, neverSweeps, procwatch.NewSource)
 	defer stop()
 	time.Sleep(200 * time.Millisecond) // let the observer start and watch the empty directory
 	watchedTarget(t, service, &ref)
@@ -76,8 +76,8 @@ func TestTwoObserversWithRealSourcesDeliverOneNotice(t *testing.T) {
 	second := Service{Store: first.Store, Deliver: counter.hook}
 	child, ref := startChild(t)
 	watchedTarget(t, first, &ref)
-	runObserver(t, first, neverSweeps, newExitSource)
-	runObserver(t, second, neverSweeps, newExitSource)
+	runObserver(t, first, neverSweeps, procwatch.NewSource)
+	runObserver(t, second, neverSweeps, procwatch.NewSource)
 	time.Sleep(300 * time.Millisecond)
 	if err := child.Process.Kill(); err != nil {
 		t.Fatal(err)
