@@ -99,6 +99,7 @@ func TestHookHostUpdateSessionUsesBoundActor(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			allowBoundStateEvent(t, host.store, target, before)
 			assertForwardingChanges(t, host.store, before, path)
 		})
 	}

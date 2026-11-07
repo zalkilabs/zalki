@@ -38,7 +38,7 @@ func newCommitFixture(t *testing.T) commitFixture {
 	}
 	// Include extension bytes that a typed Session alone would lose.
 	raw = append(raw[:len(raw)-1], []byte(",\"extension\":{\"keep\":true}}\n")...)
-	event := model.Event{Schema: 0, ID: "00000000-0000-4000-8000-000000000001",
+	event := model.Event{ID: "00000000-0000-4000-8000-000000000001",
 		Type: "session.state_changed", OccurredAt: "2026-11-07T11:00:00Z",
 		TransactionID: "00000000-0000-4000-8000-000000000002",
 		Session:       model.EventSession{ID: session.ID, Generation: session.Generation, Previous: StateReady, State: StateBusy}}
@@ -46,7 +46,7 @@ func newCommitFixture(t *testing.T) commitFixture {
 		t.Fatal(err)
 	}
 	session.State = StateBusy
-	return commitFixture{commitWriter{dir}, raw, session, event}
+	return commitFixture{commitWriter{dir: dir}, raw, session, event}
 }
 
 func readCommitFile(t *testing.T, path string) []byte {
@@ -60,7 +60,7 @@ func readCommitFile(t *testing.T, path string) []byte {
 
 func TestDormantCommitPublishesMatchingStateAndMetadata(t *testing.T) {
 	f := newCommitFixture(t)
-	if err := f.writer.commit(f.previous, f.next, f.event); err != nil {
+	if err := f.writer.commit(f.previous, f.next, f.event, nil); err != nil {
 		t.Fatal(err)
 	}
 	raw := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
@@ -71,9 +71,9 @@ func TestDormantCommitPublishesMatchingStateAndMetadata(t *testing.T) {
 	if state["state"] != "busy" || !reflect.DeepEqual(state["extension"], map[string]any{"keep": true}) {
 		t.Fatalf("state/extension = %v", state)
 	}
-	metadata := readCommitFile(t, filepath.Join(f.writer.dir, eventRecordPath(f.event)))
-	var got model.Event
-	if err := json.Unmarshal(metadata, &got); err != nil || got != f.event {
+	metadata := readCommitFile(t, filepath.Join(f.writer.dir, eventRecordPath(1)))
+	var got eventRecord
+	if err := json.Unmarshal(metadata, &got); err != nil || got.Event != f.event {
 		t.Fatalf("event = %+v, %v", got, err)
 	}
 	for _, secret := range []string{"private-key-hash", "private task", "/private/workspace", "key_hash", "cwd"} {
@@ -88,22 +88,11 @@ func TestDormantCommitPublishesMatchingStateAndMetadata(t *testing.T) {
 
 func preparedCommit(t *testing.T, f commitFixture) journal.Batch {
 	t.Helper()
-	state, err := mergeRecordJSON(f.previous, f.next)
+	batch, err := f.writer.prepare(f.previous, f.next, f.event, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	stateBytes, err := encodeStateJSON(state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	eventBytes, err := journal.EncodeJSON(f.event, 4096)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return journal.Batch{Schema: 1, ID: f.event.TransactionID, Puts: []journal.Put{
-		journal.NewPut(eventSessionPath(f.event), f.previous, stateBytes),
-		journal.NewPut(eventRecordPath(f.event), nil, eventBytes),
-	}}
+	return batch
 }
 
 func stageCommit(t *testing.T, f commitFixture, batch journal.Batch) {
@@ -155,7 +144,7 @@ func TestDormantCommitRejectsMismatchedEventBeforeWriting(t *testing.T) {
 			case "future schema":
 				f.next.Schema = 99
 			}
-			if err := f.writer.commit(f.previous, f.next, f.event); err == nil {
+			if err := f.writer.commit(f.previous, f.next, f.event, nil); err == nil {
 				t.Fatal("mismatched state/event accepted")
 			}
 			got := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
@@ -180,10 +169,10 @@ func TestDormantRecoveryRejectsForeignFamilyBeforeAnyWrite(t *testing.T) {
 	}
 }
 
-func TestExistingStoreWritersDoNotActivateDormantOutbox(t *testing.T) {
+func TestUncoveredStoreWritersDoNotActivateOutbox(t *testing.T) {
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")
-	if err := store.Update(session.ID, StateBusy, false); err != nil {
+	if err := store.Update(session.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	for _, dir := range []string{"commits", "events"} {

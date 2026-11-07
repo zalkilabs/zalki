@@ -33,7 +33,7 @@ func newBatchFixture(t *testing.T) batchFixture {
 	}
 	return batchFixture{
 		log: BatchLog{Root: root, Intent: "intents/pending.json"},
-		batch: Batch{Schema: 1, ID: "batch-1", Puts: []Put{
+		batch: Batch{ID: "batch-1", Puts: []Put{
 			NewPut("state/one.json", old, []byte("{\"value\":\"new\",\"extension\":9}\n")),
 			NewPut("outbox/event.json", nil, []byte("{\"id\":\"fixed-event-id\"}\n")),
 		}},
@@ -249,7 +249,7 @@ func TestBatchRejectsInvalidInputBeforePublication(t *testing.T) {
 		name   string
 		change func(*Batch)
 	}{
-		{"schema", func(b *Batch) { b.Schema = 2 }},
+		{"missing id", func(b *Batch) { b.ID = "" }},
 		{"id", func(b *Batch) { b.ID = "../escape" }},
 		{"empty", func(b *Batch) { b.Puts = nil }},
 		{"escape", func(b *Batch) { b.Puts[0].Path = "../escape" }},
@@ -276,7 +276,7 @@ func TestBatchRejectsInvalidInputBeforePublication(t *testing.T) {
 }
 
 func TestBatchAggregateAndIndividualLimits(t *testing.T) {
-	b := Batch{Schema: 1, ID: "b"}
+	b := Batch{ID: "b"}
 	for i := range 6 {
 		b.Puts = append(b.Puts, NewPut(fmtBatchPath(i), nil, make([]byte, maxPutBytes)))
 	}
@@ -305,7 +305,7 @@ func TestBatchAggregateAndIndividualLimits(t *testing.T) {
 func fmtBatchPath(i int) string { return "outbox/record-" + string(rune('a'+i)) + ".json" }
 
 func TestBatchOperationCountLimit(t *testing.T) {
-	b := Batch{Schema: 1, ID: "b"}
+	b := Batch{ID: "b"}
 	for i := range maxBatchPuts {
 		b.Puts = append(b.Puts, NewPut(fmtBatchPath(i), nil, nil))
 	}
@@ -328,7 +328,7 @@ func TestBatchDomainCheckRefusesBeforePublication(t *testing.T) {
 }
 
 func TestBatchCorruptIntentIsNotApplied(t *testing.T) {
-	for _, raw := range []string{`{`, `{"schema":2,"id":"b","puts":[]}`, `{"schema":1,"id":"b","puts":[],"extra":true}`} {
+	for _, raw := range []string{`{`, `{"id":"b","puts":[]}`, `{"id":"b","puts":[],"extra":true}`} {
 		t.Run(raw, func(t *testing.T) {
 			f := newBatchFixture(t)
 			if err := os.WriteFile(f.log.intentPath(), []byte(raw), 0600); err != nil {

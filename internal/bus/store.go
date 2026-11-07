@@ -73,10 +73,13 @@ func (s Store) lockedMode(fn func() error, readOnly bool) error {
 	}
 	defer journal.Unlock(fd) //nolint:errcheck // Descriptor close also releases the lock.
 	compatibility := s.CheckWriteCompatibility()
-	if compatibility != nil && !readOnly {
+	if compatibility != nil && (!readOnly || eventIntentPresent(s)) {
 		return compatibility
 	}
 	if compatibility == nil {
+		if err := recoverEventCommit(s); err != nil {
+			return err
+		}
 		if err := s.recoverReplies(); err != nil {
 			s.logEvent(slog.LevelError, "reply.recovery_failed", eventData{Err: err})
 			return err
