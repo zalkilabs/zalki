@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 var futureExtension = json.RawMessage(`{"large":123456789012345678901234567890,"nested":[true,"future"]}`)
@@ -457,7 +459,7 @@ func TestHeldExtensionsSurviveApprovalReleaseAndRetirement(t *testing.T) {
 
 func TestFloodMergeKeepsNestedFieldsByArrivalIdentity(t *testing.T) {
 	now := time.Now()
-	state := floodState{Schema: 1, Target: "target", Inbound: floodBucket{Tokens: 2, At: now}, Senders: map[string]floodBucket{"kept": {Tokens: 1, At: now}, "removed": {Tokens: 1, At: now}}, Recent: []floodArrival{{ID: "first", Sender: "kept", At: now}, {ID: "second", Sender: "kept", At: now}}}
+	state := floodRecord{Schema: 1, Target: "target", Inbound: model.FloodBucket{Tokens: 2, At: now}, Senders: map[string]model.FloodBucket{"kept": {Tokens: 1, At: now}, "removed": {Tokens: 1, At: now}}, Recent: []model.FloodArrival{{ID: "first", Sender: "kept", At: now}, {ID: "second", Sender: "kept", At: now}}}
 	previous, _ := json.Marshal(state)
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(previous, &fields); err != nil {
@@ -477,7 +479,7 @@ func TestFloodMergeKeepsNestedFieldsByArrivalIdentity(t *testing.T) {
 	senders["kept"]["future_bucket"] = futureExtension
 	fields["senders"], _ = json.Marshal(senders)
 	previous, _ = json.Marshal(fields)
-	state.Recent = append(state.Recent[1:], floodArrival{ID: "third", Sender: "kept", At: now})
+	state.Recent = append(state.Recent[1:], model.FloodArrival{ID: "third", Sender: "kept", At: now})
 	delete(state.Senders, "removed")
 	merged, err := mergeRecordJSON(previous, state)
 	if err != nil {

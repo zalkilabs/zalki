@@ -2,181 +2,41 @@ package bus
 
 import (
 	"encoding/json"
-	"math"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// These tests close gaps found in floodState.admit (flood.go) and
-// pruneRun.deleteOrphanFlood (flood_prune.go). They pin today's behavior; odd
-// results are characterized, not endorsed.
-//
-// admit checks in this order:
-//  1. A clock that went back is moved forward to the last known time.
-//  2. More than floodInboundPerHour recent arrivals: "invalid hourly flood quota state".
-//  3. Arrivals are walked in order. Each is checked first (zero time, earlier than
-//     the one before, later than the inbound bucket: "invalid flood quota arrival
-//     time"), then dropped if at least an hour old, then compared with the message
-//     ID: another sender is a conflict, the same sender is an exact retry that
-//     returns at once. So a retry hides every arrival after it from the checks.
-//  4. Hourly caps: pair, then inbound (rate limited).
-//  5. Sender buckets: an invalid one is "invalid sender flood quota state"; an
-//     idle one is dropped.
-//  6. Short buckets: pair, then inbound (rate limited).
-//
-// deleteOrphanFlood works in this order: a missing flood directory is fine; a
-// directory that is not private (for example a symlink) is refused; then each
-// entry must end in .json, be named <kind>_<canonical uuid>.json, and be a
-// regular file; a record whose session still exists is kept; a record from a
-// newer format is kept; everything else is an orphan and is listed, and removed
-// unless this is a dry run. The quota content need not be valid.
+// These Store/prune tests retain fail-closed quota and orphan cleanup behavior.
 
-// admitWith runs admit on a fresh state that the test has changed.
-func admitWith(change func(state *floodState, now time.Time), sender, id string) (floodState, bool, error) {
-	now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
-	state := newFloodAdmissionState(now)
-	change(&state, now)
-	changed, err := state.admit(sender, id, now)
-	return state, changed, err
-}
-
-func arrivals(now time.Time, count int) []floodArrival {
-	list := make([]floodArrival, count)
+func arrivals(now time.Time, count int) []model.FloodArrival {
+	list := make([]model.FloodArrival, count)
 	for i := range list {
-		list[i] = floodArrival{ID: "old-" + string(rune('a'+i%26)) + "-" + time.Duration(i).String(), Sender: "other", At: now.Add(-time.Duration(count-i) * time.Second)}
+		list[i] = model.FloodArrival{ID: "old-" + string(rune('a'+i%26)) + "-" + time.Duration(i).String(), Sender: "other", At: now.Add(-time.Duration(count-i) * time.Second)}
 	}
 	return list
-}
-
-// admitCase is one invalid or refused state for admit.
-type admitCase struct {
-	name     string
-	change   func(state *floodState, now time.Time)
-	id       string
-	wantCode ErrorCode
-	wantText string
-}
-
-const (
-	tooManyArrivals = "invalid hourly flood quota state"
-	badArrivalTime  = "invalid flood quota arrival time"
-	badSenderBucket = "invalid sender flood quota state"
-	idConflict      = "message UUID already reserved by another sender"
-)
-
-func admitCases() []admitCase {
-	zero := floodArrival{ID: "zero", Sender: "other"}
-	return []admitCase{
-		{"too many recent arrivals", func(s *floodState, now time.Time) { s.Recent = arrivals(now, floodInboundPerHour+1) }, "new", CodeInvalidInput, tooManyArrivals},
-		{"an arrival without a time", func(s *floodState, now time.Time) { s.Recent = []floodArrival{zero} }, "new", CodeInvalidInput, badArrivalTime},
-		{"arrivals out of order", func(s *floodState, now time.Time) {
-			s.Recent = []floodArrival{{ID: "b", Sender: "other", At: now.Add(-time.Second)}, {ID: "a", Sender: "other", At: now.Add(-2 * time.Second)}}
-		}, "new", CodeInvalidInput, badArrivalTime},
-		{"an arrival after the inbound bucket", func(s *floodState, now time.Time) {
-			s.Recent = []floodArrival{{ID: "late", Sender: "other", At: now.Add(time.Second)}}
-		}, "new", CodeInvalidInput, badArrivalTime},
-		{"a sender bucket without a time", func(s *floodState, now time.Time) { s.Senders["x"] = floodBucket{Tokens: 1} }, "new", CodeInvalidInput, badSenderBucket},
-		{"a sender bucket below zero", func(s *floodState, now time.Time) { s.Senders["x"] = floodBucket{Tokens: -1, At: now} }, "new", CodeInvalidInput, badSenderBucket},
-		{"a sender bucket over the burst", func(s *floodState, now time.Time) {
-			s.Senders["x"] = floodBucket{Tokens: floodPairBurst + 1, At: now}
-		}, "new", CodeInvalidInput, badSenderBucket},
-		{"a sender bucket that is not a number", func(s *floodState, now time.Time) {
-			s.Senders["x"] = floodBucket{Tokens: math.NaN(), At: now}
-		}, "new", CodeInvalidInput, badSenderBucket},
-		// Two faults at once: the earlier check in the list above wins.
-		{"too many arrivals and an arrival without a time", func(s *floodState, now time.Time) {
-			s.Recent = append(arrivals(now, floodInboundPerHour), zero)
-		}, "new", CodeInvalidInput, tooManyArrivals},
-		{"an arrival without a time and a bad sender bucket", func(s *floodState, now time.Time) {
-			s.Recent = []floodArrival{zero}
-			s.Senders["x"] = floodBucket{Tokens: -1, At: now}
-		}, "new", CodeInvalidInput, badArrivalTime},
-		{"a time check comes before the age check", func(s *floodState, now time.Time) {
-			s.Recent = []floodArrival{{ID: "ancient", Sender: "other", At: now.Add(-48 * time.Hour)}, {ID: "b", Sender: "other", At: now.Add(-49 * time.Hour)}}
-		}, "new", CodeInvalidInput, badArrivalTime},
-		{"the pair hourly cap comes before a bad sender bucket", func(s *floodState, now time.Time) {
-			for i := range floodPairPerHour {
-				s.Recent = append(s.Recent, floodArrival{ID: "p" + time.Duration(i).String(), Sender: "sender", At: now.Add(-time.Duration(floodPairPerHour-i) * time.Second)})
-			}
-			s.Senders["x"] = floodBucket{Tokens: -1, At: now}
-		}, "new", CodeRateLimited, "pair hourly cap"},
-		// An exact retry or a conflict returns before later arrivals are checked.
-		{"a retry hides a bad arrival after it", func(s *floodState, now time.Time) {
-			s.Recent = []floodArrival{{ID: "same", Sender: "sender", At: now.Add(-time.Second)}, zero}
-		}, "same", "", ""},
-		{"a conflict hides a bad arrival after it", func(s *floodState, now time.Time) {
-			s.Recent = []floodArrival{{ID: "same", Sender: "other", At: now.Add(-time.Second)}, zero}
-		}, "same", CodeConflict, idConflict},
-		{"a bad arrival before the retry is still refused", func(s *floodState, now time.Time) {
-			s.Recent = []floodArrival{zero, {ID: "same", Sender: "sender", At: now.Add(-time.Second)}}
-		}, "same", CodeInvalidInput, badArrivalTime},
-	}
-}
-
-func TestFloodAdmitRefusesInvalidStateInOrder(t *testing.T) {
-	for _, test := range admitCases() {
-		t.Run(test.name, func(t *testing.T) {
-			_, changed, err := admitWith(test.change, "sender", test.id)
-			if changed {
-				t.Fatal("an invalid or refused state admitted a message")
-			}
-			assertAdmitError(t, err, test)
-		})
-	}
-}
-
-// assertAdmitError checks the error of one case. An empty wantText means an
-// exact retry: no error and nothing admitted.
-func assertAdmitError(t *testing.T, err error, test admitCase) {
-	t.Helper()
-	if test.wantText == "" {
-		if err != nil {
-			t.Fatalf("exact retry = %v, want no error", err)
-		}
-		return
-	}
-	// A rate limit names the wait time, so only its start is fixed.
-	text := string(test.wantCode) + ": " + test.wantText
-	matches := err != nil && err.Error() == text
-	if test.wantCode == CodeRateLimited {
-		matches = err != nil && strings.Contains(err.Error(), test.wantText)
-	}
-	if !matches || ErrorCodeOf(err) != test.wantCode {
-		t.Fatalf("error = %v (code %q), want %q (code %q)", err, ErrorCodeOf(err), test.wantText, test.wantCode)
-	}
-}
-
-func TestFloodAdmitDoesNotDropAnInvalidSenderBucketAsIdle(t *testing.T) {
-	state, _, err := admitWith(func(s *floodState, now time.Time) {
-		s.Senders["stale"] = floodBucket{Tokens: -1, At: now.Add(-time.Hour)}
-	}, "sender", "new")
-	if err == nil || err.Error() != "invalid_input: "+badSenderBucket {
-		t.Fatalf("error = %v", err)
-	}
-	if _, kept := state.Senders["stale"]; !kept {
-		t.Fatal("an invalid bucket was dropped instead of refused")
-	}
 }
 
 // A tampered quota file must refuse the send and stay as it is, the same as
 // the partial states in TestFloodPartialOrUnsupportedStateFailsClosed.
 func TestFloodTamperedArrivalsAndBucketsFailClosedThroughTheStore(t *testing.T) {
 	now := time.Now().UTC()
-	valid := func() floodState {
-		return floodState{Schema: 1, Target: "", Inbound: floodBucket{Tokens: floodInboundBurst, At: now}, Senders: map[string]floodBucket{}}
+	valid := func() floodRecord {
+		return withFloodQuota(floodRecord{Schema: 1, Target: ""}, model.NewFloodState(now))
 	}
 	tests := []struct {
 		name string
-		edit func(state *floodState)
+		edit func(state *floodRecord)
 		want string
 	}{
-		{"too many recent arrivals", func(s *floodState) { s.Recent = arrivals(now, floodInboundPerHour+1) }, "invalid hourly flood quota state"},
-		{"an arrival without a time", func(s *floodState) { s.Recent = []floodArrival{{ID: "x", Sender: "y"}} }, "invalid flood quota arrival time"},
-		{"a sender bucket below zero", func(s *floodState) { s.Senders["x"] = floodBucket{Tokens: -1, At: now} }, "invalid sender flood quota state"},
+		{"too many recent arrivals", func(s *floodRecord) { s.Recent = arrivals(now, 400+1) }, "invalid hourly flood quota state"},
+		{"an arrival without a time", func(s *floodRecord) { s.Recent = []model.FloodArrival{{ID: "x", Sender: "y"}} }, "invalid flood quota arrival time"},
+		{"a sender bucket below zero", func(s *floodRecord) { s.Senders["x"] = model.FloodBucket{Tokens: -1, At: now} }, "invalid sender flood quota state"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

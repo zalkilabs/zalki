@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // These tests pin how a reply to an unavailable destination uses the flood
@@ -16,9 +18,9 @@ import (
 // and must not take quota again, even when the quota is used up, while a reply
 // with a new body is a new record and does take quota.
 
-func floodStateOf(t *testing.T, store Store, target string) floodState {
+func floodRecordOf(t *testing.T, store Store, target string) floodRecord {
 	t.Helper()
-	var state floodState
+	var state floodRecord
 	if err := json.Unmarshal(floodBytes(t, store, target), &state); err != nil {
 		t.Fatal(err)
 	}
@@ -28,8 +30,8 @@ func floodStateOf(t *testing.T, store Store, target string) floodState {
 // exhaustSender leaves the sender's short-term bucket empty for the target.
 func exhaustSender(t *testing.T, store Store, target, sender string) {
 	t.Helper()
-	state := floodStateOf(t, store, target)
-	state.Senders[derivedID("zalki/flood/sender/v1", sender)] = floodBucket{Tokens: 0, At: time.Now().UTC().Add(time.Hour)}
+	state := floodRecordOf(t, store, target)
+	state.Senders[derivedID("zalki/flood/sender/v1", sender)] = model.FloodBucket{Tokens: 0, At: time.Now().UTC().Add(time.Hour)}
 	data, err := json.Marshal(state)
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +49,7 @@ func exhaustSender(t *testing.T, store Store, target, sender string) {
 // replies had been recorded that long ago.
 func ageArrivals(t *testing.T, store Store, target string, by time.Duration) {
 	t.Helper()
-	state := floodStateOf(t, store, target)
+	state := floodRecordOf(t, store, target)
 	for i := range state.Recent {
 		state.Recent[i].At = state.Recent[i].At.Add(-by)
 	}
@@ -119,7 +121,7 @@ func (f refusedReplyFixture) requireRetryTakesNothing(first Message, when, chang
 func (f refusedReplyFixture) requireOneArrivalForTheFirstReply(first Message) {
 	f.t.Helper()
 	sender := derivedID("zalki/flood/sender/v1", f.to.ID)
-	state := floodStateOf(f.t, f.service.Store, f.from.ID)
+	state := floodRecordOf(f.t, f.service.Store, f.from.ID)
 	if len(state.Recent) != 1 || state.Recent[0].ID != first.ID || state.Recent[0].Sender != sender {
 		f.t.Fatalf("the first reply left arrivals %+v, want one for %s", state.Recent, first.ID)
 	}
@@ -188,11 +190,11 @@ func TestRefusedReplyWithANewBodySpendsOneMoreArrival(t *testing.T) {
 			t.Fatalf("reply %q = %+v, %v", body, reply, err)
 		}
 		ids = append(ids, reply.ID)
-		if got := len(floodStateOf(t, store, from.ID).Recent); got != len(ids) {
+		if got := len(floodRecordOf(t, store, from.ID).Recent); got != len(ids) {
 			t.Fatalf("after %d new replies the quota has %d arrivals", len(ids), got)
 		}
 	}
-	for i, arrival := range floodStateOf(t, store, from.ID).Recent {
+	for i, arrival := range floodRecordOf(t, store, from.ID).Recent {
 		if arrival.ID != ids[i] {
 			t.Fatalf("arrival %d is %s, want %s", i, arrival.ID, ids[i])
 		}

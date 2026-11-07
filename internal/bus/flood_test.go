@@ -36,7 +36,7 @@ func TestFloodBurstRefillIsolationAndClockRollback(t *testing.T) {
 	store := fixtureStore(t)
 	msg := floodMessage()
 	now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
-	for range floodPairBurst {
+	for range 12 {
 		msg.ID = newID()
 		if err := spendFlood(store, msg, now); err != nil {
 			t.Fatal(err)
@@ -73,7 +73,7 @@ func TestFloodInboundCapDoesNotSpendRejectedSenderQuota(t *testing.T) {
 	store := fixtureStore(t)
 	msg := floodMessage()
 	now := time.Now().UTC()
-	for range floodInboundBurst {
+	for range 48 {
 		msg.From, msg.ID = "codex:"+newID(), newID()
 		if err := spendFlood(store, msg, now); err != nil {
 			t.Fatal(err)
@@ -98,10 +98,10 @@ func TestFloodHourlyCapsAndExpiry(t *testing.T) {
 			store := fixtureStore(t)
 			msg := floodMessage()
 			now := time.Now().UTC()
-			limit, interval := floodPairPerHour, 6*time.Second
+			limit, interval := 120, 6*time.Second
 			senders := []string{msg.From}
 			if scope == "inbound" {
-				limit, interval = floodInboundPerHour, 2*time.Second
+				limit, interval = 400, 2*time.Second
 				for range 4 {
 					senders = append(senders, "codex:"+newID())
 				}
@@ -154,8 +154,8 @@ func TestFloodCrossStoreConcurrency(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if admitted.Load() != floodPairBurst {
-		t.Fatalf("concurrent stores admitted %d, want %d", admitted.Load(), floodPairBurst)
+	if admitted.Load() != 12 {
+		t.Fatalf("concurrent stores admitted %d, want %d", admitted.Load(), 12)
 	}
 }
 
@@ -179,7 +179,7 @@ func TestFloodRetryReservationsAndIdleSenderExpiry(t *testing.T) {
 		t.Fatal(err)
 	}
 	path, _ := store.floodPath(msg.To)
-	var state floodState
+	var state floodRecord
 	if err := readJSON(path, &state); err != nil || len(state.Senders) != 1 || len(state.Recent) != 2 {
 		t.Fatal("idle senders accumulated or hourly history was dropped", err)
 	}
@@ -201,7 +201,7 @@ func TestFloodDenialDoesNotReserveOrAcknowledgeReplies(t *testing.T) {
 		}
 		// Freeze exhausted quota ahead of the wall clock, avoiding sleeps and
 		// flaky boundary assertions when the race suite runs under load.
-		for range floodPairBurst {
+		for range 12 {
 			if err := spendFlood(store, Message{ID: newID(), From: actor.ID, To: target.ID}, time.Now().Add(time.Hour)); err != nil {
 				t.Fatal(err)
 			}
@@ -248,7 +248,7 @@ func TestFloodWatchNoticesAreExempt(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	watcher, key, subject, _ := registerPair(t, store, "cursor", "codex")
-	for range floodPairBurst {
+	for range 12 {
 		if err := spendFlood(store, Message{ID: newID(), From: subject.ID, To: watcher.ID}, time.Now().Add(time.Hour)); err != nil {
 			t.Fatal(err)
 		}
@@ -273,7 +273,7 @@ func TestFloodSendRefusalNeverCreatesAnApprovalHold(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().Add(time.Hour)
-	for range floodPairBurst {
+	for range 12 {
 		if err := spendFlood(store, Message{ID: newID(), From: actor.ID, To: target.ID}, now); err != nil {
 			t.Fatal(err)
 		}

@@ -90,7 +90,7 @@ func TestARateLimitedSendIsLoggedAsRateLimited(t *testing.T) {
 	sender, key, target, _ := registerPair(t, store, "codex", "claude")
 	service.Deliver = func(context.Context, Message, Session) Receipt { return NewReceipt(StatusSubmitted) }
 	var limited bool
-	for range floodPairBurst + 3 {
+	for range 12 + 3 {
 		_, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "again"})
 		if ErrorCodeOf(err) == CodeRateLimited {
 			limited = true
