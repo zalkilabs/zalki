@@ -8,18 +8,19 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/journal"
 )
 
 type Store struct {
 	Dir string
 	// Registry is required; NewStore rejects a nil or empty registry.
-	Registry *Registry
+	Registry *agent.Registry
 	Logger   *slog.Logger
 }
 
 // NewStore returns a Store that resolves agent kinds through registry.
-func NewStore(dir string, registry *Registry, logger *slog.Logger) (Store, error) {
+func NewStore(dir string, registry *agent.Registry, logger *slog.Logger) (Store, error) {
 	if len(registry.Kinds()) == 0 {
 		return Store{}, errors.New("an agent registry with at least one adapter is required")
 	}

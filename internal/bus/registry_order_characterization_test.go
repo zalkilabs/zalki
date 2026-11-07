@@ -12,13 +12,13 @@ import (
 // It deliberately lacks HookAdapter so the optional interface check is visible.
 type registryOrderAdapter struct {
 	tag        string
-	descriptor AdapterDescriptor
+	descriptor agent.AdapterDescriptor
 	caps       ReceiveCapabilities
 	calls      *[]string
 	inputs     *[]Session
 }
 
-func (a registryOrderAdapter) Descriptor() AdapterDescriptor {
+func (a registryOrderAdapter) Descriptor() agent.AdapterDescriptor {
 	*a.calls = append(*a.calls, a.tag+".descriptor")
 	return a.descriptor
 }
@@ -75,13 +75,13 @@ func TestRegistryErrorAndCallbackPrecedence(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var calls []string
 			var inputs []Session
-			probe := registryOrderAdapter{tag: "probe", descriptor: AdapterDescriptor{Kind: test.kind, Label: test.label, Hooks: test.hooks}, caps: test.caps, calls: &calls, inputs: &inputs}
-			var adapter Adapter = probe
+			probe := registryOrderAdapter{tag: "probe", descriptor: agent.AdapterDescriptor{Kind: test.kind, Label: test.label, Hooks: test.hooks}, caps: test.caps, calls: &calls, inputs: &inputs}
+			var adapter agent.Adapter = probe
 			if test.withHooks {
 				adapter = registryOrderHooks{registryOrderAdapter: probe}
 			}
 			later := registryOrderAdapter{tag: "later", calls: &calls, inputs: &inputs}
-			registry, err := NewRegistry(adapter, later)
+			registry, err := agent.NewRegistry(adapter, later)
 			if err == nil || err.Error() != test.want || registry != nil {
 				t.Fatalf("registry=%v error=%v, want nil registry and %q", registry, err, test.want)
 			}
@@ -130,17 +130,17 @@ func TestRegistryNilAndDuplicateStopCallbacks(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var calls []string
 			var inputs []Session
-			first := registryOrderAdapter{tag: "first", descriptor: AdapterDescriptor{Kind: "probe", Label: "Probe"}, caps: registryOrderCaps(false), calls: &calls, inputs: &inputs}
+			first := registryOrderAdapter{tag: "first", descriptor: agent.AdapterDescriptor{Kind: "probe", Label: "Probe"}, caps: registryOrderCaps(false), calls: &calls, inputs: &inputs}
 			second := registryOrderAdapter{tag: "second", descriptor: first.descriptor, calls: &calls, inputs: &inputs}
-			adapters := []Adapter{nil, first}
+			adapters := []agent.Adapter{nil, first}
 			want := "nil agent adapter"
 			var wantCalls []string
 			if duplicate {
-				adapters = []Adapter{first, second, first}
+				adapters = []agent.Adapter{first, second, first}
 				want = `duplicate agent adapter "probe"`
 				wantCalls = []string{"first.descriptor", "first.capabilities", "second.descriptor"}
 			}
-			registry, err := NewRegistry(adapters...)
+			registry, err := agent.NewRegistry(adapters...)
 			if err == nil || err.Error() != want || registry != nil {
 				t.Fatalf("registry=%v error=%v, want nil registry and %q", registry, err, want)
 			}
@@ -152,9 +152,9 @@ func TestRegistryNilAndDuplicateStopCallbacks(t *testing.T) {
 func TestRegistryCallbacksFollowInputOrderAndUseZeroSessions(t *testing.T) {
 	var calls []string
 	var inputs []Session
-	first := registryOrderAdapter{tag: "first", descriptor: AdapterDescriptor{Kind: "zeta", Label: "Zeta"}, caps: registryOrderCaps(false), calls: &calls, inputs: &inputs}
-	second := registryOrderAdapter{tag: "second", descriptor: AdapterDescriptor{Kind: "alpha", Label: "Alpha", Hooks: map[string]string{"start": "SessionStart"}}, caps: registryOrderCaps(true), calls: &calls, inputs: &inputs}
-	registry, err := NewRegistry(first, registryOrderHooks{registryOrderAdapter: second})
+	first := registryOrderAdapter{tag: "first", descriptor: agent.AdapterDescriptor{Kind: "zeta", Label: "Zeta"}, caps: registryOrderCaps(false), calls: &calls, inputs: &inputs}
+	second := registryOrderAdapter{tag: "second", descriptor: agent.AdapterDescriptor{Kind: "alpha", Label: "Alpha", Hooks: map[string]string{"start": "SessionStart"}}, caps: registryOrderCaps(true), calls: &calls, inputs: &inputs}
+	registry, err := agent.NewRegistry(first, registryOrderHooks{registryOrderAdapter: second})
 	if err != nil {
 		t.Fatal(err)
 	}

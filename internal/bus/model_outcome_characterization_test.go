@@ -51,7 +51,7 @@ type modelReleaseAdapter struct {
 	agentapi.StandardHooks
 }
 
-func (a modelReleaseAdapter) Descriptor() bus.AdapterDescriptor {
+func (a modelReleaseAdapter) Descriptor() agentapi.AdapterDescriptor {
 	d := a.fakeAdapter.Descriptor()
 	d.Hooks = map[string]string{"stop": "Stop"}
 	return d

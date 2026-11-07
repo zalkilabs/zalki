@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/adapters"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/logging"
 
@@ -21,7 +22,7 @@ type commandOptions struct {
 	logLevel string
 	logFile  string
 	logger   *slog.Logger
-	registry *bus.Registry
+	registry *agent.Registry
 }
 
 // A fresh command tree keeps flags and IO local to each invocation.

@@ -39,7 +39,7 @@ func TestStateCodecSeesOnlyFieldsCoreDoesNotOwn(t *testing.T) {
 	store := fixtureStore(t)
 	to, _ := register(t, store, "cursor")
 	var seen []agent.StateInput
-	registry, err := NewRegistry(stubCodexAdapter{}, capturingCursorAdapter{seen: &seen})
+	registry, err := agent.NewRegistry(stubCodexAdapter{}, capturingCursorAdapter{seen: &seen})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func (overbroadMigrationAdapter) LegacyStateFields() []string {
 func TestStateMigrationCannotRemoveCoreFields(t *testing.T) {
 	store := fixtureStore(t)
 	target, key := register(t, store, "cursor")
-	registry, err := NewRegistry(overbroadMigrationAdapter{})
+	registry, err := agent.NewRegistry(overbroadMigrationAdapter{})
 	if err != nil {
 		t.Fatal(err)
 	}

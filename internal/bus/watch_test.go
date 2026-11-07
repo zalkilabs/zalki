@@ -328,7 +328,7 @@ func (a *blockedStopAdapter) HandleHook(_ agent.HookHost, event agent.HookInput,
 func TestWatchSubscribedDuringStopSurvivesThatCompletion(t *testing.T) {
 	store := fixtureStore(t)
 	adapter := &blockedStopAdapter{entered: make(chan struct{}), release: make(chan struct{})}
-	registry, err := NewRegistry(adapter, stubCodexAdapter{})
+	registry, err := agent.NewRegistry(adapter, stubCodexAdapter{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -37,8 +37,8 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 	}
 }
 
-func (Adapter) Descriptor() bus.AdapterDescriptor {
-	return bus.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
+func (Adapter) Descriptor() agent.AdapterDescriptor {
+	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
 }
 
 func (Adapter) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities {

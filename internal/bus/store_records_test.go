@@ -15,7 +15,7 @@ import (
 
 func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 	store := fixtureStore(t)
-	registry, err := NewRegistry(fixtureAdapter{kind: "fourth", inbox: InboxNative})
+	registry, err := agent.NewRegistry(fixtureAdapter{kind: "fourth", inbox: InboxNative})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestNativeIdentityValidationAndUUIDCompatibility(t *testing.T) {
 
 func TestOpaqueAdapterStateSurvivesCompaction(t *testing.T) {
 	store := fixtureStore(t)
-	registry, err := NewRegistry(fixtureAdapter{kind: "fourth", inbox: InboxNative})
+	registry, err := agent.NewRegistry(fixtureAdapter{kind: "fourth", inbox: InboxNative})
 	if err != nil {
 		t.Fatal(err)
 	}

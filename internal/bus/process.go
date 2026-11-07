@@ -5,6 +5,7 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
@@ -44,7 +45,7 @@ func (s Store) nativeOwner(kind string) *ProcessRef {
 	return ownerFrom(adapter.Descriptor(), os.Getppid(), procwatch.Read)
 }
 
-func ownerFrom(adapter AdapterDescriptor, pid int, read func(int) (procwatch.Info, error)) *ProcessRef {
+func ownerFrom(adapter agent.AdapterDescriptor, pid int, read func(int) (procwatch.Info, error)) *ProcessRef {
 	for range 32 {
 		if pid <= 1 {
 			break

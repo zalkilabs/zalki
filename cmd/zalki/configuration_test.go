@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
@@ -12,8 +13,8 @@ import (
 
 type declarationFixture struct{ files []model.ConfigDeclaration }
 
-func (declarationFixture) Descriptor() bus.AdapterDescriptor {
-	return bus.AdapterDescriptor{Kind: "fixture", Label: "Fixture"}
+func (declarationFixture) Descriptor() agent.AdapterDescriptor {
+	return agent.AdapterDescriptor{Kind: "fixture", Label: "Fixture"}
 }
 func (declarationFixture) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities {
 	return bus.ReceiveCapabilities{Delivery: "fixture", Inbox: bus.InboxNative, BusyDelivery: bus.DeliveryNextTurn}
@@ -25,7 +26,7 @@ func (a declarationFixture) Configuration(string, []string) []model.ConfigDeclar
 
 func TestInstallDeclarationsPreservesFieldsAndJSONSharing(t *testing.T) {
 	patch := map[string]any{"fixture": map[string]any{"enabled": true}}
-	registry, err := bus.NewRegistry(declarationFixture{files: []model.ConfigDeclaration{
+	registry, err := agent.NewRegistry(declarationFixture{files: []model.ConfigDeclaration{
 		{Path: ".b/config.toml", Draft: "b.toml", TOML: "setting = true\n", ConfigRootEnv: "B_CONFIG_ROOT"},
 		{Path: ".a/config.json", Draft: "a.json", JSON: patch, ConfigRootEnv: "A_CONFIG_ROOT"},
 	}})
@@ -47,7 +48,7 @@ func TestInstallDeclarationsPreservesFieldsAndJSONSharing(t *testing.T) {
 }
 
 func TestInstallDeclarationsPreservesRegistryFailure(t *testing.T) {
-	var registry *bus.Registry
+	var registry *agent.Registry
 	_, wantErr := registry.Configuration("/fixture/zalki", "/fixture/state")
 	got, err := installDeclarations(registry)("/fixture/zalki", "/fixture/state")
 	if got != nil || err == nil || err.Error() != wantErr.Error() || bus.ErrorCodeOf(err) != "internal" {

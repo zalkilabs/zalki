@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func TestCompactEnvelopeKeepsRoutingPrivate(t *testing.T) {
@@ -68,7 +70,7 @@ func TestStoreRequiresRegistry(t *testing.T) {
 	if _, err := NewStore(t.TempDir(), nil, nil); err == nil {
 		t.Fatal("store accepted a missing registry")
 	}
-	empty, err := NewRegistry()
+	empty, err := agent.NewRegistry()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +80,7 @@ func TestStoreRequiresRegistry(t *testing.T) {
 	if _, _, err := (Store{Dir: t.TempDir()}).Register("codex", newID(), "/workspace", nil); err == nil {
 		t.Fatal("registration succeeded without a registry")
 	}
-	if _, err := (*Registry)(nil).Configuration("/bin/zalki", t.TempDir()); err == nil {
+	if _, err := (*agent.Registry)(nil).Configuration("/bin/zalki", t.TempDir()); err == nil {
 		t.Fatal("nil registry produced configuration")
 	}
 }

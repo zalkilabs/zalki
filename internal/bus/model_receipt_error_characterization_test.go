@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	agentapi "github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -127,7 +128,7 @@ func TestModelTypedErrorTextAndIdentity(t *testing.T) {
 }
 
 func TestModelFormattedPublicError(t *testing.T) {
-	registry, err := bus.NewRegistry(nativeAdapter("alpha"))
+	registry, err := agentapi.NewRegistry(nativeAdapter("alpha"))
 	if err != nil {
 		t.Fatal(err)
 	}
