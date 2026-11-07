@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 type hintAdapter struct {
@@ -76,7 +78,7 @@ func TestAdapterVersionEvidenceDoesNotOverrideUnavailableClientsOrMalformedHints
 	for _, test := range []struct {
 		found   bool
 		version string
-		adapter Adapter
+		adapter agent.Adapter
 		want    string
 	}{
 		{true, "2.1.316", compatibilityStub{status: "live_verified", hint: "Historical smoke evidence; no per-message ACK."}, "live_verified"},

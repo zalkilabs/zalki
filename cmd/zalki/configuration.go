@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
@@ -9,7 +9,7 @@ import (
 // to the installer's execution specification. All five fields are converted by
 // name. The JSON maps are passed on as they are, never copied: the installer
 // reads them but does not modify them.
-func installDeclarations(registry *bus.Registry) install.Declare {
+func installDeclarations(registry *agent.Registry) install.Declare {
 	return func(binary, state string) ([]install.ConfigFile, error) {
 		declarations, err := registry.Configuration(binary, state)
 		if err != nil {

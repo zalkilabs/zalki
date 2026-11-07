@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func TestDiscoverySummarizesEachSessionWithoutRewritingIt(t *testing.T) {
@@ -101,7 +103,7 @@ func TestDiscoveryDefaultsAndWakeOverrides(t *testing.T) {
 	for _, timing := range []DeliveryTiming{DeliveryNextTurn, DeliveryBetweenTools, DeliveryNextHook, DeliveryNotification} {
 		for _, idle := range []bool{false, true} {
 			store := fixtureStore(t)
-			registry, err := NewRegistry(discoveryAdapter{idle: idle, busy: timing})
+			registry, err := agent.NewRegistry(discoveryAdapter{idle: idle, busy: timing})
 			if err != nil {
 				t.Fatal(err)
 			}

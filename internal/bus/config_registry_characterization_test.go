@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	agentapi "github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -26,13 +27,13 @@ func (a configAdapter) Configuration(binary string, args []string) []declared {
 func jsonPatch(key string) map[string]any { return map[string]any{key: map[string]any{"on": true}} }
 
 // declaring returns an adapter of the given kind that declares fixed files.
-func declaring(kind string, files ...declared) bus.Adapter {
+func declaring(kind string, files ...declared) agentapi.Adapter {
 	return configAdapter{nativeAdapter(kind), func(string, []string) []declared { return files }}
 }
 
-func registryOf(t *testing.T, adapters ...bus.Adapter) *bus.Registry {
+func registryOf(t *testing.T, adapters ...agentapi.Adapter) *agentapi.Registry {
 	t.Helper()
-	registry, err := bus.NewRegistry(adapters...)
+	registry, err := agentapi.NewRegistry(adapters...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,8 +42,8 @@ func registryOf(t *testing.T, adapters ...bus.Adapter) *bus.Registry {
 
 // registryFor returns a builder that creates the registry in the subtest that
 // uses it, so a setup failure is reported for that subtest.
-func registryFor(adapters ...bus.Adapter) func(*testing.T) *bus.Registry {
-	return func(t *testing.T) *bus.Registry {
+func registryFor(adapters ...agentapi.Adapter) func(*testing.T) *agentapi.Registry {
+	return func(t *testing.T) *agentapi.Registry {
 		t.Helper()
 		return registryOf(t, adapters...)
 	}
@@ -66,7 +67,7 @@ func summarize(files []declared) []summary {
 // refusalCase is one way a registry must refuse to return configuration.
 type refusalCase struct {
 	name          string
-	registry      func(t *testing.T) *bus.Registry
+	registry      func(t *testing.T) *agentapi.Registry
 	binary, state string
 	wantText      string
 	wantCode      bus.ErrorCode
@@ -81,7 +82,7 @@ func TestRegistryConfigurationRefusals(t *testing.T) {
 		return file
 	}
 	fixed := []refusalCase{
-		{"nil registry", func(*testing.T) *bus.Registry { return nil }, "/bin/zalki", "/state",
+		{"nil registry", func(*testing.T) *agentapi.Registry { return nil }, "/bin/zalki", "/state",
 			"internal: agent registry is not configured", "internal"},
 		{"relative binary", registryFor(declaring(kind, good)), "zalki", "/state",
 			"binary and state paths must be absolute", "internal"},
@@ -113,19 +114,19 @@ func TestRegistryConfigurationRefusals(t *testing.T) {
 	other := declared{Path: ".b/two.json", Draft: "b-two.json", JSON: jsonPatch("hooks")}
 	more := []struct {
 		name  string
-		files []bus.Adapter
+		files []agentapi.Adapter
 		text  string
 	}{
-		{"duplicate path in one adapter", []bus.Adapter{declaring(kind, good, with(func(f *declared) { f.Draft = "other.json" }))}, unique},
-		{"duplicate draft in one adapter", []bus.Adapter{declaring(kind, good, with(func(f *declared) { f.Path = ".a/two.json" }))}, unique},
-		{"duplicate path across adapters", []bus.Adapter{declaring(kind, good), declaring("beta", with(func(f *declared) { f.Draft = "b.json" }))}, unique},
-		{"duplicate draft across adapters", []bus.Adapter{declaring(kind, good), declaring("beta", with(func(f *declared) { f.Path = ".b/x.json" }))}, unique},
-		{"the reserved draft name", []bus.Adapter{declaring(kind, with(func(f *declared) { f.Draft = "targets.json" }))}, unique},
-		{"both JSON and TOML", []bus.Adapter{declaring(kind, with(func(f *declared) { f.TOML = "x = 1" }))}, "configuration must declare exactly one JSON patch or TOML fragment"},
-		{"neither JSON nor TOML", []bus.Adapter{declaring(kind, with(func(f *declared) { f.JSON = nil }))}, "configuration must declare exactly one JSON patch or TOML fragment"},
-		{"an empty JSON patch", []bus.Adapter{declaring(kind, with(func(f *declared) { f.JSON = map[string]any{} }))}, "configuration JSON patch must not be empty"},
-		{"uniqueness is checked before the JSON/TOML rule", []bus.Adapter{declaring(kind, good, with(func(f *declared) { f.JSON = nil }))}, unique},
-		{"one bad adapter refuses the whole set", []bus.Adapter{declaring(kind, other), declaring("beta", with(func(f *declared) { f.Path = "../x" }))}, "beta declares an unsafe configuration path"},
+		{"duplicate path in one adapter", []agentapi.Adapter{declaring(kind, good, with(func(f *declared) { f.Draft = "other.json" }))}, unique},
+		{"duplicate draft in one adapter", []agentapi.Adapter{declaring(kind, good, with(func(f *declared) { f.Path = ".a/two.json" }))}, unique},
+		{"duplicate path across adapters", []agentapi.Adapter{declaring(kind, good), declaring("beta", with(func(f *declared) { f.Draft = "b.json" }))}, unique},
+		{"duplicate draft across adapters", []agentapi.Adapter{declaring(kind, good), declaring("beta", with(func(f *declared) { f.Path = ".b/x.json" }))}, unique},
+		{"the reserved draft name", []agentapi.Adapter{declaring(kind, with(func(f *declared) { f.Draft = "targets.json" }))}, unique},
+		{"both JSON and TOML", []agentapi.Adapter{declaring(kind, with(func(f *declared) { f.TOML = "x = 1" }))}, "configuration must declare exactly one JSON patch or TOML fragment"},
+		{"neither JSON nor TOML", []agentapi.Adapter{declaring(kind, with(func(f *declared) { f.JSON = nil }))}, "configuration must declare exactly one JSON patch or TOML fragment"},
+		{"an empty JSON patch", []agentapi.Adapter{declaring(kind, with(func(f *declared) { f.JSON = map[string]any{} }))}, "configuration JSON patch must not be empty"},
+		{"uniqueness is checked before the JSON/TOML rule", []agentapi.Adapter{declaring(kind, good, with(func(f *declared) { f.JSON = nil }))}, unique},
+		{"one bad adapter refuses the whole set", []agentapi.Adapter{declaring(kind, other), declaring("beta", with(func(f *declared) { f.Path = "../x" }))}, "beta declares an unsafe configuration path"},
 	}
 	tests := make([]refusalCase, 0, len(fixed)+len(unsafe)+len(more))
 	tests = append(tests, fixed...)
@@ -193,7 +194,7 @@ func TestRegistryConfigurationResult(t *testing.T) {
 	t.Run("each adapter gets the binary and its own copy of the arguments", func(t *testing.T) {
 		var seen [][]string
 		var binaries []string
-		record := func(kind, path, draft string, tamper bool) bus.Adapter {
+		record := func(kind, path, draft string, tamper bool) agentapi.Adapter {
 			return configAdapter{nativeAdapter(kind), func(binary string, args []string) []declared {
 				binaries = append(binaries, binary)
 				seen = append(seen, append([]string{}, args...))

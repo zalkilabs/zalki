@@ -42,7 +42,7 @@ func TestAdapterRejectsInvalidDraftsAndEmptyPatches(t *testing.T) {
 		{Path: ".fourth/mcp.json", Draft: "fourth.json", JSON: install.MCPConfig("/bin/zalki", nil, false), TOML: "also TOML"},
 	} {
 		adapter := configFixtureAdapter{fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: InboxNative}, files: []model.ConfigDeclaration{file}}
-		registry, err := NewRegistry(adapter)
+		registry, err := agent.NewRegistry(adapter)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,8 +57,8 @@ func TestAdapterRejectsInvalidDraftsAndEmptyPatches(t *testing.T) {
 	}
 }
 
-func (a fixtureAdapter) Descriptor() AdapterDescriptor {
-	return AdapterDescriptor{Kind: a.kind, Label: "Fixture", Hooks: map[string]string{"start": "SessionStart", "end": "SessionEnd", "tool": "PostToolUse"}, ProcessNames: []string{"fixture-agent"}, OwnerRole: "client"}
+func (a fixtureAdapter) Descriptor() agent.AdapterDescriptor {
+	return agent.AdapterDescriptor{Kind: a.kind, Label: "Fixture", Hooks: map[string]string{"start": "SessionStart", "end": "SessionEnd", "tool": "PostToolUse"}, ProcessNames: []string{"fixture-agent"}, OwnerRole: "client"}
 }
 
 func (a fixtureAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
@@ -93,7 +93,7 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 		t.Run(string(inbox), func(t *testing.T) {
 			var deliveries atomic.Int32
 			adapter := fixtureAdapter{kind: "fourth-agent", inbox: inbox, deliveries: &deliveries}
-			registry, err := NewRegistry(adapter)
+			registry, err := agent.NewRegistry(adapter)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -173,10 +173,10 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 
 func TestRegistryRejectsInvalidAndDuplicateAdapters(t *testing.T) {
 	valid := fixtureAdapter{kind: "fixture", inbox: InboxNative}
-	for _, adapters := range [][]Adapter{
+	for _, adapters := range [][]agent.Adapter{
 		{nil}, {valid, valid}, {fixtureAdapter{kind: "../escape", inbox: InboxNative}}, {fixtureAdapter{kind: "fixture", inbox: ""}},
 	} {
-		if _, err := NewRegistry(adapters...); err == nil {
+		if _, err := agent.NewRegistry(adapters...); err == nil {
 			t.Fatal("invalid adapter registry accepted")
 		}
 	}
@@ -255,7 +255,7 @@ func TestNewAdapterConfigurationUpgradeAndRemoval(t *testing.T) {
 	if _, err := install.Apply(installDeclare(testRegistry()), "/old/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
-	registry, err := NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, stubCursorAdapter{}, fixtureAdapter{kind: "fourth", inbox: InboxNative})
+	registry, err := agent.NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, stubCursorAdapter{}, fixtureAdapter{kind: "fourth", inbox: InboxNative})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +297,7 @@ func TestAdapterConfigurationCannotClaimArbitraryPaths(t *testing.T) {
 	clearConfigOverrides(t)
 	for _, path := range []string{"../outside.json", "/outside.json", ".fourth/../outside.json"} {
 		t.Run(path, func(t *testing.T) {
-			registry, err := NewRegistry(fixtureAdapter{kind: "fourth", inbox: InboxNative, path: path})
+			registry, err := agent.NewRegistry(fixtureAdapter{kind: "fourth", inbox: InboxNative, path: path})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -337,7 +337,7 @@ func TestAdapterConfigurationCannotClaimArbitraryPaths(t *testing.T) {
 
 // installDeclare adapts a registry to the installer the way the command line
 // does: all five fields are converted by name and the JSON maps are not copied.
-func installDeclare(registry *Registry) install.Declare {
+func installDeclare(registry *agent.Registry) install.Declare {
 	return func(binary, state string) ([]install.ConfigFile, error) {
 		declarations, err := registry.Configuration(binary, state)
 		if err != nil {

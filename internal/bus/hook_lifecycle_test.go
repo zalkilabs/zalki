@@ -248,7 +248,7 @@ func TestCodecResultIsBoundedBeforePersisting(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			store := fixtureStore(t)
 			to, key := register(t, store, "cursor")
-			registry, err := NewRegistry(stubCodexAdapter{}, rewritingCursorAdapter{rewrite: rewrite})
+			registry, err := agent.NewRegistry(stubCodexAdapter{}, rewritingCursorAdapter{rewrite: rewrite})
 			if err != nil {
 				t.Fatal(err)
 			}

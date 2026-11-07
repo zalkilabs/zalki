@@ -48,7 +48,7 @@ type ownerAdapter struct {
 	names []string
 }
 
-func (a ownerAdapter) Descriptor() AdapterDescriptor {
+func (a ownerAdapter) Descriptor() agent.AdapterDescriptor {
 	descriptor := a.stubCursorAdapter.Descriptor()
 	descriptor.ProcessNames = a.names
 	return descriptor
@@ -62,9 +62,9 @@ func (sharedAdapter) Liveness(agent.LivenessView, agent.LivenessProbes) Liveness
 }
 func (sharedAdapter) TracksOwnProcess() bool { return false }
 
-func ownerStore(t *testing.T, adapter Adapter) Store {
+func ownerStore(t *testing.T, adapter agent.Adapter) Store {
 	t.Helper()
-	registry, err := NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, adapter)
+	registry, err := agent.NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, adapter)
 	if err != nil {
 		t.Fatal(err)
 	}

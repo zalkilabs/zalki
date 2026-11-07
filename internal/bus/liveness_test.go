@@ -14,7 +14,7 @@ type livenessStub struct {
 	own    bool
 }
 
-func (s livenessStub) Descriptor() AdapterDescriptor {
+func (s livenessStub) Descriptor() agent.AdapterDescriptor {
 	d := s.stubCursorAdapter.Descriptor()
 	d.Kind, d.Label = "fixture", "Fixture"
 	return d
@@ -37,7 +37,7 @@ func TestSessionLivenessTrustsOnlyAdapterEvidence(t *testing.T) {
 		{name: "garbage", result: "shared-daemon", want: "unknown", listed: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			registry, err := NewRegistry(livenessStub{result: test.result, own: true})
+			registry, err := agent.NewRegistry(livenessStub{result: test.result, own: true})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -74,7 +74,7 @@ func TestSessionLivenessTrustsOnlyAdapterEvidence(t *testing.T) {
 }
 
 func TestSharedProcessOwnerIsNotRecorded(t *testing.T) {
-	registry, err := NewRegistry(livenessStub{result: "unknown", own: false})
+	registry, err := agent.NewRegistry(livenessStub{result: "unknown", own: false})
 	if err != nil {
 		t.Fatal(err)
 	}

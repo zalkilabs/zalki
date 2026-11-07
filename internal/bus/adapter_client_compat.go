@@ -110,7 +110,7 @@ func annotateClientCompatibility(diagnostic *AgentDiagnostic) {
 	}
 }
 
-func recoveryHint(diagnostic SessionDiagnostic, adapter Adapter) string {
+func recoveryHint(diagnostic SessionDiagnostic, adapter agent.Adapter) string {
 	if diagnostic.Retired || diagnostic.Liveness == "exited" {
 		return "Start or resume the client session; do not resend messages already submitted."
 	}
@@ -132,7 +132,7 @@ func validRecoveryHint(hint string) bool {
 
 // Adapter evidence is separate from generic hook/metadata fixture coverage.
 // Missing installations or unavailable versions retain their common diagnosis.
-func annotateAdapterCompatibility(diagnostic *AgentDiagnostic, adapter Adapter) {
+func annotateAdapterCompatibility(diagnostic *AgentDiagnostic, adapter agent.Adapter) {
 	if !diagnostic.Found || diagnostic.Version == "" {
 		return
 	}

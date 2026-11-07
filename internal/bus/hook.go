@@ -89,7 +89,7 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 }
 
 // decodeHook captures the native contract before mapping and normalizing it.
-func (s *Service) decodeHook(kind string, input io.Reader, adapter Adapter, hooks agent.HookAdapter, trace *hookTrace) (agent.HookInput, string, error) {
+func (s *Service) decodeHook(kind string, input io.Reader, adapter agent.Adapter, hooks agent.HookAdapter, trace *hookTrace) (agent.HookInput, string, error) {
 	var event agent.HookInput
 	trace.stage = "decode"
 	if err := json.NewDecoder(io.LimitReader(input, 128*1024)).Decode(&event); err != nil {

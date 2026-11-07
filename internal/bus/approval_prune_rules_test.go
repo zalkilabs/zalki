@@ -26,7 +26,7 @@ func TestExplicitPruneDoesNotProbeSessionLiveness(t *testing.T) {
 	for _, dry := range []bool{true, false} {
 		store := fixtureStore(t)
 		calls := 0
-		registry, err := NewRegistry(pruneProbeAdapter{calls: &calls})
+		registry, err := agent.NewRegistry(pruneProbeAdapter{calls: &calls})
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -19,8 +19,8 @@ import (
 // interfaces, and be composed with the built-in registry.
 type fourthAdapter struct{ agent.StandardHooks }
 
-func (fourthAdapter) Descriptor() bus.AdapterDescriptor {
-	return bus.AdapterDescriptor{
+func (fourthAdapter) Descriptor() agent.AdapterDescriptor {
+	return agent.AdapterDescriptor{
 		Kind: "fourth", Label: "Fourth", Hooks: agent.StandardEvents(true),
 		ProcessNames: []string{"fourth"}, OwnerRole: "client", Executable: "fourth",
 	}
@@ -53,7 +53,7 @@ func (fourthJournalAdapter) HandleHook(host agent.HookHost, event agent.HookInpu
 }
 
 func TestExternalAdapterUsesTrustedLifecycleHost(t *testing.T) {
-	registry, err := bus.NewRegistry(fourthJournalAdapter{})
+	registry, err := agent.NewRegistry(fourthJournalAdapter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestExternalAdapterComposesWithBuiltins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	registry, err := bus.NewRegistry(codex, claude, cursor, fourthAdapter{})
+	registry, err := agent.NewRegistry(codex, claude, cursor, fourthAdapter{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,8 +15,8 @@ import (
 // metadata only; lifecycle policy is tested with Builtin in internal/adapters.
 type stubCodexAdapter struct{ agent.StandardHooks }
 
-func (stubCodexAdapter) Descriptor() AdapterDescriptor {
-	return AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex"}
+func (stubCodexAdapter) Descriptor() agent.AdapterDescriptor {
+	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex"}
 }
 
 func (stubCodexAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
@@ -35,8 +35,8 @@ func (stubCodexAdapter) Health(agent.HealthHost, Session) (string, string) {
 // Real socket, metadata, configuration and hook registration tests live in adapters.
 type stubClaudeAdapter struct{ agent.StandardHooks }
 
-func (stubClaudeAdapter) Descriptor() AdapterDescriptor {
-	return AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
+func (stubClaudeAdapter) Descriptor() agent.AdapterDescriptor {
+	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
 }
 
 func (stubClaudeAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
@@ -51,8 +51,8 @@ func (stubClaudeAdapter) Deliver(context.Context, Message, Session) Receipt {
 // sender, metadata, configuration and output-policy tests use the real Builtin.
 type stubCursorAdapter struct{ agent.StandardHooks }
 
-func (stubCursorAdapter) Descriptor() AdapterDescriptor {
-	return AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Hooks: map[string]string{"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop"}}
+func (stubCursorAdapter) Descriptor() agent.AdapterDescriptor {
+	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Hooks: map[string]string{"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop"}}
 }
 func (stubCursorAdapter) ReceiveCapabilities(v Session) ReceiveCapabilities {
 	c := ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: InboxJournal, BusyDelivery: DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}
@@ -179,8 +179,8 @@ func (stubCursorAdapter) Configuration(binary string, args []string) []model.Con
 }
 
 // testRegistry registers dispatch stubs; real client tests live in adapters.
-func testRegistry() *Registry {
-	r, err := NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, stubCursorAdapter{})
+func testRegistry() *agent.Registry {
+	r, err := agent.NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, stubCursorAdapter{})
 	if err != nil {
 		panic(err)
 	}

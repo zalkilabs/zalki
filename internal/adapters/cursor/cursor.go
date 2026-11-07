@@ -36,8 +36,8 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 	}
 }
 
-func (Adapter) Descriptor() bus.AdapterDescriptor {
-	return bus.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Notes: []string{"A running Cursor listener does not establish an unsuppressed native observer or remaining notification budget."}, Hooks: map[string]string{
+func (Adapter) Descriptor() agent.AdapterDescriptor {
+	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Notes: []string{"A running Cursor listener does not establish an unsuppressed native observer or remaining notification budget."}, Hooks: map[string]string{
 		"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop",
 	}}
 }

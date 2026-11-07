@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -19,7 +20,7 @@ func TestAdapterDefinesItsOwnConfigurationOverride(t *testing.T) {
 		fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: InboxNative},
 		files:          []model.ConfigDeclaration{{Path: ".fourth/mcp.json", ConfigRootEnv: "FOURTH_CONFIG_DIR", Draft: "fourth-mcp.json", JSON: install.MCPConfig("/fixture/zalki", nil, false)}},
 	}
-	registry, err := NewRegistry(adapter)
+	registry, err := agent.NewRegistry(adapter)
 	if err != nil {
 		t.Fatal(err)
 	}

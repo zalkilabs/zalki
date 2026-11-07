@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"testing"
 
+	agentapi "github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -33,8 +34,8 @@ type fakeAdapter struct {
 	deliver func(context.Context, bus.Message, bus.Session) bus.Receipt
 }
 
-func (a *fakeAdapter) Descriptor() bus.AdapterDescriptor {
-	return bus.AdapterDescriptor{Kind: a.kind, Label: a.kind, ProcessNames: []string{a.kind}, OwnerRole: "client", Executable: a.kind}
+func (a *fakeAdapter) Descriptor() agentapi.AdapterDescriptor {
+	return agentapi.AdapterDescriptor{Kind: a.kind, Label: a.kind, ProcessNames: []string{a.kind}, OwnerRole: "client", Executable: a.kind}
 }
 
 func (a *fakeAdapter) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities { return a.caps }
@@ -78,9 +79,9 @@ func listenerAdapter(kind string) *fakeAdapter {
 }
 
 // newStore returns a Store in a private temporary directory.
-func newStore(t *testing.T, adapters ...bus.Adapter) bus.Store {
+func newStore(t *testing.T, adapters ...agentapi.Adapter) bus.Store {
 	t.Helper()
-	registry, err := bus.NewRegistry(adapters...)
+	registry, err := agentapi.NewRegistry(adapters...)
 	if err != nil {
 		t.Fatal(err)
 	}

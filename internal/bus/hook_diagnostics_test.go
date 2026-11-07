@@ -116,7 +116,7 @@ func TestHookAdapterFailuresPreserveStageAndRegistrationBoundary(t *testing.T) {
 			t.Setenv("ZALKI_CAPTURE_CONTRACTS", "")
 			store := fixtureStore(t)
 			var err error
-			store.Registry, err = NewRegistry(hookStageFailureAdapter{stage: stage})
+			store.Registry, err = agent.NewRegistry(hookStageFailureAdapter{stage: stage})
 			if err != nil {
 				t.Fatal(err)
 			}
