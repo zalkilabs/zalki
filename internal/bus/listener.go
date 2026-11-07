@@ -260,7 +260,7 @@ func (l *Lease) ValidateDelivery(messageID string) (acknowledged bool, err error
 		if err != nil {
 			return err
 		}
-		if message.To != l.actor || message.TargetGeneration != l.gen || (!hookPendingStatus(message.Status) && message.Status != StatusContextEmitted) {
+		if message.To != l.actor || message.TargetGeneration != l.gen || (!model.HookPendingStatus(message.Status) && message.Status != StatusContextEmitted) {
 			return errors.New("hint does not refer to this recipient's pending message")
 		}
 		acknowledged = message.AcknowledgedAt != ""

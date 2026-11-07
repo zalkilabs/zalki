@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func approvalService(t *testing.T, store Store, delivered *[]string) Service {
@@ -43,7 +45,7 @@ func TestApprovalQueueDeliversOnceInOrder(t *testing.T) {
 	var first Message
 	for i, body := range bodies {
 		msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: body})
-		if err != nil || msg.Status != StatusApprovalBlocked || msg.Receipt == nil || msg.Receipt.Error != approvalQueuedNote {
+		if err != nil || msg.Status != StatusApprovalBlocked || msg.Receipt == nil || msg.Receipt.Error != model.ApprovalQueuedNote {
 			t.Fatalf("queued send %d: %+v %v", i, msg, err)
 		}
 		if i == 0 {

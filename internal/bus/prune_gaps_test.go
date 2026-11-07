@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
@@ -195,7 +196,7 @@ func queuedFor(t *testing.T, store Store, sender Session, target string) Message
 	t.Helper()
 	msg := Message{
 		Schema: recordSchema, ID: newID(), From: sender.ID, To: target, Body: "waits", CreatedAt: timestamp(),
-		Status: StatusApprovalBlocked, Held: true, Receipt: &Receipt{At: timestamp(), Status: StatusApprovalBlocked, Error: approvalQueuedNote},
+		Status: StatusApprovalBlocked, Held: true, Receipt: &Receipt{At: timestamp(), Status: StatusApprovalBlocked, Error: model.ApprovalQueuedNote},
 	}
 	if current, err := store.session(target); err == nil {
 		msg.TargetGeneration = current.Generation
