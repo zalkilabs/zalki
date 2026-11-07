@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -35,7 +36,7 @@ func loadClaudeContract(t *testing.T) claudeContract {
 func TestRecordedClaudeHookAndMetadataContract(t *testing.T) {
 	fixture := loadClaudeContract(t)
 	adapter := Adapter{}
-	var hook bus.HookInput
+	var hook agent.HookInput
 	if err := json.Unmarshal(fixture.Hook, &hook); err != nil {
 		t.Fatal(err)
 	}

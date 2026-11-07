@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func journalSnapshot(t *testing.T, store Store) map[string]string {
@@ -143,7 +145,7 @@ func TestStateFormatFenceKeepsReadsAndRefusesEveryWriteWithoutChanges(t *testing
 	store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
 	service.Store = store
 	for _, event := range []string{"SessionStart", "PostToolUse", "Stop"} {
-		input, _ := json.Marshal(HookInput{SessionID: NativeID(target), CWD: "/workspace", Event: event})
+		input, _ := json.Marshal(agent.HookInput{SessionID: NativeID(target), CWD: "/workspace", Event: event})
 		if err := service.Hook("codex", bytes.NewReader(input), &output); err != nil {
 			t.Fatal("hook broke client", err)
 		}

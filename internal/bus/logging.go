@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/logging"
 )
 
@@ -74,7 +75,7 @@ func (s Store) appendAgentAndHookAttrs(attrs []slog.Attr, data eventData) []slog
 	if _, err := s.registry().Lookup(data.Agent); err == nil {
 		attrs = append(attrs, slog.String("agent", data.Agent))
 	}
-	if StandardEvents(true)[data.HookEvent] != "" {
+	if agent.StandardEvents(true)[data.HookEvent] != "" {
 		attrs = append(attrs, slog.String("hook_event", data.HookEvent))
 	}
 	switch data.HookStage {

@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -163,7 +164,7 @@ func (s Store) consumeWatchesLocked(target string, asOf time.Time) ([]Watch, err
 	return due, nil
 }
 
-func completionKind(event HookInput) (string, bool) {
+func completionKind(event agent.HookInput) (string, bool) {
 	switch event.Event {
 	case "SessionEnd":
 		return "ended", true
@@ -210,7 +211,7 @@ func completionBody(subject Session, event, at, line string) string {
 	return body
 }
 
-func (s *Service) notifyWatches(ctx context.Context, actor string, event HookInput, asOf time.Time) error {
+func (s *Service) notifyWatches(ctx context.Context, actor string, event agent.HookInput, asOf time.Time) error {
 	kind, ok := completionKind(event)
 	if !ok {
 		return nil

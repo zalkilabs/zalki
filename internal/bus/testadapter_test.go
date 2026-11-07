@@ -13,10 +13,10 @@ import (
 // stubCodexAdapter stands in for the real Codex adapter, which lives in internal/adapters
 // and cannot be imported here without an import cycle. It supplies dispatch
 // metadata only; lifecycle policy is tested with Builtin in internal/adapters.
-type stubCodexAdapter struct{ StandardHooks }
+type stubCodexAdapter struct{ agent.StandardHooks }
 
 func (stubCodexAdapter) Descriptor() AdapterDescriptor {
-	return AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex"}
+	return AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex"}
 }
 
 func (stubCodexAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
@@ -31,10 +31,10 @@ func (stubCodexAdapter) Health(HealthHost, Session) (string, string) { return "n
 
 // stubClaudeAdapter provides the native-inbox dispatch contract for core tests.
 // Real socket, metadata, configuration and hook registration tests live in adapters.
-type stubClaudeAdapter struct{ StandardHooks }
+type stubClaudeAdapter struct{ agent.StandardHooks }
 
 func (stubClaudeAdapter) Descriptor() AdapterDescriptor {
-	return AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
+	return AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
 }
 
 func (stubClaudeAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
@@ -47,7 +47,7 @@ func (stubClaudeAdapter) Deliver(context.Context, Message, Session) Receipt {
 
 // stubCursorAdapter supplies only the core dispatch/lifecycle contract. Socket
 // sender, metadata, configuration and output-policy tests use the real Builtin.
-type stubCursorAdapter struct{ StandardHooks }
+type stubCursorAdapter struct{ agent.StandardHooks }
 
 func (stubCursorAdapter) Descriptor() AdapterDescriptor {
 	return AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Hooks: map[string]string{"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop"}}
@@ -65,7 +65,7 @@ func (stubCursorAdapter) Deliver(_ context.Context, _ Message, v Session) Receip
 	}
 	return NewReceipt(StatusPendingActivity)
 }
-func (stubCursorAdapter) NormalizeHook(v HookInput) (HookInput, error) {
+func (stubCursorAdapter) NormalizeHook(v agent.HookInput) (agent.HookInput, error) {
 	if v.Event == "Stop" && v.Status != "" && v.Status != "completed" {
 		v.Event = "Interrupt"
 	}
@@ -77,8 +77,8 @@ func (stubCursorAdapter) NormalizeHook(v HookInput) (HookInput, error) {
 	}
 	return v, nil
 }
-func (stubCursorAdapter) HandleHook(host HookHost, v HookInput, id string, _ io.Writer) (bool, error) {
-	h := host.(LifecycleHost)
+func (stubCursorAdapter) HandleHook(host agent.HookHost, v agent.HookInput, id string, _ io.Writer) (bool, error) {
+	h := host.(agent.LifecycleHost)
 	if v.Event == "UserPromptSubmit" {
 		return true, h.ApplyLifecycle(stubResumeOnPrompt)
 	}
@@ -90,7 +90,7 @@ func (stubCursorAdapter) HandleHook(host HookHost, v HookInput, id string, _ io.
 
 // The stub Cursor policies mirror the real adapter's so core transaction tests
 // exercise realistic state; the adapter's own policy is tested in adapters.
-func stubResumeOnPrompt(v SessionView) (LifecycleChange, error) {
+func stubResumeOnPrompt(v SessionView) (agent.LifecycleChange, error) {
 	state := cursorState(Session{AdapterState: v.AdapterState})
 	if state.RecoverySuppressed {
 		state.RecoveryAttempted = false
@@ -98,33 +98,33 @@ func stubResumeOnPrompt(v SessionView) (LifecycleChange, error) {
 	state.RecoverySuppressed = false
 	next := Session{}
 	setCursorState(&next, state)
-	return LifecycleChange{Transition: TransitionPromptReactivate, AdapterState: next.AdapterState}, nil
+	return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate, AdapterState: next.AdapterState}, nil
 }
 
-func stubSuppressRecovery(v SessionView) (LifecycleChange, error) {
+func stubSuppressRecovery(v SessionView) (agent.LifecycleChange, error) {
 	state := cursorState(Session{AdapterState: v.AdapterState})
 	state.RecoverySuppressed = true
 	next := Session{}
 	setCursorState(&next, state)
-	return LifecycleChange{Transition: TransitionReady, AdapterState: next.AdapterState}, nil
+	return agent.LifecycleChange{Transition: agent.TransitionReady, AdapterState: next.AdapterState}, nil
 }
 
-func stubClaimRecovery(v SessionView) (RecoveryDecision, error) {
+func stubClaimRecovery(v SessionView) (agent.RecoveryDecision, error) {
 	state := cursorState(Session{AdapterState: v.AdapterState})
 	if state.RecoverySuppressed || state.RecoveryAttempted {
-		return RecoveryDecision{}, nil
+		return agent.RecoveryDecision{}, nil
 	}
 	state.RecoveryAttempted = true
 	next := Session{}
 	setCursorState(&next, state)
-	return RecoveryDecision{Recover: true, AdapterState: next.AdapterState}, nil
+	return agent.RecoveryDecision{Recover: true, AdapterState: next.AdapterState}, nil
 }
 
 // claimCursorRecovery claims recovery as a Cursor postToolUse hook would.
-func claimCursorRecovery(store Store, actor string) (RecoveryGrant, error) {
+func claimCursorRecovery(store Store, actor string) (agent.RecoveryGrant, error) {
 	return hookRuntime{store: store, actor: actor, kind: "cursor", event: "PostToolUse"}.ClaimRecovery(stubClaimRecovery)
 }
-func (stubCursorAdapter) StartupOutput(v StartupContext) (any, error) {
+func (stubCursorAdapter) StartupOutput(v agent.StartupContext) (any, error) {
 	return map[string]any{"additional_context": v.Instructions, "env": map[string]string{"ZALKI_ACTOR": v.Actor, "ZALKI_CAPABILITY": v.Capability}}, nil
 }
 

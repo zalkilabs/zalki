@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func TestCursorRecoverySkipsRetiredUnknownAndApprovalSessions(t *testing.T) {
@@ -32,7 +34,7 @@ func TestConcurrentCursorRecoveryClaimsOnlyOneContext(t *testing.T) {
 	store := fixtureStore(t)
 	to, _ := register(t, store, "cursor")
 	var wg sync.WaitGroup
-	contexts := make(chan RecoveryGrant, 12)
+	contexts := make(chan agent.RecoveryGrant, 12)
 	errors := make(chan error, 12)
 	for range 12 {
 		wg.Add(1)

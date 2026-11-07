@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -98,7 +99,9 @@ func TestSessionExtensionsSurviveLifecycleTaskApprovalLeaseAndRegistration(t *te
 		{"name set", func() error { return store.hookName(target.ID, "fixture") }},
 		{"name clear", func() error { return store.hookName(target.ID, "") }},
 		{"lifecycle", func() error {
-			return cursorHost(store, target.ID, "Stop").ApplyLifecycle(func(SessionView) (LifecycleChange, error) { return LifecycleChange{Transition: TransitionReady}, nil })
+			return cursorHost(store, target.ID, "Stop").ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+				return agent.LifecycleChange{Transition: agent.TransitionReady}, nil
+			})
 		}},
 	}
 	for _, step := range steps {

@@ -3,11 +3,11 @@ package cursor
 import (
 	"fmt"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
-func cursorRecoveryContext(binary string, claim bus.RecoveryGrant) string {
+func cursorRecoveryContext(binary string, claim agent.RecoveryGrant) string {
 	if claim.Capability == "" {
 		return ""
 	}

@@ -10,17 +10,18 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/adapters"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
 // fourthAdapter is compiled outside package bus. It proves an external client
 // can implement the exported adapter contract, including unexported optional
 // interfaces, and be composed with the built-in registry.
-type fourthAdapter struct{ bus.StandardHooks }
+type fourthAdapter struct{ agent.StandardHooks }
 
 func (fourthAdapter) Descriptor() bus.AdapterDescriptor {
 	return bus.AdapterDescriptor{
-		Kind: "fourth", Label: "Fourth", Hooks: bus.StandardEvents(true),
+		Kind: "fourth", Label: "Fourth", Hooks: agent.StandardEvents(true),
 		ProcessNames: []string{"fourth"}, OwnerRole: "client", Executable: "fourth",
 	}
 }
@@ -37,7 +38,7 @@ func (fourthJournalAdapter) Deliver(context.Context, bus.Message, bus.Session) b
 	return bus.NewReceipt(bus.StatusPendingActivity)
 }
 
-func (fourthJournalAdapter) HandleHook(host bus.HookHost, event bus.HookInput, id string, output io.Writer) (bool, error) {
+func (fourthJournalAdapter) HandleHook(host agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error) {
 	if event.Event != "PostToolUse" {
 		return false, nil
 	}
@@ -73,7 +74,7 @@ func TestExternalAdapterUsesTrustedLifecycleHost(t *testing.T) {
 	if err != nil || msg.Status != bus.StatusPendingActivity {
 		t.Fatal("external client did not defer to its lifecycle hook", err)
 	}
-	input, err := json.Marshal(bus.HookInput{SessionID: "receiver", Event: "PostToolUse"})
+	input, err := json.Marshal(agent.HookInput{SessionID: "receiver", Event: "PostToolUse"})
 	if err != nil {
 		t.Fatal(err)
 	}

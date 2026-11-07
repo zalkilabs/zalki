@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
@@ -54,7 +56,7 @@ func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 	if _, _, err := store.Register("fourth", strings.TrimPrefix(first.ID, "fourth:"), "/workspace", nil); ErrorCodeOf(err) != CodeConflict {
 		t.Fatal("native identity collision accepted", err)
 	}
-	input, _ := json.Marshal(HookInput{SessionID: native, CWD: "/workspace", Event: "end"})
+	input, _ := json.Marshal(agent.HookInput{SessionID: native, CWD: "/workspace", Event: "end"})
 	if err := service.Hook("fourth", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func TestSessionViewBuilderDetachesAdapterState(t *testing.T) {
@@ -29,8 +31,8 @@ func TestLifecyclePolicyErrorPrecedesTransitionValidation(t *testing.T) {
 	target, _ := register(t, store, "cursor")
 	before := sessionBytes(t, store, target.ID)
 	policyErr := errors.New("policy failed before transition validation")
-	err := cursorHost(store, target.ID, "PostToolUse").ApplyLifecycle(func(SessionView) (LifecycleChange, error) {
-		return LifecycleChange{Transition: TransitionPromptReactivate}, policyErr
+	err := cursorHost(store, target.ID, "PostToolUse").ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+		return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate}, policyErr
 	})
 	if !errors.Is(err, policyErr) {
 		t.Fatalf("first error=%v, want policy error", err)
@@ -44,8 +46,8 @@ func TestLifecycleTransitionErrorPrecedesStateValidation(t *testing.T) {
 	store := fixtureStore(t)
 	target, _ := register(t, store, "cursor")
 	before := sessionBytes(t, store, target.ID)
-	err := cursorHost(store, target.ID, "PostToolUse").ApplyLifecycle(func(SessionView) (LifecycleChange, error) {
-		return LifecycleChange{Transition: TransitionPromptReactivate, AdapterState: json.RawMessage(`{`)}, nil
+	err := cursorHost(store, target.ID, "PostToolUse").ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+		return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate, AdapterState: json.RawMessage(`{`)}, nil
 	})
 	if err == nil || err.Error() != "invalid_transition: lifecycle transition is not allowed for this hook event" {
 		t.Fatalf("first error=%v, want event transition error", err)
@@ -59,9 +61,9 @@ func TestRecoveryEventErrorPrecedesActorLookup(t *testing.T) {
 	store := fixtureStore(t)
 	host := hookRuntime{store: store, actor: "invalid actor", kind: "cursor", event: "UserPromptSubmit"}
 	called := false
-	grant, err := host.ClaimRecovery(func(SessionView) (RecoveryDecision, error) {
+	grant, err := host.ClaimRecovery(func(SessionView) (agent.RecoveryDecision, error) {
 		called = true
-		return RecoveryDecision{Recover: true}, nil
+		return agent.RecoveryDecision{Recover: true}, nil
 	})
 	if err == nil || err.Error() != "invalid_transition: recovery is not allowed for this hook event" {
 		t.Fatalf("first error=%v, want recovery event error", err)

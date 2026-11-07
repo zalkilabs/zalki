@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	agentapi "github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -47,7 +48,7 @@ func TestModelLateWakeReceiptKeepsItsOwnStatus(t *testing.T) {
 // SPI, so release is observable without calling private approval operations.
 type modelReleaseAdapter struct {
 	*fakeAdapter
-	bus.StandardHooks
+	agentapi.StandardHooks
 }
 
 func (a modelReleaseAdapter) Descriptor() bus.AdapterDescriptor {

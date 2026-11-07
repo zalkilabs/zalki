@@ -14,13 +14,14 @@ import (
 	"unicode/utf8"
 
 	"github.com/zalkilabs/zalki/internal/adapters/internal/socketio"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Adapter implements the Claude client.
-type Adapter struct{ bus.StandardHooks }
+type Adapter struct{ agent.StandardHooks }
 
 // New returns the Claude adapter.
 func New() Adapter { return Adapter{} }
@@ -37,7 +38,7 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 }
 
 func (Adapter) Descriptor() bus.AdapterDescriptor {
-	return bus.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: bus.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
+	return bus.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
 }
 
 func (Adapter) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities {
@@ -65,12 +66,12 @@ func (a Adapter) LookupName(v bus.Session, indexes map[string]map[string]string)
 	return indexes[index][bus.NativeID(v)], "claude_session_metadata"
 }
 
-func (Adapter) RegisterHook(event bus.HookInput) (bus.HookRegistration, error) {
+func (Adapter) RegisterHook(event agent.HookInput) (agent.HookRegistration, error) {
 	if value := os.Getenv("CLAUDE_CODE_SESSION_ID"); value != "" && !strings.EqualFold(value, event.SessionID) {
-		return bus.HookRegistration{}, errors.New("hook session/environment identity mismatch")
+		return agent.HookRegistration{}, errors.New("hook session/environment identity mismatch")
 	}
 	endpoint, err := bus.InspectEndpoint(os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET"))
-	return bus.HookRegistration{Endpoint: endpoint}, err
+	return agent.HookRegistration{Endpoint: endpoint}, err
 }
 
 func (Adapter) Health(_ bus.HealthHost, v bus.Session) (string, string) {

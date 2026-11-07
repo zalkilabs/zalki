@@ -17,57 +17,11 @@ import (
 // state is a fresh copy, so retaining or mutating it cannot reach the journal.
 type SessionView = model.SessionView
 
-// LifecycleTransition names a shared-state change core performs on behalf of
-// an adapter. Which transitions a hook may request depends on its event.
-type LifecycleTransition int
-
-const (
-	TransitionNone LifecycleTransition = iota
-	// TransitionPromptReactivate resumes a conversation on an actual prompt,
-	// including one retired by a previous session end.
-	TransitionPromptReactivate
-	// TransitionReady marks a stopped turn ready without reactivating a retired one.
-	TransitionReady
-)
-
-// LifecycleChange is an adapter policy result. A nil AdapterState keeps the
-// current state.
-type LifecycleChange struct {
-	Transition   LifecycleTransition
-	AdapterState json.RawMessage
-}
-
-// RecoveryDecision is an adapter's recovery policy result. AdapterState is
-// persisted only together with the reissued credential when Recover is set.
-type RecoveryDecision struct {
-	Recover      bool
-	AdapterState json.RawMessage
-}
-
-// RecoveryGrant is a successful, single-use recovery claim returned only to the
-// trusted hook handler. Its plaintext capability is never persisted.
-type RecoveryGrant struct {
-	Actor      string
-	Capability string `json:"-"`
-	StateDir   string
-}
-
-// LifecycleHost is the trusted host for adapters whose hooks own client state.
-// It is bound to the hook's session and event. Policies run while core holds
-// the journal lock: they must be fast and pure, without IO or Store access.
-// Core enforces the bounds it can: copied inputs, validated and size-limited
-// outputs, event-scoped transitions, and no write when a policy fails.
-type LifecycleHost interface {
-	HookHost
-	ApplyLifecycle(func(SessionView) (LifecycleChange, error)) error
-	ClaimRecovery(func(SessionView) (RecoveryDecision, error)) (RecoveryGrant, error)
-}
-
-var allowedTransitions = map[string][]LifecycleTransition{
-	"UserPromptSubmit": {TransitionNone, TransitionPromptReactivate},
-	"Stop":             {TransitionNone, TransitionReady},
-	"Interrupt":        {TransitionNone, TransitionReady},
-	"PostToolUse":      {TransitionNone},
+var allowedTransitions = map[string][]agent.LifecycleTransition{
+	"UserPromptSubmit": {agent.TransitionNone, agent.TransitionPromptReactivate},
+	"Stop":             {agent.TransitionNone, agent.TransitionReady},
+	"Interrupt":        {agent.TransitionNone, agent.TransitionReady},
+	"PostToolUse":      {agent.TransitionNone},
 }
 
 // Recovery reissues credentials, so only hooks that observed activity may claim it.
@@ -78,7 +32,7 @@ func viewOf(v Session) SessionView {
 		AdapterState: append(json.RawMessage(nil), v.AdapterState...)}
 }
 
-func transitionAllowed(event string, transition LifecycleTransition) bool {
+func transitionAllowed(event string, transition agent.LifecycleTransition) bool {
 	for _, allowed := range allowedTransitions[event] {
 		if allowed == transition {
 			return true
@@ -122,7 +76,7 @@ func (s Store) lifecycleSession(actor, kind string) (Session, bool, error) {
 	return v, true, nil
 }
 
-func (h hookRuntime) ApplyLifecycle(policy func(SessionView) (LifecycleChange, error)) error {
+func (h hookRuntime) ApplyLifecycle(policy func(SessionView) (agent.LifecycleChange, error)) error {
 	return h.store.locked(func() error {
 		v, ok, err := h.store.lifecycleSession(h.actor, h.kind)
 		if !ok || err != nil {
@@ -136,9 +90,9 @@ func (h hookRuntime) ApplyLifecycle(policy func(SessionView) (LifecycleChange, e
 			return fail(CodeInvalidTransition, "lifecycle transition is not allowed for this hook event")
 		}
 		switch change.Transition {
-		case TransitionPromptReactivate:
+		case agent.TransitionPromptReactivate:
 			v.State, v.UpdatedAt, v.Retired, v.RetiredReason = StateBusy, timestamp(), false, ""
-		case TransitionReady:
+		case agent.TransitionReady:
 			// As in Update, a stop never revives a retired conversation.
 			if !v.Retired {
 				v.State, v.UpdatedAt = StateReady, timestamp()
@@ -156,9 +110,9 @@ func (h hookRuntime) ApplyLifecycle(policy func(SessionView) (LifecycleChange, e
 // actively listening sessions; the new credential, the policy's next state and
 // the removal of any stale listener lease are persisted in one save. Actor,
 // generation and pending messages are kept.
-func (h hookRuntime) ClaimRecovery(policy func(SessionView) (RecoveryDecision, error)) (RecoveryGrant, error) {
+func (h hookRuntime) ClaimRecovery(policy func(SessionView) (agent.RecoveryDecision, error)) (agent.RecoveryGrant, error) {
 	if !recoveryEvents[h.event] {
-		return RecoveryGrant{}, fail(CodeInvalidTransition, "recovery is not allowed for this hook event")
+		return agent.RecoveryGrant{}, fail(CodeInvalidTransition, "recovery is not allowed for this hook event")
 	}
 	var key string
 	err := h.store.locked(func() error {
@@ -191,8 +145,8 @@ func (h hookRuntime) ClaimRecovery(policy func(SessionView) (RecoveryDecision, e
 		return nil
 	})
 	if err != nil || key == "" {
-		return RecoveryGrant{}, err
+		return agent.RecoveryGrant{}, err
 	}
 	h.store.logEvent(slog.LevelInfo, "listener.recovery_requested", eventData{Actor: h.actor})
-	return RecoveryGrant{Actor: h.actor, Capability: key, StateDir: h.store.Dir}, nil
+	return agent.RecoveryGrant{Actor: h.actor, Capability: key, StateDir: h.store.Dir}, nil
 }

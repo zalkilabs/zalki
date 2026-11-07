@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -15,7 +16,7 @@ import (
 // acceptance is stubbed; socket and queue behavior have separate integration tests.
 func checkCodexPrompt(t *testing.T, service *bus.Service, actor, prompt string, stopped bool) {
 	t.Helper()
-	input, _ := json.Marshal(bus.HookInput{SessionID: strings.TrimPrefix(actor, "codex:"), Event: "UserPromptSubmit", Prompt: prompt})
+	input, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(actor, "codex:"), Event: "UserPromptSubmit", Prompt: prompt})
 	var out bytes.Buffer
 	if err := service.Hook("codex", bytes.NewReader(input), &out); err != nil {
 		t.Fatal(err)
@@ -77,7 +78,7 @@ func TestCodexPromptDoesNotReplayPreviousRegistration(t *testing.T) {
 	}
 
 	for range 7 {
-		input, _ := json.Marshal(bus.HookInput{SessionID: strings.TrimPrefix(to.ID, "codex:"), Event: "UserPromptSubmit", Prompt: bus.Envelope(msg)})
+		input, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(to.ID, "codex:"), Event: "UserPromptSubmit", Prompt: bus.Envelope(msg)})
 		var out bytes.Buffer
 		if err := service.Hook("codex", bytes.NewReader(input), &out); err != nil {
 			t.Fatal(err)
@@ -94,7 +95,7 @@ func TestCodexPromptDoesNotReplayPreviousRegistration(t *testing.T) {
 
 func codexStartHook(t *testing.T, service *bus.Service, target bus.Session, source string) (bus.Session, string) {
 	t.Helper()
-	input, _ := json.Marshal(bus.HookInput{SessionID: strings.TrimPrefix(target.ID, "codex:"), CWD: target.CWD, Event: "SessionStart", Source: source})
+	input, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(target.ID, "codex:"), CWD: target.CWD, Event: "SessionStart", Source: source})
 	var out bytes.Buffer
 	if err := service.Hook("codex", bytes.NewReader(input), &out); err != nil {
 		t.Fatal(err)

@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"sort"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -44,24 +44,6 @@ type Adapter interface {
 type NameAdapter interface {
 	ConfigDir() string
 	LookupName(Session, map[string]map[string]string) (string, string)
-}
-
-type StartupContext struct {
-	Actor, Capability, StateDir, Instructions string
-}
-
-// HookRegistration is what an adapter reports when a lifecycle hook registers a session.
-type HookRegistration struct {
-	Endpoint           *Endpoint
-	PreserveGeneration bool
-}
-
-// HookAdapter normalizes lifecycle hooks and supplies client startup output.
-type HookAdapter interface {
-	NormalizeHook(HookInput) (HookInput, error)
-	RegisterHook(HookInput) (HookRegistration, error)
-	HandleHook(HookHost, HookInput, string, io.Writer) (bool, error)
-	StartupOutput(StartupContext) (any, error)
 }
 
 // HealthAdapter supplements common diagnostics with transport and listener health.
@@ -107,12 +89,12 @@ func NewRegistry(adapters ...Adapter) (*Registry, error) {
 			return nil, fmt.Errorf("%s hook capabilities do not match its descriptor", d.Kind)
 		}
 		for native, common := range d.Hooks {
-			if !validName(native) || StandardEvents(true)[common] == "" {
+			if !validName(native) || agent.StandardEvents(true)[common] == "" {
 				return nil, fmt.Errorf("%s declares an unsupported lifecycle event", d.Kind)
 			}
 		}
 		if len(d.Hooks) > 0 {
-			if _, ok := adapter.(HookAdapter); !ok {
+			if _, ok := adapter.(agent.HookAdapter); !ok {
 				return nil, fmt.Errorf("%s has no lifecycle adapter", d.Kind)
 			}
 		}
@@ -147,29 +129,3 @@ func (r *Registry) Kinds() []string {
 }
 
 func (s Store) registry() *Registry { return s.Registry }
-
-// StandardHooks supplies default lifecycle behavior for adapters that need none of their own.
-type StandardHooks struct{}
-
-func (StandardHooks) NormalizeHook(event HookInput) (HookInput, error) { return event, nil }
-func (StandardHooks) RegisterHook(HookInput) (HookRegistration, error) {
-	return HookRegistration{}, nil
-}
-func (StandardHooks) HandleHook(HookHost, HookInput, string, io.Writer) (bool, error) {
-	return false, nil
-}
-func (StandardHooks) StartupOutput(startup StartupContext) (any, error) {
-	return map[string]any{"hookSpecificOutput": map[string]string{"hookEventName": "SessionStart", "additionalContext": startup.Instructions}}, nil
-}
-
-// StandardEvents lists the common lifecycle events adapters may map native hook names onto.
-func StandardEvents(interrupt bool) map[string]string {
-	events := map[string]string{}
-	for _, event := range []string{"SessionStart", "SessionEnd", "PermissionRequest", "PostToolUse", "UserPromptSubmit", "Stop"} {
-		events[event] = event
-	}
-	if interrupt {
-		events["Interrupt"] = "Interrupt"
-	}
-	return events
-}

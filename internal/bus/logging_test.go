@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func logRows(t *testing.T, output *bytes.Buffer) []map[string]any {
@@ -68,7 +70,7 @@ func TestMessageLogsCorrelateWithoutExposingPrivateContent(t *testing.T) {
 	if _, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: private}); err != nil {
 		t.Fatal(err)
 	}
-	input, _ := json.Marshal(HookInput{SessionID: newID(), CWD: "/fixture/" + private, Event: "sessionStart"})
+	input, _ := json.Marshal(agent.HookInput{SessionID: newID(), CWD: "/fixture/" + private, Event: "sessionStart"})
 	var hookOutput bytes.Buffer
 	if err := service.Hook("cursor", bytes.NewReader(input), &hookOutput); err != nil {
 		t.Fatal(err)

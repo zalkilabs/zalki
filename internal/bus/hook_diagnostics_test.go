@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func TestHookFailuresIdentifyStageWithoutLoggingInput(t *testing.T) {
@@ -83,21 +85,21 @@ type hookStageFailureAdapter struct {
 	stage string
 }
 
-func (a hookStageFailureAdapter) NormalizeHook(event HookInput) (HookInput, error) {
+func (a hookStageFailureAdapter) NormalizeHook(event agent.HookInput) (agent.HookInput, error) {
 	if a.stage == "normalize" {
-		return HookInput{}, errors.New("private-hook-stage-sentinel")
+		return agent.HookInput{}, errors.New("private-hook-stage-sentinel")
 	}
 	return event, nil
 }
 
-func (a hookStageFailureAdapter) HandleHook(_ HookHost, _ HookInput, _ string, _ io.Writer) (bool, error) {
+func (a hookStageFailureAdapter) HandleHook(_ agent.HookHost, _ agent.HookInput, _ string, _ io.Writer) (bool, error) {
 	if a.stage == "handler" {
 		return false, errors.New("private-hook-stage-sentinel")
 	}
 	return false, nil
 }
 
-func (a hookStageFailureAdapter) StartupOutput(startup StartupContext) (any, error) {
+func (a hookStageFailureAdapter) StartupOutput(startup agent.StartupContext) (any, error) {
 	if a.stage == "startup" {
 		return nil, errors.New("private-hook-stage-sentinel")
 	}
@@ -124,7 +126,7 @@ func TestHookAdapterFailuresPreserveStageAndRegistrationBoundary(t *testing.T) {
 			if stage == "identity" {
 				id = ""
 			}
-			input, err := json.Marshal(HookInput{SessionID: id, CWD: "/workspace", Event: "SessionStart"})
+			input, err := json.Marshal(agent.HookInput{SessionID: id, CWD: "/workspace", Event: "SessionStart"})
 			if err != nil {
 				t.Fatal(err)
 			}
