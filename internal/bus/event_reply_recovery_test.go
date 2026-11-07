@@ -18,7 +18,7 @@ func TestEventRecoveryRunsBeforeLegacyReplyChangesSession(t *testing.T) {
 	if err != nil || got.State != StateBusy || got.ApprovalHeld != 1 {
 		t.Fatalf("reply recovery overwrote/wedged state: %+v, %v", got, err)
 	}
-	if metadata := eventState(t, store); metadata.Count != 1 {
+	if metadata := eventState(t, store); metadata.Count != 2 {
 		t.Fatalf("legacy recovery emitted extra event: %+v", metadata)
 	}
 }

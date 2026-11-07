@@ -169,16 +169,14 @@ func TestDormantRecoveryRejectsForeignFamilyBeforeAnyWrite(t *testing.T) {
 	}
 }
 
-func TestUncoveredStoreWritersDoNotActivateOutbox(t *testing.T) {
+func TestSessionLifecycleWritersActivateOutbox(t *testing.T) {
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")
 	if err := store.Update(session.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
-	for _, dir := range []string{"commits", "events"} {
-		if _, err := os.Stat(filepath.Join(store.Dir, dir)); !errors.Is(err, os.ErrNotExist) {
-			t.Fatalf("ordinary state write activated %s: %v", dir, err)
-		}
+	if got := eventState(t, store); got.Count != 2 {
+		t.Fatalf("registration and approval facts = %+v", got)
 	}
 }
 

@@ -69,10 +69,10 @@ func TestEventSequenceTwoProcesses(t *testing.T) {
 			t.Fatalf("child %d: %v\n%s", i, err, &logs[i])
 		}
 	}
-	if metadata := eventState(t, store); metadata.Last != 20 || metadata.Count != 20 {
+	if metadata := eventState(t, store); metadata.Last != 40 || metadata.Count != 40 {
 		t.Fatalf("concurrent metadata = %+v", metadata)
 	}
-	assertDistinctEventIDs(t, store, 20)
+	assertDistinctEventIDs(t, store, 40)
 }
 
 func assertDistinctEventIDs(t *testing.T, store Store, count uint64) {

@@ -28,14 +28,17 @@ type EventSession struct {
 	// Generation identifies the receiving registration.
 	Generation string `json:"generation"`
 	// Previous is the persisted state before this change.
-	Previous SessionState `json:"previous"`
+	Previous SessionState `json:"previous,omitempty"`
 	// State is the resulting persisted state.
 	State SessionState `json:"state"`
+	// PreviousRetired and Retired preserve retirement facts independently of state.
+	PreviousRetired bool `json:"previous_retired,omitempty"`
+	Retired         bool `json:"retired,omitempty"`
 }
 
 // Validate checks the experimental state-change event without performing IO.
 func (e Event) Validate() error {
-	if e.Type != "session.state_changed" {
+	if e.Type != "session.state_changed" && e.Type != "session.registered" {
 		return errors.New("unsupported event type")
 	}
 	for _, id := range []string{e.ID, e.TransactionID, e.Session.Generation} {
@@ -43,7 +46,7 @@ func (e Event) Validate() error {
 			return errors.New("invalid event identity")
 		}
 	}
-	if err := e.Session.validate(); err != nil {
+	if err := e.Session.validate(e.Type); err != nil {
 		return err
 	}
 	stamp, err := time.Parse(time.RFC3339Nano, e.OccurredAt)
@@ -53,13 +56,16 @@ func (e Event) Validate() error {
 	return nil
 }
 
-func (e EventSession) validate() error {
+func (e EventSession) validate(kindOfEvent string) error {
 	kind, id, ok := strings.Cut(e.ID, ":")
 	canonical, err := UUID(id)
 	if !ok || !ValidKind(kind) || err != nil || canonical != id {
 		return errors.New("invalid event session identity")
 	}
-	if !e.Previous.Valid() || !e.State.Valid() || e.Previous == e.State {
+	if !e.State.Valid() || (e.Previous != "" && !e.Previous.Valid()) {
+		return errors.New("invalid event session state")
+	}
+	if kindOfEvent == "session.state_changed" && (!e.Previous.Valid() || (e.Previous == e.State && e.PreviousRetired == e.Retired)) {
 		return errors.New("event requires a session state change")
 	}
 	return nil

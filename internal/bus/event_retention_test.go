@@ -19,9 +19,7 @@ func retainedEventFixture(t *testing.T) (Store, Session, commitWriter) {
 	for range 2 {
 		testCoveredUpdate(t, store, session.ID, writer)
 	}
-	if err := store.Update(session.ID, StateReady, false); err != nil {
-		t.Fatal(err)
-	}
+	setEventTestState(t, store, session.ID, StateReady, writer)
 	return store, session, writer
 }
 
@@ -57,14 +55,18 @@ func TestEventRetentionRecoversEveryMaterializationBoundary(t *testing.T) {
 				t.Fatalf("public read did not recover retention: %v", err)
 			}
 			metadata := eventState(t, store)
-			if metadata.First != 2 || metadata.Last != 3 || metadata.Count != 2 {
+			var expected eventMetadata
+			if err := decodeEventJSON(batch.Puts[2].Data, &expected); err != nil {
+				t.Fatal(err)
+			}
+			if metadata != expected {
 				t.Fatalf("recovered retention = %+v", metadata)
 			}
 			got := readCommitFile(t, filepath.Join(store.Dir, batch.Puts[1].Path))
 			if !bytes.Equal(got, batch.Puts[1].Data) {
 				t.Fatal("recovery changed latest event")
 			}
-			if _, err := os.Stat(filepath.Join(store.Dir, eventRecordPath(1))); !os.IsNotExist(err) {
+			if _, err := os.Stat(filepath.Join(store.Dir, batch.Deletes[0].Path)); !os.IsNotExist(err) {
 				t.Fatalf("old record remains: %v", err)
 			}
 		})
@@ -97,12 +99,13 @@ func TestEventCorruptOrSymlinkOldestRefusesBeforeStateWrite(t *testing.T) {
 func assertInvalidOldestDoesNotWrite(t *testing.T, fault string) {
 	t.Helper()
 	store, session, writer := retainedEventFixture(t)
-	oldest := filepath.Join(store.Dir, eventRecordPath(1))
+	metadata := eventState(t, store)
+	oldest := filepath.Join(store.Dir, eventRecordPath(metadata.First))
 	if err := os.Remove(oldest); err != nil {
 		t.Fatal(err)
 	}
 	if fault == "symlink" {
-		if err := os.Symlink(filepath.Join(store.Dir, eventRecordPath(2)), oldest); err != nil {
+		if err := os.Symlink(filepath.Join(store.Dir, eventRecordPath(metadata.First+1)), oldest); err != nil {
 			t.Fatal(err)
 		}
 	} else if err := os.WriteFile(oldest, []byte("{"), 0600); err != nil {
@@ -115,7 +118,7 @@ func assertInvalidOldestDoesNotWrite(t *testing.T, fault string) {
 			return err
 		}
 		next.State, next.UpdatedAt = StateBusy, model.Timestamp()
-		return persistSessionUpdateWith(store, next, StateReady, writer)
+		return saveSessionWith(store, next, writer)
 	})
 	if err == nil {
 		t.Fatal("invalid oldest record accepted")
