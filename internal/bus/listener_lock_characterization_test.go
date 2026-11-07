@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func listenerLockFile(store bus.Store, a agent) string {
@@ -67,7 +68,7 @@ func TestListenerLeaseLifecycleAsPersisted(t *testing.T) {
 		t.Fatalf("endpoint keys = %s", got)
 	}
 
-	if err := lease.Confirm(func(bus.SessionView) (json.RawMessage, error) { return nil, nil }); err != nil {
+	if err := lease.Confirm(func(model.SessionView) (json.RawMessage, error) { return nil, nil }); err != nil {
 		t.Fatalf("Confirm: %v", err)
 	}
 	if record := readJSONFile(t, path); record["listener"] == nil {

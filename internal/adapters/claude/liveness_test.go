@@ -6,21 +6,22 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestClaudeLivenessUsesTheSessionSocket(t *testing.T) {
 	endpoint := &bus.Endpoint{Path: "/tmp/cc-socks/12076.sock", Device: 1, Inode: 2}
-	helper := &bus.ProcessRef{PID: 87443, Start: "helper", Role: "client"}
+	helper := &model.ProcessRef{PID: 87443, Start: "helper", Role: "client"}
 	bound := agent.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return nil },
-		Presence: func(int) bus.Liveness { return bus.LivenessUnknown },
+		Presence: func(int) model.Liveness { return bus.LivenessUnknown },
 	}
 	if got := (Adapter{}).Liveness(agent.LivenessView{Endpoint: endpoint, Owner: helper}, bound); got != "alive" {
 		t.Fatalf("a bound session socket was %s", got)
 	}
 	crashed := agent.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return nil },
-		Presence: func(pid int) bus.Liveness {
+		Presence: func(pid int) model.Liveness {
 			if pid != 12076 {
 				t.Fatalf("probed pid %d", pid)
 			}
@@ -33,7 +34,7 @@ func TestClaudeLivenessUsesTheSessionSocket(t *testing.T) {
 
 	missing := agent.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return errors.New("gone") },
-		Presence: func(pid int) bus.Liveness {
+		Presence: func(pid int) model.Liveness {
 			if pid != 12076 {
 				t.Fatalf("probed pid %d", pid)
 			}
@@ -46,7 +47,7 @@ func TestClaudeLivenessUsesTheSessionSocket(t *testing.T) {
 
 	reused := agent.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return errors.New("replaced") },
-		Presence: func(int) bus.Liveness { return bus.LivenessUnknown },
+		Presence: func(int) model.Liveness { return bus.LivenessUnknown },
 	}
 	if got := (Adapter{}).Liveness(agent.LivenessView{Endpoint: endpoint, Owner: helper}, reused); got != "unknown" {
 		t.Fatalf("an unfingerprinted pid was %s", got)

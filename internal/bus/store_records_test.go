@@ -283,7 +283,7 @@ type preLeaseSession struct {
 	UpdatedAt       string              `json:"updated_at"`
 	Retired         bool                `json:"retired"`
 	RetiredReason   string              `json:"retired_reason,omitempty"`
-	Owner           *ProcessRef         `json:"owner,omitempty"`
+	Owner           *model.ProcessRef   `json:"owner,omitempty"`
 	Liveness        string              `json:"liveness,omitempty"`
 	HookBuild       string              `json:"hook_build,omitempty"`
 	Endpoint        *Endpoint           `json:"endpoint,omitempty"`

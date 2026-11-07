@@ -12,11 +12,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// SessionView is the copy of a session that an adapter policy may inspect
-// inside a lifecycle transaction. It carries no credential, and its adapter
-// state is a fresh copy, so retaining or mutating it cannot reach the journal.
-type SessionView = model.SessionView
-
 var allowedTransitions = map[string][]agent.LifecycleTransition{
 	"UserPromptSubmit": {agent.TransitionNone, agent.TransitionPromptReactivate},
 	"Stop":             {agent.TransitionNone, agent.TransitionReady},
@@ -27,8 +22,8 @@ var allowedTransitions = map[string][]agent.LifecycleTransition{
 // Recovery reissues credentials, so only hooks that observed activity may claim it.
 var recoveryEvents = map[string]bool{"PostToolUse": true, "Stop": true}
 
-func viewOf(v Session) SessionView {
-	return SessionView{Actor: v.ID, Kind: v.Kind, Generation: v.Generation, State: v.State, Retired: v.Retired,
+func viewOf(v Session) model.SessionView {
+	return model.SessionView{Actor: v.ID, Kind: v.Kind, Generation: v.Generation, State: v.State, Retired: v.Retired,
 		AdapterState: append(json.RawMessage(nil), v.AdapterState...)}
 }
 
@@ -76,7 +71,7 @@ func (s Store) lifecycleSession(actor, kind string) (Session, bool, error) {
 	return v, true, nil
 }
 
-func (h hookRuntime) ApplyLifecycle(policy func(SessionView) (agent.LifecycleChange, error)) error {
+func (h hookRuntime) ApplyLifecycle(policy func(model.SessionView) (agent.LifecycleChange, error)) error {
 	return h.store.locked(func() error {
 		v, ok, err := h.store.lifecycleSession(h.actor, h.kind)
 		if !ok || err != nil {
@@ -110,7 +105,7 @@ func (h hookRuntime) ApplyLifecycle(policy func(SessionView) (agent.LifecycleCha
 // actively listening sessions; the new credential, the policy's next state and
 // the removal of any stale listener lease are persisted in one save. Actor,
 // generation and pending messages are kept.
-func (h hookRuntime) ClaimRecovery(policy func(SessionView) (agent.RecoveryDecision, error)) (agent.RecoveryGrant, error) {
+func (h hookRuntime) ClaimRecovery(policy func(model.SessionView) (agent.RecoveryDecision, error)) (agent.RecoveryGrant, error) {
 	if !recoveryEvents[h.event] {
 		return agent.RecoveryGrant{}, fail(CodeInvalidTransition, "recovery is not allowed for this hook event")
 	}

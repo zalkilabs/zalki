@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
@@ -295,7 +296,7 @@ func TestSyncIgnoresOwnerPIDsOfOneOrLess(t *testing.T) {
 	counter := &noticeCounter{}
 	service.Deliver = counter.hook
 	for _, pid := range []int{1, 0} {
-		watchedTarget(t, service, &ProcessRef{PID: pid, Start: "1", Role: "client"})
+		watchedTarget(t, service, &model.ProcessRef{PID: pid, Start: "1", Role: "client"})
 	}
 	fake := newFakeExitSource()
 	o := newSyncObserver(service, fake)

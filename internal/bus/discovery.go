@@ -1,6 +1,10 @@
 package bus
 
-import "time"
+import (
+	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
+)
 
 // AgentInfo is the discovery view. Journal schemas, native IDs, adapter state,
 // credential hashes and endpoint details are not part of the MCP contract.
@@ -9,14 +13,14 @@ type AgentInfo struct {
 	Name string `json:"name,omitempty"`
 	Self bool   `json:"self,omitempty"`
 	// Task is the agent's own unverified claim. Empty claims are omitted.
-	Task         string         `json:"task,omitempty"`
-	CWD          string         `json:"cwd"`
-	State        SessionState   `json:"state,omitempty"`
-	Liveness     Liveness       `json:"liveness,omitempty"`
-	UpdatedAt    string         `json:"updated_at"`
-	Delivery     DeliveryTiming `json:"delivery"`
-	IdleWake     *bool          `json:"idle_wake,omitempty"`
-	Experimental bool           `json:"experimental,omitempty"`
+	Task         string               `json:"task,omitempty"`
+	CWD          string               `json:"cwd"`
+	State        SessionState         `json:"state,omitempty"`
+	Liveness     model.Liveness       `json:"liveness,omitempty"`
+	UpdatedAt    string               `json:"updated_at"`
+	Delivery     model.DeliveryTiming `json:"delivery"`
+	IdleWake     *bool                `json:"idle_wake,omitempty"`
+	Experimental bool                 `json:"experimental,omitempty"`
 }
 
 func (s Store) Discover() ([]AgentInfo, error) {

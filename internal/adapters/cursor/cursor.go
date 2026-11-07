@@ -158,7 +158,7 @@ func (Adapter) Health(s agent.HealthHost, v bus.Session) (string, string) {
 	return "deferred", "not_armed"
 }
 
-func (Adapter) RecoveryHint(d bus.SessionDiagnostic) string {
+func (Adapter) RecoveryHint(d model.SessionDiagnostic) string {
 	if d.ListenerHealth == "legacy_running" {
 		return "Cancel this conversation's running cursor-listen task; it is from an earlier Zalki build or registration and cannot receive. Then arm one new task using its private startup guidance."
 	}
@@ -223,7 +223,7 @@ func cursorNameInRoots(roots []string, id string) string {
 // resumeOnPrompt reactivates a conversation Cursor resumed without another
 // sessionStart, retaining its identity and capability. A user who resumes an
 // aborted conversation also re-enables one recovery attempt.
-func resumeOnPrompt(v bus.SessionView) (agent.LifecycleChange, error) {
+func resumeOnPrompt(v model.SessionView) (agent.LifecycleChange, error) {
 	state := decodeCursorState(v.AdapterState)
 	if state.RecoverySuppressed {
 		state.RecoveryAttempted = false
@@ -234,7 +234,7 @@ func resumeOnPrompt(v bus.SessionView) (agent.LifecycleChange, error) {
 
 // suppressRecovery keeps an aborted, failed or capped turn from being continued
 // by a recovery follow-up until the user prompts again.
-func suppressRecovery(v bus.SessionView) (agent.LifecycleChange, error) {
+func suppressRecovery(v model.SessionView) (agent.LifecycleChange, error) {
 	state := decodeCursorState(v.AdapterState)
 	state.RecoverySuppressed = true
 	return agent.LifecycleChange{Transition: agent.TransitionReady, AdapterState: encodeCursorState(state)}, nil
@@ -244,7 +244,7 @@ func suppressRecovery(v bus.SessionView) (agent.LifecycleChange, error) {
 // call or stop iteration, so a denied setup cannot become a retry loop.
 // Successful listener registration resets it. Core retires any stale listener
 // lease with the reissued capability.
-func claimRecovery(v bus.SessionView) (agent.RecoveryDecision, error) {
+func claimRecovery(v model.SessionView) (agent.RecoveryDecision, error) {
 	state := decodeCursorState(v.AdapterState)
 	if state.RecoverySuppressed || state.RecoveryAttempted {
 		return agent.RecoveryDecision{}, nil

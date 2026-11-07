@@ -92,7 +92,7 @@ func (stubCursorAdapter) HandleHook(host agent.HookHost, v agent.HookInput, id s
 
 // The stub Cursor policies mirror the real adapter's so core transaction tests
 // exercise realistic state; the adapter's own policy is tested in adapters.
-func stubResumeOnPrompt(v SessionView) (agent.LifecycleChange, error) {
+func stubResumeOnPrompt(v model.SessionView) (agent.LifecycleChange, error) {
 	state := cursorState(Session{AdapterState: v.AdapterState})
 	if state.RecoverySuppressed {
 		state.RecoveryAttempted = false
@@ -103,7 +103,7 @@ func stubResumeOnPrompt(v SessionView) (agent.LifecycleChange, error) {
 	return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate, AdapterState: next.AdapterState}, nil
 }
 
-func stubSuppressRecovery(v SessionView) (agent.LifecycleChange, error) {
+func stubSuppressRecovery(v model.SessionView) (agent.LifecycleChange, error) {
 	state := cursorState(Session{AdapterState: v.AdapterState})
 	state.RecoverySuppressed = true
 	next := Session{}
@@ -111,7 +111,7 @@ func stubSuppressRecovery(v SessionView) (agent.LifecycleChange, error) {
 	return agent.LifecycleChange{Transition: agent.TransitionReady, AdapterState: next.AdapterState}, nil
 }
 
-func stubClaimRecovery(v SessionView) (agent.RecoveryDecision, error) {
+func stubClaimRecovery(v model.SessionView) (agent.RecoveryDecision, error) {
 	state := cursorState(Session{AdapterState: v.AdapterState})
 	if state.RecoverySuppressed || state.RecoveryAttempted {
 		return agent.RecoveryDecision{}, nil

@@ -5,12 +5,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// InboxMode is the compatibility name for model.InboxMode.
-type InboxMode = model.InboxMode
-
-// DeliveryTiming is the compatibility name for model.DeliveryTiming.
-type DeliveryTiming = model.DeliveryTiming
-
 const (
 	InboxNative          = model.InboxNative
 	InboxJournal         = model.InboxJournal

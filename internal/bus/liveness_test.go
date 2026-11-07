@@ -6,11 +6,12 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type livenessStub struct {
 	stubCursorAdapter
-	result Liveness
+	result model.Liveness
 	own    bool
 }
 
@@ -20,15 +21,17 @@ func (s livenessStub) Descriptor() agent.AdapterDescriptor {
 	return d
 }
 
-func (s livenessStub) Liveness(agent.LivenessView, agent.LivenessProbes) Liveness { return s.result }
+func (s livenessStub) Liveness(agent.LivenessView, agent.LivenessProbes) model.Liveness {
+	return s.result
+}
 
 func (s livenessStub) TracksOwnProcess() bool { return s.own }
 
 func TestSessionLivenessTrustsOnlyAdapterEvidence(t *testing.T) {
 	for _, test := range []struct {
 		name   string
-		result Liveness
-		want   Liveness
+		result model.Liveness
+		want   model.Liveness
 		listed bool
 	}{
 		{name: "alive", result: "alive", want: "alive", listed: true},
@@ -49,7 +52,7 @@ func TestSessionLivenessTrustsOnlyAdapterEvidence(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			session.Owner = &ProcessRef{PID: 42, Start: "gone", Role: "client"}
+			session.Owner = &model.ProcessRef{PID: 42, Start: "gone", Role: "client"}
 			if err := store.locked(func() error { return store.saveSession(session) }); err != nil {
 				t.Fatal(err)
 			}
@@ -86,7 +89,7 @@ func TestSharedProcessOwnerIsNotRecorded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	session.Owner = &ProcessRef{PID: 7, Start: "helper", Role: "client"}
+	session.Owner = &model.ProcessRef{PID: 7, Start: "helper", Role: "client"}
 	if err := store.locked(func() error { return store.saveSession(session) }); err != nil {
 		t.Fatal(err)
 	}

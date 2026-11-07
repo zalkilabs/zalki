@@ -13,9 +13,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// ListenerStatus is the compatibility name for model.ListenerStatus.
-type ListenerStatus = model.ListenerStatus
-
 const (
 	ListenerNone     = model.ListenerNone
 	ListenerRunning  = model.ListenerRunning
@@ -92,7 +89,7 @@ func (s Store) lockHeld(v Session) bool {
 
 // listenerStatus checks the lease against its bound endpoint and the lifetime
 // lock. A socket left behind by a crash is insufficient evidence of a listener.
-func (s Store) listenerStatus(v Session) ListenerStatus {
+func (s Store) listenerStatus(v Session) model.ListenerStatus {
 	held := s.lockHeld(v)
 	switch {
 	case v.Listener != nil && held && v.Listener.Generation == v.Generation && CheckEndpoint(&v.Listener.Endpoint) == nil:
@@ -218,7 +215,7 @@ func (l *Lease) Arm(endpoint *Endpoint) error {
 // Confirm completes setup after the listener announced itself, applying the
 // adapter's next state in the same save. A listener that could not announce
 // itself never confirms, so the adapter's recovery guard stays in place.
-func (l *Lease) Confirm(policy func(SessionView) (json.RawMessage, error)) error {
+func (l *Lease) Confirm(policy func(model.SessionView) (json.RawMessage, error)) error {
 	err := l.store.locked(func() error {
 		current, err := l.store.session(l.actor)
 		if err != nil {

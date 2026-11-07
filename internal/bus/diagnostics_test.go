@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestPrunePreservesQuietAndUnknownOwnersAndMessageJournal(t *testing.T) {
@@ -20,8 +22,8 @@ func TestPrunePreservesQuietAndUnknownOwnersAndMessageJournal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dead.Owner = &ProcessRef{PID: p.PID, Start: "previous-process-at-this-pid", Role: "client"}
-	quiet.Owner = &ProcessRef{PID: p.PID, Start: p.Start, Role: "backend"}
+	dead.Owner = &model.ProcessRef{PID: p.PID, Start: "previous-process-at-this-pid", Role: "client"}
+	quiet.Owner = &model.ProcessRef{PID: p.PID, Start: p.Start, Role: "backend"}
 	quiet.UpdatedAt = "2000-01-01T00:00:00.000000000Z"
 	for _, v := range []Session{dead, quiet} {
 		if err := store.locked(func() error { return store.saveSession(v) }); err != nil {
@@ -168,7 +170,7 @@ func TestPruneRemovesOnlyExitedRuntimeRecords(t *testing.T) {
 	defer lease.Close()
 	stale := lease.Info()
 	stale.ID = newID()
-	stale.Process = &ProcessRef{PID: p.PID, Start: "previous-process", Role: "zalki"}
+	stale.Process = &model.ProcessRef{PID: p.PID, Start: "previous-process", Role: "zalki"}
 	if err := store.locked(func() error { return writeJSON(filepath.Join(store.Dir, "runtimes", stale.ID+".json"), stale) }); err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +188,7 @@ func TestCursorResumedPromptReplacesExitedOwnerEvidence(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	v, key := register(t, store, "cursor")
-	v.Owner = &ProcessRef{PID: p.PID, Start: "old-client-at-reused-pid", Role: "client"}
+	v.Owner = &model.ProcessRef{PID: p.PID, Start: "old-client-at-reused-pid", Role: "client"}
 	v.Retired, v.State, v.RetiredReason = true, "retired", "owner_exited"
 	if err := store.locked(func() error { return store.saveSession(v) }); err != nil {
 		t.Fatal(err)

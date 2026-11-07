@@ -10,13 +10,9 @@ import (
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
-// PID alone is insufficient: a later process can reuse it. Start identifies the
-// original OS process; Role distinguishes an interactive client from a backend.
-type ProcessRef = model.ProcessRef
+func processLiveness(ref *model.ProcessRef) model.Liveness { return probeProcess(ref, procwatch.Read) }
 
-func processLiveness(ref *ProcessRef) Liveness { return probeProcess(ref, procwatch.Read) }
-
-func probeProcess(ref *ProcessRef, read func(int) (procwatch.Info, error)) Liveness {
+func probeProcess(ref *model.ProcessRef, read func(int) (procwatch.Info, error)) model.Liveness {
 	if ref == nil || ref.PID <= 1 || ref.Start == "" {
 		return LivenessUnknown
 	}
@@ -34,7 +30,7 @@ func probeProcess(ref *ProcessRef, read func(int) (procwatch.Info, error)) Liven
 }
 
 // Only trusted hooks supply process ownership; peer/model PIDs are not accepted.
-func (s Store) nativeOwner(kind string) *ProcessRef {
+func (s Store) nativeOwner(kind string) *model.ProcessRef {
 	adapter, err := s.registry().Lookup(kind)
 	if err != nil {
 		return nil
@@ -45,7 +41,7 @@ func (s Store) nativeOwner(kind string) *ProcessRef {
 	return ownerFrom(adapter.Descriptor(), os.Getppid(), procwatch.Read)
 }
 
-func ownerFrom(adapter agent.AdapterDescriptor, pid int, read func(int) (procwatch.Info, error)) *ProcessRef {
+func ownerFrom(adapter agent.AdapterDescriptor, pid int, read func(int) (procwatch.Info, error)) *model.ProcessRef {
 	for range 32 {
 		if pid <= 1 {
 			break
@@ -56,7 +52,7 @@ func ownerFrom(adapter agent.AdapterDescriptor, pid int, read func(int) (procwat
 		}
 		for _, name := range adapter.ProcessNames {
 			if p.Name == name {
-				return &ProcessRef{PID: p.PID, Start: p.Start, Role: adapter.OwnerRole}
+				return &model.ProcessRef{PID: p.PID, Start: p.Start, Role: adapter.OwnerRole}
 			}
 		}
 		if p.PPID == pid {

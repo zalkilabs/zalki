@@ -8,6 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
@@ -86,7 +87,7 @@ func TestReceiptNotesNeverPromiseRefusedOrUnconfirmedDelivery(t *testing.T) {
 	}
 	for _, test := range []struct {
 		status bus.DeliveryStatus
-		timing bus.DeliveryTiming
+		timing model.DeliveryTiming
 		want   string
 	}{
 		{bus.StatusApprovalBlocked, "", "Not sent"},

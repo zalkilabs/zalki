@@ -12,16 +12,13 @@ import (
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
-// SessionDiagnostic is the compatibility name for model.SessionDiagnostic.
-type SessionDiagnostic = model.SessionDiagnostic
-
 type DiagnosticReport struct {
-	Agents             []AgentDiagnostic   `json:"agents"`
-	Runtime            RuntimeInfo         `json:"runtime"`
-	Runtimes           []RuntimeInfo       `json:"runtimes"`
-	UntrackedProcesses []ProcessRef        `json:"untracked_processes"`
-	Sessions           []SessionDiagnostic `json:"sessions"`
-	Notes              []string            `json:"notes"`
+	Agents             []AgentDiagnostic         `json:"agents"`
+	Runtime            RuntimeInfo               `json:"runtime"`
+	Runtimes           []RuntimeInfo             `json:"runtimes"`
+	UntrackedProcesses []model.ProcessRef        `json:"untracked_processes"`
+	Sessions           []model.SessionDiagnostic `json:"sessions"`
+	Notes              []string                  `json:"notes"`
 }
 
 type AgentDiagnostic struct {
@@ -38,7 +35,7 @@ type AgentDiagnostic struct {
 
 func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
 	report := DiagnosticReport{Runtime: CurrentRuntimeInfo(), Runtimes: []RuntimeInfo{},
-		UntrackedProcesses: []ProcessRef{}, Sessions: []SessionDiagnostic{}, Notes: []string{
+		UntrackedProcesses: []model.ProcessRef{}, Sessions: []model.SessionDiagnostic{}, Notes: []string{
 			"Process liveness does not establish an attached terminal.",
 			"Untracked processes have an unknown loaded build; they may predate runtime tracking.",
 		}}
@@ -85,7 +82,7 @@ func (s Store) diagnoseAgents(ctx context.Context, report *DiagnosticReport) {
 
 func (s Store) diagnoseSessions(report *DiagnosticReport, sessions []Session) error {
 	for _, v := range sessions {
-		d := SessionDiagnostic{ID: v.ID, Kind: v.Kind, Name: v.Name, State: v.State, Retired: v.Retired,
+		d := model.SessionDiagnostic{ID: v.ID, Kind: v.Kind, Name: v.Name, State: v.State, Retired: v.Retired,
 			RetiredReason: v.RetiredReason, Liveness: s.sessionLiveness(v), Owner: v.Owner,
 			UpdatedAt: v.UpdatedAt, HookBuild: v.HookBuild, HookBuildStatus: hookBuildStatus(v.HookBuild, report.Runtime.DiskBuild)}
 		adapter, err := s.registry().Lookup(v.Kind)
@@ -131,7 +128,7 @@ func diagnoseRuntimes(report *DiagnosticReport, runtimes []RuntimeInfo) {
 	if processes, err := procwatch.Named("zalki"); err == nil {
 		for _, p := range processes {
 			if p.PID != os.Getpid() && !tracked[p.PID] {
-				report.UntrackedProcesses = append(report.UntrackedProcesses, ProcessRef{PID: p.PID, Start: p.Start, Role: "untracked_zalki"})
+				report.UntrackedProcesses = append(report.UntrackedProcesses, model.ProcessRef{PID: p.PID, Start: p.Start, Role: "untracked_zalki"})
 				tracked[p.PID] = true
 			}
 		}

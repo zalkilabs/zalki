@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
@@ -215,7 +216,7 @@ func TestWatchEndsWhenExitIsObservedWithoutSessionEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	current.Owner = &ProcessRef{PID: 1 << 30, Start: "1", Role: "client"}
+	current.Owner = &model.ProcessRef{PID: 1 << 30, Start: "1", Role: "client"}
 	if err := store.saveSession(current); err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +257,7 @@ func TestWatchEndsWhenExitIsObservedWithoutSessionEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dead.Owner = &ProcessRef{PID: 1 << 30, Start: "1", Role: "client"}
+	dead.Owner = &model.ProcessRef{PID: 1 << 30, Start: "1", Role: "client"}
 	if err := store.saveSession(dead); err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +302,7 @@ func TestWatchAnswersAnEndedSessionImmediately(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	current.Owner = &ProcessRef{PID: 1 << 30, Start: "1", Role: "client"}
+	current.Owner = &model.ProcessRef{PID: 1 << 30, Start: "1", Role: "client"}
 	if err := store.saveSession(current); err != nil {
 		t.Fatal(err)
 	}

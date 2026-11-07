@@ -10,9 +10,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
-// Liveness is the compatibility name for model.Liveness.
-type Liveness = model.Liveness
-
 const (
 	LivenessAlive   = model.LivenessAlive
 	LivenessExited  = model.LivenessExited
@@ -28,7 +25,7 @@ func (s Store) tracksOwnProcess(kind string) bool {
 	return !ok || policy.TracksOwnProcess()
 }
 
-func (s Store) sessionLiveness(v Session) Liveness {
+func (s Store) sessionLiveness(v Session) model.Liveness {
 	adapter, err := s.registry().Lookup(v.Kind)
 	if err != nil {
 		return LivenessUnknown
@@ -49,13 +46,13 @@ func (s Store) sessionLiveness(v Session) Liveness {
 func (s Store) livenessProbes() agent.LivenessProbes {
 	return agent.LivenessProbes{
 		Endpoint: CheckEndpoint,
-		Presence: func(pid int) Liveness { return processPresence(pid, procwatch.Read) },
+		Presence: func(pid int) model.Liveness { return processPresence(pid, procwatch.Read) },
 	}
 }
 
 // processPresence is exit evidence without a start-time fingerprint. A live
 // pid is not "alive": the pid may have been reused by an unrelated process.
-func processPresence(pid int, read func(int) (procwatch.Info, error)) Liveness {
+func processPresence(pid int, read func(int) (procwatch.Info, error)) model.Liveness {
 	if pid <= 1 {
 		return LivenessUnknown
 	}

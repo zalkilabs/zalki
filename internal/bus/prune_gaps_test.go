@@ -365,7 +365,7 @@ func exitedOwner(t *testing.T, store Store, sessions ...Session) {
 	if err != nil || p.Start == "" {
 		t.Fatalf("cannot identify fixture owner: %+v %v", p, err)
 	}
-	ref := &ProcessRef{PID: p.PID, Start: p.Start, Role: "client"}
+	ref := &model.ProcessRef{PID: p.PID, Start: p.Start, Role: "client"}
 	for _, v := range sessions {
 		v.Owner = ref
 		if err := store.locked(func() error { return store.saveSession(v) }); err != nil {

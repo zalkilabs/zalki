@@ -20,19 +20,19 @@ import (
 var Version = "0.1.0-experimental"
 
 type RuntimeInfo struct {
-	ID              string      `json:"id,omitempty"`
-	Role            string      `json:"role"`
-	Version         string      `json:"version"`
-	Binary          string      `json:"binary"`
-	PID             int         `json:"pid"`
-	Process         *ProcessRef `json:"process,omitempty"`
-	StartedAt       string      `json:"started_at"`
-	LoadedBuild     string      `json:"loaded_build"`
-	DiskBuild       string      `json:"disk_build,omitempty"`
-	NeedsRestart    bool        `json:"needs_restart"`
-	ProcessLiveness Liveness    `json:"process_liveness"`
-	Actors          []string    `json:"actors,omitempty"`
-	BuildError      string      `json:"build_error,omitempty"`
+	ID              string            `json:"id,omitempty"`
+	Role            string            `json:"role"`
+	Version         string            `json:"version"`
+	Binary          string            `json:"binary"`
+	PID             int               `json:"pid"`
+	Process         *model.ProcessRef `json:"process,omitempty"`
+	StartedAt       string            `json:"started_at"`
+	LoadedBuild     string            `json:"loaded_build"`
+	DiskBuild       string            `json:"disk_build,omitempty"`
+	NeedsRestart    bool              `json:"needs_restart"`
+	ProcessLiveness model.Liveness    `json:"process_liveness"`
+	Actors          []string          `json:"actors,omitempty"`
+	BuildError      string            `json:"build_error,omitempty"`
 }
 
 type fileIdentity struct {
@@ -97,7 +97,7 @@ func captureExecutable() executableSnapshot {
 		info.BuildError = err.Error()
 	}
 	if p, err := procwatch.Read(os.Getpid()); err == nil {
-		info.Process = &ProcessRef{PID: p.PID, Start: p.Start, Role: "zalki"}
+		info.Process = &model.ProcessRef{PID: p.PID, Start: p.Start, Role: "zalki"}
 	}
 	return executableSnapshot{info: info, loadedBuild: info.LoadedBuild}
 }

@@ -99,7 +99,7 @@ func TestSessionExtensionsSurviveLifecycleTaskApprovalLeaseAndRegistration(t *te
 		{"name set", func() error { return store.hookName(target.ID, "fixture") }},
 		{"name clear", func() error { return store.hookName(target.ID, "") }},
 		{"lifecycle", func() error {
-			return cursorHost(store, target.ID, "Stop").ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+			return cursorHost(store, target.ID, "Stop").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 				return agent.LifecycleChange{Transition: agent.TransitionReady}, nil
 			})
 		}},

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // listenSocket binds a private Unix socket so leases can arm a real endpoint.
@@ -145,7 +147,7 @@ func TestListenerLeaseLifecycleWritesLeaseOnlyUnderItsSchema(t *testing.T) {
 	if recordSchemaOf(t, store, to.ID) != leaseSessionSchema {
 		t.Fatal("a leased session was readable by builds that would drop its lease")
 	}
-	if err := lease.Confirm(func(SessionView) (json.RawMessage, error) {
+	if err := lease.Confirm(func(model.SessionView) (json.RawMessage, error) {
 		return encodedCursorState(CursorListenerState{RecoverySuppressed: true}), nil
 	}); err != nil {
 		t.Fatal(err)
@@ -222,7 +224,7 @@ func TestSupersededLeaseCannotConfirmValidateOrClear(t *testing.T) {
 	}
 	msg := pendingMessage(t, store, to)
 	before := sessionBytes(t, store, to.ID)
-	if err := old.Confirm(func(SessionView) (json.RawMessage, error) { return nil, nil }); ErrorCodeOf(err) != CodeConflict {
+	if err := old.Confirm(func(model.SessionView) (json.RawMessage, error) { return nil, nil }); ErrorCodeOf(err) != CodeConflict {
 		t.Fatal("a superseded lease confirmed setup", err)
 	}
 	if _, err := old.ValidateDelivery(msg.ID); err == nil {
@@ -356,7 +358,7 @@ func TestLeaseOwnershipRequiresEveryRecordedField(t *testing.T) {
 				t.Fatal(err)
 			}
 			before := sessionBytes(t, store, to.ID)
-			if err := lease.Confirm(func(SessionView) (json.RawMessage, error) {
+			if err := lease.Confirm(func(model.SessionView) (json.RawMessage, error) {
 				return encodedCursorState(CursorListenerState{RecoverySuppressed: true}), nil
 			}); ErrorCodeOf(err) != CodeConflict {
 				t.Fatal("confirmed a record owned by a different lease", err)

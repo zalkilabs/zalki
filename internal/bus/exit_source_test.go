@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
-func startChild(t *testing.T) (*exec.Cmd, ProcessRef) {
+func startChild(t *testing.T) (*exec.Cmd, model.ProcessRef) {
 	t.Helper()
 	child := exec.CommandContext(t.Context(), "sleep", "30")
 	if err := child.Start(); err != nil {
@@ -21,7 +22,7 @@ func startChild(t *testing.T) (*exec.Cmd, ProcessRef) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return child, ProcessRef{PID: p.PID, Start: p.Start, Role: "client"}
+	return child, model.ProcessRef{PID: p.PID, Start: p.Start, Role: "client"}
 }
 
 // End to end with the real source: the sweep is set so long it cannot be what
