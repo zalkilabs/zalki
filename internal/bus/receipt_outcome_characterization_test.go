@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // hookDeliveryAdapter delivers through the recipient's next hook, so a send
 // first records pending_next_activity and the transport then reports a wake.
 func hookDeliveryAdapter(kind string) *fakeAdapter {
-	return &fakeAdapter{kind: kind, caps: bus.ReceiveCapabilities{
-		Delivery: "fake_hook", Inbox: bus.InboxJournal, BusyDelivery: bus.DeliveryNextHook, HookDelivery: true,
+	return &fakeAdapter{kind: kind, caps: model.ReceiveCapabilities{
+		Delivery: "fake_hook", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, HookDelivery: true,
 	}}
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // newTestID returns a random UUID-shaped identifier, as native client thread ids are.
@@ -36,9 +37,9 @@ func adapterTestStore(t *testing.T) bus.Store {
 
 func registerAdapterSession(t *testing.T, store bus.Store, kind string) (bus.Session, string) {
 	t.Helper()
-	var endpoint *bus.Endpoint
+	var endpoint *model.Endpoint
 	if kind == "claude" {
-		endpoint = &bus.Endpoint{Path: "/fixture/not-a-real-socket"}
+		endpoint = &model.Endpoint{Path: "/fixture/not-a-real-socket"}
 	}
 	session, key, err := store.Register(kind, newTestID(), "/workspace", endpoint)
 	if err != nil {

@@ -18,7 +18,7 @@ var _ agent.LivenessAdapter = pruneProbeAdapter{}
 
 func (a pruneProbeAdapter) Liveness(agent.LivenessView, agent.LivenessProbes) model.Liveness {
 	(*a.calls)++
-	return LivenessExited
+	return model.LivenessExited
 }
 
 func (pruneProbeAdapter) TracksOwnProcess() bool { return false }
@@ -34,7 +34,7 @@ func TestExplicitPruneDoesNotProbeSessionLiveness(t *testing.T) {
 		store.Registry = registry
 		target, _ := register(t, store, "cursor")
 		calls = 0
-		if got := store.sessionLiveness(target); got != LivenessExited || calls != 1 {
+		if got := store.sessionLiveness(target); got != model.LivenessExited || calls != 1 {
 			t.Fatal("fixture liveness policy is not wired to its counter")
 		}
 		calls = 0

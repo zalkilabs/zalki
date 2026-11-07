@@ -17,6 +17,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestCodexVersionGate(t *testing.T) {
@@ -42,7 +43,7 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	defer listener.Close()
 	target := bus.Session{Kind: "codex", NativeConfigDir: root}
 	capabilities := (Adapter{}).ReceiveCapabilities(target)
-	if capabilities.Delivery != "app_server_unverified_or_queue" || capabilities.BusyDelivery != bus.DeliveryNextTurn || !capabilities.IdleWake {
+	if capabilities.Delivery != "app_server_unverified_or_queue" || capabilities.BusyDelivery != model.DeliveryNextTurn || !capabilities.IdleWake {
 		t.Fatalf("socket was not advertised: %+v", capabilities)
 	}
 	var host agent.HealthHost
@@ -64,7 +65,7 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 		t.Fatal(err)
 	}
 	capabilities = (Adapter{}).ReceiveCapabilities(target)
-	if capabilities.Delivery != "native_queue_next_turn" || capabilities.BusyDelivery != bus.DeliveryNextTurn {
+	if capabilities.Delivery != "native_queue_next_turn" || capabilities.BusyDelivery != model.DeliveryNextTurn {
 		t.Fatalf("public control directory stayed eligible: %+v", capabilities)
 	}
 	health, _ = (Adapter{}).Health(host, target)
@@ -128,12 +129,12 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			switch mode {
 			case "idle", "paged", "busy":
 				verified := (Adapter{}).ReceiveCapabilities(bus.Session{Kind: "codex", NativeConfigDir: root})
-				if verified.Delivery != "app_server_tool_output" || verified.BusyDelivery != bus.DeliveryBetweenTools {
+				if verified.Delivery != "app_server_tool_output" || verified.BusyDelivery != model.DeliveryBetweenTools {
 					t.Fatalf("verified server was not advertised: %+v", verified)
 				}
 			case "old", "home", "method-missing", "invalid-params":
 				unsupported := (Adapter{}).ReceiveCapabilities(bus.Session{Kind: "codex", NativeConfigDir: root})
-				if unsupported.Delivery != "native_queue_next_turn" || unsupported.BusyDelivery != bus.DeliveryNextTurn {
+				if unsupported.Delivery != "native_queue_next_turn" || unsupported.BusyDelivery != model.DeliveryNextTurn {
 					t.Fatalf("unusable server was advertised as direct delivery: %+v", unsupported)
 				}
 			}

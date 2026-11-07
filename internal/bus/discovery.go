@@ -69,7 +69,7 @@ func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error)
 		}
 		// Built-ins wake idle sessions except when delivery requires a hook.
 		// An explicit override preserves other combinations for external adapters.
-		if v.Receive.IdleWake != (row.Delivery != DeliveryNextHook) {
+		if v.Receive.IdleWake != (row.Delivery != model.DeliveryNextHook) {
 			idleWake := v.Receive.IdleWake
 			row.IdleWake = &idleWake
 		}

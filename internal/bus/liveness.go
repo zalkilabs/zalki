@@ -10,12 +10,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
-const (
-	LivenessAlive   = model.LivenessAlive
-	LivenessExited  = model.LivenessExited
-	LivenessUnknown = model.LivenessUnknown
-)
-
 func (s Store) tracksOwnProcess(kind string) bool {
 	adapter, err := s.registry().Lookup(kind)
 	if err != nil {
@@ -28,7 +22,7 @@ func (s Store) tracksOwnProcess(kind string) bool {
 func (s Store) sessionLiveness(v Session) model.Liveness {
 	adapter, err := s.registry().Lookup(v.Kind)
 	if err != nil {
-		return LivenessUnknown
+		return model.LivenessUnknown
 	}
 	policy, ok := adapter.(agent.LivenessAdapter)
 	if !ok {
@@ -36,10 +30,10 @@ func (s Store) sessionLiveness(v Session) model.Liveness {
 		return processLiveness(v.Owner)
 	}
 	switch got := policy.Liveness(agent.LivenessView{Endpoint: v.Endpoint, Owner: v.Owner}, s.livenessProbes()); got {
-	case LivenessAlive, LivenessExited, LivenessUnknown:
+	case model.LivenessAlive, model.LivenessExited, model.LivenessUnknown:
 		return got
 	default:
-		return LivenessUnknown
+		return model.LivenessUnknown
 	}
 }
 
@@ -54,14 +48,14 @@ func (s Store) livenessProbes() agent.LivenessProbes {
 // pid is not "alive": the pid may have been reused by an unrelated process.
 func processPresence(pid int, read func(int) (procwatch.Info, error)) model.Liveness {
 	if pid <= 1 {
-		return LivenessUnknown
+		return model.LivenessUnknown
 	}
 	current, err := read(pid)
 	if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ESRCH) {
-		return LivenessExited
+		return model.LivenessExited
 	}
 	if err != nil || current.Start == "" || !current.Zombie {
-		return LivenessUnknown
+		return model.LivenessUnknown
 	}
-	return LivenessExited
+	return model.LivenessExited
 }

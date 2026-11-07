@@ -14,19 +14,19 @@ func processLiveness(ref *model.ProcessRef) model.Liveness { return probeProcess
 
 func probeProcess(ref *model.ProcessRef, read func(int) (procwatch.Info, error)) model.Liveness {
 	if ref == nil || ref.PID <= 1 || ref.Start == "" {
-		return LivenessUnknown
+		return model.LivenessUnknown
 	}
 	current, err := read(ref.PID)
 	if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ESRCH) {
-		return LivenessExited
+		return model.LivenessExited
 	}
 	if err != nil || current.Start == "" {
-		return LivenessUnknown // Permission and inspection failures are not exit evidence.
+		return model.LivenessUnknown // Permission and inspection failures are not exit evidence.
 	}
 	if current.Start != ref.Start || current.UID != uint32(os.Getuid()) || current.Zombie { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
-		return LivenessExited
+		return model.LivenessExited
 	}
-	return LivenessAlive
+	return model.LivenessAlive
 }
 
 // Only trusted hooks supply process ownership; peer/model PIDs are not accepted.
@@ -114,7 +114,7 @@ func (s Store) updateOwner(v *Session, kind string, refresh bool) bool {
 		v.Owner = owner
 		return true
 	}
-	if refresh && processLiveness(v.Owner) == LivenessExited {
+	if refresh && processLiveness(v.Owner) == model.LivenessExited {
 		v.Owner = nil
 		return true
 	}

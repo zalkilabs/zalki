@@ -19,7 +19,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func listenClaudeSocket(t *testing.T) (*net.UnixListener, *bus.Endpoint) {
+func listenClaudeSocket(t *testing.T) (*net.UnixListener, *model.Endpoint) {
 	t.Helper()
 	dir, err := os.MkdirTemp("/tmp", "zalki-socket-")
 	if err != nil {

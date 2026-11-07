@@ -45,8 +45,8 @@ func (Adapter) Descriptor() agent.AdapterDescriptor {
 	}}
 }
 
-func (Adapter) ReceiveCapabilities(v bus.Session) bus.ReceiveCapabilities {
-	c := bus.ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: bus.InboxNative, BusyDelivery: bus.DeliveryNextTurn, LifecycleHooks: true}
+func (Adapter) ReceiveCapabilities(v bus.Session) model.ReceiveCapabilities {
+	c := model.ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: true}
 	root := codexConfigRoot(v)
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {
@@ -55,7 +55,7 @@ func (Adapter) ReceiveCapabilities(v bus.Session) bus.ReceiveCapabilities {
 	switch cachedCodexSupport(endpoint, root) {
 	case codexSupportVerified:
 		c.Delivery = "app_server_tool_output"
-		c.BusyDelivery = bus.DeliveryBetweenTools
+		c.BusyDelivery = model.DeliveryBetweenTools
 	case codexSupportUnavailable:
 		return c
 	default:

@@ -22,15 +22,15 @@ type DiagnosticReport struct {
 }
 
 type AgentDiagnostic struct {
-	Version         string              `json:"installed_version,omitempty"`
-	FixtureVersions []string            `json:"fixture_versions,omitempty"`
-	Compatibility   string              `json:"compatibility"`
-	RecoveryHint    string              `json:"recovery_hint,omitempty"`
-	Kind            string              `json:"kind"`
-	Label           string              `json:"label"`
-	Binary          string              `json:"binary,omitempty"`
-	Found           bool                `json:"found"`
-	Receive         ReceiveCapabilities `json:"receive"`
+	Version         string                    `json:"installed_version,omitempty"`
+	FixtureVersions []string                  `json:"fixture_versions,omitempty"`
+	Compatibility   string                    `json:"compatibility"`
+	RecoveryHint    string                    `json:"recovery_hint,omitempty"`
+	Kind            string                    `json:"kind"`
+	Label           string                    `json:"label"`
+	Binary          string                    `json:"binary,omitempty"`
+	Found           bool                      `json:"found"`
+	Receive         model.ReceiveCapabilities `json:"receive"`
 }
 
 func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type Output[T any] struct {
@@ -54,13 +55,13 @@ func messageReceipt(message bus.Message, err error) (MessageReceipt, error) {
 		receipt.Note = "Deferred until the next delivery hook."
 	case bus.StatusSubmitted, bus.StatusTransportWritten, bus.StatusWakeWritten:
 		switch message.BusyDelivery {
-		case bus.DeliveryBetweenTools:
+		case model.DeliveryBetweenTools:
 			receipt.Note = "Target busy; delivery between tool calls."
-		case bus.DeliveryNextTurn:
+		case model.DeliveryNextTurn:
 			receipt.Note = "Target busy; delivery at the next turn."
-		case bus.DeliveryNextHook:
+		case model.DeliveryNextHook:
 			receipt.Note = "Target busy; delivery at the next hook."
-		case bus.DeliveryNotification:
+		case model.DeliveryNotification:
 			receipt.Note = "Target busy; native notification delivery."
 		}
 	}

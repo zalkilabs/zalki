@@ -234,7 +234,7 @@ func messageComesBefore(a, b Message, history bool) bool {
 }
 
 func inboxView(message Message, current Session, omitBody bool) Message {
-	if message.To == current.ID && current.Receive.Inbox == InboxNative && message.AcknowledgedAt == "" {
+	if message.To == current.ID && current.Receive.Inbox == model.InboxNative && message.AcknowledgedAt == "" {
 		message.Body, message.BodyDeferred = "", true
 	} else if omitBody && message.Body != "" {
 		message.Body, message.BodyOmitted = "", true

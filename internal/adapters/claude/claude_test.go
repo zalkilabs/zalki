@@ -14,9 +14,10 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func listenClaudeSocket(t *testing.T) (*net.UnixListener, *bus.Endpoint) {
+func listenClaudeSocket(t *testing.T) (*net.UnixListener, *model.Endpoint) {
 	t.Helper()
 	dir, err := os.MkdirTemp("/tmp", "zalki-socket-")
 	if err != nil {
@@ -84,7 +85,7 @@ func TestClaudeFrameSizeAndMissingEndpoint(t *testing.T) {
 	adapter := Adapter{}
 	for _, test := range []struct {
 		name     string
-		endpoint *bus.Endpoint
+		endpoint *model.Endpoint
 		body     string
 	}{
 		{"missing endpoint", nil, "hello"},

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestCursorRecoverySkipsRetiredUnknownAndApprovalSessions(t *testing.T) {
@@ -73,7 +74,7 @@ func TestConcurrentCursorRecoveryClaimsOnlyOneContext(t *testing.T) {
 func TestCursorRecoveryRetiresAStaleLease(t *testing.T) {
 	store := fixtureStore(t)
 	to, _ := register(t, store, "cursor")
-	to.Listener = &ListenerLease{ID: newID(), Generation: to.Generation, Endpoint: *listenSocket(t)}
+	to.Listener = &model.ListenerLease{ID: newID(), Generation: to.Generation, Endpoint: *listenSocket(t)}
 	if err := store.locked(func() error { return store.saveSession(to) }); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +87,7 @@ func TestCursorRecoveryRetiresAStaleLease(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if store.listenerStatus(to) == ListenerRunning {
+		if store.listenerStatus(to) == model.ListenerRunning {
 			t.Fatal("trusted a bound socket without listener lock ownership")
 		}
 	}

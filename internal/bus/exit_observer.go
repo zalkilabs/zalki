@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
@@ -243,7 +244,7 @@ func (o *exitObserver) scanWatchTarget(scan *watchScan, id, dir string) {
 		s.Store.logEvent(slog.LevelDebug, "watch.observer_skipped", eventData{Actor: id, Err: err})
 		return
 	}
-	if v.Retired || s.Store.sessionLiveness(v) == LivenessExited {
+	if v.Retired || s.Store.sessionLiveness(v) == model.LivenessExited {
 		scan.exited = append(scan.exited, id)
 		return
 	}
@@ -346,7 +347,7 @@ func (s *Service) consumeIfExited(id string) (Session, []Watch, error) {
 		if err != nil {
 			return err
 		}
-		if !v.Retired && s.Store.sessionLiveness(v) != LivenessExited {
+		if !v.Retired && s.Store.sessionLiveness(v) != model.LivenessExited {
 			return nil
 		}
 		subject = v

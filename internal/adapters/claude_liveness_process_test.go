@@ -16,6 +16,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestClaudeSocketHelper(t *testing.T) {
@@ -116,7 +117,7 @@ func TestClaudeLivenessAfterKillAndCleanExit(t *testing.T) {
 	}
 }
 
-func claudeSocket(t *testing.T, clean bool) (*bus.Endpoint, func()) {
+func claudeSocket(t *testing.T, clean bool) (*model.Endpoint, func()) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)

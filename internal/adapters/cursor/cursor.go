@@ -42,11 +42,11 @@ func (Adapter) Descriptor() agent.AdapterDescriptor {
 	}}
 }
 
-func (Adapter) ReceiveCapabilities(v bus.Session) bus.ReceiveCapabilities {
-	c := bus.ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: bus.InboxJournal, BusyDelivery: bus.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}
+func (Adapter) ReceiveCapabilities(v bus.Session) model.ReceiveCapabilities {
+	c := model.ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}
 	if v.Listener != nil {
 		c.IdleWake, c.Delivery = true, "native_background_shell_output"
-		c.BusyDelivery = bus.DeliveryNotification
+		c.BusyDelivery = model.DeliveryNotification
 	}
 	return c
 }
@@ -146,11 +146,11 @@ func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string,
 
 func (Adapter) Health(s agent.HealthHost, v bus.Session) (string, string) {
 	switch s.Listener(v) {
-	case bus.ListenerRunning:
+	case model.ListenerRunning:
 		return "native_background_shell_output", "running"
-	case bus.ListenerStale:
+	case model.ListenerStale:
 		return "deferred", "stale"
-	case bus.ListenerUnleased:
+	case model.ListenerUnleased:
 		return "deferred", "legacy_running"
 	case model.ListenerNone:
 		return "deferred", "not_armed"

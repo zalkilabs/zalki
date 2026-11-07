@@ -19,8 +19,8 @@ func (stubCodexAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex"}
 }
 
-func (stubCodexAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
-	return ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: InboxNative, BusyDelivery: DeliveryNextTurn, LifecycleHooks: true}
+func (stubCodexAdapter) ReceiveCapabilities(Session) model.ReceiveCapabilities {
+	return model.ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: true}
 }
 
 func (stubCodexAdapter) Deliver(context.Context, Message, Session) Receipt {
@@ -39,8 +39,8 @@ func (stubClaudeAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
 }
 
-func (stubClaudeAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
-	return ReceiveCapabilities{IdleWake: true, Delivery: "experimental_socket", Inbox: InboxNative, BusyDelivery: DeliveryBetweenTools, LifecycleHooks: true, Experimental: true, RequiresEndpoint: true}
+func (stubClaudeAdapter) ReceiveCapabilities(Session) model.ReceiveCapabilities {
+	return model.ReceiveCapabilities{IdleWake: true, Delivery: "experimental_socket", Inbox: model.InboxNative, BusyDelivery: model.DeliveryBetweenTools, LifecycleHooks: true, Experimental: true, RequiresEndpoint: true}
 }
 
 func (stubClaudeAdapter) Deliver(context.Context, Message, Session) Receipt {
@@ -54,10 +54,10 @@ type stubCursorAdapter struct{ agent.StandardHooks }
 func (stubCursorAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Hooks: map[string]string{"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop"}}
 }
-func (stubCursorAdapter) ReceiveCapabilities(v Session) ReceiveCapabilities {
-	c := ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: InboxJournal, BusyDelivery: DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}
+func (stubCursorAdapter) ReceiveCapabilities(v Session) model.ReceiveCapabilities {
+	c := model.ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}
 	if v.Listener != nil {
-		c.IdleWake, c.Delivery, c.BusyDelivery = true, "native_background_shell_output", DeliveryNotification
+		c.IdleWake, c.Delivery, c.BusyDelivery = true, "native_background_shell_output", model.DeliveryNotification
 	}
 	return c
 }

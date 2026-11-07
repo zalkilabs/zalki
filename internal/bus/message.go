@@ -108,7 +108,7 @@ func (s Store) reserveNewMessage(sender Session, request SendRequest, persist bo
 	if target.Retired {
 		return message, target, false, fail(CodeUnavailable, "destination has retired")
 	}
-	if s.sessionLiveness(target) == LivenessExited {
+	if s.sessionLiveness(target) == model.LivenessExited {
 		return message, target, false, fail(CodeUnavailable, "destination owner process has exited")
 	}
 	to := target.ID

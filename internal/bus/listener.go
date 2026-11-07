@@ -13,13 +13,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-const (
-	ListenerNone     = model.ListenerNone
-	ListenerRunning  = model.ListenerRunning
-	ListenerStale    = model.ListenerStale
-	ListenerUnleased = model.ListenerUnleased
-)
-
 // Lease is one process's exclusive ownership of a registration's listener. It
 // holds the nonblocking lifetime lock for its whole life and never holds the
 // journal lock while waiting on that lock or on socket IO. Lock order is
@@ -33,7 +26,7 @@ type Lease struct {
 	store                     Store
 	actor, kind, key, id, gen string
 	fd                        int
-	endpoint                  *Endpoint
+	endpoint                  *model.Endpoint
 	confirmed, closed         bool
 }
 
@@ -93,13 +86,13 @@ func (s Store) listenerStatus(v Session) model.ListenerStatus {
 	held := s.lockHeld(v)
 	switch {
 	case v.Listener != nil && held && v.Listener.Generation == v.Generation && CheckEndpoint(&v.Listener.Endpoint) == nil:
-		return ListenerRunning
+		return model.ListenerRunning
 	case v.Listener != nil:
-		return ListenerStale
+		return model.ListenerStale
 	case held:
-		return ListenerUnleased
+		return model.ListenerUnleased
 	}
-	return ListenerNone
+	return model.ListenerNone
 }
 
 // AcquireListenerLease authenticates the registration's own capability and
@@ -180,7 +173,7 @@ func (l *Lease) owns(v Session) bool {
 // capability, so a credential rotated since acquisition cannot arm, even when
 // the generation is unchanged. Any stale lease record is replaced: holding the
 // lifetime lock proves no other lease is alive.
-func (l *Lease) Arm(endpoint *Endpoint) error {
+func (l *Lease) Arm(endpoint *model.Endpoint) error {
 	if l.closed || l.endpoint != nil {
 		return errors.New("listener lease is closed or already armed")
 	}
@@ -196,7 +189,7 @@ func (l *Lease) Arm(endpoint *Endpoint) error {
 		if current.Generation != l.gen {
 			return fail(CodeConflict, "registration changed while arming its listener")
 		}
-		current.Listener = &ListenerLease{ID: l.id, Generation: l.gen, Endpoint: bound}
+		current.Listener = &model.ListenerLease{ID: l.id, Generation: l.gen, Endpoint: bound}
 		return l.store.saveSession(current)
 	})
 	if err == nil {

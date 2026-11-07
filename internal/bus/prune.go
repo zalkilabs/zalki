@@ -162,7 +162,7 @@ func (r *pruneRun) sweepRetired(v Session) error {
 // The decision is reported before the record is saved; a dry run stops there.
 func (r *pruneRun) retireIfDue(v Session) error {
 	selected := r.selected[v.ID]
-	liveness := LivenessUnknown
+	liveness := model.LivenessUnknown
 	if !selected {
 		liveness = r.store.sessionLiveness(v)
 	}

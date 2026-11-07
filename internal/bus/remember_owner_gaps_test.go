@@ -59,7 +59,7 @@ func (a ownerAdapter) Descriptor() agent.AdapterDescriptor {
 type sharedAdapter struct{ ownerAdapter }
 
 func (sharedAdapter) Liveness(agent.LivenessView, agent.LivenessProbes) model.Liveness {
-	return LivenessUnknown
+	return model.LivenessUnknown
 }
 func (sharedAdapter) TracksOwnProcess() bool { return false }
 

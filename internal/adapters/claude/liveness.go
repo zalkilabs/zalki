@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -19,16 +18,16 @@ func (Adapter) TracksOwnProcess() bool { return false }
 // inode counts as alive. A live pid without a stored start time may have been
 // reused, so it is not alive by itself.
 func (Adapter) Liveness(v agent.LivenessView, probes agent.LivenessProbes) model.Liveness {
-	if pid, ok := messagingSocketPID(v.Endpoint); ok && probes.Presence != nil && probes.Presence(pid) == bus.LivenessExited {
-		return bus.LivenessExited
+	if pid, ok := messagingSocketPID(v.Endpoint); ok && probes.Presence != nil && probes.Presence(pid) == model.LivenessExited {
+		return model.LivenessExited
 	}
 	if v.Endpoint != nil && probes.Endpoint != nil && probes.Endpoint(v.Endpoint) == nil {
-		return bus.LivenessAlive
+		return model.LivenessAlive
 	}
-	return bus.LivenessUnknown
+	return model.LivenessUnknown
 }
 
-func messagingSocketPID(endpoint *bus.Endpoint) (int, bool) {
+func messagingSocketPID(endpoint *model.Endpoint) (int, bool) {
 	if endpoint == nil {
 		return 0, false
 	}

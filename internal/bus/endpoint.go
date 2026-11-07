@@ -5,9 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func InspectEndpoint(path string) (*Endpoint, error) {
+func InspectEndpoint(path string) (*model.Endpoint, error) {
 	if !filepath.IsAbs(path) {
 		return nil, errors.New("expected absolute messaging socket path")
 	}
@@ -31,10 +33,10 @@ func InspectEndpoint(path string) (*Endpoint, error) {
 		return nil, errors.New("expected same-user socket, not a file or symlink")
 	}
 	stat := info.Sys().(*syscall.Stat_t)
-	return &Endpoint{Path: path, Device: uint64(stat.Dev), Inode: stat.Ino, ChangedNS: changedNS(stat)}, nil // #nosec G115 -- Preserve opaque device identity; Darwin's dev_t is signed, Linux's is unsigned.
+	return &model.Endpoint{Path: path, Device: uint64(stat.Dev), Inode: stat.Ino, ChangedNS: changedNS(stat)}, nil // #nosec G115 -- Preserve opaque device identity; Darwin's dev_t is signed, Linux's is unsigned.
 }
 
-func CheckEndpoint(expected *Endpoint) error {
+func CheckEndpoint(expected *model.Endpoint) error {
 	if expected == nil {
 		return errors.New("no bound messaging socket")
 	}

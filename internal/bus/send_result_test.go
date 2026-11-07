@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestSendGeneratesIDsAndExplicitRetryNeverResubmits(t *testing.T) {
@@ -49,7 +51,7 @@ func TestBusyDeliveryObservationIsNotPersisted(t *testing.T) {
 	}
 	service.Deliver = func(context.Context, Message, Session) Receipt { return NewReceipt(StatusSubmitted) }
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, Body: "review"})
-	if err != nil || msg.BusyDelivery != DeliveryNextTurn {
+	if err != nil || msg.BusyDelivery != model.DeliveryNextTurn {
 		t.Fatal("delivery lost busy target timing", err)
 	}
 	stored, err := store.message(msg.ID)

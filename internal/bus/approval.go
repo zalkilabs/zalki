@@ -264,7 +264,7 @@ func (s Store) resolveApprovalQueue(current Session, hookPoll bool) (approvalRes
 	reason := ""
 	if current.Retired {
 		reason = "destination has retired"
-	} else if s.sessionLiveness(current) == LivenessExited {
+	} else if s.sessionLiveness(current) == model.LivenessExited {
 		reason = "destination owner process has exited"
 	}
 	result := approvalResolution{unreachable: reason != ""}

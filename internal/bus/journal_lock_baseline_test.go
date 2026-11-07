@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func requireAbsentLock(t *testing.T, path string) {
@@ -27,7 +29,7 @@ func TestMissingListenerProbesDoNotCreateLockFiles(t *testing.T) {
 					t.Fatal("missing lock reported a live listener")
 				}
 			case "status":
-				if got := store.listenerStatus(v); got != ListenerNone {
+				if got := store.listenerStatus(v); got != model.ListenerNone {
 					t.Fatalf("missing lock status = %q, want none", got)
 				}
 			case "preview", "remove":
@@ -98,7 +100,7 @@ func TestFailedRecordPublicationKeepsConservativeFormatMarker(t *testing.T) {
 	store := fixtureStore(t)
 	session, _ := register(t, store, "cursor")
 	path, _ := store.sessionPath(session.ID)
-	session.Listener = &ListenerLease{ID: newID(), Generation: session.Generation}
+	session.Listener = &model.ListenerLease{ID: newID(), Generation: session.Generation}
 	err := store.locked(func() error {
 		if err := os.Remove(filepath.Join(store.Dir, stateFormatFile)); err != nil {
 			return err

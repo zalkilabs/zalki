@@ -17,7 +17,7 @@ import (
 )
 
 // listenSocket binds a private Unix socket so leases can arm a real endpoint.
-func listenSocket(t *testing.T) *Endpoint {
+func listenSocket(t *testing.T) *model.Endpoint {
 	t.Helper()
 	dir, err := os.MkdirTemp("/tmp", "zalki-lease-")
 	if err != nil {
@@ -150,7 +150,7 @@ func TestListenerLeaseLifecycleWritesLeaseOnlyUnderItsSchema(t *testing.T) {
 	}
 	lease := armedLease(t, store, to.ID, key)
 	current, err := store.session(to.ID)
-	if err != nil || current.Listener == nil || current.Listener.Generation != to.Generation || !current.Receive.IdleWake || store.listenerStatus(current) != ListenerRunning {
+	if err != nil || current.Listener == nil || current.Listener.Generation != to.Generation || !current.Receive.IdleWake || store.listenerStatus(current) != model.ListenerRunning {
 		t.Fatalf("armed lease was not recorded as the running listener: %+v %v", current, err)
 	}
 	if recordSchemaOf(t, store, to.ID) != leaseSessionSchema {
@@ -170,7 +170,7 @@ func TestListenerLeaseLifecycleWritesLeaseOnlyUnderItsSchema(t *testing.T) {
 	}
 	lease.Close(nil)
 	current, err = store.session(to.ID)
-	if err != nil || current.Listener != nil || current.Receive.IdleWake || store.listenerStatus(current) != ListenerNone || recordSchemaOf(t, store, to.ID) != recordSchema {
+	if err != nil || current.Listener != nil || current.Receive.IdleWake || store.listenerStatus(current) != model.ListenerNone || recordSchemaOf(t, store, to.ID) != recordSchema {
 		t.Fatalf("closing the lease left listener state or the lease schema: %+v %v", current, err)
 	}
 }
@@ -291,7 +291,7 @@ func TestValidateDeliveryKeepsRecipientFences(t *testing.T) {
 func TestListenerStatusRequiresEndpointAndLifetimeLock(t *testing.T) {
 	store := fixtureStore(t)
 	to, _ := register(t, store, "cursor")
-	if store.listenerStatus(to) != ListenerNone {
+	if store.listenerStatus(to) != model.ListenerNone {
 		t.Fatal("a fresh registration reported a listener")
 	}
 	fd, err := syscall.Open(store.listenerLockPath(to.Kind, to.ID), syscall.O_CREAT|syscall.O_RDWR, 0600)
@@ -299,24 +299,24 @@ func TestListenerStatusRequiresEndpointAndLifetimeLock(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer syscall.Close(fd)
-	if store.listenerStatus(to) != ListenerNone {
+	if store.listenerStatus(to) != model.ListenerNone {
 		t.Fatal("an unlocked lock file was treated as a listener")
 	}
 	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		t.Fatal(err)
 	}
-	if store.listenerStatus(to) != ListenerUnleased {
+	if store.listenerStatus(to) != model.ListenerUnleased {
 		t.Fatal("a lock holder without a lease was not reported as unleased")
 	}
-	to.Listener = &ListenerLease{ID: newID(), Generation: to.Generation, Endpoint: Endpoint{Path: "/tmp/zalki-missing/inbox.sock"}}
-	if store.listenerStatus(to) != ListenerStale {
+	to.Listener = &model.ListenerLease{ID: newID(), Generation: to.Generation, Endpoint: model.Endpoint{Path: "/tmp/zalki-missing/inbox.sock"}}
+	if store.listenerStatus(to) != model.ListenerStale {
 		t.Fatal("a lease without its bound endpoint was reported as running")
 	}
 	if err := syscall.Flock(fd, syscall.LOCK_UN); err != nil {
 		t.Fatal(err)
 	}
 	to.Listener.Endpoint = *listenSocket(t)
-	if store.listenerStatus(to) != ListenerStale {
+	if store.listenerStatus(to) != model.ListenerStale {
 		t.Fatal("a bound socket without the lifetime lock was reported as running")
 	}
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestCollaborationCost(t *testing.T) {
@@ -161,9 +162,9 @@ func TestCollaborationCost(t *testing.T) {
 		// Eleven agents across all built-in kinds, including the two above.
 		for i := range 9 {
 			kind := []string{"claude", "codex", "cursor"}[i%3]
-			var endpoint *bus.Endpoint
+			var endpoint *model.Endpoint
 			if kind == "claude" {
-				endpoint = &bus.Endpoint{Path: "/fixture/not-a-real-socket"}
+				endpoint = &model.Endpoint{Path: "/fixture/not-a-real-socket"}
 			}
 			if _, _, err := store.Register(kind, fmt.Sprintf("00000000-0000-4000-8000-%012d", 200+i), "/workspace/project", endpoint); err != nil {
 				t.Fatal(err)

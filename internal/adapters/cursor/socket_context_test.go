@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestCursorSocketHonorsContext(t *testing.T) {
@@ -15,7 +17,7 @@ func TestCursorSocketHonorsContext(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			listener, endpoint := listenCursorSocket(t)
 			generation := newTestID()
-			target := bus.Session{Kind: "cursor", Generation: generation, Listener: &bus.ListenerLease{ID: newTestID(), Generation: generation, Endpoint: *endpoint}}
+			target := bus.Session{Kind: "cursor", Generation: generation, Listener: &model.ListenerLease{ID: newTestID(), Generation: generation, Endpoint: *endpoint}}
 			ctx, cancel := context.WithCancel(context.Background())
 			if mode == "caller deadline" {
 				cancel()
