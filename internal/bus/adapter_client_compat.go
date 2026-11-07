@@ -58,15 +58,15 @@ func loadFixtureVersions() map[string][]string {
 
 var clientVersionPattern = regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?`)
 
-type versionBuffer struct{ bytes.Buffer }
+type versionBuffer struct{ buffer bytes.Buffer }
 
 func (b *versionBuffer) Write(p []byte) (int, error) {
 	n := len(p)
-	if remaining := 1024 - b.Len(); remaining > 0 {
+	if remaining := 1024 - b.buffer.Len(); remaining > 0 {
 		if len(p) > remaining {
 			p = p[:remaining]
 		}
-		_, _ = b.Buffer.Write(p)
+		_, _ = b.buffer.Write(p)
 	}
 	return n, nil
 }
@@ -83,7 +83,7 @@ func probeClientVersion(path string) string {
 	if err := command.Run(); err != nil {
 		return ""
 	}
-	return clientVersionPattern.FindString(output.String())
+	return clientVersionPattern.FindString(output.buffer.String())
 }
 
 func annotateClientCompatibility(diagnostic *AgentDiagnostic) {
