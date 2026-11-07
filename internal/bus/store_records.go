@@ -9,6 +9,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 const recordSchema = 1
@@ -56,7 +58,7 @@ func (s Store) readSession(path string) (Session, error) {
 	if err != nil {
 		return v, err
 	}
-	v.AdapterState, err = s.decodeAdapterState(v.Kind, StateInput{Extensions: extensions, State: v.AdapterState})
+	v.AdapterState, err = s.decodeAdapterState(v.Kind, agent.StateInput{Extensions: extensions, State: v.AdapterState})
 	return v, err
 }
 

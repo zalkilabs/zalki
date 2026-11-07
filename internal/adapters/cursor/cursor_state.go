@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -58,7 +59,7 @@ func encodeCursorState(state listenerState) json.RawMessage {
 // not adopted: they prove no lease, and under the upgrade policy their
 // listeners are restarted. Re-encoding also keeps a later write from carrying
 // a legacy endpoint into a record that older builds can read.
-func (Adapter) DecodeState(in bus.StateInput) (json.RawMessage, error) {
+func (Adapter) DecodeState(in agent.StateInput) (json.RawMessage, error) {
 	if len(in.State) == 0 {
 		var legacy listenerState
 		for field, target := range map[string]*bool{

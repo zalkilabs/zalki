@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func (s Store) sessionID(kind, id string) (string, error) {
@@ -99,7 +101,7 @@ func (s Store) saveSession(v Session) error {
 		return fail(CodeInvalidIdentity, "native and Zalki session identities do not match")
 	}
 	var removed []string
-	if migration, ok := adapter.(SessionStateMigrationAdapter); ok {
+	if migration, ok := adapter.(agent.SessionStateMigrationAdapter); ok {
 		for _, name := range migration.LegacyStateFields() {
 			if !coreField(name) {
 				removed = append(removed, name)

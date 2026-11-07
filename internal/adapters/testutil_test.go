@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/adapters"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -69,13 +70,13 @@ func adapterTestSession(t *testing.T, store bus.Store, id string) bus.Session {
 		t.Fatal(err)
 	}
 	if codec, ok := adapter.(interface {
-		DecodeState(bus.StateInput) (json.RawMessage, error)
+		DecodeState(agent.StateInput) (json.RawMessage, error)
 	}); ok {
 		var extensions map[string]json.RawMessage
 		if err := json.Unmarshal(data, &extensions); err != nil {
 			t.Fatal(err)
 		}
-		if session.AdapterState, err = codec.DecodeState(bus.StateInput{Extensions: extensions, State: session.AdapterState}); err != nil {
+		if session.AdapterState, err = codec.DecodeState(agent.StateInput{Extensions: extensions, State: session.AdapterState}); err != nil {
 			t.Fatal(err)
 		}
 	}

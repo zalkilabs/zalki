@@ -7,15 +7,17 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 // capturingCursorAdapter records what its codec was given.
 type capturingCursorAdapter struct {
 	stubCursorAdapter
-	seen *[]StateInput
+	seen *[]agent.StateInput
 }
 
-func (a capturingCursorAdapter) DecodeState(in StateInput) (json.RawMessage, error) {
+func (a capturingCursorAdapter) DecodeState(in agent.StateInput) (json.RawMessage, error) {
 	*a.seen = append(*a.seen, in)
 	return a.stubCursorAdapter.DecodeState(in)
 }
@@ -36,7 +38,7 @@ func rewriteRecord(t *testing.T, store Store, id string, edit func(map[string]an
 func TestStateCodecSeesOnlyFieldsCoreDoesNotOwn(t *testing.T) {
 	store := fixtureStore(t)
 	to, _ := register(t, store, "cursor")
-	var seen []StateInput
+	var seen []agent.StateInput
 	registry, err := NewRegistry(stubCodexAdapter{}, capturingCursorAdapter{seen: &seen})
 	if err != nil {
 		t.Fatal(err)
