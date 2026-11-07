@@ -8,10 +8,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// Native titles are labels, not identities or instructions. Reject control
-// characters rather than silently rewriting a name into a different address.
-func validName(name string) bool { return model.ValidName(name) }
-
 // NativeID returns the client's session ID, including the fallback for legacy records.
 func NativeID(v Session) string { return model.NativeID(v) }
 
@@ -28,7 +24,7 @@ func (s Store) nativeNames(sessions []Session) {
 			continue
 		}
 		name, source := names.LookupName(*v, indexes)
-		if validName(name) {
+		if model.ValidName(name) {
 			v.Name, v.NameSource = name, source
 		}
 	}
@@ -75,7 +71,7 @@ func (s Store) resolve(destination string) (Session, error) {
 			kind, name = prefix, rest
 		}
 	}
-	if !validName(name) {
+	if !model.ValidName(name) {
 		return Session{}, fail(CodeInvalidInput, "destination must be a complete kind:UUID or an exact native session name")
 	}
 	sessions, err := s.sessions()
@@ -99,7 +95,7 @@ func (s Store) resolve(destination string) (Session, error) {
 }
 
 func (s Store) hookName(id, name string) error {
-	if name != "" && !validName(name) {
+	if name != "" && !model.ValidName(name) {
 		return nil
 	}
 	return s.locked(func() error {

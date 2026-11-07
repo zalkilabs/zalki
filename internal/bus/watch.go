@@ -197,7 +197,7 @@ func statusLine(text string) string {
 
 func completionBody(subject Session, event, at, line string) string {
 	name := subject.Name
-	if !validName(name) {
+	if !model.ValidName(name) {
 		name = "unnamed"
 	}
 	verb := "finished a turn"

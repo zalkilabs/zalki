@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Called under the journal lock, after retention. Dry-run also accounts for
@@ -74,7 +76,7 @@ func floodRecordTarget(base string) (string, bool) {
 	}
 	kind, native, ok := strings.Cut(strings.TrimSuffix(base, ".json"), "_")
 	canonical, err := UUID(native)
-	if !ok || !validKind(kind) || err != nil || canonical != native {
+	if !ok || !model.ValidKind(kind) || err != nil || canonical != native {
 		return "", false
 	}
 	return kind + ":" + native, true
