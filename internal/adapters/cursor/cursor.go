@@ -152,6 +152,8 @@ func (Adapter) Health(s agent.HealthHost, v bus.Session) (string, string) {
 		return "deferred", "stale"
 	case bus.ListenerUnleased:
 		return "deferred", "legacy_running"
+	case model.ListenerNone:
+		return "deferred", "not_armed"
 	}
 	return "deferred", "not_armed"
 }
