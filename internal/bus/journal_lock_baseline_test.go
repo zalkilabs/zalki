@@ -96,11 +96,20 @@ func TestJournalFailureReleasesExclusiveLock(t *testing.T) {
 
 func TestFailedRecordPublicationKeepsConservativeFormatMarker(t *testing.T) {
 	store := fixtureStore(t)
-	path := filepath.Join(store.Dir, "sessions", "missing", "record.json")
+	session, _ := register(t, store, "cursor")
+	path, _ := store.sessionPath(session.ID)
+	session.Listener = &ListenerLease{ID: newID(), Generation: session.Generation}
 	err := store.locked(func() error {
-		return store.writeRecord(path, struct {
-			Schema int `json:"schema"`
-		}{Schema: 2}, 2)
+		if err := os.Remove(filepath.Join(store.Dir, stateFormatFile)); err != nil {
+			return err
+		}
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+		if err := os.Remove(filepath.Dir(path)); err != nil {
+			return err
+		}
+		return store.saveSession(session)
 	})
 	if !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing record parent must fail publication: %v", err)

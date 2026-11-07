@@ -29,10 +29,10 @@ func TestEventUpdatePublishesOneCoveredTransition(t *testing.T) {
 		t.Fatal(err)
 	}
 	metadata := eventState(t, store)
-	if metadata.Count != 1 || metadata.Last != 1 || metadata.First != 1 {
+	if metadata.Count != 2 || metadata.Last != 2 || metadata.First != 1 {
 		t.Fatalf("metadata = %+v", metadata)
 	}
-	raw := readCommitFile(t, filepath.Join(store.Dir, eventRecordPath(1)))
+	raw := readCommitFile(t, filepath.Join(store.Dir, eventRecordPath(2)))
 	var record eventRecord
 	if err := decodeEventJSON(raw, &record); err != nil || record.Event.Session.State != StateBusy || record.Event.Session.Previous != StateReady {
 		t.Fatalf("event = %+v, %v", record, err)
@@ -49,22 +49,24 @@ func TestEventUpdatePublishesOneCoveredTransition(t *testing.T) {
 	}
 }
 
-func testCoveredUpdate(t *testing.T, store Store, id string, writer commitWriter) {
+func setEventTestState(t *testing.T, store Store, id string, state SessionState, writer commitWriter) {
 	t.Helper()
-	if err := store.Update(id, StateReady, false); err != nil {
-		t.Fatal(err)
-	}
-	err := store.locked(func() error {
+	if err := store.locked(func() error {
 		next, err := store.session(id)
 		if err != nil {
 			return err
 		}
-		next.State, next.UpdatedAt = StateBusy, model.Timestamp()
-		return persistSessionUpdateWith(store, next, StateReady, writer)
-	})
-	if err != nil {
+		next.State, next.UpdatedAt = state, model.Timestamp()
+		return saveSessionWith(store, next, writer)
+	}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func testCoveredUpdate(t *testing.T, store Store, id string, writer commitWriter) {
+	t.Helper()
+	setEventTestState(t, store, id, StateReady, writer)
+	setEventTestState(t, store, id, StateBusy, writer)
 }
 
 func TestEventRetentionNeverBlocksHealthyFullLog(t *testing.T) {
@@ -74,7 +76,7 @@ func TestEventRetentionNeverBlocksHealthyFullLog(t *testing.T) {
 	for i := uint64(1); i <= 10; i++ {
 		testCoveredUpdate(t, store, session.ID, writer)
 		metadata := eventState(t, store)
-		if metadata.Last != i || metadata.Count > 2 || metadata.Bytes > 2*maxEventBytes {
+		if metadata.Last != 2*i || metadata.Count > 2 || metadata.Bytes > 2*maxEventBytes {
 			t.Fatalf("unbounded metadata = %+v", metadata)
 		}
 		entries, err := os.ReadDir(filepath.Join(store.Dir, "events", "records"))
@@ -83,10 +85,10 @@ func TestEventRetentionNeverBlocksHealthyFullLog(t *testing.T) {
 		}
 	}
 	metadata := eventState(t, store)
-	if metadata.First != 9 || metadata.Count != 2 {
+	if metadata.First != 19 || metadata.Count != 2 {
 		t.Fatalf("low watermark did not advance: %+v", metadata)
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, eventRecordPath(8))); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(store.Dir, eventRecordPath(18))); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("old record remains: %v", err)
 	}
 }
@@ -140,7 +142,11 @@ func assertEventRecoveryCase(t *testing.T, operation string, applied int) {
 	} else if err := store.Update(session.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := eventState(t, store); got.Count != 1 {
+	expectedCount := uint64(2)
+	if operation != "read" {
+		expectedCount++
+	}
+	if got := eventState(t, store); got.Count != expectedCount {
 		t.Fatalf("recovery not complete: %+v", got)
 	}
 	got := readCommitFile(t, filepath.Join(store.Dir, batch.Puts[1].Path))

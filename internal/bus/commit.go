@@ -14,8 +14,9 @@ import (
 // commitWriter publishes prepared state and event records under the Store lock.
 // Its caller owns format fences, directory durability and session validation.
 type commitWriter struct {
-	dir   string
-	limit uint64
+	dir          string
+	limit        uint64
+	orderSession func(string) error
 }
 
 func (w commitWriter) log() journal.BatchLog {
@@ -25,32 +26,10 @@ func (w commitWriter) log() journal.BatchLog {
 // previous must be the exact on-disk bytes, including surrounding whitespace;
 // decoding into json.RawMessage is not an exact-byte read for this purpose.
 func (w commitWriter) prepare(previous []byte, next Session, event model.Event, removed []string) (journal.Batch, error) {
-	if err := event.Validate(); err != nil {
+	if err := validatePreparedSession(previous, next, event); err != nil {
 		return journal.Batch{}, err
 	}
-	var before Session
-	var err error
-	if err := json.Unmarshal(previous, &before); err != nil {
-		return journal.Batch{}, err
-	}
-	if before.ID != next.ID || before.Generation != next.Generation || before.State != event.Session.Previous {
-		return journal.Batch{}, errors.New("event does not match previous session")
-	}
-	if _, err := checkSchema(previous, leaseSessionSchema); err != nil {
-		return journal.Batch{}, err
-	}
-	mergePrior := json.RawMessage(previous)
-	if len(removed) != 0 {
-		mergePrior, err = dropFields(mergePrior, removed)
-		if err != nil {
-			return journal.Batch{}, err
-		}
-	}
-	raw, err := mergeRecordJSON(mergePrior, next)
-	if err != nil {
-		return journal.Batch{}, err
-	}
-	state, err := encodeStateJSON(raw)
+	state, err := prepareSessionBytes(previous, next, removed)
 	if err != nil {
 		return journal.Batch{}, err
 	}
@@ -62,6 +41,29 @@ func (w commitWriter) prepare(previous []byte, next Session, event model.Event, 
 		return journal.Batch{}, err
 	}
 	return batch, nil
+}
+
+func prepareSessionBytes(previous []byte, next Session, removed []string) ([]byte, error) {
+	var err error
+	mergePrior := json.RawMessage(previous)
+	if len(previous) != 0 && len(removed) != 0 {
+		mergePrior, err = dropFields(mergePrior, removed)
+		if err != nil {
+			return nil, err
+		}
+	}
+	raw, err := mergeRecordJSON(mergePrior, next)
+	if err != nil {
+		return nil, err
+	}
+	return encodeStateJSON(raw)
+}
+
+func (w commitWriter) orderSessionDirectory(path string) error {
+	if w.orderSession != nil {
+		return w.orderSession(path)
+	}
+	return journal.OrderDirectory(path)
 }
 
 func (w commitWriter) commit(previous []byte, next Session, event model.Event, removed []string) error {
@@ -105,7 +107,7 @@ func validateEventSession(raw []byte, event model.Event) error {
 	if _, err := checkSchema(raw, leaseSessionSchema); err != nil {
 		return err
 	}
-	if next.ID != event.Session.ID || next.Generation != event.Session.Generation || next.State != event.Session.State {
+	if next.ID != event.Session.ID || next.Generation != event.Session.Generation || next.State != event.Session.State || next.Retired != event.Session.Retired {
 		return errors.New("event does not match resulting session")
 	}
 	return nil

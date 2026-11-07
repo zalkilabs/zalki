@@ -50,3 +50,22 @@ func TestMetadataEventValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestMetadataRegistrationAndRetirementFacts(t *testing.T) {
+	for _, change := range []func(*model.Event){
+		func(e *model.Event) {
+			e.Type = "session.registered"
+			e.Session.Previous = ""
+			e.Session.State = model.StateReady
+		},
+		func(e *model.Event) { e.Type = "session.registered"; e.Session.State = e.Session.Previous },
+		func(e *model.Event) { e.Session.State = model.StateRetired; e.Session.Retired = true },
+		func(e *model.Event) { e.Session.State = e.Session.Previous; e.Session.Retired = true },
+	} {
+		e := validMetadataEvent()
+		change(&e)
+		if err := e.Validate(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

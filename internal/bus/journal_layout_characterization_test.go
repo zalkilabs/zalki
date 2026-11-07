@@ -99,9 +99,15 @@ func TestPersistedJournalLayout(t *testing.T) {
 
 // layoutGolden holds the normalized journal text for each scenario above.
 var layoutGolden = map[string]string{
-	"register and send": `dir  flood
+	"register and send": `dir  commits
+dir  events
+dir  events/records
+dir  flood
 dir  messages
 dir  sessions
+file events/meta.json
+file events/records/00000000000000000001.json
+file events/records/00000000000000000002.json
 file flood/beta_<uuid>.json
        .inbound.at = "<time>"
        .inbound.tokens = <number>
@@ -152,10 +158,16 @@ file state-formats.json
        .formats.sessions = 1
        .schema = 1
 `,
-	"reply": `dir  flood
+	"reply": `dir  commits
+dir  events
+dir  events/records
+dir  flood
 dir  messages
 dir  sessions
 dir  transactions
+file events/meta.json
+file events/records/00000000000000000001.json
+file events/records/00000000000000000002.json
 file flood/alpha_<uuid>.json
 file flood/beta_<uuid>.json
 file lock
@@ -194,9 +206,15 @@ file state-formats.json
        .formats.transactions = 1
        .schema = 1
 `,
-	"transport refuses": `dir  flood
+	"transport refuses": `dir  commits
+dir  events
+dir  events/records
+dir  flood
 dir  messages
 dir  sessions
+file events/meta.json
+file events/records/00000000000000000001.json
+file events/records/00000000000000000002.json
 file flood/beta_<uuid>.json
 file lock
 file messages/<uuid>.json
@@ -218,9 +236,16 @@ file sessions/alpha_<uuid>.json
 file sessions/beta_<uuid>.json
 file state-formats.json
 `,
-	"held for approval": `dir  flood
+	"held for approval": `dir  commits
+dir  events
+dir  events/records
+dir  flood
 dir  messages
 dir  sessions
+file events/meta.json
+file events/records/00000000000000000001.json
+file events/records/00000000000000000002.json
+file events/records/00000000000000000003.json
 file flood/beta_<uuid>.json
 file lock
 file messages/<uuid>.json
@@ -252,8 +277,15 @@ file sessions/beta_<uuid>.json
        .updated_at = "<time>"
 file state-formats.json
 `,
-	"retired session": `dir  messages
+	"retired session": `dir  commits
+dir  events
+dir  events/records
+dir  messages
 dir  sessions
+file events/meta.json
+file events/records/00000000000000000001.json
+file events/records/00000000000000000002.json
+file events/records/00000000000000000003.json
 file lock
 file sessions/alpha_<uuid>.json
 file sessions/beta_<uuid>.json

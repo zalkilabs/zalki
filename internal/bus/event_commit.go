@@ -1,34 +1,34 @@
 package bus
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/zalkilabs/zalki/internal/journal"
-	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func persistSessionUpdate(s Store, next Session, previous model.SessionState) error {
-	return persistSessionUpdateWith(s, next, previous, commitWriter{dir: s.Dir})
-}
-
-func persistSessionUpdateWith(s Store, next Session, previous model.SessionState, writer commitWriter) error {
-	if previous != model.StateReady || next.State != model.StateBusy || next.Retired {
-		return s.saveSession(next)
-	}
+func saveSessionWith(s Store, next Session, writer commitWriter) error {
 	record, err := prepareSessionRecord(s, next)
 	if err != nil {
 		return err
 	}
 	prior, err := journal.ReadBytes(record.path, maxStateFileBytes)
+	if errors.Is(err, os.ErrNotExist) {
+		prior, err = nil, nil
+	}
 	if err != nil {
 		return err
 	}
-	event := model.Event{ID: newID(), Type: "session.state_changed",
-		OccurredAt: next.UpdatedAt, TransactionID: newID(),
-		Session: model.EventSession{ID: next.ID, Generation: next.Generation, Previous: previous, State: next.State}}
+	event, err := sessionEvent(prior, record.value)
+	if err != nil {
+		return err
+	}
+	if event.ID == "" {
+		return savePrivateSessionRecord(s, record, prior)
+	}
 	batch, err := writer.prepare(prior, record.value, event, record.removed)
 	if err != nil {
 		return err
@@ -36,13 +36,49 @@ func persistSessionUpdateWith(s Store, next Session, previous model.SessionState
 	if err := s.ensureStateFormat("sessions", record.value.Schema); err != nil {
 		return err
 	}
-	if err := ensureEventDirectories(s, orderEventDirectory, batch.Puts[2].PreviousSHA256 != ""); err != nil {
+	_, metadata, err := writer.readMetadata()
+	if err != nil {
+		return err
+	}
+	if err := ensureEventDirectories(s, orderEventDirectory, metadata != nil); err != nil {
+		return err
+	}
+	// A prior single-file rename may be live but not durable after a failed
+	// directory sync. Order that preimage before the intent's FULL commit point.
+	if err := writer.orderSessionDirectory(filepath.Dir(record.path)); err != nil {
 		return err
 	}
 	if err := writer.log().Commit(batch); err != nil {
 		return fmt.Errorf("session commit failed or may require recovery: %w", err)
 	}
 	return nil
+}
+
+// savePrivateSessionRecord is the only zero-event session write sink. Caller
+// holds the Store lock and has completed pending-intent recovery and absence.
+func savePrivateSessionRecord(s Store, record sessionRecord, prior []byte) error {
+	kind, _, err := sessionProjection(prior, record.value)
+	if err != nil {
+		return err
+	}
+	if kind != "" {
+		return journal.ErrInvalidBatch
+	}
+	state, err := prepareSessionBytes(prior, record.value, record.removed)
+	if err != nil {
+		return err
+	}
+	if err := s.ensureStateFormat("sessions", record.value.Schema); err != nil {
+		return err
+	}
+	current, err := journal.ReadBytes(record.path, maxStateFileBytes)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(current, prior) {
+		return journal.ErrBatchConflict
+	}
+	return journal.WriteAtomic(record.path, state)
 }
 
 func orderEventDirectory(path string) error { return journal.OrderDirectory(path) }

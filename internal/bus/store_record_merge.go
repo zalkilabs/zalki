@@ -17,10 +17,9 @@ func mergeRecordJSON(previous json.RawMessage, value any) (json.RawMessage, erro
 }
 
 // recordUpdate carries preservation data only for an exceptional first write
-// from a durable reply intent, and obsolete fields consumed by migration.
+// from a durable reply intent. Session migration is prepared by commitWriter.
 type recordUpdate struct {
 	previous json.RawMessage
-	removed  []string
 }
 
 // writeRecord is called under the journal lock. Re-read the on-disk record so
@@ -50,11 +49,6 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 		if _, err := checkSchema(previous, supported); err != nil {
 			return err
 		}
-		if len(update.removed) != 0 {
-			if previous, err = dropFields(previous, update.removed); err != nil {
-				return err
-			}
-		}
 	}
 	raw, err := mergeRecordJSON(previous, value)
 	if err != nil {
@@ -71,6 +65,9 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 		return fail(CodeInvalidIdentity, "record path is outside state directory")
 	}
 	family, _, _ := strings.Cut(relative, string(os.PathSeparator))
+	if family == "sessions" {
+		return fail(CodeInvalidInput, "session writes require the commit path")
+	}
 	version := nextSchema
 	if version == 0 {
 		version = 1

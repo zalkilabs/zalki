@@ -79,11 +79,7 @@ func (s Store) session(id string) (Session, error) {
 }
 
 func (s Store) saveSession(v Session) error {
-	record, err := prepareSessionRecord(s, v)
-	if err != nil {
-		return err
-	}
-	return s.writeRecord(record.path, record.value, leaseSessionSchema, recordUpdate{removed: record.removed})
+	return saveSessionWith(s, v, commitWriter{dir: s.Dir})
 }
 
 func (s Store) Register(kind, id, cwd string, endpoint *Endpoint) (Session, string, error) {
@@ -189,7 +185,7 @@ func (s Store) Update(id string, state SessionState, retire bool) error {
 		} else {
 			current.State, current.UpdatedAt = state, model.Timestamp()
 		}
-		if err := persistSessionUpdate(s, current, previous); err != nil {
+		if err := s.saveSession(current); err != nil {
 			return err
 		}
 		if previous != state {
