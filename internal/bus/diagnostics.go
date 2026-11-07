@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // SessionDiagnostic is the compatibility name for model.SessionDiagnostic.
@@ -125,7 +126,7 @@ func diagnoseRuntimes(report *DiagnosticReport, runtimes []RuntimeInfo) {
 		tracked[info.PID] = true
 		report.Runtimes = append(report.Runtimes, info)
 	}
-	if processes, err := namedProcesses("zalki"); err == nil {
+	if processes, err := procwatch.Named("zalki"); err == nil {
 		for _, p := range processes {
 			if p.PID != os.Getpid() && !tracked[p.PID] {
 				report.UntrackedProcesses = append(report.UntrackedProcesses, ProcessRef{PID: p.PID, Start: p.Start, Role: "untracked_zalki"})

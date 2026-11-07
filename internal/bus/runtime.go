@@ -10,6 +10,8 @@ import (
 	"sort"
 	"sync"
 	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // Version is set by release builds with -X.
@@ -92,7 +94,7 @@ func captureExecutable() executableSnapshot {
 	if err != nil {
 		info.BuildError = err.Error()
 	}
-	if p, err := readProcess(os.Getpid()); err == nil {
+	if p, err := procwatch.Read(os.Getpid()); err == nil {
 		info.Process = &ProcessRef{PID: p.PID, Start: p.Start, Role: "zalki"}
 	}
 	return executableSnapshot{info: info, loadedBuild: info.LoadedBuild}

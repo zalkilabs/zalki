@@ -13,15 +13,9 @@ import (
 // original OS process; Role distinguishes an interactive client from a backend.
 type ProcessRef = model.ProcessRef
 
-type processInfo = procwatch.Info
+func processLiveness(ref *ProcessRef) Liveness { return probeProcess(ref, procwatch.Read) }
 
-func readProcess(pid int) (processInfo, error) { return procwatch.Read(pid) }
-
-func namedProcesses(name string) ([]processInfo, error) { return procwatch.Named(name) }
-
-func processLiveness(ref *ProcessRef) Liveness { return probeProcess(ref, readProcess) }
-
-func probeProcess(ref *ProcessRef, read func(int) (processInfo, error)) Liveness {
+func probeProcess(ref *ProcessRef, read func(int) (procwatch.Info, error)) Liveness {
 	if ref == nil || ref.PID <= 1 || ref.Start == "" {
 		return LivenessUnknown
 	}
@@ -47,10 +41,10 @@ func (s Store) nativeOwner(kind string) *ProcessRef {
 	if !s.tracksOwnProcess(kind) {
 		return nil
 	}
-	return ownerFrom(adapter.Descriptor(), os.Getppid(), readProcess)
+	return ownerFrom(adapter.Descriptor(), os.Getppid(), procwatch.Read)
 }
 
-func ownerFrom(adapter AdapterDescriptor, pid int, read func(int) (processInfo, error)) *ProcessRef {
+func ownerFrom(adapter AdapterDescriptor, pid int, read func(int) (procwatch.Info, error)) *ProcessRef {
 	for range 32 {
 		if pid <= 1 {
 			break

@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 func startChild(t *testing.T) (*exec.Cmd, ProcessRef) {
@@ -15,7 +17,7 @@ func startChild(t *testing.T) (*exec.Cmd, ProcessRef) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = child.Process.Kill(); _ = child.Wait() })
-	p, err := readProcess(child.Process.Pid)
+	p, err := procwatch.Read(child.Process.Pid)
 	if err != nil {
 		t.Fatal(err)
 	}
