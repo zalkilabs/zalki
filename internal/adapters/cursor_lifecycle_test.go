@@ -18,10 +18,10 @@ import (
 )
 
 // Retirement outcome only: a hook on a retired session may be rejected.
-func cursorHookAllowingError(service *bus.Service, actor, event, status string) {
+func cursorHookAllowingError(ctx context.Context, service *bus.Service, actor, event, status string) {
 	input, _ := json.Marshal(map[string]any{"conversation_id": strings.TrimPrefix(actor, "cursor:"),
 		"hook_event_name": event, "status": status})
-	_ = service.Hook("cursor", bytes.NewReader(input), &bytes.Buffer{})
+	_ = service.Hook(ctx, "cursor", bytes.NewReader(input), &bytes.Buffer{})
 }
 
 func TestCursorOnlyAnActualPromptReactivatesARetiredConversation(t *testing.T) {
@@ -30,7 +30,7 @@ func TestCursorOnlyAnActualPromptReactivatesARetiredConversation(t *testing.T) {
 	service := bus.Service{Store: store}
 	cursorHook(t, &service, to.ID, "sessionEnd", "", 0)
 	for _, event := range []struct{ name, status string }{{"postToolUse", ""}, {"stop", "completed"}} {
-		cursorHookAllowingError(&service, to.ID, event.name, event.status)
+		cursorHookAllowingError(t.Context(), &service, to.ID, event.name, event.status)
 		if current := adapterTestSession(t, store, to.ID); !current.Retired || current.State != bus.StateRetired {
 			t.Fatalf("late %s hook reactivated a retired conversation", event.name)
 		}

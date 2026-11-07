@@ -24,7 +24,7 @@ func hookFailed(t *testing.T, service Service, handler *captureHandler, kind str
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := service.Hook(kind, bytes.NewReader(data), &bytes.Buffer{}); err == nil {
+	if err := service.Hook(t.Context(), kind, bytes.NewReader(data), &bytes.Buffer{}); err == nil {
 		t.Fatal("the hook was expected to fail")
 	}
 	for _, record := range handler.records {

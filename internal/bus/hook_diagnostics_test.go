@@ -42,7 +42,7 @@ func TestHookFailuresIdentifyStageWithoutLoggingInput(t *testing.T) {
 			var diagnostic, output bytes.Buffer
 			store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
 			service := Service{Store: store}
-			if err := service.Hook("codex", strings.NewReader(test.input), &output); err == nil {
+			if err := service.Hook(t.Context(), "codex", strings.NewReader(test.input), &output); err == nil {
 				t.Fatal("invalid hook input was accepted")
 			}
 			rows := logRows(t, &diagnostic)
@@ -131,7 +131,7 @@ func TestHookAdapterFailuresPreserveStageAndRegistrationBoundary(t *testing.T) {
 				t.Fatal(err)
 			}
 			service := Service{Store: store}
-			if err := service.Hook("codex", bytes.NewReader(input), closedHookWriter{}); err == nil {
+			if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), closedHookWriter{}); err == nil {
 				t.Fatal("failed boundary was accepted")
 			}
 			failures := 0

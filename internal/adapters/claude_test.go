@@ -66,7 +66,7 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 		t.Fatal(err)
 	}
 	var output bytes.Buffer
-	if err := service.Hook("claude", bytes.NewReader(input), &output); err != nil {
+	if err := service.Hook(t.Context(), "claude", bytes.NewReader(input), &output); err != nil {
 		t.Fatal(err)
 	}
 	current := adapterTestSession(t, store, "claude:"+id)
@@ -74,7 +74,7 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 		t.Fatal("startup did not bind and announce the native Claude session")
 	}
 	t.Setenv("CLAUDE_CODE_SESSION_ID", newTestID())
-	if err := service.Hook("claude", bytes.NewReader(input), &bytes.Buffer{}); err == nil {
+	if err := service.Hook(t.Context(), "claude", bytes.NewReader(input), &bytes.Buffer{}); err == nil {
 		t.Fatal("accepted a hook for another native session")
 	}
 	if after := adapterTestSession(t, store, current.ID); after.Generation != current.Generation {

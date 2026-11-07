@@ -211,7 +211,7 @@ func TestClaudeHookTitleAndMissingNativeMetadata(t *testing.T) {
 	session, _ := registerAdapterSession(t, store, "claude")
 	service := bus.Service{Store: store}
 	input := `{"session_id":"` + strings.TrimPrefix(session.ID, "claude:") + `","hook_event_name":"Stop","session_title":"reviewer"}`
-	if err := service.Hook("claude", strings.NewReader(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "claude", strings.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	items, err := store.List()
@@ -219,7 +219,7 @@ func TestClaudeHookTitleAndMissingNativeMetadata(t *testing.T) {
 		t.Fatalf("missing hook title fallback: %+v %v", items, err)
 	}
 	input = strings.ReplaceAll(input, `"reviewer"`, `""`)
-	if err := service.Hook("claude", strings.NewReader(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "claude", strings.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	items, err = store.List()
@@ -360,7 +360,7 @@ func TestHookBackfillsNativeConfigWithoutReregistering(t *testing.T) {
 	}
 	service := bus.Service{Store: store}
 	input := `{"conversation_id":"` + strings.TrimPrefix(session.ID, "cursor:") + `","hook_event_name":"stop","status":"aborted"}`
-	if err := service.Hook("cursor", strings.NewReader(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "cursor", strings.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	nativeNameFixture(t, root, session, "Captured title")

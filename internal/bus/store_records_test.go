@@ -59,7 +59,7 @@ func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 		t.Fatal("native identity collision accepted", err)
 	}
 	input, _ := json.Marshal(agent.HookInput{SessionID: native, CWD: "/workspace", Event: "end"})
-	if err := service.Hook("fourth", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "fourth", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	current, err := store.session(first.ID)

@@ -80,7 +80,7 @@ func TestExternalAdapterUsesTrustedLifecycleHost(t *testing.T) {
 	}
 	for attempt := range 2 {
 		var output bytes.Buffer
-		if err := service.Hook("fourth", bytes.NewReader(input), &output); err != nil {
+		if err := service.Hook(t.Context(), "fourth", bytes.NewReader(input), &output); err != nil {
 			t.Fatal(err)
 		}
 		if attempt == 0 && !strings.Contains(output.String(), msg.Body) {

@@ -107,7 +107,7 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 			input, _ := json.Marshal(agent.HookInput{SessionID: uuid, CWD: "/workspace", Event: "start"})
 			service := Service{Store: store}
 			var output bytes.Buffer
-			if err := service.Hook(adapter.kind, bytes.NewReader(input), &output); err != nil {
+			if err := service.Hook(t.Context(), adapter.kind, bytes.NewReader(input), &output); err != nil {
 				t.Fatal(err)
 			}
 			id, err := store.sessionID(adapter.kind, uuid)
@@ -160,7 +160,7 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 				t.Fatalf("%+v %v", items, err)
 			}
 			input, _ = json.Marshal(agent.HookInput{SessionID: uuid, Event: "end"})
-			if err := service.Hook(adapter.kind, bytes.NewReader(input), &output); err != nil {
+			if err := service.Hook(t.Context(), adapter.kind, bytes.NewReader(input), &output); err != nil {
 				t.Fatal(err)
 			}
 			items, err = store.List()

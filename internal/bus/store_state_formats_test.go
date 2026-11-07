@@ -148,7 +148,7 @@ func TestStateFormatFenceKeepsReadsAndRefusesEveryWriteWithoutChanges(t *testing
 	service.Store = store
 	for _, event := range []string{"SessionStart", "PostToolUse", "Stop"} {
 		input, _ := json.Marshal(agent.HookInput{SessionID: NativeID(target), CWD: "/workspace", Event: event})
-		if err := service.Hook("codex", bytes.NewReader(input), &output); err != nil {
+		if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), &output); err != nil {
 			t.Fatal("hook broke client", err)
 		}
 	}

@@ -31,7 +31,7 @@ func TestCursorReceiveIsDeferredAndDoesNotRestartInterruptedTurn(t *testing.T) {
 	callHook := func(event, status string) *bytes.Buffer {
 		input, _ := json.Marshal(map[string]any{"conversation_id": strings.TrimPrefix(target.ID, "cursor:"), "hook_event_name": event, "status": status})
 		out := &bytes.Buffer{}
-		if err := service.Hook("cursor", bytes.NewReader(input), out); err != nil {
+		if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), out); err != nil {
 			t.Fatal(err)
 		}
 		return out
@@ -64,7 +64,7 @@ func TestCursorStartupUsesNativeHookSchema(t *testing.T) {
 	id := newTestID()
 	input, _ := json.Marshal(map[string]any{"session_id": id, "workspace_roots": []string{"/workspace"}, "hook_event_name": "sessionStart"})
 	var out bytes.Buffer
-	if err := service.Hook("cursor", bytes.NewReader(input), &out); err != nil {
+	if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), &out); err != nil {
 		t.Fatal(err)
 	}
 	var value map[string]any

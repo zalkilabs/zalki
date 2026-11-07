@@ -17,7 +17,7 @@ type hookTrace struct {
 	actor, lifecycle, stage string
 }
 
-func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultErr error) {
+func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output io.Writer) (resultErr error) {
 	started := time.Now()
 	trace := hookTrace{stage: "adapter"}
 	defer func() {
@@ -64,12 +64,12 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 		return err
 	}
 	trace.stage = "watch"
-	if err := s.notifyWatches(context.Background(), id, event, started); err != nil {
+	if err := s.notifyWatches(ctx, id, event, started); err != nil {
 		return err
 	}
 	if handled {
 		trace.stage = "approval"
-		return s.releaseApprovalQueue(context.Background(), id)
+		return s.releaseApprovalQueue(ctx, id)
 	}
 	if event.Event == "SessionStart" {
 		return s.startSession(kind, hooks, event, id, output, &trace)
@@ -85,7 +85,7 @@ func (s *Service) Hook(kind string, input io.Reader, output io.Writer) (resultEr
 		return err
 	}
 	trace.stage = "approval"
-	return s.releaseApprovalQueue(context.Background(), id)
+	return s.releaseApprovalQueue(ctx, id)
 }
 
 // decodeHook captures the native contract before mapping and normalizing it.

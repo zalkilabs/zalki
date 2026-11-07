@@ -29,7 +29,7 @@ func cursorHook(t *testing.T, service *bus.Service, actor, event, status string,
 	input, _ := json.Marshal(map[string]any{"conversation_id": strings.TrimPrefix(actor, "cursor:"),
 		"hook_event_name": event, "status": status, "loop_count": loop})
 	var out bytes.Buffer
-	if err := service.Hook("cursor", bytes.NewReader(input), &out); err != nil {
+	if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), &out); err != nil {
 		t.Fatal(err)
 	}
 	return out.String()
