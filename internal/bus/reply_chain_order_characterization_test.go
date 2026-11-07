@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // These tests pin which error wins when a reply has more than one fault.
@@ -173,14 +174,14 @@ func noticeNotSent(parent map[string]any) {
 
 func retireReplier(t *testing.T, f replyFixture) {
 	t.Helper()
-	if err := f.store.Update(f.replier.ID, bus.StateRetired, true); err != nil {
+	if err := f.store.Update(f.replier.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func retireAsker(t *testing.T, f replyFixture) {
 	t.Helper()
-	if err := f.store.Update(f.parent.From, bus.StateRetired, true); err != nil {
+	if err := f.store.Update(f.parent.From, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 }

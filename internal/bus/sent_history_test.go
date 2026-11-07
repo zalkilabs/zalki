@@ -14,14 +14,14 @@ func TestSentHistoryFiltersPaginatesAndKeepsReceipts(t *testing.T) {
 	want := map[string]Message{}
 	var incoming string
 	for i := range 12 {
-		msg := Message{ID: newID(), From: actor.ID, To: peer.ID, Body: "history", CreatedAt: fmt.Sprintf("2026-11-01T00:00:%02d.000000000Z", i), Status: StatusSubmitted, AcknowledgedAt: model.Timestamp()}
+		msg := Message{ID: newID(), From: actor.ID, To: peer.ID, Body: "history", CreatedAt: fmt.Sprintf("2026-11-01T00:00:%02d.000000000Z", i), Status: model.StatusSubmitted, AcknowledgedAt: model.Timestamp()}
 		if i%2 == 0 {
 			msg.From, msg.To = peer.ID, actor.ID
 			msg.TargetGeneration = actor.Generation
 			incoming = msg.ID
 		} else {
 			if i == 3 || i == 5 || i == 7 {
-				msg.Status = map[int]DeliveryStatus{3: StatusPendingActivity, 5: StatusApprovalBlocked, 7: StatusNotSent}[i]
+				msg.Status = map[int]DeliveryStatus{3: model.StatusPendingActivity, 5: model.StatusApprovalBlocked, 7: model.StatusNotSent}[i]
 				msg.AcknowledgedAt = ""
 			}
 			want[msg.ID] = msg
@@ -59,19 +59,19 @@ func TestSentHistoryFiltersPaginatesAndKeepsReceipts(t *testing.T) {
 		t.Fatal("sent bodies were not opt-in", err)
 	}
 	query.MessageID = incoming
-	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != CodeNotFound {
+	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeNotFound {
 		t.Fatal("sent-only exact lookup returned an incoming message", err)
 	}
 	for id := range want {
 		query.Actor, query.Capability, query.MessageID = other.ID, otherKey, id
-		if _, err := store.ReadMessages(query); ErrorCodeOf(err) != CodeUnauthorized {
+		if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeUnauthorized {
 			t.Fatal("another session could read sent receipts", err)
 		}
 		break
 	}
 	query = MessageQuery{Actor: actor.ID, Capability: key, Sent: true}
 	query.Capability = "invalid"
-	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != CodeUnauthorized {
+	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("sent listing bypassed authentication", err)
 	}
 }

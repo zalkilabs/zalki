@@ -8,6 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestMCPAliasesBeforeValidationAndWithoutSideEffectsOnConflict(t *testing.T) {
@@ -18,7 +19,7 @@ func TestMCPAliasesBeforeValidationAndWithoutSideEffectsOnConflict(t *testing.T)
 	store := service.Store
 	from, key, to, toKey := registerPair(t, store, "cursor", "00000000-0000-4000-8000-000000000031", "codex", "00000000-0000-4000-8000-000000000032")
 	service.Deliver = func(context.Context, bus.Message, bus.Session) bus.Receipt {
-		return bus.NewReceipt(bus.StatusSubmitted)
+		return bus.NewReceipt(model.StatusSubmitted)
 	}
 	client, ctx := testClient(t, service)
 	call := func(tool string, args any) *mcp.CallToolResult {

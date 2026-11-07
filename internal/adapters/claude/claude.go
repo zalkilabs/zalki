@@ -90,29 +90,29 @@ func (Adapter) RecoveryHint(d model.SessionDiagnostic) string {
 
 func writeClaude(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 	if err := bus.CheckEndpoint(target.Endpoint); err != nil {
-		return failedReceipt(bus.StatusNotSent, err)
+		return failedReceipt(model.StatusNotSent, err)
 	}
 	// This undocumented wire format may change between client versions.
 	frame := map[string]any{"msgV": 1, "msg_id": msg.ID, "type": "user",
 		"message": map[string]string{"role": "user", "content": bus.Envelope(msg)}, "priority": "next"}
 	encoded, err := json.Marshal(frame)
 	if err != nil {
-		return failedReceipt(bus.StatusNotSent, err)
+		return failedReceipt(model.StatusNotSent, err)
 	}
 	encoded = append(encoded, '\n')
 	if len(encoded) > 65536 {
-		receipt := bus.NewReceipt(bus.StatusNotSent)
+		receipt := bus.NewReceipt(model.StatusNotSent)
 		receipt.Error = "Claude frame too large"
 		return receipt
 	}
 	dialer := net.Dialer{Timeout: 5 * time.Second}
 	conn, err := dialer.DialContext(ctx, "unix", target.Endpoint.Path)
 	if err != nil {
-		return failedReceipt(bus.StatusNotSent, err)
+		return failedReceipt(model.StatusNotSent, err)
 	}
 	defer conn.Close() //nolint:errcheck // Delivery reports write errors before connection cleanup.
 	if err := bus.CheckEndpoint(target.Endpoint); err != nil {
-		return failedReceipt(bus.StatusNotSent, err)
+		return failedReceipt(model.StatusNotSent, err)
 	}
 	return writeClaudeFrame(ctx, conn, encoded)
 }
@@ -120,28 +120,28 @@ func writeClaude(ctx context.Context, msg bus.Message, target bus.Session) bus.R
 func writeClaudeFrame(ctx context.Context, conn net.Conn, encoded []byte) bus.Receipt {
 	release, err := socketio.BindContext(ctx, conn, 5*time.Second)
 	if err != nil {
-		return failedReceipt(bus.StatusNotSent, err)
+		return failedReceipt(model.StatusNotSent, err)
 	}
 	defer release()
-	status := bus.StatusNotSent
+	status := model.StatusNotSent
 	for len(encoded) > 0 {
 		if err := ctx.Err(); err != nil {
 			return failedReceipt(status, err)
 		}
 		// Once Write is attempted, cancellation cannot prove safe non-delivery.
-		status = bus.StatusUnknownWrite
+		status = model.StatusUnknownWrite
 		n, err := conn.Write(encoded)
 		if err != nil || n == 0 {
 			if err == nil {
 				err = errors.New("zero byte write")
 			}
-			return failedReceipt(bus.StatusUnknownWrite, err)
+			return failedReceipt(model.StatusUnknownWrite, err)
 		}
 		encoded = encoded[n:]
 	}
 	// Claude 2.1.316 sends no inline ACK, even for silently ignored frames.
 	// EOF is not acceptance; see docs/design/claude-delivery-ack.md.
-	return bus.NewReceipt(bus.StatusTransportWritten)
+	return bus.NewReceipt(model.StatusTransportWritten)
 }
 
 func claudeNames(root string) map[string]string {

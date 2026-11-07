@@ -114,8 +114,8 @@ func TestStateFormatFenceKeepsReadsAndRefusesEveryWriteWithoutChanges(t *testing
 		name  string
 		write func() error
 	}{
-		{"update", func() error { return store.Update(target.ID, StateBusy, false) }},
-		{"retire", func() error { return store.Update(target.ID, StateRetired, true) }},
+		{"update", func() error { return store.Update(target.ID, model.StateBusy, false) }},
+		{"retire", func() error { return store.Update(target.ID, model.StateRetired, true) }},
 		{"register", func() error { _, _, err := store.Register("cursor", newID(), "/workspace", nil); return err }},
 		{"task", func() error { _, err := service.SetTask(from.ID, key, "blocked"); return err }},
 		{"send", func() error {
@@ -135,7 +135,7 @@ func TestStateFormatFenceKeepsReadsAndRefusesEveryWriteWithoutChanges(t *testing
 		{"runtime", func() error { _, err := store.TrackRuntime("mcp", ""); return err }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if err := test.write(); !IsUpgradeRequired(err) || ErrorCodeOf(err) != CodeUnsupportedSchema || !strings.Contains(err.Error(), "upgrade zalki") {
+			if err := test.write(); !IsUpgradeRequired(err) || ErrorCodeOf(err) != model.CodeUnsupportedSchema || !strings.Contains(err.Error(), "upgrade zalki") {
 				t.Fatal("missing clear format fence", err)
 			}
 			if after := journalSnapshot(t, store); !reflect.DeepEqual(before, after) {
@@ -163,11 +163,11 @@ func TestStateFormatFenceKeepsReadsAndRefusesEveryWriteWithoutChanges(t *testing
 func TestFutureMarkerDefersReplyRecoveryAndRetainsUnknownIntentFields(t *testing.T) {
 	store := fixtureStore(t)
 	from, _, target, _ := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: target.ID, Body: "question", Status: StatusSubmitted, TargetGeneration: target.Generation}
+	parent := Message{ID: newID(), From: from.ID, To: target.ID, Body: "question", Status: model.StatusSubmitted, TargetGeneration: target.Generation}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
-	reply := Message{Schema: 1, ID: replyID(target.ID, parent.ID, "answer"), From: target.ID, To: from.ID, ReplyTo: parent.ID, Body: "answer", Status: StatusAttempting, TargetGeneration: from.Generation}
+	reply := Message{Schema: 1, ID: replyID(target.ID, parent.ID, "answer"), From: target.ID, To: from.ID, ReplyTo: parent.ID, Body: "answer", Status: model.StatusAttempting, TargetGeneration: from.Generation}
 	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: model.Timestamp(), Reply: reply}
 	txPath := filepath.Join(store.Dir, "transactions", reply.ID+".json")
 	if err := os.MkdirAll(filepath.Dir(txPath), 0700); err != nil {
@@ -223,7 +223,7 @@ func TestMalformedOrUnknownFormatMarkersFailWritesButKeepReads(t *testing.T) {
 			if _, err := store.List(); err != nil {
 				t.Fatal("marker blocked known reads", err)
 			}
-			if err := store.Update(target.ID, StateBusy, false); !IsUpgradeRequired(err) {
+			if err := store.Update(target.ID, model.StateBusy, false); !IsUpgradeRequired(err) {
 				t.Fatal("invalid marker permitted write", err)
 			}
 			if after, _ := os.ReadFile(path); string(after) != raw {
@@ -240,7 +240,7 @@ func TestExplicitEmptyFormatMarkerAllowsWrites(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"schema":1,"formats":{}}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(target.ID, StateBusy, false); err != nil {
+	if err := store.Update(target.ID, model.StateBusy, false); err != nil {
 		t.Fatal("explicit valid empty marker fenced writes", err)
 	}
 	marker, _, err := store.readStateFormats()

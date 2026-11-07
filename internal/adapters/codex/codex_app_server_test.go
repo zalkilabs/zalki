@@ -98,31 +98,31 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			queued := queueMarked(t, marker)
 			switch mode {
 			case "idle", "paged":
-				if receipt.Status != bus.StatusSubmitted || receipt.Output != "started_idle_turn" || queued {
+				if receipt.Status != model.StatusSubmitted || receipt.Output != "started_idle_turn" || queued {
 					t.Fatalf("status=%s output=%s queued=%v", receipt.Status, receipt.Output, queued)
 				}
 			case "busy":
-				if receipt.Status != bus.StatusSubmitted || receipt.Output != "joined_active_turn" || queued {
+				if receipt.Status != model.StatusSubmitted || receipt.Output != "joined_active_turn" || queued {
 					t.Fatalf("status=%s output=%s queued=%v", receipt.Status, receipt.Output, queued)
 				}
 			case "approval", "approval-rpc":
-				if receipt.Status != bus.StatusApprovalBlocked || queued {
+				if receipt.Status != model.StatusApprovalBlocked || queued {
 					t.Fatalf("status=%s queued=%v", receipt.Status, queued)
 				}
 			case "hang":
-				if receipt.Status != bus.StatusUnknownTimeout || queued {
+				if receipt.Status != model.StatusUnknownTimeout || queued {
 					t.Fatalf("status=%s queued=%v", receipt.Status, queued)
 				}
 			case "dropped", "internal", "malformed":
-				if receipt.Status != bus.StatusUnknownWrite || queued {
+				if receipt.Status != model.StatusUnknownWrite || queued {
 					t.Fatalf("status=%s queued=%v", receipt.Status, queued)
 				}
 			case "method-missing", "invalid-params":
-				if receipt.Status != bus.StatusSubmitted || !queued {
+				if receipt.Status != model.StatusSubmitted || !queued {
 					t.Fatalf("status=%s queued=%v", receipt.Status, queued)
 				}
 			default:
-				if receipt.Status != bus.StatusSubmitted || !queued {
+				if receipt.Status != model.StatusSubmitted || !queued {
 					t.Fatalf("status=%s queued=%v", receipt.Status, queued)
 				}
 			}

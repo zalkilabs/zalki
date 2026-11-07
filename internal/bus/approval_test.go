@@ -18,7 +18,7 @@ func approvalService(t *testing.T, store Store, delivered *[]string) Service {
 	t.Helper()
 	return Service{Store: store, Deliver: func(_ context.Context, msg Message, _ Session) Receipt {
 		*delivered = append(*delivered, msg.Body)
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}}
 }
 
@@ -36,7 +36,7 @@ func stopHook(t *testing.T, service Service, kind, id string) {
 func TestApprovalQueueDeliversOnceInOrder(t *testing.T) {
 	store := fixtureStore(t)
 	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	var delivered []string
@@ -45,7 +45,7 @@ func TestApprovalQueueDeliversOnceInOrder(t *testing.T) {
 	var first Message
 	for i, body := range bodies {
 		msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: body})
-		if err != nil || msg.Status != StatusApprovalBlocked || msg.Receipt == nil || msg.Receipt.Error != model.ApprovalQueuedNote {
+		if err != nil || msg.Status != model.StatusApprovalBlocked || msg.Receipt == nil || msg.Receipt.Error != model.ApprovalQueuedNote {
 			t.Fatalf("queued send %d: %+v %v", i, msg, err)
 		}
 		if i == 0 {
@@ -56,7 +56,7 @@ func TestApprovalQueueDeliversOnceInOrder(t *testing.T) {
 		t.Fatal("transport ran while the permission prompt was open")
 	}
 	again, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: first.ID, Body: first.Body})
-	if err != nil || again.Status != StatusApprovalBlocked || len(delivered) != 0 {
+	if err != nil || again.Status != model.StatusApprovalBlocked || len(delivered) != 0 {
 		t.Fatal("retry delivered a queued message", again, err)
 	}
 	held, err := store.session(target.ID)
@@ -72,7 +72,7 @@ func TestApprovalQueueDeliversOnceInOrder(t *testing.T) {
 		t.Fatal("a second stop delivered again", delivered)
 	}
 	saved, err := store.message(first.ID)
-	if err != nil || saved.Status != StatusSubmitted {
+	if err != nil || saved.Status != model.StatusSubmitted {
 		t.Fatalf("receipt: %+v %v", saved, err)
 	}
 	cleared, err := store.session(target.ID)
@@ -84,7 +84,7 @@ func TestApprovalQueueDeliversOnceInOrder(t *testing.T) {
 func TestFreshRegistrationSettlesHeldMessages(t *testing.T) {
 	store := fixtureStore(t)
 	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	var delivered []string
@@ -97,7 +97,7 @@ func TestFreshRegistrationSettlesHeldMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	saved, err := store.message(msg.ID)
-	if err != nil || saved.Status != StatusNotSent || saved.Receipt == nil || !strings.Contains(saved.Receipt.Error, "registration changed") {
+	if err != nil || saved.Status != model.StatusNotSent || saved.Receipt == nil || !strings.Contains(saved.Receipt.Error, "registration changed") {
 		t.Fatalf("fresh registration left the message queued: %+v %v", saved, err)
 	}
 	current, err := store.session(target.ID)
@@ -113,7 +113,7 @@ func TestFreshRegistrationSettlesHeldMessages(t *testing.T) {
 func TestCompactRegistrationKeepsHeldMessages(t *testing.T) {
 	store := fixtureStore(t)
 	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	var delivered []string
@@ -125,7 +125,7 @@ func TestCompactRegistrationKeepsHeldMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	current, err := store.session(target.ID)
-	if err != nil || current.ApprovalHeld != 1 || current.State != StateApproval {
+	if err != nil || current.ApprovalHeld != 1 || current.State != model.StateApproval {
 		t.Fatalf("compaction dropped the queue: held=%d state=%s %v", current.ApprovalHeld, current.State, err)
 	}
 	stopHook(t, service, "codex", target.ID)
@@ -137,10 +137,10 @@ func TestCompactRegistrationKeepsHeldMessages(t *testing.T) {
 func TestLegacyApprovalRefusalIsNotReleased(t *testing.T) {
 	store := fixtureStore(t)
 	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
-	legacy := Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: StatusApprovalBlocked}
+	legacy := Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusApprovalBlocked}
 	if err := store.saveMessage(legacy); err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestLegacyApprovalRefusalIsNotReleased(t *testing.T) {
 		t.Fatalf("delivery: %v", delivered)
 	}
 	saved, err := store.message(legacy.ID)
-	if err != nil || saved.Status != StatusApprovalBlocked || saved.Held || saved.Body != "old refusal" {
+	if err != nil || saved.Status != model.StatusApprovalBlocked || saved.Held || saved.Body != "old refusal" {
 		t.Fatalf("legacy record changed: %+v %v", saved, err)
 	}
 }
@@ -181,7 +181,7 @@ func TestHookDoesNotReadMessagesWhenNothingIsQueued(t *testing.T) {
 func TestApprovalQueueCapsAndDropsOnRetirement(t *testing.T) {
 	store := fixtureStore(t)
 	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	var delivered []string
@@ -191,7 +191,7 @@ func TestApprovalQueueCapsAndDropsOnRetirement(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "overflow"}); ErrorCodeOf(err) != CodeUnavailable {
+	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "overflow"}); ErrorCodeOf(err) != model.CodeUnavailable {
 		t.Fatal("cap accepted another message", err)
 	}
 	input, _ := json.Marshal(map[string]any{
@@ -212,7 +212,7 @@ func TestApprovalQueueCapsAndDropsOnRetirement(t *testing.T) {
 func TestApprovalQueueDropsWhenTheOwnerHasExited(t *testing.T) {
 	store := fixtureStore(t)
 	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	var delivered []string
@@ -234,7 +234,7 @@ func TestApprovalQueueDropsWhenTheOwnerHasExited(t *testing.T) {
 		t.Fatal("exited session was delivered", delivered)
 	}
 	saved, err := store.message(msg.ID)
-	if err != nil || saved.Status != StatusNotSent || saved.Receipt == nil || !strings.Contains(saved.Receipt.Error, "exited") {
+	if err != nil || saved.Status != model.StatusNotSent || saved.Receipt == nil || !strings.Contains(saved.Receipt.Error, "exited") {
 		t.Fatalf("exit receipt: %+v %v", saved, err)
 	}
 }
@@ -243,12 +243,12 @@ func TestApprovalQueueFeedsHookDeliveryOnce(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	sender, key, target, _ := registerPair(t, store, "codex", "cursor")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 
 	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "through the hook"})
-	if err != nil || msg.Status != StatusApprovalBlocked {
+	if err != nil || msg.Status != model.StatusApprovalBlocked {
 		t.Fatal(msg, err)
 	}
 	input, _ := json.Marshal(map[string]any{
@@ -270,7 +270,7 @@ func TestApprovalQueueFeedsHookDeliveryOnce(t *testing.T) {
 func TestApprovalQueueDeliversANoticeAfterThePrompt(t *testing.T) {
 	store := fixtureStore(t)
 	watcher, key, target, _ := registerPair(t, store, "codex", "claude")
-	if err := store.Update(watcher.ID, StateApproval, false); err != nil {
+	if err := store.Update(watcher.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	var delivered []string
@@ -297,13 +297,13 @@ func TestApprovalQueueDeliversOnceUnderConcurrentHooks(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	var n atomic.Int32
 	service.Deliver = func(context.Context, Message, Session) Receipt {
 		n.Add(1)
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}
 	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "once"}); err != nil {
 		t.Fatal(err)

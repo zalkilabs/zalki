@@ -20,10 +20,10 @@ func TestCursorSenderRequiresExactHintEcho(t *testing.T) {
 		name   string
 		status bus.DeliveryStatus
 	}{
-		{"matching", bus.StatusWakeWritten},
-		{"wrong generation", bus.StatusWakeUncertain},
-		{"wrong message", bus.StatusWakeUncertain},
-		{"missing echo", bus.StatusWakeUncertain},
+		{"matching", model.StatusWakeWritten},
+		{"wrong generation", model.StatusWakeUncertain},
+		{"wrong message", model.StatusWakeUncertain},
+		{"missing echo", model.StatusWakeUncertain},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			dir, err := os.MkdirTemp("/tmp", "zalki-cursor-test-")
@@ -89,7 +89,7 @@ func TestCursorSenderRequiresExactHintEcho(t *testing.T) {
 			if err := <-done; err != nil {
 				t.Fatal(err)
 			}
-			if receipt.Status != test.status || receipt.At == "" || (receipt.Error != "") != (test.status == bus.StatusWakeUncertain) {
+			if receipt.Status != test.status || receipt.At == "" || (receipt.Error != "") != (test.status == model.StatusWakeUncertain) {
 				t.Fatalf("sender confused wake acceptance with an uncertain echo: %+v", receipt)
 			}
 		})

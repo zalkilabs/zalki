@@ -9,6 +9,7 @@ import (
 
 	agentapi "github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Characterized, not endorsed: the completed message status wins the race,
@@ -20,13 +21,13 @@ func TestModelLateWakeReceiptKeepsItsOwnStatus(t *testing.T) {
 	if _, _, _, err := store.ReserveMessage(bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, MessageID: id, Body: "body"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Finish(id, bus.Receipt{At: "pending", Status: bus.StatusPendingActivity}); err != nil {
+	if _, err := store.Finish(id, bus.Receipt{At: "pending", Status: model.StatusPendingActivity}); err != nil {
 		t.Fatal(err)
 	}
 	if output, err := store.EmitPending(to.ID); err != nil || output == "" {
 		t.Fatalf("hook did not emit pending context: %q, %v", output, err)
 	}
-	late := bus.Receipt{At: "late", Status: bus.StatusWakeWritten, Error: "wake detail", Output: "native output"}
+	late := bus.Receipt{At: "late", Status: model.StatusWakeWritten, Error: "wake detail", Output: "native output"}
 	msg, err := store.Finish(id, late)
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +67,7 @@ func newModelHeldFixture(t *testing.T, hookDelivery bool) (bus.Service, *fakeAda
 	target.caps.LifecycleHooks = true
 	store := newStore(t, nativeAdapter("alpha"), modelReleaseAdapter{fakeAdapter: target})
 	from, to := register(t, store, "alpha"), register(t, store, "beta")
-	if err := store.Update(to.ID, bus.StateApproval, false); err != nil {
+	if err := store.Update(to.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	service := bus.Service{Store: store}
@@ -100,7 +101,7 @@ func TestModelNativeReleaseClearsReceiptBeforeTransport(t *testing.T) {
 			t.Fatal("native release did not clear the durable held receipt before transport")
 		}
 		observedCleared = true
-		return bus.NewReceipt(bus.StatusSubmitted)
+		return bus.NewReceipt(model.StatusSubmitted)
 	})
 	releaseModelHeld(t, service, to)
 	stored := readJSONFile(t, filepath.Join(service.Store.Dir, "messages", held.ID+".json"))

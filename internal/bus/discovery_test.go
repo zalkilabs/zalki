@@ -25,7 +25,7 @@ func TestDiscoverySummarizesEachSessionWithoutRewritingIt(t *testing.T) {
 	} {
 		v, _ := register(t, store, test.kind)
 		v.Name = "fixture reviewer"
-		v.State = StateApproval
+		v.State = model.StateApproval
 		// Discovery uses seconds; the full session retains its original precision.
 		v.UpdatedAt = "2026-10-01T12:34:56.123456789Z"
 		if test.listener {
@@ -49,7 +49,7 @@ func TestDiscoverySummarizesEachSessionWithoutRewritingIt(t *testing.T) {
 				got = &items[i]
 			}
 		}
-		if got == nil || got.Name != v.Name || got.CWD != v.CWD || got.State != StateApproval || got.UpdatedAt != "2026-10-01T12:34:56Z" {
+		if got == nil || got.Name != v.Name || got.CWD != v.CWD || got.State != model.StateApproval || got.UpdatedAt != "2026-10-01T12:34:56Z" {
 			t.Fatalf("discovery lost identity/activity: %+v", got)
 		}
 		if got.IdleWake != nil || (got.Delivery != model.DeliveryNextHook) != test.idle || got.Delivery != test.busy || got.Experimental != test.experimental {

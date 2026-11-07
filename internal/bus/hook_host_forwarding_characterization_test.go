@@ -72,10 +72,10 @@ func TestHookHostUpdateSessionUsesBoundActor(t *testing.T) {
 			host, target, _, _ := forwardingHost(t, "cursor", crossActor)
 			if crossActor {
 				seedBindingLease(t, host.store, target)
-				forwardingMessage(t, host.store, target, StatusPendingActivity)
+				forwardingMessage(t, host.store, target, model.StatusPendingActivity)
 				before := journalSnapshot(t, host.store)
-				assertActorRefusal(t, host.UpdateSession(target.ID, StateBusy, false))
-				assertActorRefusal(t, host.UpdateSession(target.ID, StateRetired, true))
+				assertActorRefusal(t, host.UpdateSession(target.ID, model.StateBusy, false))
+				assertActorRefusal(t, host.UpdateSession(target.ID, model.StateRetired, true))
 				assertForwardingChanges(t, host.store, before)
 				return
 			}
@@ -84,14 +84,14 @@ func TestHookHostUpdateSessionUsesBoundActor(t *testing.T) {
 				t.Fatal(err)
 			}
 			before := journalSnapshot(t, host.store)
-			if err := host.UpdateSession(target.ID, StateBusy, false); err != nil {
+			if err := host.UpdateSession(target.ID, model.StateBusy, false); err != nil {
 				t.Fatal(err)
 			}
 			current, err := host.store.session(target.ID)
 			if err != nil {
 				t.Fatal(err)
 			}
-			original.State, original.UpdatedAt = StateBusy, current.UpdatedAt
+			original.State, original.UpdatedAt = model.StateBusy, current.UpdatedAt
 			if !reflect.DeepEqual(current, original) {
 				t.Fatal("host changed more than the bound session's state and timestamp")
 			}
@@ -117,20 +117,20 @@ func TestHookHostUpdateSessionErrorsFollowActorCheck(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			before := journalSnapshot(t, host.store)
-			assertActorRefusal(t, host.UpdateSession(test.id, StateRetired, false))
+			assertActorRefusal(t, host.UpdateSession(test.id, model.StateRetired, false))
 			assertForwardingChanges(t, host.store, before)
 		})
 	}
 	before := journalSnapshot(t, host.store)
-	assertActorRefusal(t, host.UpdateSession("not an actor", StateBusy, false))
-	err := host.UpdateSession(target.ID, StateRetired, false)
+	assertActorRefusal(t, host.UpdateSession("not an actor", model.StateBusy, false))
+	err := host.UpdateSession(target.ID, model.StateRetired, false)
 	if model.ErrorCodeOf(err) != model.CodeInvalidTransition || err.Error() != "invalid_transition: invalid session state/retirement transition" {
 		t.Fatalf("same-actor error=%v, want unchanged invalid transition", err)
 	}
 	missing := "cursor:" + newID()
-	assertActorRefusal(t, host.UpdateSession(missing, StateBusy, false))
+	assertActorRefusal(t, host.UpdateSession(missing, model.StateBusy, false))
 	host.actor = missing
-	if err := host.UpdateSession(missing, StateBusy, false); err != nil {
+	if err := host.UpdateSession(missing, model.StateBusy, false); err != nil {
 		t.Fatal("matching unknown session should remain a no-op", err)
 	}
 	assertForwardingChanges(t, host.store, before)
@@ -142,8 +142,8 @@ func TestHookHostEmitPendingUsesBoundActor(t *testing.T) {
 	for _, crossActor := range []bool{false, true} {
 		t.Run(forwardingCase(crossActor), func(t *testing.T) {
 			host, target, other, _ := forwardingHost(t, "cursor", crossActor)
-			msg := forwardingMessage(t, host.store, target, StatusPendingActivity)
-			forwardingMessage(t, host.store, other, StatusPendingActivity)
+			msg := forwardingMessage(t, host.store, target, model.StatusPendingActivity)
+			forwardingMessage(t, host.store, other, model.StatusPendingActivity)
 			before := journalSnapshot(t, host.store)
 			if crossActor {
 				assertStringActorRefusal(t, host.EmitPending, target.ID)
@@ -156,7 +156,7 @@ func TestHookHostEmitPendingUsesBoundActor(t *testing.T) {
 				t.Fatalf("context=%q error=%v, want bound actor's envelope", text, err)
 			}
 			current, err := host.store.message(msg.ID)
-			if err != nil || current.Status != StatusContextEmitted || current.AcknowledgedAt != "" {
+			if err != nil || current.Status != model.StatusContextEmitted || current.AcknowledgedAt != "" {
 				t.Fatal("emission changed acknowledgement or lost its status", err)
 			}
 			assertForwardingChanges(t, host.store, before, filepath.Join(host.store.Dir, "messages", msg.ID+".json"))
@@ -188,7 +188,7 @@ func TestHookHostEmitPendingErrorsFollowActorCheck(t *testing.T) {
 		t.Fatalf("context=%q error=%v, want bound actor's missing record", text, err)
 	}
 	assertForwardingChanges(t, host.store, before)
-	msg := forwardingMessage(t, host.store, target, StatusPendingActivity)
+	msg := forwardingMessage(t, host.store, target, model.StatusPendingActivity)
 	corruptForwardingMessage(t, host.store, msg.ID)
 	before = journalSnapshot(t, host.store)
 	wrongHost := host
@@ -209,7 +209,7 @@ func TestHookHostCompletedNativePromptUsesBoundActor(t *testing.T) {
 		t.Run(forwardingCase(crossActor), func(t *testing.T) {
 			host, target, other, key := forwardingHost(t, "codex", crossActor)
 			host.event = "UserPromptSubmit"
-			msg := forwardingMessage(t, host.store, target, StatusSubmitted)
+			msg := forwardingMessage(t, host.store, target, model.StatusSubmitted)
 			if _, err := host.store.Ack(target.ID, key, msg.ID); err != nil {
 				t.Fatal(err)
 			}
@@ -247,7 +247,7 @@ func TestHookHostCompletedNativePromptErrorsFollowActorCheck(t *testing.T) {
 		t.Fatalf("missing message should be ignored for bound actor: %q %v", reason, err)
 	}
 	assertForwardingChanges(t, host.store, before)
-	msg := forwardingMessage(t, host.store, target, StatusSubmitted)
+	msg := forwardingMessage(t, host.store, target, model.StatusSubmitted)
 	corruptForwardingMessage(t, host.store, msg.ID)
 	before = journalSnapshot(t, host.store)
 	wrongHost := host
@@ -302,7 +302,7 @@ type bindingOperation struct {
 
 func bindingOperations(prompt string) []bindingOperation {
 	return []bindingOperation{
-		{"UpdateSession", func(h hookRuntime, id string) (string, error) { return "", h.UpdateSession(id, StateBusy, false) }},
+		{"UpdateSession", func(h hookRuntime, id string) (string, error) { return "", h.UpdateSession(id, model.StateBusy, false) }},
 		{"EmitPending", func(h hookRuntime, id string) (string, error) { return h.EmitPending(id) }},
 		{"CompletedNativePrompt", func(h hookRuntime, id string) (string, error) { return h.CompletedNativePrompt(id, prompt) }},
 	}

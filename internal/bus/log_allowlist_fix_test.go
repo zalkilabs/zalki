@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // These tests exercise hook failures and rate-limited sends through the logger. Two stages ("watch" and "approval") and the code
@@ -66,7 +68,7 @@ func TestAFailedApprovalReleaseIsLoggedWithItsStage(t *testing.T) {
 	service, handler := loggedService(t)
 	store := service.Store
 	sender, key, target, _ := registerPair(t, store, "codex", "cursor")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	if msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "held"}); err != nil || !msg.Held {
@@ -88,11 +90,11 @@ func TestARateLimitedSendIsLoggedAsRateLimited(t *testing.T) {
 	service, handler := loggedService(t)
 	store := service.Store
 	sender, key, target, _ := registerPair(t, store, "codex", "claude")
-	service.Deliver = func(context.Context, Message, Session) Receipt { return NewReceipt(StatusSubmitted) }
+	service.Deliver = func(context.Context, Message, Session) Receipt { return NewReceipt(model.StatusSubmitted) }
 	var limited bool
 	for range 12 + 3 {
 		_, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "again"})
-		if ErrorCodeOf(err) == CodeRateLimited {
+		if ErrorCodeOf(err) == model.CodeRateLimited {
 			limited = true
 			break
 		}

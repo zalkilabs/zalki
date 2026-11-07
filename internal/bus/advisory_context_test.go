@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 	"golang.org/x/sys/unix"
 )
 
@@ -155,7 +156,7 @@ func (f advisoryFixture) runHook(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if session.State != StateReady || session.KeyHash == "" || session.Generation == "" || !bytes.Contains(output.Bytes(), []byte(id)) {
+	if session.State != model.StateReady || session.KeyHash == "" || session.Generation == "" || !bytes.Contains(output.Bytes(), []byte(id)) {
 		return errors.New("advisory probe interrupted startup state, credential or output")
 	}
 	return nil

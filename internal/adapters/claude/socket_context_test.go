@@ -3,11 +3,13 @@ package claude
 import (
 	"context"
 	"errors"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"io"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestClaudeWriteHonorsContext(t *testing.T) {
@@ -27,7 +29,7 @@ func TestClaudeWriteHonorsContext(t *testing.T) {
 			if mode == "already canceled" {
 				cancel()
 				receipt := writeClaudeFrame(ctx, client, []byte("unsent"))
-				if receipt.Status != bus.StatusNotSent {
+				if receipt.Status != model.StatusNotSent {
 					t.Fatalf("cancellation before writing was not safely unsent: %+v", receipt)
 				}
 				return
@@ -45,7 +47,7 @@ func TestClaudeWriteHonorsContext(t *testing.T) {
 			}
 			select {
 			case receipt := <-result:
-				if receipt.Status != bus.StatusUnknownWrite || receipt.Error == "" {
+				if receipt.Status != model.StatusUnknownWrite || receipt.Error == "" {
 					t.Fatalf("canceled partial write was not uncertain: %+v", receipt)
 				}
 			case <-time.After(time.Second):
@@ -60,7 +62,7 @@ func TestClaudeCanceledBeforeDialDoesNotSend(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	receipt := (Adapter{}).Deliver(ctx, bus.Message{ID: newTestID(), Body: "unsent"}, bus.Session{Endpoint: endpoint})
-	if receipt.Status != bus.StatusNotSent {
+	if receipt.Status != model.StatusNotSent {
 		t.Fatalf("cancellation before connection was not safely unsent: %+v", receipt)
 	}
 	assertNoSocketConnection(t, listener)

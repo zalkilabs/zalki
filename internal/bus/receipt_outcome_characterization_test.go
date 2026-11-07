@@ -34,13 +34,13 @@ func TestTransportOutcomesPersistAndControlAcknowledgement(t *testing.T) {
 		// canAck is whether the recipient can acknowledge the stored message.
 		canAck bool
 	}{
-		{name: "submitted", status: bus.StatusSubmitted, wireStatus: "submitted", canAck: true},
-		{name: "transport written", status: bus.StatusTransportWritten, wireStatus: "transport_written", canAck: true},
-		{name: "not sent", status: bus.StatusNotSent, wireStatus: "not_sent", code: bus.CodeUnavailable, text: "no route", wantCode: "unavailable", canAck: false},
-		{name: "command failed", status: bus.StatusCommandFailed, wireStatus: "command_failed", code: bus.CodeUnavailable, text: "exit status 1", wantCode: "unavailable", canAck: false},
-		{name: "unknown after timeout", status: bus.StatusUnknownTimeout, wireStatus: "unknown_after_timeout", text: "deadline exceeded", wantCode: "unavailable", canAck: true},
-		{name: "unknown after write", status: bus.StatusUnknownWrite, wireStatus: "unknown_after_write", text: "connection reset", wantCode: "unavailable", canAck: true},
-		{name: "wake hint uncertain", hookAdapter: true, status: bus.StatusWakeUncertain, wireStatus: "wake_hint_uncertain", text: "wake not confirmed", wantCode: "unavailable", canAck: true},
+		{name: "submitted", status: model.StatusSubmitted, wireStatus: "submitted", canAck: true},
+		{name: "transport written", status: model.StatusTransportWritten, wireStatus: "transport_written", canAck: true},
+		{name: "not sent", status: model.StatusNotSent, wireStatus: "not_sent", code: model.CodeUnavailable, text: "no route", wantCode: "unavailable", canAck: false},
+		{name: "command failed", status: model.StatusCommandFailed, wireStatus: "command_failed", code: model.CodeUnavailable, text: "exit status 1", wantCode: "unavailable", canAck: false},
+		{name: "unknown after timeout", status: model.StatusUnknownTimeout, wireStatus: "unknown_after_timeout", text: "deadline exceeded", wantCode: "unavailable", canAck: true},
+		{name: "unknown after write", status: model.StatusUnknownWrite, wireStatus: "unknown_after_write", text: "connection reset", wantCode: "unavailable", canAck: true},
+		{name: "wake hint uncertain", hookAdapter: true, status: model.StatusWakeUncertain, wireStatus: "wake_hint_uncertain", text: "wake not confirmed", wantCode: "unavailable", canAck: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -91,9 +91,9 @@ func TestTransportOutcomesPersistAndControlAcknowledgement(t *testing.T) {
 			}
 
 			// A late, different receipt cannot rewrite a settled outcome.
-			if test.status != bus.StatusSubmitted {
-				if _, err := store.Finish(request.MessageID, bus.NewReceipt(bus.StatusSubmitted)); bus.ErrorCodeOf(err) != bus.CodeInvalidTransition {
-					t.Fatalf("late receipt over %q: error code %q (%v), want %q", test.status, bus.ErrorCodeOf(err), err, bus.CodeInvalidTransition)
+			if test.status != model.StatusSubmitted {
+				if _, err := store.Finish(request.MessageID, bus.NewReceipt(model.StatusSubmitted)); bus.ErrorCodeOf(err) != model.CodeInvalidTransition {
+					t.Fatalf("late receipt over %q: error code %q (%v), want %q", test.status, bus.ErrorCodeOf(err), err, model.CodeInvalidTransition)
 				}
 				if after := readJSONFile(t, filepath.Join(store.Dir, "messages", request.MessageID+".json")); after["status"] != string(test.status) {
 					t.Fatalf("a rejected receipt changed the stored status to %v", after["status"])
@@ -107,11 +107,11 @@ func TestTransportOutcomesPersistAndControlAcknowledgement(t *testing.T) {
 				}
 				return
 			}
-			if bus.ErrorCodeOf(err) != bus.CodeInvalidTransition {
-				t.Fatalf("acknowledging %q: error code %q (%v), want %q", test.status, bus.ErrorCodeOf(err), err, bus.CodeInvalidTransition)
+			if bus.ErrorCodeOf(err) != model.CodeInvalidTransition {
+				t.Fatalf("acknowledging %q: error code %q (%v), want %q", test.status, bus.ErrorCodeOf(err), err, model.CodeInvalidTransition)
 			}
 			// Reply is an acknowledgement too, so it is refused for the same reason.
-			if _, err := svc.Reply(context.Background(), bus.ReplyRequest{Actor: to.ID, Capability: to.Key, MessageID: request.MessageID, Body: "ok"}); bus.ErrorCodeOf(err) != bus.CodeInvalidTransition {
+			if _, err := svc.Reply(context.Background(), bus.ReplyRequest{Actor: to.ID, Capability: to.Key, MessageID: request.MessageID, Body: "ok"}); bus.ErrorCodeOf(err) != model.CodeInvalidTransition {
 				t.Fatalf("replying to %q: error code %q (%v)", test.status, bus.ErrorCodeOf(err), err)
 			}
 		})
@@ -133,26 +133,26 @@ func TestApprovalHoldIsAnOutcomeNotAnError(t *testing.T) {
 		return svc.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "hello"})
 	}
 
-	if err := store.Update(to.ID, bus.StateApproval, false); err != nil {
+	if err := store.Update(to.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	held, err := send()
 	if err != nil {
 		t.Fatalf("a held message must not be an error: %v", err)
 	}
-	if !held.Held || held.Status != bus.StatusApprovalBlocked || target.transportCalls() != 0 {
+	if !held.Held || held.Status != model.StatusApprovalBlocked || target.transportCalls() != 0 {
 		t.Fatalf("held = %v status %q transport calls %d", held.Held, held.Status, target.transportCalls())
 	}
 	if held.Receipt == nil || held.Receipt.Error == "" {
 		t.Fatalf("a held message explains itself in its receipt: %+v", held.Receipt)
 	}
 
-	if err := store.Update(to.ID, bus.StateRetired, true); err != nil {
+	if err := store.Update(to.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	refused, err := send()
-	if bus.ErrorCodeOf(err) != bus.CodeUnavailable {
-		t.Fatalf("send to a retired session: error code %q (%v), want %q", bus.ErrorCodeOf(err), err, bus.CodeUnavailable)
+	if bus.ErrorCodeOf(err) != model.CodeUnavailable {
+		t.Fatalf("send to a retired session: error code %q (%v), want %q", bus.ErrorCodeOf(err), err, model.CodeUnavailable)
 	}
 	if refused.ID != "" || target.transportCalls() != 0 {
 		t.Fatalf("a refused send created %q or reached the transport (%d calls)", refused.ID, target.transportCalls())

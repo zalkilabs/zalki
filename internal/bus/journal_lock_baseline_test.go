@@ -44,7 +44,7 @@ func TestMissingListenerProbesDoNotCreateLockFiles(t *testing.T) {
 				}
 			case "prune preview", "prune":
 				// Force the retired-session cleanup path to probe a missing lock.
-				v.State, v.Retired, v.UpdatedAt = StateRetired, true, "2000-01-01T00:00:00Z"
+				v.State, v.Retired, v.UpdatedAt = model.StateRetired, true, "2000-01-01T00:00:00Z"
 				if err := store.locked(func() error { return store.saveSession(v) }); err != nil {
 					t.Fatal(err)
 				}
@@ -88,7 +88,7 @@ func TestJournalFailureReleasesExclusiveLock(t *testing.T) {
 			if failure == "callback" && err != callbackError { //nolint:errorlint // Characterize exact callback error identity, including absence of wrapping.
 				t.Fatalf("callback error changed: %v", err)
 			}
-			if failure == "compatibility" && (ErrorCodeOf(err) != CodeUnsupportedSchema || err.Error() != "unsupported_schema: state formats are unsupported or unreadable; upgrade zalki before writing") {
+			if failure == "compatibility" && (ErrorCodeOf(err) != model.CodeUnsupportedSchema || err.Error() != "unsupported_schema: state formats are unsupported or unreadable; upgrade zalki before writing") {
 				t.Fatalf("compatibility error changed: %v", err)
 			}
 			assertRawLockState(t, filepath.Join(store.Dir, "lock"), false)

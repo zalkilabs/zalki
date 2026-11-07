@@ -18,13 +18,13 @@ func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	from, key, to, toKey := registerPair(t, store, "cursor", "00000000-0000-4000-8000-000000000011", "codex", "00000000-0000-4000-8000-000000000012")
-	if err := store.Update(to.ID, bus.StateBusy, false); err != nil {
+	if err := store.Update(to.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
 	calls := 0
 	service.Deliver = func(context.Context, bus.Message, bus.Session) bus.Receipt {
 		calls++
-		return bus.NewReceipt(bus.StatusSubmitted)
+		return bus.NewReceipt(model.StatusSubmitted)
 	}
 	client, ctx := testClient(t, service)
 	call := func(name string, args map[string]any, out any) {
@@ -63,7 +63,7 @@ func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
 	}
 	var sent Output[MessagePage]
 	call("list_messages", map[string]any{"actor": from.ID, "capability": key, "sent": true}, &sent)
-	if len(sent.Data.Messages) != 1 || sent.Data.Messages[0].ID != first.Data.ID || sent.Data.Messages[0].AcknowledgedAt == "" || sent.Data.Messages[0].Status != bus.StatusSubmitted || !sent.Data.Messages[0].BodyOmitted {
+	if len(sent.Data.Messages) != 1 || sent.Data.Messages[0].ID != first.Data.ID || sent.Data.Messages[0].AcknowledgedAt == "" || sent.Data.Messages[0].Status != model.StatusSubmitted || !sent.Data.Messages[0].BodyOmitted {
 		t.Fatal("sent receipts lost direction/status/ack or repeated the body")
 	}
 	call("list_messages", map[string]any{"actor": from.ID, "capability": key, "sent": true, "to": to.ID, "preview": true}, &sent)
@@ -77,11 +77,11 @@ func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
 }
 
 func TestReceiptNotesNeverPromiseRefusedOrUnconfirmedDelivery(t *testing.T) {
-	queued, err := messageReceipt(bus.Message{Status: bus.StatusApprovalBlocked, Held: true}, nil)
+	queued, err := messageReceipt(bus.Message{Status: model.StatusApprovalBlocked, Held: true}, nil)
 	if err != nil || queued.Note != "Queued until the target's permission prompt is answered." {
 		t.Fatal("a queued approval message was described as refused")
 	}
-	acknowledged, err := messageReceipt(bus.Message{Status: bus.StatusPendingActivity, AcknowledgedAt: "2026-11-01T00:00:00Z"}, nil)
+	acknowledged, err := messageReceipt(bus.Message{Status: model.StatusPendingActivity, AcknowledgedAt: "2026-11-01T00:00:00Z"}, nil)
 	if err != nil || !acknowledged.Acknowledged || acknowledged.Note != "" {
 		t.Fatal("an acknowledged message was still described as deferred")
 	}
@@ -90,15 +90,15 @@ func TestReceiptNotesNeverPromiseRefusedOrUnconfirmedDelivery(t *testing.T) {
 		timing model.DeliveryTiming
 		want   string
 	}{
-		{bus.StatusApprovalBlocked, "", "Not sent"},
-		{bus.StatusPendingActivity, "", "next delivery hook"},
-		{bus.StatusTransportWritten, model.DeliveryBetweenTools, "between tool calls"},
-		{bus.StatusSubmitted, model.DeliveryNextTurn, "next turn"},
-		{bus.StatusWakeWritten, model.DeliveryNotification, "native notification"},
-		{bus.StatusSubmitted, model.DeliveryNextHook, "next hook"},
-		{bus.StatusNotSent, model.DeliveryNextTurn, ""},
-		{bus.StatusUnknownTimeout, model.DeliveryNextTurn, ""},
-		{bus.StatusUnknownWrite, model.DeliveryBetweenTools, ""},
+		{model.StatusApprovalBlocked, "", "Not sent"},
+		{model.StatusPendingActivity, "", "next delivery hook"},
+		{model.StatusTransportWritten, model.DeliveryBetweenTools, "between tool calls"},
+		{model.StatusSubmitted, model.DeliveryNextTurn, "next turn"},
+		{model.StatusWakeWritten, model.DeliveryNotification, "native notification"},
+		{model.StatusSubmitted, model.DeliveryNextHook, "next hook"},
+		{model.StatusNotSent, model.DeliveryNextTurn, ""},
+		{model.StatusUnknownTimeout, model.DeliveryNextTurn, ""},
+		{model.StatusUnknownWrite, model.DeliveryBetweenTools, ""},
 	} {
 		receipt, err := messageReceipt(bus.Message{Status: test.status, BusyDelivery: test.timing}, nil)
 		if err != nil || (test.want == "" && receipt.Note != "") || (test.want != "" && !strings.Contains(receipt.Note, test.want)) {

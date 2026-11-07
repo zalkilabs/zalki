@@ -108,7 +108,7 @@ func sameOwner(a, b *model.ProcessRef) bool {
 func TestRememberOwnerOnARetiredSessionWithoutRefresh(t *testing.T) {
 	// Two faults at once: it is not refreshed, and its stale hook build is still updated.
 	store := ownerStore(t, ownerAdapter{names: []string{"no-such-process-name"}})
-	v := ownedSession(t, store, func(v *Session) { v.Retired, v.State, v.HookBuild = true, StateRetired, staleBuild() })
+	v := ownedSession(t, store, func(v *Session) { v.Retired, v.State, v.HookBuild = true, model.StateRetired, staleBuild() })
 	current := remembered(t, store, v, false)
 	if current.Owner != nil || current.HookBuild != currentExecutable.loadedBuild {
 		t.Fatalf("owner = %+v, build = %q; want no owner and the running build", current.Owner, current.HookBuild)
@@ -308,7 +308,7 @@ func childReplacesOnRefresh(t *testing.T, store Store, want model.ProcessRef) {
 
 func childRetiredRecordsOnRefresh(t *testing.T, store Store, want model.ProcessRef) {
 	t.Helper()
-	retire := func(v *Session) { v.Retired, v.State, v.HookBuild = true, StateRetired, staleBuild() }
+	retire := func(v *Session) { v.Retired, v.State, v.HookBuild = true, model.StateRetired, staleBuild() }
 	v := ownedSession(t, store, retire)
 	if current := remembered(t, store, v, false); current.Owner != nil {
 		t.Fatalf("without refresh: owner = %+v, want none", current.Owner)

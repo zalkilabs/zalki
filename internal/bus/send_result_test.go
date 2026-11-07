@@ -16,7 +16,7 @@ func TestSendGeneratesIDsAndExplicitRetryNeverResubmits(t *testing.T) {
 	calls := 0
 	service.Deliver = func(context.Context, Message, Session) Receipt {
 		calls++
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}
 	request := SendRequest{Actor: from.ID, Capability: key, To: to.ID, Body: "intentional repeat"}
 	first, err := service.Send(context.Background(), request)
@@ -37,7 +37,7 @@ func TestSendGeneratesIDsAndExplicitRetryNeverResubmits(t *testing.T) {
 		t.Fatal("identical intentional send was deduplicated", err)
 	}
 	request.MessageID = "invalid"
-	if _, err := service.Send(context.Background(), request); ErrorCodeOf(err) != CodeInvalidIdentity || calls != 2 {
+	if _, err := service.Send(context.Background(), request); ErrorCodeOf(err) != model.CodeInvalidIdentity || calls != 2 {
 		t.Fatal("explicit invalid ID was replaced or submitted", err)
 	}
 }
@@ -46,10 +46,10 @@ func TestBusyDeliveryObservationIsNotPersisted(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	from, key, to, _ := registerPair(t, store, "cursor", "codex")
-	if err := store.Update(to.ID, StateBusy, false); err != nil {
+	if err := store.Update(to.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	service.Deliver = func(context.Context, Message, Session) Receipt { return NewReceipt(StatusSubmitted) }
+	service.Deliver = func(context.Context, Message, Session) Receipt { return NewReceipt(model.StatusSubmitted) }
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, Body: "review"})
 	if err != nil || msg.BusyDelivery != model.DeliveryNextTurn {
 		t.Fatal("delivery lost busy target timing", err)

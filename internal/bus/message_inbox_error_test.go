@@ -4,13 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestMessageScanErrorKeepsPartialView(t *testing.T) {
 	store := fixtureStore(t)
 	from, key, to, _ := registerPair(t, store, "codex", "cursor")
 	const first = "00000000-0000-4000-8000-000000000001"
-	msg := Message{ID: first, From: from.ID, To: to.ID, Body: "fixture body", Status: StatusSubmitted, TargetGeneration: to.Generation}
+	msg := Message{ID: first, From: from.ID, To: to.ID, Body: "fixture body", Status: model.StatusSubmitted, TargetGeneration: to.Generation}
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}

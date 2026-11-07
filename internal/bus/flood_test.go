@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func spendFlood(store Store, msg Message, now time.Time) error {
@@ -46,7 +48,7 @@ func TestFloodBurstRefillIsolationAndClockRollback(t *testing.T) {
 	for _, at := range []time.Time{now, now.Add(-time.Hour), now.Add(5*time.Second - time.Nanosecond)} {
 		msg.ID = newID()
 		err := spendFlood(store, msg, at)
-		if ErrorCodeOf(err) != CodeRateLimited || !strings.Contains(err.Error(), "pair short bucket") || !strings.Contains(err.Error(), "retry in") {
+		if ErrorCodeOf(err) != model.CodeRateLimited || !strings.Contains(err.Error(), "pair short bucket") || !strings.Contains(err.Error(), "retry in") {
 			t.Fatal("pair did not refuse with a retry time", err)
 		}
 		if string(before) != string(floodBytes(t, store, msg.To)) {
@@ -81,7 +83,7 @@ func TestFloodInboundCapDoesNotSpendRejectedSenderQuota(t *testing.T) {
 	}
 	msg.From, msg.ID = "codex:"+newID(), newID()
 	before := floodBytes(t, store, msg.To)
-	if err := spendFlood(store, msg, now); ErrorCodeOf(err) != CodeRateLimited || !strings.Contains(err.Error(), "inbound short bucket") {
+	if err := spendFlood(store, msg, now); ErrorCodeOf(err) != model.CodeRateLimited || !strings.Contains(err.Error(), "inbound short bucket") {
 		t.Fatal("inbound cap did not combine senders", err)
 	}
 	if string(before) != string(floodBytes(t, store, msg.To)) {
@@ -113,7 +115,7 @@ func TestFloodHourlyCapsAndExpiry(t *testing.T) {
 				}
 			}
 			msg.ID = newID()
-			if err := spendFlood(store, msg, now.Add(time.Duration(limit)*interval)); ErrorCodeOf(err) != CodeRateLimited || !strings.Contains(err.Error(), scope+" hourly cap") {
+			if err := spendFlood(store, msg, now.Add(time.Duration(limit)*interval)); ErrorCodeOf(err) != model.CodeRateLimited || !strings.Contains(err.Error(), scope+" hourly cap") {
 				t.Fatal("slow traffic bypassed hourly cap", err)
 			}
 			if len(floodBytes(t, store, msg.To)) > 128*1024 {
@@ -150,7 +152,7 @@ func TestFloodCrossStoreConcurrency(t *testing.T) {
 	wg.Wait()
 	close(errors)
 	for err := range errors {
-		if ErrorCodeOf(err) != CodeRateLimited {
+		if ErrorCodeOf(err) != model.CodeRateLimited {
 			t.Fatal(err)
 		}
 	}
@@ -171,7 +173,7 @@ func TestFloodRetryReservationsAndIdleSenderExpiry(t *testing.T) {
 		t.Fatal("retry before message/intent commit spent quota twice", err)
 	}
 	msg.From = "codex:" + newID()
-	if err := spendFlood(store, msg, now); ErrorCodeOf(err) != CodeConflict {
+	if err := spendFlood(store, msg, now); ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("another sender reused a reserved ID", err)
 	}
 	msg.ID = newID()
@@ -190,12 +192,12 @@ func TestFloodDenialDoesNotReserveOrAcknowledgeReplies(t *testing.T) {
 		service := newTestService(t)
 		store := service.Store
 		actor, key, target, _ := registerPair(t, store, "cursor", "codex")
-		parent := Message{ID: newID(), From: target.ID, To: actor.ID, Body: "review", Status: StatusSubmitted}
+		parent := Message{ID: newID(), From: target.ID, To: actor.ID, Body: "review", Status: model.StatusSubmitted}
 		if err := store.saveMessage(parent); err != nil {
 			t.Fatal(err)
 		}
 		if retired {
-			if err := store.Update(target.ID, StateRetired, true); err != nil {
+			if err := store.Update(target.ID, model.StateRetired, true); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -208,7 +210,7 @@ func TestFloodDenialDoesNotReserveOrAcknowledgeReplies(t *testing.T) {
 		}
 
 		refused, err := service.Reply(context.Background(), ReplyRequest{Actor: actor.ID, Capability: key, MessageID: parent.ID, Body: "reply"})
-		if ErrorCodeOf(err) != CodeRateLimited || refused.Receipt == nil || refused.Receipt.Code != CodeRateLimited {
+		if ErrorCodeOf(err) != model.CodeRateLimited || refused.Receipt == nil || refused.Receipt.Code != model.CodeRateLimited {
 			t.Fatal("reply bypassed quota", err)
 		}
 		stored, err := store.message(parent.ID)
@@ -260,7 +262,7 @@ func TestFloodWatchNoticesAreExempt(t *testing.T) {
 	}
 	stopHook(t, service, "codex", subject.ID)
 	items, err := store.Messages(watcher.ID, key)
-	if err != nil || len(items) != 1 || items[0].Kind != noticeKind || string(before) != string(floodBytes(t, store, watcher.ID)) {
+	if err != nil || len(items) != 1 || items[0].Kind != model.NoticeKind || string(before) != string(floodBytes(t, store, watcher.ID)) {
 		t.Fatal("exhausted agent quota blocked or charged a watch notice", err)
 	}
 }
@@ -269,7 +271,7 @@ func TestFloodSendRefusalNeverCreatesAnApprovalHold(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	actor, key, target, _ := registerPair(t, store, "cursor", "codex")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now().Add(time.Hour)
@@ -281,7 +283,7 @@ func TestFloodSendRefusalNeverCreatesAnApprovalHold(t *testing.T) {
 	before := floodBytes(t, store, target.ID)
 
 	msg, err := service.Send(context.Background(), SendRequest{Actor: actor.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "limited"})
-	if ErrorCodeOf(err) != CodeRateLimited || msg.Held || msg.Status != StatusNotSent || msg.Receipt == nil || msg.Receipt.Code != CodeRateLimited {
+	if ErrorCodeOf(err) != model.CodeRateLimited || msg.Held || msg.Status != model.StatusNotSent || msg.Receipt == nil || msg.Receipt.Code != model.CodeRateLimited {
 		t.Fatalf("rate refusal looked like a queued message: %+v %v", msg, err)
 	}
 	if _, err := store.message(msg.ID); !os.IsNotExist(err) {

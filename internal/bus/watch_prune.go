@@ -113,7 +113,7 @@ func (r *pruneRun) pruneTargetWatches(root, dirName, target string) error {
 func watchIsStale(path, target string, now time.Time) bool {
 	var watch Watch
 	if err := readRecord(path, &watch, &watch.Schema); err != nil {
-		return ErrorCodeOf(err) != CodeUnsupportedSchema
+		return ErrorCodeOf(err) != model.CodeUnsupportedSchema
 	}
 	expires, err := time.Parse(time.RFC3339Nano, watch.ExpiresAt)
 	return err != nil || !expires.After(now) || watch.Target != target

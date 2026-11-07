@@ -58,7 +58,7 @@ func TestFloodTamperedArrivalsAndBucketsFailClosedThroughTheStore(t *testing.T) 
 			}
 			msg.ID = newID()
 			err = spendFlood(store, msg, now)
-			if err == nil || ErrorCodeOf(err) != CodeInvalidInput || err.Error() != "invalid_input: "+test.want {
+			if err == nil || ErrorCodeOf(err) != model.CodeInvalidInput || err.Error() != "invalid_input: "+test.want {
 				t.Fatalf("error = %v (code %q), want %q", err, ErrorCodeOf(err), test.want)
 			}
 			if string(floodBytes(t, store, msg.To)) != string(data) {

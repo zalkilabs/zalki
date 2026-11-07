@@ -18,6 +18,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 const (
@@ -135,14 +136,14 @@ func (s codexSocket) unchanged() error {
 func deliverCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 	id, err := bus.UUID(bus.NativeID(target))
 	if err != nil {
-		return failedReceipt(bus.StatusNotSent, err)
+		return failedReceipt(model.StatusNotSent, err)
 	}
 	receipt, fallback := deliverCodexAppServer(ctx, msg, target, id)
 	if !fallback {
 		return receipt
 	}
 	if ctx.Err() != nil {
-		receipt := bus.NewReceipt(bus.StatusNotSent)
+		receipt := bus.NewReceipt(model.StatusNotSent)
 		receipt.Error = errCodexUnavailable.Error()
 		return receipt.WithCause(ctx.Err())
 	}
@@ -163,17 +164,17 @@ func deliverCodexAppServer(ctx context.Context, msg bus.Message, target bus.Sess
 		if joined {
 			output = "joined_active_turn"
 		}
-		receipt := bus.NewReceipt(bus.StatusSubmitted)
+		receipt := bus.NewReceipt(model.StatusSubmitted)
 		receipt.Output = output
 		return receipt, false
 	}
 	if errors.Is(err, errCodexApproval) {
-		return failedReceipt(bus.StatusApprovalBlocked, err), false
+		return failedReceipt(model.StatusApprovalBlocked, err), false
 	}
 	if errors.Is(err, errCodexUncertain) {
-		status := bus.StatusUnknownWrite
+		status := model.StatusUnknownWrite
 		if errors.Is(attempt.Err(), context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			status = bus.StatusUnknownTimeout
+			status = model.StatusUnknownTimeout
 		}
 		return failedReceipt(status, err), false
 	}

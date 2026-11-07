@@ -35,14 +35,14 @@ func (s Store) sessionID(kind, id string) (string, error) {
 func (s Store) sessionRecordPath(id string) (string, error) {
 	parts := strings.Split(id, ":")
 	if len(parts) != 2 || !model.ValidKind(parts[0]) {
-		return "", fail(CodeInvalidIdentity, "use the complete kind:UUID returned by list_agents")
+		return "", model.NewError(model.CodeInvalidIdentity, "use the complete kind:UUID returned by list_agents")
 	}
 	uuid, err := UUID(parts[1])
 	if err != nil {
 		return "", err
 	}
 	if uuid != parts[1] {
-		return "", fail(CodeInvalidIdentity, "invalid session identity")
+		return "", model.NewError(model.CodeInvalidIdentity, "invalid session identity")
 	}
 	return filepath.Join(s.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json"), nil
 }
@@ -66,7 +66,7 @@ func (s Store) session(id string) (Session, error) {
 		session, err = s.readSession(path)
 	}
 	if err == nil && (session.ID != id || !strings.HasPrefix(id, session.Kind+":")) {
-		err = fail(CodeInvalidIdentity, "session file identity mismatch")
+		err = model.NewError(model.CodeInvalidIdentity, "session file identity mismatch")
 	}
 	if err == nil {
 		adapter, adapterErr := s.registry().Lookup(session.Kind)
@@ -96,7 +96,7 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 		return session, "", err
 	}
 	if !filepath.IsAbs(cwd) {
-		return session, "", fail(CodeInvalidInput, "working directory must be absolute")
+		return session, "", model.NewError(model.CodeInvalidInput, "working directory must be absolute")
 	}
 	adapter, err := s.registry().Lookup(kind)
 	if err != nil {
@@ -108,7 +108,7 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 	key := newID() + newID()
 	hash := sha256.Sum256([]byte(key))
 	native, _ := canonicalNativeID(id)
-	session = Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: StateReady, UpdatedAt: model.Timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
+	session = Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: model.StateReady, UpdatedAt: model.Timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
 	if names, ok := adapter.(agent.NameAdapter); ok {
 		session.NativeConfigDir = names.ConfigDir()
 	}
@@ -118,7 +118,7 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 		current, err := s.session(full)
 		exists := err == nil
 		if exists && NativeID(current) != native {
-			return fail(CodeConflict, "native session identity collision")
+			return model.NewError(model.CodeConflict, "native session identity collision")
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
@@ -152,21 +152,21 @@ func (s Store) authenticate(id, key string) (Session, error) {
 		return current, err
 	}
 	if current.Retired {
-		return current, fail(CodeUnavailable, "session is retired; registration is required")
+		return current, model.NewError(model.CodeUnavailable, "session is retired; registration is required")
 	}
 	if s.sessionLiveness(current) == model.LivenessExited {
-		return current, fail(CodeUnavailable, "registered owner process has exited; resume or register the session again")
+		return current, model.NewError(model.CodeUnavailable, "registered owner process has exited; resume or register the session again")
 	}
 	hash := sha256.Sum256([]byte(key))
 	if subtle.ConstantTimeCompare([]byte(current.KeyHash), []byte(hex.EncodeToString(hash[:]))) != 1 {
-		return current, fail(CodeUnauthorized, "wrong session capability; use your own SessionStart context")
+		return current, model.NewError(model.CodeUnauthorized, "wrong session capability; use your own SessionStart context")
 	}
 	return current, nil
 }
 
 func (s Store) Update(id string, state SessionState, retire bool) error {
-	if !state.Valid() || (state == StateRetired) != retire {
-		return fail(CodeInvalidTransition, "invalid session state/retirement transition")
+	if !state.Valid() || (state == model.StateRetired) != retire {
+		return model.NewError(model.CodeInvalidTransition, "invalid session state/retirement transition")
 	}
 	return s.locked(func() error {
 		current, err := s.session(id)
@@ -190,7 +190,7 @@ func (s Store) Update(id string, state SessionState, retire bool) error {
 		}
 		if previous != state {
 			level := slog.LevelDebug
-			if state == StateApproval || retire {
+			if state == model.StateApproval || retire {
 				level = slog.LevelInfo
 			}
 			s.logEvent(level, "session.state_changed", eventData{Actor: id, Generation: current.Generation, State: state})
@@ -254,6 +254,6 @@ func (s Store) ListWithWarnings() ([]Session, int, error) {
 
 // retireSession clears all active state, including any listener generation fence.
 func retireSession(v *Session, reason string) {
-	v.Retired, v.State, v.RetiredReason, v.Task, v.UpdatedAt = true, StateRetired, reason, "", model.Timestamp()
+	v.Retired, v.State, v.RetiredReason, v.Task, v.UpdatedAt = true, model.StateRetired, reason, "", model.Timestamp()
 	releaseListenerLease(v)
 }

@@ -66,7 +66,7 @@ func (s Store) lifecycleSession(actor, kind string) (Session, bool, error) {
 		return v, false, err
 	}
 	if v.Kind != kind {
-		return v, false, fail(CodeInvalidIdentity, "lifecycle hook does not match the session's agent")
+		return v, false, model.NewError(model.CodeInvalidIdentity, "lifecycle hook does not match the session's agent")
 	}
 	return v, true, nil
 }
@@ -82,15 +82,15 @@ func (h hookRuntime) ApplyLifecycle(policy func(model.SessionView) (agent.Lifecy
 			return err
 		}
 		if !transitionAllowed(h.event, change.Transition) {
-			return fail(CodeInvalidTransition, "lifecycle transition is not allowed for this hook event")
+			return model.NewError(model.CodeInvalidTransition, "lifecycle transition is not allowed for this hook event")
 		}
 		switch change.Transition {
 		case agent.TransitionPromptReactivate:
-			v.State, v.UpdatedAt, v.Retired, v.RetiredReason = StateBusy, model.Timestamp(), false, ""
+			v.State, v.UpdatedAt, v.Retired, v.RetiredReason = model.StateBusy, model.Timestamp(), false, ""
 		case agent.TransitionReady:
 			// As in Update, a stop never revives a retired conversation.
 			if !v.Retired {
-				v.State, v.UpdatedAt = StateReady, model.Timestamp()
+				v.State, v.UpdatedAt = model.StateReady, model.Timestamp()
 			}
 		}
 		if err := h.store.applyAdapterState(&v, change.AdapterState); err != nil {
@@ -107,7 +107,7 @@ func (h hookRuntime) ApplyLifecycle(policy func(model.SessionView) (agent.Lifecy
 // generation and pending messages are kept.
 func (h hookRuntime) ClaimRecovery(policy func(model.SessionView) (agent.RecoveryDecision, error)) (agent.RecoveryGrant, error) {
 	if !recoveryEvents[h.event] {
-		return agent.RecoveryGrant{}, fail(CodeInvalidTransition, "recovery is not allowed for this hook event")
+		return agent.RecoveryGrant{}, model.NewError(model.CodeInvalidTransition, "recovery is not allowed for this hook event")
 	}
 	var key string
 	err := h.store.locked(func() error {
@@ -115,7 +115,7 @@ func (h hookRuntime) ClaimRecovery(policy func(model.SessionView) (agent.Recover
 		if !ok || err != nil {
 			return err
 		}
-		if v.Retired || h.store.sessionLiveness(v) == model.LivenessExited || v.State == StateApproval || h.store.listenerStatus(v) == model.ListenerRunning {
+		if v.Retired || h.store.sessionLiveness(v) == model.LivenessExited || v.State == model.StateApproval || h.store.listenerStatus(v) == model.ListenerRunning {
 			return nil
 		}
 		decision, err := policy(viewOf(v))

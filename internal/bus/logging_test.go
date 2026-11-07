@@ -45,7 +45,7 @@ func TestMessageLogsCorrelateWithoutExposingPrivateContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
-		return Receipt{Status: StatusSubmitted, Output: private + key}
+		return Receipt{Status: model.StatusSubmitted, Output: private + key}
 	}}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: private})
 	if err != nil {
@@ -67,7 +67,7 @@ func TestMessageLogsCorrelateWithoutExposingPrivateContent(t *testing.T) {
 	}
 	service.ObserveTool("send_message", from.ID, msg.ID, 1, fmt.Errorf("%s %s", key, private))
 	service.Deliver = func(context.Context, Message, Session) Receipt {
-		return Receipt{Status: StatusNotSent, Error: private + key, Code: ErrorCode(key), Output: private + key}.WithCause(fmt.Errorf("%s: %w", private, syscall.ECONNREFUSED))
+		return Receipt{Status: model.StatusNotSent, Error: private + key, Code: ErrorCode(key), Output: private + key}.WithCause(fmt.Errorf("%s: %w", private, syscall.ECONNREFUSED))
 	}
 	if _, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: private}); err != nil {
 		t.Fatal(err)
@@ -119,7 +119,7 @@ func TestRecoveryLoggingKeepsUncertainReplyUnsubmitted(t *testing.T) {
 	var output bytes.Buffer
 	store.Logger = slog.New(slog.NewJSONHandler(&output, nil))
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "private-recovery-body", Status: StatusSubmitted}
+	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "private-recovery-body", Status: model.StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestRecoveryLoggingKeepsUncertainReplyUnsubmitted(t *testing.T) {
 	matched := false
 	for _, row := range logRows(t, &output) {
 		if row["msg"] == "reply.recovered" {
-			matched = row["level"] == "WARN" && row["message_id"] == reply.ID && row["reply_to"] == parent.ID && row["status"] == string(StatusAttempting)
+			matched = row["level"] == "WARN" && row["message_id"] == reply.ID && row["reply_to"] == parent.ID && row["status"] == string(model.StatusAttempting)
 		}
 		if row["msg"] == "transport.completed" {
 			t.Fatal("recovery submitted a transport")

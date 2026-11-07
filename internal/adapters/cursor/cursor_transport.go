@@ -9,10 +9,11 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters/internal/socketio"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func signalCursor(ctx context.Context, message bus.Message, target bus.Session) bus.Receipt {
-	receipt := bus.NewReceipt(bus.StatusPendingActivity)
+	receipt := bus.NewReceipt(model.StatusPendingActivity)
 	endpoint := &target.Listener.Endpoint
 	if err := bus.CheckEndpoint(endpoint); err != nil {
 		receipt.Error = "Cursor listener unavailable: " + err.Error()
@@ -43,7 +44,7 @@ func signalCursor(ctx context.Context, message bus.Message, target bus.Session) 
 		receipt = receipt.WithCause(err)
 		return receipt
 	}
-	receipt.Status = bus.StatusWakeUncertain
+	receipt.Status = model.StatusWakeUncertain
 	hint := wakeHint{MessageID: message.ID, Generation: target.Generation}
 	if err := json.NewEncoder(conn).Encode(hint); err != nil {
 		receipt.Error = err.Error()
@@ -60,6 +61,6 @@ func signalCursor(ctx context.Context, message bus.Message, target bus.Session) 
 		receipt.Error = "Cursor listener returned a different message identity"
 		return receipt
 	}
-	receipt.At, receipt.Status = bus.NewReceipt(bus.StatusWakeWritten).At, bus.StatusWakeWritten
+	receipt.At, receipt.Status = bus.NewReceipt(model.StatusWakeWritten).At, model.StatusWakeWritten
 	return receipt
 }

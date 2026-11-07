@@ -71,13 +71,13 @@ func (s Store) replyParent(actor, id string) (Message, error) {
 		return parent, err
 	}
 	if parent.To != actor {
-		return parent, fail(CodeUnauthorized, "only the bound recipient can reply")
+		return parent, model.NewError(model.CodeUnauthorized, "only the bound recipient can reply")
 	}
-	if parent.Kind == noticeKind {
-		return parent, fail(CodeInvalidInput, "this is an automatic notice; use send_message to %s", parent.From)
+	if parent.Kind == model.NoticeKind {
+		return parent, model.NewError(model.CodeInvalidInput, "this is an automatic notice; use send_message to %s", parent.From)
 	}
 	if !parent.Status.CanAcknowledge() {
-		return parent, fail(CodeInvalidTransition, "cannot acknowledge a message that was not sent")
+		return parent, model.NewError(model.CodeInvalidTransition, "cannot acknowledge a message that was not sent")
 	}
 	return parent, nil
 }
@@ -89,7 +89,7 @@ func (s Store) replyParent(actor, id string) (Message, error) {
 func (s Store) reserveReply(sender Session, request ReplyRequest, parent Message) (msg Message, target Session, fresh bool, err error) {
 	actor, body := request.Actor, request.Body
 	msg, target, fresh, err = s.prepareMessage(SendRequest{Actor: actor, Capability: request.Capability, To: parent.From, MessageID: replyID(actor, parent.ID, body), Body: body, ReplyTo: parent.ID}, false)
-	if code := ErrorCodeOf(err); code == CodeUnavailable || code == CodeNotFound {
+	if code := ErrorCodeOf(err); code == model.CodeUnavailable || code == model.CodeNotFound {
 		return s.refuseReply(sender, actor, parent, body, target, code, err.Error())
 	}
 	return msg, target, fresh, err
@@ -210,19 +210,19 @@ func (s Store) applyReplyTransaction(path string, tx replyTransaction) error {
 // the ID the reply must have, and the delivery status.
 func validateReplyTransaction(dir, path string, tx replyTransaction) error {
 	if tx.Schema != 1 || tx.Reply.Schema < 0 || tx.Reply.Schema > recordSchema {
-		return fail(CodeUnsupportedSchema, "unsupported reply transaction schema")
+		return model.NewError(model.CodeUnsupportedSchema, "unsupported reply transaction schema")
 	}
 	if _, err := UUID(tx.Reply.ID); err != nil {
 		return err
 	}
 	if path != filepath.Join(dir, "transactions", tx.Reply.ID+".json") || tx.ParentID != tx.Reply.ReplyTo || tx.AcknowledgedAt == "" {
-		return fail(CodeInvalidIdentity, "invalid reply transaction identity")
+		return model.NewError(model.CodeInvalidIdentity, "invalid reply transaction identity")
 	}
 	if tx.Reply.ID != replyID(tx.Reply.From, tx.ParentID, tx.Reply.Body) {
-		return fail(CodeInvalidIdentity, "reply transaction has an invalid retry identity")
+		return model.NewError(model.CodeInvalidIdentity, "reply transaction has an invalid retry identity")
 	}
 	if !tx.Reply.Status.Valid() {
-		return fail(CodeInvalidTransition, "invalid reply transaction status")
+		return model.NewError(model.CodeInvalidTransition, "invalid reply transaction status")
 	}
 	return nil
 }
@@ -236,7 +236,7 @@ func (s Store) matchingReplyParent(tx replyTransaction) (Message, error) {
 		return parent, err
 	}
 	if parent.To != tx.Reply.From || parent.From != tx.Reply.To || !parent.Status.CanAcknowledge() {
-		return parent, fail(CodeConflict, "reply transaction does not match its parent")
+		return parent, model.NewError(model.CodeConflict, "reply transaction does not match its parent")
 	}
 	return parent, nil
 }
@@ -247,7 +247,7 @@ func (s Store) replyReservationMissing(tx replyTransaction) (bool, error) {
 	old, err := s.message(tx.Reply.ID)
 	if err == nil {
 		if old.From != tx.Reply.From || old.To != tx.Reply.To || old.Body != tx.Reply.Body || old.ReplyTo != tx.ParentID || old.TargetGeneration != tx.Reply.TargetGeneration {
-			return false, fail(CodeConflict, "reply reservation conflicts with committed transaction")
+			return false, model.NewError(model.CodeConflict, "reply reservation conflicts with committed transaction")
 		}
 		return false, nil
 	}

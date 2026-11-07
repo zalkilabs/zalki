@@ -36,7 +36,7 @@ import (
 const (
 	emitMessageCap  = 5
 	emitContextCap  = 24 * 1024
-	emitHookPending = StatusPendingActivity
+	emitHookPending = model.StatusPendingActivity
 )
 
 // emitFixture is a cursor target (it delivers through hooks) and a sender.
@@ -140,7 +140,7 @@ func TestEmitPendingStopsAtFiveMessagesInCreationOrder(t *testing.T) {
 		current := f.read(t, msg.ID)
 		wantStatus := emitHookPending
 		if i < emitMessageCap {
-			wantStatus = StatusContextEmitted
+			wantStatus = model.StatusContextEmitted
 		}
 		if current.Status != wantStatus || current.AcknowledgedAt != "" {
 			t.Fatalf("message %d is %q (acknowledged %q), want %q unacknowledged", i, current.Status, current.AcknowledgedAt, wantStatus)
@@ -239,7 +239,7 @@ func TestEmitPendingTakesOnlyThisSessionsUnacknowledgedHookMessages(t *testing.T
 	acknowledged := f.queue(t, "already acknowledged", base.Add(time.Second))
 	f.rewrite(t, acknowledged.ID, func(m *Message) { m.AcknowledgedAt = model.Timestamp() })
 	submitted := f.queue(t, "already delivered", base.Add(2*time.Second))
-	f.rewrite(t, submitted.ID, func(m *Message) { m.Status = StatusSubmitted })
+	f.rewrite(t, submitted.ID, func(m *Message) { m.Status = model.StatusSubmitted })
 	otherGeneration := f.queue(t, "for an older registration", base.Add(3*time.Second))
 	f.rewrite(t, otherGeneration.ID, func(m *Message) { m.TargetGeneration = newID() })
 	otherTarget := f.queue(t, "for another agent", base.Add(4*time.Second))
@@ -255,10 +255,10 @@ func TestEmitPendingTakesOnlyThisSessionsUnacknowledgedHookMessages(t *testing.T
 	}
 	for msg, want := range map[string]DeliveryStatus{
 		acknowledged.ID:    emitHookPending,
-		submitted.ID:       StatusSubmitted,
+		submitted.ID:       model.StatusSubmitted,
 		otherGeneration.ID: emitHookPending,
 		otherTarget.ID:     emitHookPending,
-		wanted.ID:          StatusContextEmitted,
+		wanted.ID:          model.StatusContextEmitted,
 	} {
 		if current := f.read(t, msg); current.Status != want {
 			t.Fatalf("%s is %q, want %q", msg, current.Status, want)
@@ -275,7 +275,7 @@ func TestEmitPendingRefusesAnAdapterWithoutHookDeliveryBeforeAnythingElse(t *tes
 	}
 	// Two faults: the adapter check also comes before the unreachable-target
 	// return, so a retired session of such an adapter still gets the error.
-	if err := store.Update(target.ID, StateRetired, true); err != nil {
+	if err := store.Update(target.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	if text, err := store.EmitPending(target.ID); err == nil || err.Error() != want || text != "" {
@@ -297,7 +297,7 @@ func TestEmitPendingForAnUnreachableTargetReturnsNothingAndNoError(t *testing.T)
 	f := newEmitFixture(t)
 	base := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 	pending := f.queue(t, "waits forever", base)
-	if err := f.store.Update(f.target.ID, StateRetired, true); err != nil {
+	if err := f.store.Update(f.target.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	// An unreadable record would be an error for a live target (see below).
@@ -320,14 +320,14 @@ func TestEmitPendingForAnUnreachableTargetSettlesQueuedApprovals(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	sender, key, target, _ := registerPair(t, store, "codex", "cursor")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	held, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "waits for the prompt"})
-	if err != nil || held.Status != StatusApprovalBlocked || !held.Held {
+	if err != nil || held.Status != model.StatusApprovalBlocked || !held.Held {
 		t.Fatalf("setup: %+v %v", held, err)
 	}
-	if err := store.Update(target.ID, StateRetired, true); err != nil {
+	if err := store.Update(target.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	// Retiring does not settle by itself; EmitPending does.
@@ -338,7 +338,7 @@ func TestEmitPendingForAnUnreachableTargetSettlesQueuedApprovals(t *testing.T) {
 		t.Fatalf("EmitPending = %q, %v", text, err)
 	}
 	after := storedMessage(t, store, held.ID)
-	if after.Held || after.Status != StatusNotSent || after.Receipt == nil || after.Receipt.Error != "destination has retired" {
+	if after.Held || after.Status != model.StatusNotSent || after.Receipt == nil || after.Receipt.Error != "destination has retired" {
 		t.Fatalf("queued approval after EmitPending = %+v", after)
 	}
 }

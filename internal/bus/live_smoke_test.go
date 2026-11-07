@@ -22,6 +22,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/adapters/cursor"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Live smoke composes the real adapter registry from outside package bus.
@@ -156,7 +157,7 @@ func TestLiveClients(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = store.Update(source.ID, bus.StateRetired, true) })
+	t.Cleanup(func() { _ = store.Update(source.ID, model.StateRetired, true) })
 	signals := newSmokeSignals()
 	listenerDone := make(chan struct{})
 	var listenerErr error
@@ -288,9 +289,9 @@ func smokeSession(t *testing.T, store bus.Store, id string) bus.Session {
 
 func smokeAccepted(status bus.DeliveryStatus) bool {
 	switch status {
-	case bus.StatusAttempting, bus.StatusSubmitted, bus.StatusTransportWritten, bus.StatusPendingActivity,
-		bus.StatusWakeWritten, bus.StatusWakeUncertain, bus.StatusContextEmitted,
-		bus.StatusUnknownTimeout, bus.StatusUnknownWrite:
+	case model.StatusAttempting, model.StatusSubmitted, model.StatusTransportWritten, model.StatusPendingActivity,
+		model.StatusWakeWritten, model.StatusWakeUncertain, model.StatusContextEmitted,
+		model.StatusUnknownTimeout, model.StatusUnknownWrite:
 		return true
 	default:
 		return false

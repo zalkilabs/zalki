@@ -93,7 +93,7 @@ func TestClaudeFrameSizeAndMissingEndpoint(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			receipt := adapter.Deliver(context.Background(), bus.Message{ID: newTestID(), Body: test.body}, bus.Session{Endpoint: test.endpoint})
-			if receipt.Status != bus.StatusNotSent || receipt.Error == "" || receipt.At == "" {
+			if receipt.Status != model.StatusNotSent || receipt.Error == "" || receipt.At == "" {
 				t.Fatalf("invalid delivery was not rejected: %+v", receipt)
 			}
 		})

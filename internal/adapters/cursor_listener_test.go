@@ -13,6 +13,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters/cursor"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // listenCursorWithStore keeps listener fixtures on the real lease implementation.
@@ -97,7 +98,7 @@ func TestCursorWakeListenerAndDelivery(t *testing.T) {
 		if _, err := store.Ack(to.ID, toKey, id); err != nil {
 			t.Fatal(err)
 		}
-		msg, err = store.Finish(id, bus.NewReceipt(bus.StatusWakeWritten))
+		msg, err = store.Finish(id, bus.NewReceipt(model.StatusWakeWritten))
 		if err != nil || msg.Status != "hook_context_emitted" || msg.AcknowledgedAt == "" {
 			t.Fatalf("late receipt lost hook emission or ACK: %+v %v", msg, err)
 		}

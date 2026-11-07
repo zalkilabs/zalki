@@ -19,7 +19,7 @@ func retainedEventFixture(t *testing.T) (Store, Session, commitWriter) {
 	for range 2 {
 		testCoveredUpdate(t, store, session.ID, writer)
 	}
-	setEventTestState(t, store, session.ID, StateReady, writer)
+	setEventTestState(t, store, session.ID, model.StateReady, writer)
 	return store, session, writer
 }
 
@@ -34,9 +34,9 @@ func prepareRetainedCommit(t *testing.T, store Store, session Session, writer co
 	if err != nil {
 		t.Fatal(err)
 	}
-	next.State, next.UpdatedAt = StateBusy, model.Timestamp()
+	next.State, next.UpdatedAt = model.StateBusy, model.Timestamp()
 	event := model.Event{ID: newID(), Type: "session.state_changed", OccurredAt: next.UpdatedAt, TransactionID: newID(),
-		Session: model.EventSession{ID: next.ID, Generation: next.Generation, Previous: StateReady, State: StateBusy}}
+		Session: model.EventSession{ID: next.ID, Generation: next.Generation, Previous: model.StateReady, State: model.StateBusy}}
 	batch, err := writer.prepare(prior, next, event, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -117,7 +117,7 @@ func assertInvalidOldestDoesNotWrite(t *testing.T, fault string) {
 		if err != nil {
 			return err
 		}
-		next.State, next.UpdatedAt = StateBusy, model.Timestamp()
+		next.State, next.UpdatedAt = model.StateBusy, model.Timestamp()
 		return saveSessionWith(store, next, writer)
 	})
 	if err == nil {

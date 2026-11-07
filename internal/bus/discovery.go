@@ -36,7 +36,7 @@ func (s Store) DiscoverFor(actor, key string) ([]AgentInfo, error) {
 
 func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error) {
 	if (actor == "") != (key == "") {
-		return nil, 0, fail(CodeInvalidInput, "actor and capability must be provided together")
+		return nil, 0, model.NewError(model.CodeInvalidInput, "actor and capability must be provided together")
 	}
 	var sessions []Session
 	var skipped int
@@ -58,7 +58,7 @@ func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error)
 		row := AgentInfo{ID: v.ID, Name: v.Name, Self: v.ID == actor, Task: v.Task, CWD: v.CWD, State: v.State,
 			Liveness: v.Liveness, UpdatedAt: v.UpdatedAt,
 			Delivery: v.Receive.BusyDelivery, Experimental: v.Receive.Experimental}
-		if row.State == StateReady {
+		if row.State == model.StateReady {
 			row.State = ""
 		}
 		if row.Liveness == "unknown" {

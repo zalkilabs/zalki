@@ -17,10 +17,6 @@ import (
 // watchTTL is how long a one-shot completion watch stays armed.
 const watchTTL = 12 * time.Hour
 
-// noticeKind marks an automatic completion notice so it cannot be mistaken for
-// a message the target chose to send.
-const noticeKind = model.NoticeKind
-
 // statusLineLimit is the maximum status text copied from a Stop hook.
 const statusLineLimit = 200
 
@@ -57,7 +53,7 @@ func (s *Service) Watch(actor, key, to string) (WatchResult, error) {
 			return err
 		}
 		if watcher.ID == target.ID {
-			return fail(CodeInvalidInput, "watching your own session is not supported")
+			return model.NewError(model.CodeInvalidInput, "watching your own session is not supported")
 		}
 		result.To = target.ID
 		if target.Retired || s.Store.sessionLiveness(target) == model.LivenessExited {
@@ -93,7 +89,7 @@ func (s Store) watchPath(watcher, target string) (string, error) {
 
 func (s Store) saveWatch(v Watch) error {
 	if v.Schema < 0 || v.Schema > recordSchema {
-		return fail(CodeUnsupportedSchema, "unsupported watch schema %d", v.Schema)
+		return model.NewError(model.CodeUnsupportedSchema, "unsupported watch schema %d", v.Schema)
 	}
 	path, err := s.watchPath(v.Watcher, v.Target)
 	if err != nil {
@@ -248,11 +244,11 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 		}
 		target = current
 		msg = Message{
-			Schema: recordSchema, ID: newID(), Kind: noticeKind, From: subject.ID, FromName: subject.Name,
+			Schema: recordSchema, ID: newID(), Kind: model.NoticeKind, From: subject.ID, FromName: subject.Name,
 			FromLabel: "Zalki", To: current.ID, Body: body,
-			TargetGeneration: current.Generation, CreatedAt: model.Timestamp(), Status: StatusAttempting,
+			TargetGeneration: current.Generation, CreatedAt: model.Timestamp(), Status: model.StatusAttempting,
 		}
-		if current.State == StateApproval {
+		if current.State == model.StateApproval {
 			if err := s.Store.holdForApproval(&msg); err != nil {
 				if moveErr := msg.SettleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
 					return moveErr
@@ -323,7 +319,7 @@ func (s *Service) deliverEnded(ctx context.Context, subject Session, watches []W
 	for _, watch := range watches {
 		message, err := s.deliverCompletion(ctx, watch.Watcher, subject, body)
 		if err == nil && message.Receipt != nil && message.Receipt.Error != "" && !message.IsQueuedForApproval() {
-			err = fail(CodeUnavailable, "completion notice was not delivered")
+			err = model.NewError(model.CodeUnavailable, "completion notice was not delivered")
 		}
 		if err != nil && first == nil {
 			first = err

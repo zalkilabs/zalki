@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // These tests pin the event-data attributes constructed by Store.logEvent,
@@ -197,7 +199,7 @@ func TestLogEventKeepsOnlyKnownAgentsEventsAndStages(t *testing.T) {
 
 func TestLogEventKeepsOnlyValidStatusesAndStates(t *testing.T) {
 	assertLogCases(t, []logCase{
-		{"status, receipt status and state are kept", eventData{Status: StatusSubmitted, ReceiptStatus: StatusNotSent, State: StateApproval},
+		{"status, receipt status and state are kept", eventData{Status: model.StatusSubmitted, ReceiptStatus: model.StatusNotSent, State: model.StateApproval},
 			[]string{"status=submitted", "receipt_status=not_sent", "state=approval"}},
 		{"an invalid status is dropped", eventData{Status: "secret-status"}, nil},
 		{"an invalid receipt status is dropped", eventData{ReceiptStatus: "secret-status"}, nil},
@@ -213,13 +215,13 @@ func TestLogEventNeverWritesErrorText(t *testing.T) {
 		{"an error that is not classified is other", eventData{Err: errors.New("secret text")}, []string{"error_kind=other", "error_code=internal"}},
 		{"a missing file is classified and coded", eventData{Err: fmt.Errorf("secret: %w", os.ErrNotExist)}, []string{"error_kind=not_found", "error_code=not_found"}},
 		{"a permission error is coded unauthorized", eventData{Err: fmt.Errorf("secret: %w", os.ErrPermission)}, []string{"error_kind=permission_denied", "error_code=unauthorized"}},
-		{"a coded error gives its code", eventData{Err: fail(CodeConflict, "secret message")}, []string{"error_kind=other", "error_code=conflict"}},
+		{"a coded error gives its code", eventData{Err: model.NewError(model.CodeConflict, "secret message")}, []string{"error_kind=other", "error_code=conflict"}},
 		{"no error gives no error attributes", eventData{}, nil},
 	})
 }
 
 func TestLogEventErrorCodePrecedenceAndAllowlist(t *testing.T) {
-	known := []ErrorCode{CodeInvalidInput, CodeInvalidIdentity, CodeUnauthorized, CodeConflict, CodeUnavailable, CodeRateLimited, CodeNotFound, CodeUnsupportedSchema, CodeInvalidTransition, CodeInternal}
+	known := []ErrorCode{model.CodeInvalidInput, model.CodeInvalidIdentity, model.CodeUnauthorized, model.CodeConflict, model.CodeUnavailable, model.CodeRateLimited, model.CodeNotFound, model.CodeUnsupportedSchema, model.CodeInvalidTransition, model.CodeInternal}
 	cases := make([]logCase, 0, len(known)+5)
 	for _, code := range known {
 		cases = append(cases, logCase{"the code " + string(code) + " is kept", eventData{Code: code}, []string{"error_code=" + string(code)}})
@@ -227,11 +229,11 @@ func TestLogEventErrorCodePrecedenceAndAllowlist(t *testing.T) {
 	cases = append(cases,
 		logCase{"an unknown code is written as internal", eventData{Code: "secret-code"}, []string{"error_code=internal"}},
 		// A rate limit used to be written as internal (the code was missing from the list).
-		logCase{"a rate limit is kept", eventData{Code: CodeRateLimited}, []string{"error_code=rate_limited"}},
+		logCase{"a rate limit is kept", eventData{Code: model.CodeRateLimited}, []string{"error_code=rate_limited"}},
 		// Two faults at once: Code is looked at first and does not fall back to Err.
-		logCase{"a code set together with an error: the code wins", eventData{Code: CodeUnavailable, Err: fail(CodeConflict, "x")}, []string{"error_kind=other", "error_code=unavailable"}},
-		logCase{"an unknown code with a known error: internal, not the error's code", eventData{Code: "secret-code", Err: fail(CodeConflict, "x")}, []string{"error_kind=other", "error_code=internal"}},
-		logCase{"no code: the error's code", eventData{Err: fail(CodeNotFound, "x")}, []string{"error_kind=other", "error_code=not_found"}},
+		logCase{"a code set together with an error: the code wins", eventData{Code: model.CodeUnavailable, Err: model.NewError(model.CodeConflict, "x")}, []string{"error_kind=other", "error_code=unavailable"}},
+		logCase{"an unknown code with a known error: internal, not the error's code", eventData{Code: "secret-code", Err: model.NewError(model.CodeConflict, "x")}, []string{"error_kind=other", "error_code=internal"}},
+		logCase{"no code: the error's code", eventData{Err: model.NewError(model.CodeNotFound, "x")}, []string{"error_kind=other", "error_code=not_found"}},
 	)
 	assertLogCases(t, cases)
 }
@@ -253,8 +255,8 @@ func TestLogEventWritesEverythingInOneFixedOrder(t *testing.T) {
 	all := eventData{
 		Actor: "codex:" + goodUUID, Recipient: "claude:" + otherUUID, MessageID: goodUUID, ReplyTo: otherUUID, Generation: thirdUUID,
 		Agent: "cursor", HookEvent: "Stop", HookStage: "decode",
-		Status: StatusSubmitted, ReceiptStatus: StatusNotSent, State: StateReady,
-		Code: CodeConflict, Err: errors.New("secret"), Duration: 3 * time.Millisecond, Reused: true,
+		Status: model.StatusSubmitted, ReceiptStatus: model.StatusNotSent, State: model.StateReady,
+		Code: model.CodeConflict, Err: errors.New("secret"), Duration: 3 * time.Millisecond, Reused: true,
 	}
 	want := []string{
 		"message_id=" + goodUUID, "reply_to=" + otherUUID, "generation=" + thirdUUID,

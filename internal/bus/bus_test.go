@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestConcurrentIdempotencyAcrossStoreInstances(t *testing.T) {
@@ -119,7 +121,7 @@ func TestApprovalAndRetirementPreventTransport(t *testing.T) {
 	}
 	id := newID()
 	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: id, Body: "test"})
-	if err != nil || msg.Status != StatusApprovalBlocked {
+	if err != nil || msg.Status != model.StatusApprovalBlocked {
 		t.Fatalf("%+v %v", msg, err)
 	}
 	if _, err := store.Ack(target.ID, targetKey, id); err == nil {
@@ -153,10 +155,10 @@ func TestClaudeTransportEnabledByDefault(t *testing.T) {
 	delivered := false
 	service.Deliver = func(context.Context, Message, Session) Receipt {
 		delivered = true
-		return Receipt{Status: StatusTransportWritten}
+		return Receipt{Status: model.StatusTransportWritten}
 	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "test"})
-	if err != nil || msg.Status != StatusTransportWritten || !delivered {
+	if err != nil || msg.Status != model.StatusTransportWritten || !delivered {
 		t.Fatalf("Claude was not enabled by default: %+v %v", msg, err)
 	}
 }

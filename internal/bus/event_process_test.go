@@ -10,16 +10,17 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func runEventChild(t *testing.T, dir, id string) {
 	t.Helper()
 	store := Store{Dir: dir, Registry: testRegistry()}
 	for range 10 {
-		if err := store.Update(id, StateReady, false); err != nil {
+		if err := store.Update(id, model.StateReady, false); err != nil {
 			t.Fatal(err)
 		}
-		if err := store.Update(id, StateBusy, false); err != nil {
+		if err := store.Update(id, model.StateBusy, false); err != nil {
 			t.Fatal(err)
 		}
 	}

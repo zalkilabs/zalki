@@ -114,7 +114,7 @@ func (s Store) AcquireListenerLease(actor, key string) (lease *Lease, err error)
 			return err
 		}
 		if !adapter.ReceiveCapabilities(v).RequiresListener {
-			return fail(CodeInvalidInput, "a native listener requires your own listener-capable identity")
+			return model.NewError(model.CodeInvalidInput, "a native listener requires your own listener-capable identity")
 		}
 		return nil
 	})
@@ -141,7 +141,7 @@ func acquireListenerLock(path string, open func(string, bool) (int, error)) (int
 		}
 		if err := journal.LockExclusive(fd, true); err != nil {
 			_ = journal.CloseLockFile(fd)
-			return -1, fail(CodeConflict, "this conversation already has a listener; keep its original native task")
+			return -1, model.NewError(model.CodeConflict, "this conversation already has a listener; keep its original native task")
 		}
 		linked, err := lockFileStillLinked(fd, path)
 		if err != nil {
@@ -152,7 +152,7 @@ func acquireListenerLock(path string, open func(string, bool) (int, error)) (int
 			return fd, nil
 		}
 		_ = journal.CloseLockFile(fd)
-		last = fail(CodeConflict, "listener lock changed while it was being acquired")
+		last = model.NewError(model.CodeConflict, "listener lock changed while it was being acquired")
 	}
 	return -1, last
 }
@@ -187,7 +187,7 @@ func (l *Lease) Arm(endpoint *model.Endpoint) error {
 			return err
 		}
 		if current.Generation != l.gen {
-			return fail(CodeConflict, "registration changed while arming its listener")
+			return model.NewError(model.CodeConflict, "registration changed while arming its listener")
 		}
 		current.Listener = &model.ListenerLease{ID: l.id, Generation: l.gen, Endpoint: bound}
 		return l.store.saveSession(current)
@@ -208,7 +208,7 @@ func (l *Lease) Confirm(policy func(model.SessionView) (json.RawMessage, error))
 			return err
 		}
 		if !l.owns(current) {
-			return fail(CodeConflict, "registration changed while completing listener setup")
+			return model.NewError(model.CodeConflict, "registration changed while completing listener setup")
 		}
 		next, err := policy(viewOf(current))
 		if err != nil {
@@ -236,14 +236,14 @@ func (l *Lease) ValidateDelivery(messageID string) (acknowledged bool, err error
 		if err != nil {
 			return err
 		}
-		if current.Retired || !l.owns(current) || current.State == StateApproval {
+		if current.Retired || !l.owns(current) || current.State == model.StateApproval {
 			return errors.New("listener is no longer the active recipient")
 		}
 		message, err := l.store.message(messageID)
 		if err != nil {
 			return err
 		}
-		if message.To != l.actor || message.TargetGeneration != l.gen || (!model.HookPendingStatus(message.Status) && message.Status != StatusContextEmitted) {
+		if message.To != l.actor || message.TargetGeneration != l.gen || (!model.HookPendingStatus(message.Status) && message.Status != model.StatusContextEmitted) {
 			return errors.New("hint does not refer to this recipient's pending message")
 		}
 		acknowledged = message.AcknowledgedAt != ""

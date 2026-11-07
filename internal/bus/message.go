@@ -19,7 +19,7 @@ func (s Store) message(id string) (Message, error) {
 		err = readRecord(filepath.Join(s.Dir, "messages", id+".json"), &msg, &msg.Schema)
 	}
 	if err == nil && msg.ID != id {
-		err = fail(CodeInvalidIdentity, "message file identity mismatch")
+		err = model.NewError(model.CodeInvalidIdentity, "message file identity mismatch")
 	}
 	return msg, err
 }
@@ -48,7 +48,7 @@ func (s Store) saveMessage(v Message) error {
 
 func (s Store) saveMessageRecord(v Message, previous json.RawMessage) error {
 	if v.Schema < 0 || v.Schema > recordSchema {
-		return fail(CodeUnsupportedSchema, "unsupported message schema %d", v.Schema)
+		return model.NewError(model.CodeUnsupportedSchema, "unsupported message schema %d", v.Schema)
 	}
 	if _, err := UUID(v.ID); err != nil {
 		return err
@@ -75,7 +75,7 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (message Messag
 	}
 	request.MessageID = id
 	if len(request.Body) == 0 || len(request.Body) > 16*1024 || strings.ContainsRune(request.Body, 0) {
-		return message, target, false, fail(CodeInvalidInput, "body must be 1..16384 UTF-8 bytes without NUL")
+		return message, target, false, model.NewError(model.CodeInvalidInput, "body must be 1..16384 UTF-8 bytes without NUL")
 	}
 	sender, err := s.authenticate(request.Actor, request.Capability)
 	if err != nil {
@@ -84,7 +84,7 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (message Messag
 	old, err := s.message(id)
 	if err == nil {
 		if old.From != request.Actor || (old.To != request.To && (old.RequestedTo == "" || old.RequestedTo != request.To)) || old.Body != request.Body || old.ReplyTo != request.ReplyTo {
-			return message, target, false, fail(CodeConflict, "message UUID already used with different contents")
+			return message, target, false, model.NewError(model.CodeConflict, "message UUID already used with different contents")
 		}
 		s.logEvent(slog.LevelDebug, "message.reused", messageEvent(old))
 		return old, target, false, nil // Never submit the same message twice, even after a crash.
@@ -106,14 +106,14 @@ func (s Store) reserveNewMessage(sender Session, request SendRequest, persist bo
 		return message, target, false, err
 	}
 	if target.Retired {
-		return message, target, false, fail(CodeUnavailable, "destination has retired")
+		return message, target, false, model.NewError(model.CodeUnavailable, "destination has retired")
 	}
 	if s.sessionLiveness(target) == model.LivenessExited {
-		return message, target, false, fail(CodeUnavailable, "destination owner process has exited")
+		return message, target, false, model.NewError(model.CodeUnavailable, "destination owner process has exited")
 	}
 	to := target.ID
 	if actor == to {
-		return message, target, false, fail(CodeInvalidInput, "self messages are not supported")
+		return message, target, false, model.NewError(model.CodeInvalidInput, "self messages are not supported")
 	}
 	if replyTo != "" {
 		parent, err := s.message(replyTo)
@@ -121,7 +121,7 @@ func (s Store) reserveNewMessage(sender Session, request SendRequest, persist bo
 			return message, target, false, err
 		}
 		if parent.To != actor || parent.From != to {
-			return message, target, false, fail(CodeUnauthorized, "reply must return to the original sender")
+			return message, target, false, model.NewError(model.CodeUnauthorized, "reply must return to the original sender")
 		}
 	}
 	message, err = s.outgoingMessage(sender, target, id, body, replyTo)
@@ -131,7 +131,7 @@ func (s Store) reserveNewMessage(sender Session, request SendRequest, persist bo
 	if requestedTo != to {
 		message.RequestedTo = requestedTo
 	}
-	if target.State == StateApproval {
+	if target.State == model.StateApproval {
 		if err := s.approvalCapacity(message.To); err != nil {
 			return message, target, false, err
 		}
@@ -142,12 +142,12 @@ func (s Store) reserveNewMessage(sender Session, request SendRequest, persist bo
 		}
 		return message, target, false, err
 	}
-	if target.State == StateApproval {
+	if target.State == model.StateApproval {
 		if err := message.Hold(); err != nil {
 			return message, target, false, err
 		}
 	}
-	fresh = target.State != StateApproval
+	fresh = target.State != model.StateApproval
 	if persist {
 		if err := s.saveReservation(message); err != nil {
 			return message, target, fresh, err
@@ -164,7 +164,7 @@ func (s Store) outgoingMessage(sender, target Session, id, body, replyTo string)
 	if err != nil {
 		return Message{}, err
 	}
-	return Message{Schema: recordSchema, ID: id, From: sender.ID, FromName: senders[0].Name, FromLabel: adapter.Descriptor().Label, To: target.ID, Body: body, ReplyTo: replyTo, TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: StatusAttempting}, nil
+	return Message{Schema: recordSchema, ID: id, From: sender.ID, FromName: senders[0].Name, FromLabel: adapter.Descriptor().Label, To: target.ID, Body: body, ReplyTo: replyTo, TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusAttempting}, nil
 }
 
 func (s Store) Finish(id string, receipt Receipt) (Message, error) {
@@ -191,7 +191,7 @@ func (s Store) Finish(id string, receipt Receipt) (Message, error) {
 		data.ReceiptStatus, data.Code = receipt.Status, receipt.Code
 		data.Err = receipt.Cause()
 		level := slog.LevelDebug
-		if msg.Status == StatusNotSent {
+		if msg.Status == model.StatusNotSent {
 			level = slog.LevelWarn
 		}
 		s.logEvent(level, "message.receipt_saved", data)
@@ -217,10 +217,10 @@ func (s Store) Ack(actor, key, id string) (result Message, resultErr error) {
 			return err
 		}
 		if msg.To != actor {
-			return fail(CodeUnauthorized, "only the bound recipient can acknowledge")
+			return model.NewError(model.CodeUnauthorized, "only the bound recipient can acknowledge")
 		}
 		if !msg.Status.CanAcknowledge() {
-			return fail(CodeInvalidTransition, "cannot acknowledge a message that was not sent")
+			return model.NewError(model.CodeInvalidTransition, "cannot acknowledge a message that was not sent")
 		}
 		first := msg.AcknowledgedAt == ""
 		candidate := msg

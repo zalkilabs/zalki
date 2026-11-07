@@ -59,11 +59,11 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 		return held, nil
 	}
 	if err != nil {
-		return s.Store.Finish(id, Receipt{At: model.Timestamp(), Status: StatusNotSent, Error: err.Error()}.WithCause(err))
+		return s.Store.Finish(id, Receipt{At: model.Timestamp(), Status: model.StatusNotSent, Error: err.Error()}.WithCause(err))
 	}
 	target = current
 	if target.Receive.HookDelivery {
-		msg, err = s.Store.Finish(id, Receipt{At: model.Timestamp(), Status: StatusPendingActivity})
+		msg, err = s.Store.Finish(id, Receipt{At: model.Timestamp(), Status: model.StatusPendingActivity})
 		if err != nil {
 			return msg, err
 		}
@@ -75,7 +75,7 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 	}
 	receipt := s.runTransport(ctx, deliver, msg, target)
 	result, err := s.Store.Finish(id, receipt)
-	if err == nil && target.State == StateBusy {
+	if err == nil && target.State == model.StateBusy {
 		result.BusyDelivery = target.Receive.BusyDelivery
 	}
 	return result, err
@@ -92,12 +92,12 @@ func (s *Service) revalidateTarget(id string, target Session) (current Session, 
 			return err
 		}
 		if current.Retired || current.Generation != target.Generation {
-			return fail(CodeUnavailable, "destination registration changed before delivery")
+			return model.NewError(model.CodeUnavailable, "destination registration changed before delivery")
 		}
 		if s.Store.sessionLiveness(current) == model.LivenessExited {
-			return fail(CodeUnavailable, "destination owner process exited before delivery")
+			return model.NewError(model.CodeUnavailable, "destination owner process exited before delivery")
 		}
-		if current.State != StateApproval {
+		if current.State != model.StateApproval {
 			return nil
 		}
 		stored, err := s.Store.message(id)
@@ -127,7 +127,7 @@ func (s *Service) runTransport(ctx context.Context, deliver func(context.Context
 	data.Err = receipt.Cause()
 	data.Agent = target.Kind
 	if receipt.Error != "" && data.Code == "" {
-		data.Code = CodeUnavailable
+		data.Code = model.CodeUnavailable
 	}
 	data.Duration = time.Since(started)
 	s.Store.logEvent(receiptLogLevel(receipt), "transport.completed", data)
@@ -137,10 +137,10 @@ func (s *Service) runTransport(ctx context.Context, deliver func(context.Context
 // receiptLogLevel warns for outcomes where delivery failed or is uncertain.
 func receiptLogLevel(receipt Receipt) slog.Level {
 	switch receipt.Status {
-	case StatusNotSent, StatusCommandFailed, StatusUnknownTimeout, StatusUnknownWrite, StatusWakeUncertain:
+	case model.StatusNotSent, model.StatusCommandFailed, model.StatusUnknownTimeout, model.StatusUnknownWrite, model.StatusWakeUncertain:
 		return slog.LevelWarn
-	case StatusAttempting, StatusSubmitted, StatusTransportWritten, StatusPendingActivity,
-		StatusWakeWritten, StatusContextEmitted, StatusApprovalBlocked, StatusQueuedForApproval:
+	case model.StatusAttempting, model.StatusSubmitted, model.StatusTransportWritten, model.StatusPendingActivity,
+		model.StatusWakeWritten, model.StatusContextEmitted, model.StatusApprovalBlocked, model.StatusQueuedForApproval:
 		// These outcomes still warn when the receipt carries public error text.
 	}
 	if receipt.Error != "" {
@@ -151,13 +151,13 @@ func receiptLogLevel(receipt Receipt) slog.Level {
 
 func validateMessageBody(body, key string) error {
 	if !utf8.ValidString(body) {
-		return fail(CodeInvalidInput, "body is not valid UTF-8")
+		return model.NewError(model.CodeInvalidInput, "body is not valid UTF-8")
 	}
 	if len(body) == 0 || len(body) > 16*1024 || strings.ContainsRune(body, 0) {
-		return fail(CodeInvalidInput, "body must be 1..16384 UTF-8 bytes without NUL")
+		return model.NewError(model.CodeInvalidInput, "body must be 1..16384 UTF-8 bytes without NUL")
 	}
 	if key != "" && strings.Contains(body, key) {
-		return fail(CodeInvalidInput, "refusing to include your session capability in an agent message")
+		return model.NewError(model.CodeInvalidInput, "refusing to include your session capability in an agent message")
 	}
 	return nil
 }

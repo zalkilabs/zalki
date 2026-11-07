@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // These tests pin four behaviors that mutation checks of the complexity
@@ -67,7 +69,7 @@ func TestPruneDoesNotSettleTheQueueOfASessionWhoseRecordIsUnusable(t *testing.T)
 		if err != nil || !slices.Equal(report.Sessions, want) {
 			t.Fatalf("dry=%v: reported %v (%v), want only %v", dryRun, report.Sessions, err, want)
 		}
-		if current := journalMessage(t, store, queued.ID); !current.Held || current.Status != StatusApprovalBlocked {
+		if current := journalMessage(t, store, queued.ID); !current.Held || current.Status != model.StatusApprovalBlocked {
 			t.Fatalf("dry=%v: the queue of a session with an unusable record was settled: %+v", dryRun, current)
 		}
 	}
@@ -107,7 +109,7 @@ func TestPruneRecountsARetiredSessionThatHoldsACountButHasNoQueue(t *testing.T) 
 func retiredWithHeld(t *testing.T, store Store, last string, held int) Session {
 	t.Helper()
 	v := fixedSession(t, store, last)
-	if err := store.Update(v.ID, StateRetired, true); err != nil {
+	if err := store.Update(v.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	current, err := store.session(v.ID)

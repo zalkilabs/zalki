@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // TestCallerVisibleErrorCodes pins the error code each public operation
@@ -29,7 +30,7 @@ func TestCallerVisibleErrorCodes(t *testing.T) {
 		}, "not_found"},
 		{"send to a retired session", func(t *testing.T, store bus.Store, from, to agent) error {
 			t.Helper()
-			if err := store.Update(to.ID, bus.StateRetired, true); err != nil {
+			if err := store.Update(to.ID, model.StateRetired, true); err != nil {
 				t.Fatal(err)
 			}
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "hi"})
@@ -79,10 +80,10 @@ func TestCallerVisibleErrorCodes(t *testing.T) {
 			return err
 		}, "unauthorized"},
 		{"update to retired without retiring", func(_ *testing.T, store bus.Store, _, to agent) error {
-			return store.Update(to.ID, bus.StateRetired, false)
+			return store.Update(to.ID, model.StateRetired, false)
 		}, "invalid_transition"},
 		{"update to a live state while retiring", func(_ *testing.T, store bus.Store, _, to agent) error {
-			return store.Update(to.ID, bus.StateBusy, true)
+			return store.Update(to.ID, model.StateBusy, true)
 		}, "invalid_transition"},
 		{"register an unsupported agent kind", func(t *testing.T, store bus.Store, _, _ agent) error {
 			t.Helper()
@@ -145,7 +146,7 @@ func TestNewerStateFormatFencesWritesButNotReads(t *testing.T) {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "hi"})
 		},
 		"Register": func() error { _, _, err := store.Register("alpha", newUUID(t), "/workspace", nil); return err },
-		"Update":   func() error { return store.Update(to.ID, bus.StateBusy, false) },
+		"Update":   func() error { return store.Update(to.ID, model.StateBusy, false) },
 		"Prune":    func() error { _, err := store.Prune(false, nil); return err },
 	}
 	for name, write := range writes {
@@ -177,7 +178,7 @@ func TestUpdateOfAnUnknownSessionIsASilentNoOp(t *testing.T) {
 	store := newStore(t, nativeAdapter("alpha"))
 	register(t, store, "alpha")
 	before := snapshot(t, store.Dir)
-	if err := store.Update("alpha:11111111-1111-4111-8111-111111111111", bus.StateBusy, false); err != nil {
+	if err := store.Update("alpha:11111111-1111-4111-8111-111111111111", model.StateBusy, false); err != nil {
 		t.Fatalf("Update of an unknown session: %v", err)
 	}
 	if after := snapshot(t, store.Dir); !maps.Equal(before, after) {

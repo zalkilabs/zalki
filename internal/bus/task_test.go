@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestSetTaskStoresClearsAndRejectsLimits(t *testing.T) {
@@ -19,14 +21,14 @@ func TestSetTaskStoresClearsAndRejectsLimits(t *testing.T) {
 	if err != nil || current.Task != "review the queue" || current.UpdatedAt != session.UpdatedAt {
 		t.Fatalf("claim was not stored on the caller: %+v %v", current, err)
 	}
-	if _, err := service.SetTask(other.ID, key, "not yours"); ErrorCodeOf(err) != CodeUnauthorized {
+	if _, err := service.SetTask(other.ID, key, "not yours"); ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("another agent's capability was accepted", err)
 	}
 	untouched, err := store.session(other.ID)
 	if err != nil || untouched.Task != "" {
 		t.Fatalf("another agent's task changed: %+v %v", untouched, err)
 	}
-	if _, err := service.SetTask(session.ID, otherKey, "review the queue"); ErrorCodeOf(err) != CodeUnauthorized {
+	if _, err := service.SetTask(session.ID, otherKey, "review the queue"); ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("wrong capability was accepted", err)
 	}
 
@@ -45,7 +47,7 @@ func TestSetTaskStoresClearsAndRejectsLimits(t *testing.T) {
 		string([]byte{0xff}),
 		"nul\x00",
 	} {
-		if _, err := service.SetTask(session.ID, key, invalid); ErrorCodeOf(err) != CodeInvalidInput {
+		if _, err := service.SetTask(session.ID, key, invalid); ErrorCodeOf(err) != model.CodeInvalidInput {
 			t.Fatalf("accepted %q: %v", invalid, err)
 		}
 	}
@@ -122,10 +124,10 @@ func TestTaskSurvivesResumeAndClearsOnRetirement(t *testing.T) {
 	if err != nil || resumed.Generation != session.Generation || resumed.Task != "keep across resume" || resumed.ApprovalHeld != 2 {
 		t.Fatalf("resume dropped the claim or approval count: %+v %v", resumed, err)
 	}
-	if _, err := service.SetTask(session.ID, key, "stale key"); ErrorCodeOf(err) != CodeUnauthorized {
+	if _, err := service.SetTask(session.ID, key, "stale key"); ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("resume kept the old capability", err)
 	}
-	if err := store.Update(session.ID, StateRetired, true); err != nil {
+	if err := store.Update(session.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	retired, err := store.session(session.ID)

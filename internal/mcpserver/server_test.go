@@ -17,6 +17,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
@@ -160,7 +161,7 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 	var failure struct {
 		Error ToolError `json:"error"`
 	}
-	if err := json.Unmarshal(encoded, &failure); err != nil || failure.Error.Code != bus.CodeInvalidIdentity {
+	if err := json.Unmarshal(encoded, &failure); err != nil || failure.Error.Code != model.CodeInvalidIdentity {
 		t.Fatalf("domain failure has no structured stable code: %s %v", encoded, err)
 	}
 }

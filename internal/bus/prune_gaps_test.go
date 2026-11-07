@@ -63,7 +63,7 @@ func ageOf(t *testing.T, stamp string) time.Duration {
 func retiredWithLease(t *testing.T, store Store, ago time.Duration) Session {
 	t.Helper()
 	v, _ := register(t, store, "cursor")
-	v.Retired, v.State, v.RetiredReason, v.Listener = true, StateRetired, "session_end", staleListener()
+	v.Retired, v.State, v.RetiredReason, v.Listener = true, model.StateRetired, "session_end", staleListener()
 	v.UpdatedAt = time.Now().Add(-ago).UTC().Format(time.RFC3339Nano)
 	if err := store.locked(func() error { return store.saveSession(v) }); err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func assertLeaseReleased(t *testing.T, store Store, id, lock string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if released.Listener != nil || !released.Retired || released.State != StateRetired || released.RetiredReason != "session_end" {
+	if released.Listener != nil || !released.Retired || released.State != model.StateRetired || released.RetiredReason != "session_end" {
 		t.Fatalf("released session = %+v, want it still retired for the same reason, with no lease", released)
 	}
 	if age := ageOf(t, released.UpdatedAt); age < 0 || age > time.Minute {
@@ -196,7 +196,7 @@ func queuedFor(t *testing.T, store Store, sender Session, target string) Message
 	t.Helper()
 	msg := Message{
 		Schema: recordSchema, ID: newID(), From: sender.ID, To: target, Body: "waits", CreatedAt: model.Timestamp(),
-		Status: StatusApprovalBlocked, Held: true, Receipt: &Receipt{At: model.Timestamp(), Status: StatusApprovalBlocked, Error: model.ApprovalQueuedNote},
+		Status: model.StatusApprovalBlocked, Held: true, Receipt: &Receipt{At: model.Timestamp(), Status: model.StatusApprovalBlocked, Error: model.ApprovalQueuedNote},
 	}
 	if current, err := store.session(target); err == nil {
 		msg.TargetGeneration = current.Generation
@@ -238,7 +238,7 @@ func TestPruneDryRunOnAMissingApprovalTargetMatchesTheAppliedRun(t *testing.T) {
 		t.Fatalf("dry-run reported %v (%v), want %v", preview.Sessions, err, want)
 	}
 	for _, msg := range queued {
-		if current := journalMessage(t, store, msg.ID); !current.Held || current.Status != StatusApprovalBlocked {
+		if current := journalMessage(t, store, msg.ID); !current.Held || current.Status != model.StatusApprovalBlocked {
 			t.Fatalf("a dry run settled %s: %+v", msg.ID, current)
 		}
 	}
@@ -248,7 +248,7 @@ func TestPruneDryRunOnAMissingApprovalTargetMatchesTheAppliedRun(t *testing.T) {
 	}
 	for _, msg := range queued {
 		current := journalMessage(t, store, msg.ID)
-		if current.Held || current.Status != StatusNotSent || current.Receipt == nil || current.Receipt.Error != "destination has retired" {
+		if current.Held || current.Status != model.StatusNotSent || current.Receipt == nil || current.Receipt.Error != "destination has retired" {
 			t.Fatalf("queue of a missing target after prune = %+v", current)
 		}
 	}
@@ -334,10 +334,10 @@ func TestPruneReportsApprovalDecisionsInOrderAndDryRunMatchesApply(t *testing.T)
 		t.Fatalf("applied run reported\n%v\n(%v), want the dry-run list\n%v", report.Sessions, err, want)
 	}
 	assertHoldCounts(t, store, map[string]int{stale.ID: 0, short.ID: 1, retiring.ID: 0, steady.ID: 1}, true)
-	if current := journalMessage(t, store, retiringMsg.ID); current.Held || current.Status != StatusNotSent {
+	if current := journalMessage(t, store, retiringMsg.ID); current.Held || current.Status != model.StatusNotSent {
 		t.Fatalf("the queue of the retired session = %+v", current)
 	}
-	if current := journalMessage(t, store, steadyMsg.ID); !current.Held || current.Status != StatusApprovalBlocked {
+	if current := journalMessage(t, store, steadyMsg.ID); !current.Held || current.Status != model.StatusApprovalBlocked {
 		t.Fatalf("a matching live queue was touched: %+v", current)
 	}
 }
@@ -408,7 +408,7 @@ func TestPruneReportsExplicitCleanupBeforeOwnerExited(t *testing.T) {
 			if err != nil || current.Retired != !dry {
 				t.Fatalf("dry=%v: %s retired=%v (%v)", dry, item.ID, current.Retired, err)
 			}
-			if !dry && (current.State != StateRetired || current.RetiredReason != item.Reason) {
+			if !dry && (current.State != model.StateRetired || current.RetiredReason != item.Reason) {
 				t.Fatalf("retirement of %s: state=%q reason=%q, want retired for %q", item.ID, current.State, current.RetiredReason, item.Reason)
 			}
 		}

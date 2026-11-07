@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestReceiptReadDoesNotCreateSecondNativeInbox(t *testing.T) {
@@ -55,7 +57,7 @@ func TestCompletedNativePromptGenerationFenceIsReadOnly(t *testing.T) {
 	store := service.Store
 	from, key, to, _ := registerPair(t, store, "cursor", "codex")
 	service.Deliver = func(context.Context, Message, Session) Receipt {
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "queued"})
 	if err != nil {
@@ -68,7 +70,7 @@ func TestCompletedNativePromptGenerationFenceIsReadOnly(t *testing.T) {
 		t.Fatalf("missing generation fence: %q %v", reason, err)
 	}
 	stored, err := store.message(msg.ID)
-	if err != nil || stored.AcknowledgedAt != "" || stored.Status != StatusSubmitted {
+	if err != nil || stored.AcknowledgedAt != "" || stored.Status != model.StatusSubmitted {
 		t.Fatal("filtering changed the durable receipt", err)
 	}
 }

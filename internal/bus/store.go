@@ -10,6 +10,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type Store struct {
@@ -100,7 +101,7 @@ func readJSON(path string, target any) error {
 func encodeStateJSON(value any) ([]byte, error) {
 	b, err := journal.EncodeJSON(value, maxStateFileBytes)
 	if size, ok := err.(*journal.SizeError); ok { //nolint:errorlint // Only the direct limit error is ours; wrapped encoder failures pass through.
-		return nil, fail(CodeInvalidInput, "encoded state record is %d bytes; limit is %d bytes", size.Size, size.Limit)
+		return nil, model.NewError(model.CodeInvalidInput, "encoded state record is %d bytes; limit is %d bytes", size.Size, size.Limit)
 	}
 	return b, err
 }

@@ -22,7 +22,7 @@ func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 	body := "  Review\n\tשלום\r\n" + strings.Repeat("🙂", 30) + "\x00tail"
 	var expected []string
 	for i := range 9 {
-		msg := Message{ID: newID(), From: actor.ID, To: peer.ID, Body: body, CreatedAt: fmt.Sprintf("2026-11-01T00:00:%02dZ", i), Status: StatusSubmitted}
+		msg := Message{ID: newID(), From: actor.ID, To: peer.ID, Body: body, CreatedAt: fmt.Sprintf("2026-11-01T00:00:%02dZ", i), Status: model.StatusSubmitted}
 		switch i % 3 {
 		case 1:
 			msg.To = other.ID
@@ -74,7 +74,7 @@ func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 		t.Fatal("exact opt-in preview lost the full body", err)
 	}
 	query.To = other.ID
-	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != CodeNotFound {
+	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeNotFound {
 		t.Fatal("exact lookup ignored recipient filter", err)
 	}
 	query.MessageID, query.IncludeBody = "", false
@@ -92,7 +92,7 @@ func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 		t.Fatal("deleted recipient could not be filtered by canonical ID", err)
 	}
 	query.To = "reviewer"
-	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != CodeUnavailable {
+	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeUnavailable {
 		t.Fatal("historical names unexpectedly resolved after deletion", err)
 	}
 }
@@ -100,7 +100,7 @@ func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 func TestSentPreviewCannotExposeNativeInbox(t *testing.T) {
 	store := fixtureStore(t)
 	actor, key, peer, peerKey := registerPair(t, store, "codex", "cursor")
-	msg := Message{ID: newID(), From: peer.ID, To: actor.ID, TargetGeneration: actor.Generation, Body: "native secret", CreatedAt: model.Timestamp(), Status: StatusSubmitted}
+	msg := Message{ID: newID(), From: peer.ID, To: actor.ID, TargetGeneration: actor.Generation, Body: "native secret", CreatedAt: model.Timestamp(), Status: model.StatusSubmitted}
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestSentPreviewCannotExposeNativeInbox(t *testing.T) {
 		{Actor: actor.ID, Capability: key, History: true, Preview: true, MessageID: msg.ID},
 		{Actor: actor.ID, Capability: key, To: peer.ID},
 	} {
-		if _, err := store.ReadMessages(query); ErrorCodeOf(err) != CodeInvalidInput {
+		if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeInvalidInput {
 			t.Fatal("sent-only options accepted for an inbox", err)
 		}
 	}
@@ -117,7 +117,7 @@ func TestSentPreviewCannotExposeNativeInbox(t *testing.T) {
 	if err != nil || len(page.Messages) != 0 {
 		t.Fatal("sent preview exposed incoming native body", err)
 	}
-	if _, err := store.ReadMessages(MessageQuery{Actor: actor.ID, Capability: key, Sent: true, Preview: true, MessageID: msg.ID}); ErrorCodeOf(err) != CodeNotFound {
+	if _, err := store.ReadMessages(MessageQuery{Actor: actor.ID, Capability: key, Sent: true, Preview: true, MessageID: msg.ID}); ErrorCodeOf(err) != model.CodeNotFound {
 		t.Fatal("sent preview exposed exact incoming native body", err)
 	}
 	page, err = store.ReadMessages(MessageQuery{Actor: peer.ID, Capability: peerKey, Sent: true, Preview: true, MessageID: msg.ID})

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // taskLimit is the maximum stored claim, in bytes.
@@ -19,7 +21,7 @@ func validTask(task string) error {
 		return nil
 	}
 	if strings.TrimSpace(task) != task || len(task) > taskLimit || !utf8.ValidString(task) || strings.ContainsFunc(task, unicode.IsControl) {
-		return fail(CodeInvalidInput, "task must be one line, valid UTF-8, at most 120 bytes, with no surrounding space")
+		return model.NewError(model.CodeInvalidInput, "task must be one line, valid UTF-8, at most 120 bytes, with no surrounding space")
 	}
 	return nil
 }
