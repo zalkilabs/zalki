@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type pruneProbeAdapter struct {
@@ -15,7 +16,7 @@ type pruneProbeAdapter struct {
 
 var _ agent.LivenessAdapter = pruneProbeAdapter{}
 
-func (a pruneProbeAdapter) Liveness(agent.LivenessView, agent.LivenessProbes) Liveness {
+func (a pruneProbeAdapter) Liveness(agent.LivenessView, agent.LivenessProbes) model.Liveness {
 	(*a.calls)++
 	return LivenessExited
 }

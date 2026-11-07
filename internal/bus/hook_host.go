@@ -31,4 +31,4 @@ func (h hookRuntime) CompletedNativePrompt(id, prompt string) (string, error) {
 	return h.store.completedNativePrompt(id, prompt)
 }
 
-func (h hookRuntime) Listener(v Session) ListenerStatus { return h.store.listenerStatus(v) }
+func (h hookRuntime) Listener(v Session) model.ListenerStatus { return h.store.listenerStatus(v) }

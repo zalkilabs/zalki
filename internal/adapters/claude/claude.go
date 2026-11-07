@@ -81,7 +81,7 @@ func (Adapter) Health(_ agent.HealthHost, v bus.Session) (string, string) {
 	return "socket_unavailable", ""
 }
 
-func (Adapter) RecoveryHint(d bus.SessionDiagnostic) string {
+func (Adapter) RecoveryHint(d model.SessionDiagnostic) string {
 	if d.TransportHealth == "socket_unavailable" {
 		return "Restart Claude so its default integration can register a fresh messaging socket."
 	}

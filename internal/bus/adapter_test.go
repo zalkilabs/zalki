@@ -19,7 +19,7 @@ import (
 type fixtureAdapter struct {
 	agent.StandardHooks
 	kind       string
-	inbox      InboxMode
+	inbox      model.InboxMode
 	deliveries *atomic.Int32
 	path       string
 }
@@ -89,7 +89,7 @@ func (a fixtureAdapter) Configuration(binary string, args []string) []model.Conf
 }
 
 func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
-	for _, inbox := range []InboxMode{InboxNative, InboxJournal} {
+	for _, inbox := range []model.InboxMode{InboxNative, InboxJournal} {
 		t.Run(string(inbox), func(t *testing.T) {
 			var deliveries atomic.Int32
 			adapter := fixtureAdapter{kind: "fourth-agent", inbox: inbox, deliveries: &deliveries}
@@ -189,8 +189,8 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 	t.Setenv("CODEX_HOME", t.TempDir())
 	for _, test := range []struct {
 		kind                         string
-		inbox                        InboxMode
-		timing                       DeliveryTiming
+		inbox                        model.InboxMode
+		timing                       model.DeliveryTiming
 		idle, listener, experimental bool
 	}{
 		{"codex", InboxNative, DeliveryNextTurn, true, false, false},

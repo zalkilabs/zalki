@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // wakeHint binds a native listener notification to a message and receiving
@@ -37,7 +38,7 @@ type ListenerHandle interface {
 	Arm(*bus.Endpoint) error
 	// Confirm applies adapter state after readiness was announced. Core runs the
 	// policy inside its journal transaction, so the policy must be fast and pure.
-	Confirm(func(bus.SessionView) (json.RawMessage, error)) error
+	Confirm(func(model.SessionView) (json.RawMessage, error)) error
 	// ValidateDelivery checks recipient, generation, pending state and prior ACK.
 	ValidateDelivery(messageID string) (acknowledged bool, err error)
 	// RejectHint records a rejected notification without exposing its contents.
@@ -122,7 +123,7 @@ func Listen(ctx context.Context, acquire func(actor, key string) (ListenerHandle
 }
 
 // listenerConfirmed resets the recovery guard once a listener is announced.
-func listenerConfirmed(v bus.SessionView) (json.RawMessage, error) {
+func listenerConfirmed(v model.SessionView) (json.RawMessage, error) {
 	state := decodeCursorState(v.AdapterState)
 	state.RecoveryAttempted = false
 	return encodeCursorState(state), nil

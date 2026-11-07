@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
@@ -57,7 +58,7 @@ func (a ownerAdapter) Descriptor() agent.AdapterDescriptor {
 // sharedAdapter is an ownerAdapter whose process is not the session.
 type sharedAdapter struct{ ownerAdapter }
 
-func (sharedAdapter) Liveness(agent.LivenessView, agent.LivenessProbes) Liveness {
+func (sharedAdapter) Liveness(agent.LivenessView, agent.LivenessProbes) model.Liveness {
 	return LivenessUnknown
 }
 func (sharedAdapter) TracksOwnProcess() bool { return false }
@@ -97,7 +98,7 @@ func remembered(t *testing.T, store Store, v Session, refresh bool) Session {
 	return current
 }
 
-func sameOwner(a, b *ProcessRef) bool {
+func sameOwner(a, b *model.ProcessRef) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
@@ -145,9 +146,9 @@ func TestRememberOwnerWithoutANativeOwner(t *testing.T) {
 	alive := selfOwner(t)
 	tests := []struct {
 		name      string
-		owner     *ProcessRef
+		owner     *model.ProcessRef
 		refresh   bool
-		wantOwner *ProcessRef
+		wantOwner *model.ProcessRef
 	}{
 		{"no owner and no refresh stays without one", nil, false, nil},
 		{"no owner and refresh stays without one", nil, true, nil},
@@ -248,7 +249,7 @@ func TestRememberOwnerChild(t *testing.T) {
 	if parent.UID != uint32(os.Getuid()) {
 		t.Fatalf("the parent belongs to user %d, not %d", parent.UID, os.Getuid())
 	}
-	want := ProcessRef{PID: parent.PID, Start: parent.Start, Role: "client"}
+	want := model.ProcessRef{PID: parent.PID, Start: parent.Start, Role: "client"}
 	checkNativeOwnerPath(t, parent.Name, want)
 	if t.Failed() { // a failed subtest must not be reported as success
 		return
@@ -257,7 +258,7 @@ func TestRememberOwnerChild(t *testing.T) {
 }
 
 // checkNativeOwnerPath runs the scenarios that need the real parent process.
-func checkNativeOwnerPath(t *testing.T, parentName string, want ProcessRef) {
+func checkNativeOwnerPath(t *testing.T, parentName string, want model.ProcessRef) {
 	t.Helper()
 	store := ownerStore(t, ownerAdapter{names: []string{parentName}})
 	t.Run("a session without an owner records its parent", func(t *testing.T) { childRecordsParent(t, store, want) })
@@ -278,7 +279,7 @@ func checkNativeOwnerPath(t *testing.T, parentName string, want ProcessRef) {
 	})
 }
 
-func childRecordsParent(t *testing.T, store Store, want ProcessRef) {
+func childRecordsParent(t *testing.T, store Store, want model.ProcessRef) {
 	t.Helper()
 	v := ownedSession(t, store, func(v *Session) { v.HookBuild = staleBuild() })
 	current := remembered(t, store, v, false)
@@ -290,9 +291,9 @@ func childRecordsParent(t *testing.T, store Store, want ProcessRef) {
 	}
 }
 
-func childReplacesOnRefresh(t *testing.T, store Store, want ProcessRef) {
+func childReplacesOnRefresh(t *testing.T, store Store, want model.ProcessRef) {
 	t.Helper()
-	previous := ProcessRef{PID: 4242, Start: "an earlier start", Role: "client"}
+	previous := model.ProcessRef{PID: 4242, Start: "an earlier start", Role: "client"}
 	for _, refresh := range []bool{false, true} {
 		v := ownedSession(t, store, func(v *Session) { v.Owner = &previous; v.HookBuild = currentExecutable.loadedBuild })
 		expected := &previous
@@ -305,7 +306,7 @@ func childReplacesOnRefresh(t *testing.T, store Store, want ProcessRef) {
 	}
 }
 
-func childRetiredRecordsOnRefresh(t *testing.T, store Store, want ProcessRef) {
+func childRetiredRecordsOnRefresh(t *testing.T, store Store, want model.ProcessRef) {
 	t.Helper()
 	retire := func(v *Session) { v.Retired, v.State, v.HookBuild = true, StateRetired, staleBuild() }
 	v := ownedSession(t, store, retire)

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestSessionViewBuilderDetachesAdapterState(t *testing.T) {
@@ -31,7 +32,7 @@ func TestLifecyclePolicyErrorPrecedesTransitionValidation(t *testing.T) {
 	target, _ := register(t, store, "cursor")
 	before := sessionBytes(t, store, target.ID)
 	policyErr := errors.New("policy failed before transition validation")
-	err := cursorHost(store, target.ID, "PostToolUse").ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+	err := cursorHost(store, target.ID, "PostToolUse").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 		return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate}, policyErr
 	})
 	if !errors.Is(err, policyErr) {
@@ -46,7 +47,7 @@ func TestLifecycleTransitionErrorPrecedesStateValidation(t *testing.T) {
 	store := fixtureStore(t)
 	target, _ := register(t, store, "cursor")
 	before := sessionBytes(t, store, target.ID)
-	err := cursorHost(store, target.ID, "PostToolUse").ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+	err := cursorHost(store, target.ID, "PostToolUse").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 		return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate, AdapterState: json.RawMessage(`{`)}, nil
 	})
 	if err == nil || err.Error() != "invalid_transition: lifecycle transition is not allowed for this hook event" {
@@ -61,7 +62,7 @@ func TestRecoveryEventErrorPrecedesActorLookup(t *testing.T) {
 	store := fixtureStore(t)
 	host := hookRuntime{store: store, actor: "invalid actor", kind: "cursor", event: "UserPromptSubmit"}
 	called := false
-	grant, err := host.ClaimRecovery(func(SessionView) (agent.RecoveryDecision, error) {
+	grant, err := host.ClaimRecovery(func(model.SessionView) (agent.RecoveryDecision, error) {
 		called = true
 		return agent.RecoveryDecision{Recover: true}, nil
 	})

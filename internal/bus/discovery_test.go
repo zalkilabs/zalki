@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestDiscoverySummarizesEachSessionWithoutRewritingIt(t *testing.T) {
@@ -14,7 +15,7 @@ func TestDiscoverySummarizesEachSessionWithoutRewritingIt(t *testing.T) {
 		kind         string
 		listener     bool
 		idle         bool
-		busy         DeliveryTiming
+		busy         model.DeliveryTiming
 		experimental bool
 	}{
 		{"codex", false, true, DeliveryNextTurn, false},
@@ -90,7 +91,7 @@ func TestDiscoverySummarizesEachSessionWithoutRewritingIt(t *testing.T) {
 type discoveryAdapter struct {
 	stubCodexAdapter
 	idle bool
-	busy DeliveryTiming
+	busy model.DeliveryTiming
 }
 
 func (a discoveryAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
@@ -100,7 +101,7 @@ func (a discoveryAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
 }
 
 func TestDiscoveryDefaultsAndWakeOverrides(t *testing.T) {
-	for _, timing := range []DeliveryTiming{DeliveryNextTurn, DeliveryBetweenTools, DeliveryNextHook, DeliveryNotification} {
+	for _, timing := range []model.DeliveryTiming{DeliveryNextTurn, DeliveryBetweenTools, DeliveryNextHook, DeliveryNotification} {
 		for _, idle := range []bool{false, true} {
 			store := fixtureStore(t)
 			registry, err := agent.NewRegistry(discoveryAdapter{idle: idle, busy: timing})

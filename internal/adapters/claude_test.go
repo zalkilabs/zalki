@@ -16,6 +16,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/adapters/claude"
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func listenClaudeSocket(t *testing.T) (*net.UnixListener, *bus.Endpoint) {
@@ -96,7 +97,7 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 	if transport != "socket_unavailable" {
 		t.Fatal("health accepted a replaced endpoint", transport)
 	}
-	if hint := adapter.RecoveryHint(bus.SessionDiagnostic{TransportHealth: transport}); !strings.Contains(hint, "default integration") || strings.Contains(hint, "enabled") {
+	if hint := adapter.RecoveryHint(model.SessionDiagnostic{TransportHealth: transport}); !strings.Contains(hint, "default integration") || strings.Contains(hint, "enabled") {
 		t.Fatalf("socket recovery still suggests an opt-in integration: %q", hint)
 	}
 	receipt := adapter.Deliver(context.Background(), bus.Message{ID: newTestID(), Body: "stale binding"}, bus.Session{Endpoint: endpoint})

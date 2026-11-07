@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 //go:embed testdata/clients/*.json
@@ -110,7 +111,7 @@ func annotateClientCompatibility(ctx context.Context, diagnostic *AgentDiagnosti
 	}
 }
 
-func recoveryHint(diagnostic SessionDiagnostic, adapter agent.Adapter) string {
+func recoveryHint(diagnostic model.SessionDiagnostic, adapter agent.Adapter) string {
 	if diagnostic.Retired || diagnostic.Liveness == "exited" {
 		return "Start or resume the client session; do not resend messages already submitted."
 	}

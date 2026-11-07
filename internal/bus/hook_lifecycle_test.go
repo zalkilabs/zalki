@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func cursorHost(store Store, actor, event string) hookRuntime {
@@ -46,7 +47,7 @@ func TestLifecycleTransitionsAreScopedToTheHookEvent(t *testing.T) {
 		{"SessionStart", agent.TransitionNone}, {"SessionEnd", agent.TransitionNone}, {"PermissionRequest", agent.TransitionNone},
 	} {
 		before := sessionBytes(t, store, to.ID)
-		err := cursorHost(store, to.ID, test.event).ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+		err := cursorHost(store, to.ID, test.event).ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 			return agent.LifecycleChange{Transition: test.transition, AdapterState: encodedCursorState(CursorListenerState{RecoveryAttempted: true})}, nil
 		})
 		if ErrorCodeOf(err) != CodeInvalidTransition || !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
@@ -55,7 +56,7 @@ func TestLifecycleTransitionsAreScopedToTheHookEvent(t *testing.T) {
 	}
 	for _, event := range []string{"UserPromptSubmit", "SessionStart", "SessionEnd", "PermissionRequest"} {
 		called := false
-		grant, err := cursorHost(store, to.ID, event).ClaimRecovery(func(SessionView) (agent.RecoveryDecision, error) {
+		grant, err := cursorHost(store, to.ID, event).ClaimRecovery(func(model.SessionView) (agent.RecoveryDecision, error) {
 			called = true
 			return agent.RecoveryDecision{Recover: true}, nil
 		})
@@ -81,7 +82,7 @@ func TestLifecyclePolicyFailuresWriteNothing(t *testing.T) {
 	}
 	for name, state := range invalid {
 		before := sessionBytes(t, store, to.ID)
-		err := cursorHost(store, to.ID, "UserPromptSubmit").ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+		err := cursorHost(store, to.ID, "UserPromptSubmit").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 			if state == nil {
 				return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate}, policyErr
 			}
@@ -90,7 +91,7 @@ func TestLifecyclePolicyFailuresWriteNothing(t *testing.T) {
 		if err == nil || !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
 			t.Fatalf("lifecycle %s was written: %v", name, err)
 		}
-		grant, err := cursorHost(store, to.ID, "PostToolUse").ClaimRecovery(func(SessionView) (agent.RecoveryDecision, error) {
+		grant, err := cursorHost(store, to.ID, "PostToolUse").ClaimRecovery(func(model.SessionView) (agent.RecoveryDecision, error) {
 			if state == nil {
 				return agent.RecoveryDecision{Recover: true}, policyErr
 			}
@@ -101,7 +102,7 @@ func TestLifecyclePolicyFailuresWriteNothing(t *testing.T) {
 		}
 	}
 	before := sessionBytes(t, store, to.ID)
-	grant, err := cursorHost(store, to.ID, "PostToolUse").ClaimRecovery(func(SessionView) (agent.RecoveryDecision, error) {
+	grant, err := cursorHost(store, to.ID, "PostToolUse").ClaimRecovery(func(model.SessionView) (agent.RecoveryDecision, error) {
 		return agent.RecoveryDecision{AdapterState: encodedCursorState(CursorListenerState{RecoveryAttempted: true})}, nil
 	})
 	if err != nil || grant.Capability != "" || !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
@@ -115,14 +116,14 @@ func TestLifecyclePolicyFailuresWriteNothing(t *testing.T) {
 func TestLifecyclePolicyCannotReachTheJournalThroughAliases(t *testing.T) {
 	store := fixtureStore(t)
 	to, _ := register(t, store, "cursor")
-	if err := cursorHost(store, to.ID, "Stop").ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+	if err := cursorHost(store, to.ID, "Stop").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 		return agent.LifecycleChange{AdapterState: encodedCursorState(CursorListenerState{RecoveryAttempted: true})}, nil
 	}); err != nil {
 		t.Fatal(err)
 	}
 	before := sessionBytes(t, store, to.ID)
-	var retained SessionView
-	if err := cursorHost(store, to.ID, "Stop").ApplyLifecycle(func(v SessionView) (agent.LifecycleChange, error) {
+	var retained model.SessionView
+	if err := cursorHost(store, to.ID, "Stop").ApplyLifecycle(func(v model.SessionView) (agent.LifecycleChange, error) {
 		if len(v.AdapterState) == 0 {
 			t.Fatal("view omitted the adapter state")
 		}
@@ -143,7 +144,7 @@ func TestLifecyclePolicyCannotReachTheJournalThroughAliases(t *testing.T) {
 	}
 
 	next := encodedCursorState(CursorListenerState{RecoverySuppressed: true})
-	if err := cursorHost(store, to.ID, "Stop").ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+	if err := cursorHost(store, to.ID, "Stop").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 		return agent.LifecycleChange{AdapterState: next}, nil
 	}); err != nil {
 		t.Fatal(err)
@@ -177,7 +178,7 @@ func TestLifecycleHostIsBoundToItsSessionKind(t *testing.T) {
 
 	unknown := "cursor:" + newID()
 	called := false
-	if err := cursorHost(store, unknown, "UserPromptSubmit").ApplyLifecycle(func(SessionView) (agent.LifecycleChange, error) {
+	if err := cursorHost(store, unknown, "UserPromptSubmit").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 		called = true
 		return agent.LifecycleChange{}, nil
 	}); err != nil || called {
@@ -211,7 +212,7 @@ func TestRecoveryGuardsRunBeforeThePolicy(t *testing.T) {
 			t.Fatal(err)
 		}
 		called := false
-		grant, err := cursorHost(store, to.ID, "PostToolUse").ClaimRecovery(func(SessionView) (agent.RecoveryDecision, error) {
+		grant, err := cursorHost(store, to.ID, "PostToolUse").ClaimRecovery(func(model.SessionView) (agent.RecoveryDecision, error) {
 			called = true
 			return agent.RecoveryDecision{Recover: true}, nil
 		})

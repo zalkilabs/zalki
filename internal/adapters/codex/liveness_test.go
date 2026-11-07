@@ -5,15 +5,19 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestCodexLivenessIgnoresTheSharedDaemon(t *testing.T) {
-	daemon := &bus.ProcessRef{PID: 71228, Start: "daemon", Role: "backend"}
+	daemon := &model.ProcessRef{PID: 71228, Start: "daemon", Role: "backend"}
 	probes := agent.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { t.Fatal("Codex liveness inspected a shared socket"); return nil },
-		Presence: func(int) bus.Liveness { t.Fatal("Codex liveness inspected a shared process"); return bus.LivenessAlive },
+		Presence: func(int) model.Liveness {
+			t.Fatal("Codex liveness inspected a shared process")
+			return bus.LivenessAlive
+		},
 	}
-	for _, owner := range []*bus.ProcessRef{daemon, nil} {
+	for _, owner := range []*model.ProcessRef{daemon, nil} {
 		if got := (Adapter{}).Liveness(agent.LivenessView{Owner: owner}, probes); got != "unknown" {
 			t.Fatalf("shared daemon liveness was %s", got)
 		}

@@ -225,7 +225,7 @@ func TestApprovalQueueDropsWhenTheOwnerHasExited(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	current.Owner = &ProcessRef{PID: 1 << 30, Start: "1", Role: "backend"}
+	current.Owner = &model.ProcessRef{PID: 1 << 30, Start: "1", Role: "backend"}
 	if err := store.saveSession(current); err != nil {
 		t.Fatal(err)
 	}

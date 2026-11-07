@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
@@ -23,12 +24,12 @@ func selfProcess(t *testing.T) procwatch.Info {
 }
 
 func TestProcessProbeDistinguishesExitReuseAndUnknown(t *testing.T) {
-	ref := &ProcessRef{PID: 42, Start: "original", Role: "client"}
+	ref := &model.ProcessRef{PID: 42, Start: "original", Role: "client"}
 	for _, test := range []struct {
 		name string
 		p    procwatch.Info
 		err  error
-		want Liveness
+		want model.Liveness
 	}{
 		{"alive", procwatch.Info{Start: "original", UID: uint32(os.Getuid())}, nil, "alive"},
 		{"PID reused", procwatch.Info{Start: "new", UID: uint32(os.Getuid())}, nil, "exited"},
@@ -84,7 +85,7 @@ func TestProcessFingerprintTracksRealExit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ref := &ProcessRef{PID: p.PID, Start: p.Start, Role: "client"}
+	ref := &model.ProcessRef{PID: p.PID, Start: p.Start, Role: "client"}
 	if processLiveness(ref) != "alive" {
 		t.Fatal("live child not identified")
 	}

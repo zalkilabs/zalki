@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Retirement outcome only: a hook on a retired session may be rejected.
@@ -320,7 +321,7 @@ func markOwnerExited(t *testing.T, store bus.Store, id string) {
 	if err != nil || json.Unmarshal(data, &session) != nil {
 		t.Fatal("unreadable session record", err)
 	}
-	session.Owner = &bus.ProcessRef{PID: os.Getpid(), Start: "previous-process-at-this-pid", Role: "client"}
+	session.Owner = &model.ProcessRef{PID: os.Getpid(), Start: "previous-process-at-this-pid", Role: "client"}
 	if err := writeTestJSON(path, session); err != nil {
 		t.Fatal(err)
 	}

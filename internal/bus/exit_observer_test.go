@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
@@ -104,7 +105,7 @@ func (f *fakeExitSource) Close() error {
 	f.mu.Unlock()
 	return nil
 }
-func (f *fakeExitSource) watchingProcess(ref ProcessRef) bool {
+func (f *fakeExitSource) watchingProcess(ref model.ProcessRef) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.procs[procwatch.Identity{PID: ref.PID, Start: ref.Start}]
@@ -131,18 +132,18 @@ func (f *fakeExitSource) open() (procwatch.Source, error) { return f, nil }
 func unsupportedExitSource() (procwatch.Source, error) { return nil, procwatch.ErrUnsupported }
 
 var (
-	deadOwner = ProcessRef{PID: 1 << 30, Start: "1", Role: "client"}
-	selfOwner = func(t *testing.T) *ProcessRef {
+	deadOwner = model.ProcessRef{PID: 1 << 30, Start: "1", Role: "client"}
+	selfOwner = func(t *testing.T) *model.ProcessRef {
 		t.Helper()
 		p, err := procwatch.Read(os.Getpid())
 		if err != nil {
 			t.Fatal(err)
 		}
-		return &ProcessRef{PID: p.PID, Start: p.Start, Role: "client"}
+		return &model.ProcessRef{PID: p.PID, Start: p.Start, Role: "client"}
 	}
 )
 
-func setOwner(t *testing.T, store Store, id string, owner *ProcessRef) {
+func setOwner(t *testing.T, store Store, id string, owner *model.ProcessRef) {
 	t.Helper()
 	current, err := store.session(id)
 	if err != nil {
@@ -155,7 +156,7 @@ func setOwner(t *testing.T, store Store, id string, owner *ProcessRef) {
 }
 
 // watchedTarget arms a watch on a new cursor target owned by owner.
-func watchedTarget(t *testing.T, service Service, owner *ProcessRef) (watcher Session, key string, target Session) {
+func watchedTarget(t *testing.T, service Service, owner *model.ProcessRef) (watcher Session, key string, target Session) {
 	t.Helper()
 	watcher, key, target, _ = registerPair(t, service.Store, "codex", "cursor")
 	setOwner(t, service.Store, target.ID, owner)
