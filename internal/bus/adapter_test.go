@@ -73,7 +73,7 @@ func (a fixtureAdapter) Deliver(_ context.Context, _ Message, _ Session) Receipt
 	if a.inbox == InboxJournal {
 		status = StatusPendingActivity
 	}
-	return Receipt{At: timestamp(), Status: status}
+	return Receipt{At: model.Timestamp(), Status: status}
 }
 
 func (a fixtureAdapter) ConfigDir() string { return "/fixture" }

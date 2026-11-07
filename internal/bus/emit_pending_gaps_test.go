@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // These tests close gaps found in Store.EmitPending (message_inbox.go). They
@@ -235,7 +237,7 @@ func TestEmitPendingTakesOnlyThisSessionsUnacknowledgedHookMessages(t *testing.T
 	base := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 	wanted := f.queue(t, "wanted", base)
 	acknowledged := f.queue(t, "already acknowledged", base.Add(time.Second))
-	f.rewrite(t, acknowledged.ID, func(m *Message) { m.AcknowledgedAt = timestamp() })
+	f.rewrite(t, acknowledged.ID, func(m *Message) { m.AcknowledgedAt = model.Timestamp() })
 	submitted := f.queue(t, "already delivered", base.Add(2*time.Second))
 	f.rewrite(t, submitted.ID, func(m *Message) { m.Status = StatusSubmitted })
 	otherGeneration := f.queue(t, "for an older registration", base.Add(3*time.Second))

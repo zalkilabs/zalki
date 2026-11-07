@@ -8,6 +8,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/fsutil"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Capture is opt-in and allowlisted: no prompts, tool input, environment,
@@ -51,7 +53,7 @@ func captureHookContract(adapter agent.Adapter, event agent.HookInput) error {
 		}
 	}
 	fixture := map[string]any{"kind": kind, "version": version, "version_output": version, "hook": hook,
-		"provenance": map[string]any{"source": "native_hook", "normalized": true, "captured_at": timestamp(), "scope": "startup hook fields only; no live delivery claim"}}
+		"provenance": map[string]any{"source": "native_hook", "normalized": true, "captured_at": model.Timestamp(), "scope": "startup hook fields only; no live delivery claim"}}
 	encoded, err := json.MarshalIndent(fixture, "", "  ")
 	if err != nil {
 		return err

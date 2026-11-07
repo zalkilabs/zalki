@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
@@ -24,7 +26,7 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
-			tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: timestamp(), Reply: reply}
+			tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: model.Timestamp(), Reply: reply}
 			dir := filepath.Join(store.Dir, "transactions")
 			if err := privateDir(dir); err != nil {
 				t.Fatal(err)
@@ -47,7 +49,7 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 			}
 			if stage == "receipt" {
 				reply.Status = StatusSubmitted
-				reply.AcknowledgedAt = timestamp()
+				reply.AcknowledgedAt = model.Timestamp()
 				if err := store.saveMessage(reply); err != nil {
 					t.Fatal(err)
 				}

@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func logRows(t *testing.T, output *bytes.Buffer) []map[string]any {
@@ -133,7 +135,7 @@ func TestRecoveryLoggingKeepsUncertainReplyUnsubmitted(t *testing.T) {
 	if err := privateDir(dir); err != nil {
 		t.Fatal(err)
 	}
-	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: timestamp(), Reply: reply}
+	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: model.Timestamp(), Reply: reply}
 	if err := writeJSON(filepath.Join(dir, reply.ID+".json"), tx); err != nil {
 		t.Fatal(err)
 	}

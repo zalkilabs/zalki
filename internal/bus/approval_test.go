@@ -140,7 +140,7 @@ func TestLegacyApprovalRefusalIsNotReleased(t *testing.T) {
 	if err := store.Update(target.ID, StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
-	legacy := Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: timestamp(), Status: StatusApprovalBlocked}
+	legacy := Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: StatusApprovalBlocked}
 	if err := store.saveMessage(legacy); err != nil {
 		t.Fatal(err)
 	}

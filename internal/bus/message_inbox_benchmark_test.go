@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func BenchmarkMessageLookup(b *testing.B) {
@@ -17,7 +19,7 @@ func BenchmarkMessageLookup(b *testing.B) {
 			var first string
 			for i := range size {
 				msg := Message{ID: newID(), From: "codex:" + newID(), To: receiver.ID, Body: "review result",
-					CreatedAt: timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
+					CreatedAt: model.Timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
 				if i == 0 {
 					first = msg.ID
 				}

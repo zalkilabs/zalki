@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func (s Store) message(id string) (Message, error) {
@@ -162,7 +164,7 @@ func (s Store) outgoingMessage(sender, target Session, id, body, replyTo string)
 	if err != nil {
 		return Message{}, err
 	}
-	return Message{Schema: recordSchema, ID: id, From: sender.ID, FromName: senders[0].Name, FromLabel: adapter.Descriptor().Label, To: target.ID, Body: body, ReplyTo: replyTo, TargetGeneration: target.Generation, CreatedAt: timestamp(), Status: StatusAttempting}, nil
+	return Message{Schema: recordSchema, ID: id, From: sender.ID, FromName: senders[0].Name, FromLabel: adapter.Descriptor().Label, To: target.ID, Body: body, ReplyTo: replyTo, TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: StatusAttempting}, nil
 }
 
 func (s Store) Finish(id string, receipt Receipt) (Message, error) {
@@ -223,7 +225,7 @@ func (s Store) Ack(actor, key, id string) (result Message, resultErr error) {
 		first := msg.AcknowledgedAt == ""
 		candidate := msg
 		if first {
-			candidate.AcknowledgedAt = timestamp()
+			candidate.AcknowledgedAt = model.Timestamp()
 		}
 		if err := s.saveMessage(candidate); err != nil {
 			return err

@@ -12,6 +12,8 @@ import (
 	"syscall"
 
 	"github.com/zalkilabs/zalki/internal/procwatch"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Version is set by release builds with -X.
@@ -85,7 +87,7 @@ type executableSnapshot struct {
 }
 
 func captureExecutable() executableSnapshot {
-	info := RuntimeInfo{Role: "cli", Version: Version, PID: os.Getpid(), StartedAt: timestamp()}
+	info := RuntimeInfo{Role: "cli", Version: Version, PID: os.Getpid(), StartedAt: model.Timestamp()}
 	path, err := os.Executable()
 	if err == nil {
 		info.Binary = path

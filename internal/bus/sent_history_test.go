@@ -3,6 +3,8 @@ package bus
 import (
 	"fmt"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestSentHistoryFiltersPaginatesAndKeepsReceipts(t *testing.T) {
@@ -12,7 +14,7 @@ func TestSentHistoryFiltersPaginatesAndKeepsReceipts(t *testing.T) {
 	want := map[string]Message{}
 	var incoming string
 	for i := range 12 {
-		msg := Message{ID: newID(), From: actor.ID, To: peer.ID, Body: "history", CreatedAt: fmt.Sprintf("2026-11-01T00:00:%02d.000000000Z", i), Status: StatusSubmitted, AcknowledgedAt: timestamp()}
+		msg := Message{ID: newID(), From: actor.ID, To: peer.ID, Body: "history", CreatedAt: fmt.Sprintf("2026-11-01T00:00:%02d.000000000Z", i), Status: StatusSubmitted, AcknowledgedAt: model.Timestamp()}
 		if i%2 == 0 {
 			msg.From, msg.To = peer.ID, actor.ID
 			msg.TargetGeneration = actor.Generation

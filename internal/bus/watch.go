@@ -65,7 +65,7 @@ func (s *Service) Watch(actor, key, to string) (WatchResult, error) {
 			result.Event = "ended"
 			result.At = target.UpdatedAt
 			if result.At == "" {
-				result.At = timestamp()
+				result.At = model.Timestamp()
 			}
 			return nil
 		}
@@ -224,7 +224,7 @@ func (s *Service) notifyWatches(ctx context.Context, actor string, event agent.H
 	if err != nil {
 		return err
 	}
-	body := completionBody(subject, kind, timestamp(), statusLine(event.LastAssistantMessage))
+	body := completionBody(subject, kind, model.Timestamp(), statusLine(event.LastAssistantMessage))
 	var first error
 	for _, watch := range watches {
 		if _, err := s.deliverCompletion(ctx, watch.Watcher, subject, body); err != nil && first == nil {
@@ -250,7 +250,7 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 		msg = Message{
 			Schema: recordSchema, ID: newID(), Kind: noticeKind, From: subject.ID, FromName: subject.Name,
 			FromLabel: "Zalki", To: current.ID, Body: body,
-			TargetGeneration: current.Generation, CreatedAt: timestamp(), Status: StatusAttempting,
+			TargetGeneration: current.Generation, CreatedAt: model.Timestamp(), Status: StatusAttempting,
 		}
 		if current.State == StateApproval {
 			if err := s.Store.holdForApproval(&msg); err != nil {
@@ -319,7 +319,7 @@ func (s *Service) NoticeExitedSessions(ctx context.Context) error {
 // returns the first delivery failure.
 func (s *Service) deliverEnded(ctx context.Context, subject Session, watches []Watch) error {
 	var first error
-	body := completionBody(subject, "ended", timestamp(), "")
+	body := completionBody(subject, "ended", model.Timestamp(), "")
 	for _, watch := range watches {
 		message, err := s.deliverCompletion(ctx, watch.Watcher, subject, body)
 		if err == nil && message.Receipt != nil && message.Receipt.Error != "" && !message.IsQueuedForApproval() {

@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
@@ -301,7 +303,7 @@ func preLeaseRewrite(t *testing.T, store Store, id string) error {
 	if v.Schema < 0 || v.Schema > 1 {
 		return fail(CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
 	}
-	v.Schema, v.State, v.UpdatedAt = 1, StateBusy, timestamp()
+	v.Schema, v.State, v.UpdatedAt = 1, StateBusy, model.Timestamp()
 	return writeJSON(path, v)
 }
 

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func queueThenDropCount(t *testing.T, store Store) (Session, Message, Message) {
@@ -29,7 +31,7 @@ func queueThenDropCount(t *testing.T, store Store) (Session, Message, Message) {
 	if err := store.locked(func() error { return store.saveSession(current) }); err != nil {
 		t.Fatal(err)
 	}
-	legacy := Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: timestamp(), Status: StatusApprovalBlocked}
+	legacy := Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: StatusApprovalBlocked}
 	if err := store.saveMessage(legacy); err != nil {
 		t.Fatal(err)
 	}
