@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
@@ -49,22 +50,36 @@ func NewPut(path string, previous, next []byte) Put {
 	return p
 }
 
-// Batch is a schema-1 redo intent with 1..32 ordered puts. Every after-image
+// Delete removes a relative file only if its prior digest matches, or it is
+// already absent on replay. It never follows a final symlink.
+type Delete struct {
+	// Path is the clean relative path to remove.
+	Path string `json:"path"`
+	// PreviousSHA256 identifies the expected existing file bytes.
+	PreviousSHA256 string `json:"previous_sha256"`
+}
+
+// NewDelete binds a removal to exact bytes read before the transaction.
+func NewDelete(path string, previous []byte) Delete {
+	return Delete{Path: path, PreviousSHA256: batchDigest(previous)}
+}
+
+// Batch is a redo intent with 1..32 combined operations. Every after-image
 // is at most 128 KiB; its complete base64-encoded intent is at most 1 MiB.
 // It adds no transaction semantics to ordinary journal writes by itself.
 type Batch struct {
-	// Schema is the generic intent format version; currently one.
-	Schema int `json:"schema"`
 	// ID is a bounded lowercase identifier chosen once by the caller.
 	ID string `json:"id"`
 	// Puts are applied in order only after all targets pass validation.
 	Puts []Put `json:"puts"`
+	// Deletes follow all puts.
+	Deletes []Delete `json:"deletes,omitempty"`
 }
 
 // BatchLog publishes and replays one intent below Root. Root and every target
 // parent must already exist without symlink components. Intent is relative.
 // The caller holds its transaction lock throughout each call, creates/syncs
-// directories, fences formats, and validates application-specific semantics.
+// directories and validates application-specific semantics.
 // No caller may start a later mutation while this intent remains unresolved.
 type BatchLog struct {
 	// Root is the existing caller-owned state directory.
@@ -78,13 +93,15 @@ type batchIO struct {
 	write  func(string, []byte) error
 	remove func(string) error
 	sync   func(string) error
+	target func(string, []byte) error
+	order  func(string) error
 }
 
 func (l BatchLog) operations() batchIO {
 	if l.io != nil {
 		return *l.io
 	}
-	return batchIO{WriteAtomic, os.Remove, SyncDir}
+	return batchIO{write: WriteAtomic, remove: os.Remove, sync: SyncDir}
 }
 
 // Commit durably publishes an immutable intent before applying its puts.
@@ -104,7 +121,7 @@ func (l BatchLog) Commit(batch Batch) error {
 		if !bytes.Equal(bytes.TrimSpace(pending), bytes.TrimSpace(encoded)) {
 			return ErrBatchConflict
 		}
-		return l.apply(batch)
+		return l.apply(batch, true)
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -115,7 +132,7 @@ func (l BatchLog) Commit(batch Batch) error {
 	if err := l.operations().write(l.intentPath(), encoded); err != nil {
 		return err
 	}
-	return l.apply(batch)
+	return l.apply(batch, false)
 }
 
 // Recover validates the entire intent and all prior-or-new targets before
@@ -125,7 +142,9 @@ func (l BatchLog) Commit(batch Batch) error {
 func (l BatchLog) Recover(check func(Batch) error) error {
 	raw, err := l.read()
 	if errors.Is(err, os.ErrNotExist) {
-		return nil
+		// Unlink may have succeeded while its directory sync failed. Confirm
+		// absence durably before a later caller changes any redo target.
+		return l.operations().sync(filepath.Dir(l.intentPath()))
 	}
 	if err != nil {
 		return err
@@ -147,14 +166,14 @@ func (l BatchLog) Recover(check func(Batch) error) error {
 			return err
 		}
 	}
-	return l.apply(batch)
+	return l.apply(batch, true)
 }
 
 func (b Batch) encode() ([]byte, error) {
-	if b.Schema != 1 || !validBatchID(b.ID) || len(b.Puts) == 0 || len(b.Puts) > maxBatchPuts {
-		return nil, ErrInvalidBatch
+	if err := b.validateHeader(); err != nil {
+		return nil, err
 	}
-	seen := make(map[string]bool, len(b.Puts))
+	seen := make(map[string]bool, len(b.Puts)+len(b.Deletes))
 	for _, put := range b.Puts {
 		if seen[put.Path] || !safeBatchPath(put.Path) || len(put.Data) > maxPutBytes {
 			return nil, ErrInvalidBatch
@@ -164,7 +183,27 @@ func (b Batch) encode() ([]byte, error) {
 		}
 		seen[put.Path] = true
 	}
+	if err := b.validateDeletes(seen); err != nil {
+		return nil, err
+	}
 	return EncodeJSON(b, maxBatchBytes)
+}
+
+func (b Batch) validateHeader() error {
+	if !validBatchID(b.ID) || len(b.Puts) == 0 || len(b.Puts)+len(b.Deletes) > maxBatchPuts {
+		return ErrInvalidBatch
+	}
+	return nil
+}
+
+func (b Batch) validateDeletes(seen map[string]bool) error {
+	for _, remove := range b.Deletes {
+		if seen[remove.Path] || !safeBatchPath(remove.Path) || !validDigest(remove.PreviousSHA256) {
+			return ErrInvalidBatch
+		}
+		seen[remove.Path] = true
+	}
+	return nil
 }
 
 func validBatchID(id string) bool {
@@ -216,11 +255,18 @@ func (l BatchLog) validatePaths(batch Batch) error {
 	if err := l.checkParents(l.Intent); err != nil {
 		return err
 	}
+	paths := make([]string, 0, len(batch.Puts)+len(batch.Deletes))
 	for _, put := range batch.Puts {
-		if put.Path == l.Intent || strings.HasPrefix(put.Path, l.Intent+"/") || strings.HasPrefix(l.Intent, put.Path+"/") {
+		paths = append(paths, put.Path)
+	}
+	for _, remove := range batch.Deletes {
+		paths = append(paths, remove.Path)
+	}
+	for _, path := range paths {
+		if path == l.Intent || strings.HasPrefix(path, l.Intent+"/") || strings.HasPrefix(l.Intent, path+"/") {
 			return ErrInvalidBatch
 		}
-		if err := l.checkParents(put.Path); err != nil {
+		if err := l.checkParents(path); err != nil {
 			return err
 		}
 	}
@@ -246,15 +292,7 @@ func (l BatchLog) checkParents(path string) error {
 func (l BatchLog) preflight(batch Batch) ([]bool, error) {
 	already := make([]bool, len(batch.Puts))
 	for i, put := range batch.Puts {
-		var raw []byte
-		path := filepath.Join(l.Root, put.Path)
-		info, err := os.Lstat(path)
-		if err == nil {
-			if !info.Mode().IsRegular() || info.Size() > maxPutBytes {
-				return nil, ErrInvalidBatch
-			}
-			raw, err = os.ReadFile(path) //nolint:gosec // G304: paths were validated below the caller-owned root.
-		}
+		raw, err := ReadBytes(filepath.Join(l.Root, put.Path), maxPutBytes)
 		if errors.Is(err, os.ErrNotExist) && put.PreviousSHA256 == "" {
 			continue
 		}
@@ -267,33 +305,80 @@ func (l BatchLog) preflight(batch Batch) ([]bool, error) {
 			return nil, ErrBatchConflict
 		}
 	}
+	for _, remove := range batch.Deletes {
+		raw, err := ReadBytes(filepath.Join(l.Root, remove.Path), maxPutBytes)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if batchDigest(raw) != remove.PreviousSHA256 {
+			return nil, ErrBatchConflict
+		}
+	}
 	return already, nil
 }
 
-func (l BatchLog) apply(batch Batch) error {
+func (l BatchLog) apply(batch Batch, confirmIntent bool) error {
 	ops := l.operations()
 	// A prior rename may have succeeded while its directory sync failed.
 	// Confirm intent durability before publishing any after-image on replay.
-	if err := ops.sync(filepath.Dir(l.intentPath())); err != nil {
-		return err
+	if confirmIntent {
+		if err := ops.sync(filepath.Dir(l.intentPath())); err != nil {
+			return err
+		}
 	}
 	already, err := l.preflight(batch)
 	if err != nil {
 		return err
 	}
-	for i, put := range batch.Puts {
-		path := filepath.Join(l.Root, put.Path)
-		if already[i] {
-			err = ops.sync(filepath.Dir(path))
-		} else {
-			err = ops.write(path, put.Data)
-		}
-		if err != nil {
-			return err
-		}
+	if err := l.applyTargets(batch, already, ops); err != nil {
+		return err
 	}
 	if err := ops.remove(l.intentPath()); err != nil {
 		return err
 	}
 	return ops.sync(filepath.Dir(l.intentPath()))
+}
+
+func (l BatchLog) applyTargets(batch Batch, already []bool, ops batchIO) error {
+	target, order := ops.write, ops.sync
+	if l.io == nil {
+		target, order = writeBatchTarget, orderBatchDirectory
+	}
+	if ops.target != nil {
+		target = ops.target
+	}
+	if ops.order != nil {
+		order = ops.order
+	}
+	parents := make(map[string]bool)
+	for i, put := range batch.Puts {
+		path := filepath.Join(l.Root, put.Path)
+		parents[filepath.Dir(path)] = true
+		if !already[i] {
+			if err := target(path, put.Data); err != nil {
+				return err
+			}
+		}
+	}
+	for _, remove := range batch.Deletes {
+		path := filepath.Join(l.Root, remove.Path)
+		if err := ops.remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		parents[filepath.Dir(path)] = true
+	}
+	paths := make([]string, 0, len(parents))
+	for path := range parents {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, path := range paths {
+		if err := order(path); err != nil {
+			return err
+		}
+	}
+	return nil
 }

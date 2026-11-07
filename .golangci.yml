@@ -69,6 +69,7 @@ linters:
           allow:
             - $gostd
             - github.com/zalkilabs/zalki/internal/fsutil$
+            - golang.org/x/sys/unix$
         composition:
           files: ["**/internal/adapters/*.go", "!$test"]
           list-mode: strict

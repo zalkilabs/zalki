@@ -79,37 +79,11 @@ func (s Store) session(id string) (Session, error) {
 }
 
 func (s Store) saveSession(v Session) error {
-	if v.Schema < 0 || v.Schema > leaseSessionSchema {
-		return fail(CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
-	}
-	path, err := s.sessionPath(v.ID)
+	record, err := prepareSessionRecord(s, v)
 	if err != nil {
 		return err
 	}
-	adapter, err := s.registry().Lookup(v.Kind)
-	if err != nil {
-		return err
-	}
-	v.Receive = adapter.ReceiveCapabilities(v)
-	v.Schema = recordSchema
-	if v.Listener != nil {
-		v.Schema = leaseSessionSchema
-	}
-	if v.NativeID == "" {
-		v.NativeID = NativeID(v)
-	}
-	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
-		return fail(CodeInvalidIdentity, "native and Zalki session identities do not match")
-	}
-	var removed []string
-	if migration, ok := adapter.(agent.SessionStateMigrationAdapter); ok {
-		for _, name := range migration.LegacyStateFields() {
-			if !coreField(name) {
-				removed = append(removed, name)
-			}
-		}
-	}
-	return s.writeRecord(path, v, leaseSessionSchema, recordUpdate{removed: removed})
+	return s.writeRecord(record.path, record.value, leaseSessionSchema, recordUpdate{removed: record.removed})
 }
 
 func (s Store) Register(kind, id, cwd string, endpoint *Endpoint) (Session, string, error) {
@@ -215,7 +189,7 @@ func (s Store) Update(id string, state SessionState, retire bool) error {
 		} else {
 			current.State, current.UpdatedAt = state, model.Timestamp()
 		}
-		if err := s.saveSession(current); err != nil {
+		if err := persistSessionUpdate(s, current, previous); err != nil {
 			return err
 		}
 		if previous != state {

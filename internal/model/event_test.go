@@ -8,7 +8,7 @@ import (
 )
 
 func validMetadataEvent() model.Event {
-	return model.Event{Schema: 0, ID: "00000000-0000-4000-8000-000000000001",
+	return model.Event{ID: "00000000-0000-4000-8000-000000000001",
 		Type: "session.state_changed", OccurredAt: "2026-11-07T11:00:00.000000000Z",
 		TransactionID: "00000000-0000-4000-8000-000000000002",
 		Session: model.EventSession{ID: "codex:00000000-0000-4000-8000-000000000003",
@@ -23,7 +23,7 @@ func TestMetadataEventValidation(t *testing.T) {
 		name   string
 		change func(*model.Event)
 	}{
-		{"schema", func(e *model.Event) { e.Schema = 1 }},
+		{"missing event id", func(e *model.Event) { e.ID = "" }},
 		{"kind", func(e *model.Event) { e.Type = "message.body" }},
 		{"event id", func(e *model.Event) { e.ID = "../event" }},
 		{"transaction id", func(e *model.Event) { e.TransactionID = "" }},

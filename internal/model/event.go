@@ -6,11 +6,9 @@ import (
 	"time"
 )
 
-// Event is the minimal metadata event used by the dormant commit mechanism.
+// Event is the minimal metadata event used by the commit mechanism.
 // It deliberately has no body, credential, label, path or adapter state.
 type Event struct {
-	// Schema is zero while this metadata contract is experimental.
-	Schema int `json:"schema"`
 	// ID identifies this immutable event across recovery and replay.
 	ID string `json:"id"`
 	// Type identifies the supported state-change fact.
@@ -37,8 +35,8 @@ type EventSession struct {
 
 // Validate checks the experimental state-change event without performing IO.
 func (e Event) Validate() error {
-	if e.Schema != 0 || e.Type != "session.state_changed" {
-		return errors.New("unsupported event schema or type")
+	if e.Type != "session.state_changed" {
+		return errors.New("unsupported event type")
 	}
 	for _, id := range []string{e.ID, e.TransactionID, e.Session.Generation} {
 		if canonical, err := UUID(id); err != nil || canonical != id {
