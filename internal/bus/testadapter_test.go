@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -146,7 +147,7 @@ func setCursorState(v *Session, state CursorListenerState) {
 	v.AdapterState, _ = json.Marshal(state)
 }
 
-func (stubCursorAdapter) DecodeState(in StateInput) (json.RawMessage, error) {
+func (stubCursorAdapter) DecodeState(in agent.StateInput) (json.RawMessage, error) {
 	if len(in.State) == 0 {
 		var legacy struct {
 			Attempted  bool `json:"cursor_recovery_attempted"`

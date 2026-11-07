@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -97,7 +98,7 @@ func (s Store) applyAdapterState(v *Session, next json.RawMessage) error {
 	if err != nil {
 		return err
 	}
-	final, err := s.decodeAdapterState(v.Kind, StateInput{State: candidate})
+	final, err := s.decodeAdapterState(v.Kind, agent.StateInput{State: candidate})
 	if err != nil {
 		return err
 	}

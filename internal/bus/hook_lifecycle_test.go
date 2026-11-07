@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 func cursorHost(store Store, actor, event string) hookRuntime {
@@ -230,7 +232,7 @@ type rewritingCursorAdapter struct {
 	rewrite json.RawMessage
 }
 
-func (a rewritingCursorAdapter) DecodeState(in StateInput) (json.RawMessage, error) {
+func (a rewritingCursorAdapter) DecodeState(in agent.StateInput) (json.RawMessage, error) {
 	if len(in.State) == 0 {
 		return a.stubCursorAdapter.DecodeState(in)
 	}

@@ -5,30 +5,9 @@ import (
 	"encoding/json"
 	"reflect"
 	"strings"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
-
-// StateInput is what an adapter's state codec may read. It never carries the
-// session: State is a copy of the adapter's own persisted state, and
-// Extensions holds a copy of each top-level record field core does not own,
-// such as a client's fields from before adapter state existed. Credentials,
-// identity and every other core field are removed before the codec runs.
-type StateInput struct {
-	Extensions map[string]json.RawMessage
-	State      json.RawMessage
-}
-
-// SessionStateAdapter validates or migrates an adapter's persisted state. It
-// returns the normalized current-schema state; core bounds, copies and stores
-// only that result. An error leaves the record unread or unchanged.
-type SessionStateAdapter interface {
-	DecodeState(StateInput) (json.RawMessage, error)
-}
-
-// SessionStateMigrationAdapter identifies obsolete top-level extension fields
-// consumed by an adapter's migration. Core-owned fields can never be removed.
-type SessionStateMigrationAdapter interface {
-	LegacyStateFields() []string
-}
 
 const (
 	maxAdapterState = 4096
@@ -80,12 +59,12 @@ func stateExtensions(record json.RawMessage) (map[string]json.RawMessage, error)
 
 // decodeAdapterState runs the adapter's codec, if it has one, and returns a
 // bounded copy of its result. Adapters without a codec keep state unchanged.
-func (s Store) decodeAdapterState(kind string, in StateInput) (json.RawMessage, error) {
+func (s Store) decodeAdapterState(kind string, in agent.StateInput) (json.RawMessage, error) {
 	adapter, err := s.registry().Lookup(kind)
 	if err != nil {
 		return nil, err
 	}
-	codec, ok := adapter.(SessionStateAdapter)
+	codec, ok := adapter.(agent.SessionStateAdapter)
 	if !ok {
 		return in.State, nil
 	}

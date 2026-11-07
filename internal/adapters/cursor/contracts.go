@@ -1,16 +1,19 @@
 package cursor
 
-import "github.com/zalkilabs/zalki/internal/bus"
+import (
+	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/bus"
+)
 
 // Check every extension this adapter opts into; absent interfaces keep core defaults.
 var (
-	_ bus.Adapter              = Adapter{}
-	_ bus.NameAdapter          = Adapter{}
-	_ bus.HookAdapter          = Adapter{}
-	_ bus.HealthAdapter        = Adapter{}
-	_ bus.ConfigurationAdapter = Adapter{}
-	_ bus.RecoveryHintAdapter  = Adapter{}
-	_ bus.SessionStateAdapter  = Adapter{}
+	_ bus.Adapter               = Adapter{}
+	_ bus.NameAdapter           = Adapter{}
+	_ bus.HookAdapter           = Adapter{}
+	_ bus.HealthAdapter         = Adapter{}
+	_ bus.ConfigurationAdapter  = Adapter{}
+	_ bus.RecoveryHintAdapter   = Adapter{}
+	_ agent.SessionStateAdapter = Adapter{}
 )
 
-var _ bus.SessionStateMigrationAdapter = (*Adapter)(nil)
+var _ agent.SessionStateMigrationAdapter = (*Adapter)(nil)
