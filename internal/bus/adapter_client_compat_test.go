@@ -62,7 +62,7 @@ func TestClientVersionProbeAndUnknownVersionDiagnostics(t *testing.T) {
 	}
 	buffer := versionBuffer{}
 	_, _ = buffer.Write([]byte(strings.Repeat("x", 4096)))
-	if buffer.Len() != 1024 {
+	if buffer.buffer.Len() != 1024 {
 		t.Fatal("version output was not bounded")
 	}
 }
