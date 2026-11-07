@@ -138,7 +138,7 @@ func (s Store) register(kind, id, cwd string, endpoint *Endpoint, compact bool) 
 	hash := sha256.Sum256([]byte(key))
 	native, _ := canonicalNativeID(id)
 	session = Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: StateReady, UpdatedAt: timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
-	if names, ok := adapter.(NameAdapter); ok {
+	if names, ok := adapter.(agent.NameAdapter); ok {
 		session.NativeConfigDir = names.ConfigDir()
 	}
 	session.Receive = adapter.ReceiveCapabilities(session)

@@ -5,6 +5,7 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
@@ -18,37 +19,12 @@ const (
 	LivenessUnknown = model.LivenessUnknown
 )
 
-// LivenessView is the session evidence an adapter may use to decide liveness.
-// It carries no credential.
-type LivenessView struct {
-	Endpoint *Endpoint
-	Owner    *ProcessRef
-}
-
-// LivenessProbes are core's process and endpoint checks. Adapters must use
-// these instead of inspecting the OS themselves.
-type LivenessProbes struct {
-	// Endpoint reports whether the recorded socket is still the same bound socket.
-	Endpoint func(*Endpoint) error
-	// Presence reports a process without a stored start-time fingerprint:
-	// exited only when that pid is gone or a zombie, unknown when inspection
-	// fails or the pid may have been reused.
-	Presence func(pid int) Liveness
-}
-
-// LivenessAdapter replaces owner-process liveness. TracksOwnProcess is part of
-// the same choice: a client that does not use the parent walk must not store it.
-type LivenessAdapter interface {
-	Liveness(LivenessView, LivenessProbes) Liveness
-	TracksOwnProcess() bool
-}
-
 func (s Store) tracksOwnProcess(kind string) bool {
 	adapter, err := s.registry().Lookup(kind)
 	if err != nil {
 		return true
 	}
-	policy, ok := adapter.(LivenessAdapter)
+	policy, ok := adapter.(agent.LivenessAdapter)
 	return !ok || policy.TracksOwnProcess()
 }
 
@@ -57,12 +33,12 @@ func (s Store) sessionLiveness(v Session) Liveness {
 	if err != nil {
 		return LivenessUnknown
 	}
-	policy, ok := adapter.(LivenessAdapter)
+	policy, ok := adapter.(agent.LivenessAdapter)
 	if !ok {
 		// Adapters without a policy use the fingerprinted owner process.
 		return processLiveness(v.Owner)
 	}
-	switch got := policy.Liveness(LivenessView{Endpoint: v.Endpoint, Owner: v.Owner}, s.livenessProbes()); got {
+	switch got := policy.Liveness(agent.LivenessView{Endpoint: v.Endpoint, Owner: v.Owner}, s.livenessProbes()); got {
 	case LivenessAlive, LivenessExited, LivenessUnknown:
 		return got
 	default:
@@ -70,8 +46,8 @@ func (s Store) sessionLiveness(v Session) Liveness {
 	}
 }
 
-func (s Store) livenessProbes() LivenessProbes {
-	return LivenessProbes{
+func (s Store) livenessProbes() agent.LivenessProbes {
+	return agent.LivenessProbes{
 		Endpoint: CheckEndpoint,
 		Presence: func(pid int) Liveness { return processPresence(pid, procwatch.Read) },
 	}

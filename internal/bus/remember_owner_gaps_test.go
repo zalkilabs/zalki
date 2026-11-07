@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
@@ -56,8 +57,10 @@ func (a ownerAdapter) Descriptor() AdapterDescriptor {
 // sharedAdapter is an ownerAdapter whose process is not the session.
 type sharedAdapter struct{ ownerAdapter }
 
-func (sharedAdapter) Liveness(LivenessView, LivenessProbes) Liveness { return LivenessUnknown }
-func (sharedAdapter) TracksOwnProcess() bool                         { return false }
+func (sharedAdapter) Liveness(agent.LivenessView, agent.LivenessProbes) Liveness {
+	return LivenessUnknown
+}
+func (sharedAdapter) TracksOwnProcess() bool { return false }
 
 func ownerStore(t *testing.T, adapter Adapter) Store {
 	t.Helper()

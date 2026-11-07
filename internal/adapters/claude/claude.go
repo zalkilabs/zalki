@@ -74,7 +74,7 @@ func (Adapter) RegisterHook(event agent.HookInput) (agent.HookRegistration, erro
 	return agent.HookRegistration{Endpoint: endpoint}, err
 }
 
-func (Adapter) Health(_ bus.HealthHost, v bus.Session) (string, string) {
+func (Adapter) Health(_ agent.HealthHost, v bus.Session) (string, string) {
 	if bus.CheckEndpoint(v.Endpoint) == nil {
 		return "bound_socket_present", ""
 	}

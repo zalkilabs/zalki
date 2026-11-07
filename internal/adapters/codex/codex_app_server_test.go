@@ -15,6 +15,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
@@ -44,7 +45,7 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	if capabilities.Delivery != "app_server_unverified_or_queue" || capabilities.BusyDelivery != bus.DeliveryNextTurn || !capabilities.IdleWake {
 		t.Fatalf("socket was not advertised: %+v", capabilities)
 	}
-	var host bus.HealthHost
+	var host agent.HealthHost
 	health, listenerHealth := (Adapter{}).Health(host, target)
 	if health != "app_server_socket_present" || listenerHealth != "" {
 		t.Fatalf("doctor health = %q %q", health, listenerHealth)

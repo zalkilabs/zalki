@@ -4,20 +4,21 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
 func TestClaudeLivenessUsesTheSessionSocket(t *testing.T) {
 	endpoint := &bus.Endpoint{Path: "/tmp/cc-socks/12076.sock", Device: 1, Inode: 2}
 	helper := &bus.ProcessRef{PID: 87443, Start: "helper", Role: "client"}
-	bound := bus.LivenessProbes{
+	bound := agent.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return nil },
 		Presence: func(int) bus.Liveness { return bus.LivenessUnknown },
 	}
-	if got := (Adapter{}).Liveness(bus.LivenessView{Endpoint: endpoint, Owner: helper}, bound); got != "alive" {
+	if got := (Adapter{}).Liveness(agent.LivenessView{Endpoint: endpoint, Owner: helper}, bound); got != "alive" {
 		t.Fatalf("a bound session socket was %s", got)
 	}
-	crashed := bus.LivenessProbes{
+	crashed := agent.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return nil },
 		Presence: func(pid int) bus.Liveness {
 			if pid != 12076 {
@@ -26,11 +27,11 @@ func TestClaudeLivenessUsesTheSessionSocket(t *testing.T) {
 			return bus.LivenessExited
 		},
 	}
-	if got := (Adapter{}).Liveness(bus.LivenessView{Endpoint: endpoint, Owner: helper}, crashed); got != "exited" {
+	if got := (Adapter{}).Liveness(agent.LivenessView{Endpoint: endpoint, Owner: helper}, crashed); got != "exited" {
 		t.Fatalf("a leftover socket for a dead process was %s", got)
 	}
 
-	missing := bus.LivenessProbes{
+	missing := agent.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return errors.New("gone") },
 		Presence: func(pid int) bus.Liveness {
 			if pid != 12076 {
@@ -39,18 +40,18 @@ func TestClaudeLivenessUsesTheSessionSocket(t *testing.T) {
 			return bus.LivenessExited
 		},
 	}
-	if got := (Adapter{}).Liveness(bus.LivenessView{Endpoint: endpoint, Owner: helper}, missing); got != "exited" {
+	if got := (Adapter{}).Liveness(agent.LivenessView{Endpoint: endpoint, Owner: helper}, missing); got != "exited" {
 		t.Fatalf("a gone session pid was %s", got)
 	}
 
-	reused := bus.LivenessProbes{
+	reused := agent.LivenessProbes{
 		Endpoint: func(*bus.Endpoint) error { return errors.New("replaced") },
 		Presence: func(int) bus.Liveness { return bus.LivenessUnknown },
 	}
-	if got := (Adapter{}).Liveness(bus.LivenessView{Endpoint: endpoint, Owner: helper}, reused); got != "unknown" {
+	if got := (Adapter{}).Liveness(agent.LivenessView{Endpoint: endpoint, Owner: helper}, reused); got != "unknown" {
 		t.Fatalf("an unfingerprinted pid was %s", got)
 	}
-	if got := (Adapter{}).Liveness(bus.LivenessView{Owner: helper}, reused); got != "unknown" {
+	if got := (Adapter{}).Liveness(agent.LivenessView{Owner: helper}, reused); got != "unknown" {
 		t.Fatalf("a helper owner without a socket was %s", got)
 	}
 	if (Adapter{}).TracksOwnProcess() {

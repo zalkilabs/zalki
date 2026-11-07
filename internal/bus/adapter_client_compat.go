@@ -13,6 +13,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 //go:embed testdata/clients/*.json
@@ -115,7 +117,7 @@ func recoveryHint(diagnostic SessionDiagnostic, adapter Adapter) string {
 	if diagnostic.HookBuildStatus == "outdated" {
 		return "Restart this client session and reconnect its Zalki MCP server to load the installed build."
 	}
-	if hinter, ok := adapter.(RecoveryHintAdapter); ok {
+	if hinter, ok := adapter.(agent.RecoveryHintAdapter); ok {
 		if hint := hinter.RecoveryHint(diagnostic); validRecoveryHint(hint) {
 			return hint
 		}
@@ -134,7 +136,7 @@ func annotateAdapterCompatibility(diagnostic *AgentDiagnostic, adapter Adapter) 
 	if !diagnostic.Found || diagnostic.Version == "" {
 		return
 	}
-	policy, ok := adapter.(CompatibilityAdapter)
+	policy, ok := adapter.(agent.CompatibilityAdapter)
 	if !ok {
 		return
 	}

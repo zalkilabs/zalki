@@ -4,6 +4,8 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 type livenessStub struct {
@@ -18,7 +20,7 @@ func (s livenessStub) Descriptor() AdapterDescriptor {
 	return d
 }
 
-func (s livenessStub) Liveness(LivenessView, LivenessProbes) Liveness { return s.result }
+func (s livenessStub) Liveness(agent.LivenessView, agent.LivenessProbes) Liveness { return s.result }
 
 func (s livenessStub) TracksOwnProcess() bool { return s.own }
 

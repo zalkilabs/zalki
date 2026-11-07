@@ -7,12 +7,12 @@ import (
 
 // Check every extension this adapter opts into; absent interfaces keep core defaults.
 var (
-	_ bus.Adapter              = Adapter{}
-	_ bus.NameAdapter          = Adapter{}
-	_ agent.HookAdapter        = Adapter{}
-	_ bus.HealthAdapter        = Adapter{}
-	_ bus.ConfigurationAdapter = Adapter{}
-	_ bus.LivenessAdapter      = Adapter{}
-	_ bus.RecoveryHintAdapter  = Adapter{}
-	_ bus.CompatibilityAdapter = Adapter{}
+	_ bus.Adapter                = Adapter{}
+	_ agent.NameAdapter          = Adapter{}
+	_ agent.HookAdapter          = Adapter{}
+	_ agent.HealthAdapter        = Adapter{}
+	_ bus.ConfigurationAdapter   = Adapter{}
+	_ agent.LivenessAdapter      = Adapter{}
+	_ agent.RecoveryHintAdapter  = Adapter{}
+	_ agent.CompatibilityAdapter = Adapter{}
 )

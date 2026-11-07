@@ -4,6 +4,8 @@ package bus
 import (
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 type pruneProbeAdapter struct {
@@ -11,9 +13,9 @@ type pruneProbeAdapter struct {
 	calls *int
 }
 
-var _ LivenessAdapter = pruneProbeAdapter{}
+var _ agent.LivenessAdapter = pruneProbeAdapter{}
 
-func (a pruneProbeAdapter) Liveness(LivenessView, LivenessProbes) Liveness {
+func (a pruneProbeAdapter) Liveness(agent.LivenessView, agent.LivenessProbes) Liveness {
 	(*a.calls)++
 	return LivenessExited
 }

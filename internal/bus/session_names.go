@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -22,7 +23,7 @@ func (s Store) nativeNames(sessions []Session) {
 		if err != nil {
 			continue
 		}
-		names, ok := adapter.(NameAdapter)
+		names, ok := adapter.(agent.NameAdapter)
 		if !ok {
 			continue
 		}
@@ -38,7 +39,7 @@ func (s Store) rememberNativeConfigDir(id, kind string) error {
 	if err != nil {
 		return err
 	}
-	names, ok := adapter.(NameAdapter)
+	names, ok := adapter.(agent.NameAdapter)
 	if !ok {
 		return nil
 	}

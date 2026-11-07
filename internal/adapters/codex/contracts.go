@@ -8,9 +8,9 @@ import (
 // Check every extension this adapter opts into; absent interfaces keep core defaults.
 var (
 	_ bus.Adapter              = Adapter{}
-	_ bus.NameAdapter          = Adapter{}
+	_ agent.NameAdapter        = Adapter{}
 	_ agent.HookAdapter        = Adapter{}
-	_ bus.HealthAdapter        = Adapter{}
+	_ agent.HealthAdapter      = Adapter{}
 	_ bus.ConfigurationAdapter = Adapter{}
-	_ bus.LivenessAdapter      = Adapter{}
+	_ agent.LivenessAdapter    = Adapter{}
 )
