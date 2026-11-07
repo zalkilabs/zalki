@@ -74,7 +74,7 @@ func TestMessageLogsCorrelateWithoutExposingPrivateContent(t *testing.T) {
 	}
 	input, _ := json.Marshal(agent.HookInput{SessionID: newID(), CWD: "/fixture/" + private, Event: "sessionStart"})
 	var hookOutput bytes.Buffer
-	if err := service.Hook("cursor", bytes.NewReader(input), &hookOutput); err != nil {
+	if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), &hookOutput); err != nil {
 		t.Fatal(err)
 	}
 	var startup struct {

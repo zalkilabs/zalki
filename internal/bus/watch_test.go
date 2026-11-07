@@ -41,7 +41,7 @@ func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
 		"last_assistant_message": long,
 	}
 	input, _ := json.Marshal(stop)
-	if err := service.Hook("claude", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "claude", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(delivered) != 1 {
@@ -69,7 +69,7 @@ func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
 	if err != nil || saved.Status != StatusSubmitted || saved.Receipt == nil {
 		t.Fatalf("receipt: %+v %v", saved, err)
 	}
-	if err := service.Hook("claude", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "claude", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(delivered) != 1 {
@@ -83,7 +83,7 @@ func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
 	end, _ := json.Marshal(map[string]any{
 		"session_id": strings.TrimPrefix(target.ID, "claude:"), "hook_event_name": "SessionEnd",
 	})
-	if err := service.Hook("claude", bytes.NewReader(end), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "claude", bytes.NewReader(end), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(delivered) != 2 || !strings.Contains(delivered[1].Body, ") ended the session at ") || !strings.HasPrefix(Envelope(delivered[1]), "[zalki notice ") {
@@ -109,7 +109,7 @@ func TestWatchSkipsAnUnfinishedStopAndExpires(t *testing.T) {
 			"conversation_id": strings.TrimPrefix(target.ID, "cursor:"),
 			"hook_event_name": event, "status": status,
 		})
-		if err := service.Hook("cursor", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+		if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -178,7 +178,7 @@ func TestWatchWaitsForTheNextStopWhenArmedMidTurn(t *testing.T) {
 	stop, _ := json.Marshal(map[string]any{
 		"session_id": strings.TrimPrefix(target.ID, "claude:"), "hook_event_name": "Stop", "status": "completed",
 	})
-	if err := service.Hook("claude", bytes.NewReader(stop), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "claude", bytes.NewReader(stop), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	if delivered != 0 {
@@ -191,7 +191,7 @@ func TestWatchWaitsForTheNextStopWhenArmedMidTurn(t *testing.T) {
 	if err := writeJSON(path, Watch{Schema: recordSchema, Watcher: watcher.ID, Target: target.ID, CreatedAt: past, ExpiresAt: time.Now().Add(watchTTL).UTC().Format(time.RFC3339Nano)}); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.Hook("claude", bytes.NewReader(stop), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "claude", bytes.NewReader(stop), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	if delivered != 1 {
@@ -344,7 +344,7 @@ func TestWatchSubscribedDuringStopSurvivesThatCompletion(t *testing.T) {
 	t.Cleanup(release)
 	stop, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(target.ID, "claude:"), Event: "Stop"})
 	done := make(chan error, 1)
-	go func() { done <- service.Hook("claude", bytes.NewReader(stop), &bytes.Buffer{}) }()
+	go func() { done <- service.Hook(t.Context(), "claude", bytes.NewReader(stop), &bytes.Buffer{}) }()
 	select {
 	case <-adapter.entered:
 	case <-time.After(5 * time.Second):
@@ -361,7 +361,7 @@ func TestWatchSubscribedDuringStopSurvivesThatCompletion(t *testing.T) {
 		t.Fatal("in-progress completion consumed a newer watch")
 	}
 	adapter.entered = nil
-	if err := service.Hook("claude", bytes.NewReader(stop), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "claude", bytes.NewReader(stop), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	if delivered != 1 {

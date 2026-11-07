@@ -28,7 +28,7 @@ func stopHook(t *testing.T, service Service, kind, id string) {
 		"session_id": strings.TrimPrefix(id, kind+":"), "conversation_id": strings.TrimPrefix(id, kind+":"),
 		"hook_event_name": "Stop", "status": "completed",
 	})
-	if err := service.Hook(kind, bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), kind, bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -197,7 +197,7 @@ func TestApprovalQueueCapsAndDropsOnRetirement(t *testing.T) {
 	input, _ := json.Marshal(map[string]any{
 		"session_id": strings.TrimPrefix(target.ID, "codex:"), "hook_event_name": "SessionEnd",
 	})
-	if err := service.Hook("codex", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(delivered) != 0 {
@@ -254,7 +254,7 @@ func TestApprovalQueueFeedsHookDeliveryOnce(t *testing.T) {
 	input, _ := json.Marshal(map[string]any{
 		"conversation_id": strings.TrimPrefix(target.ID, "cursor:"), "hook_event_name": "postToolUse",
 	})
-	if err := service.Hook("cursor", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	text, err := store.EmitPending(target.ID)
@@ -281,7 +281,7 @@ func TestApprovalQueueDeliversANoticeAfterThePrompt(t *testing.T) {
 	input, _ := json.Marshal(map[string]any{
 		"session_id": strings.TrimPrefix(target.ID, "claude:"), "hook_event_name": "Stop",
 	})
-	if err := service.Hook("claude", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "claude", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(delivered) != 0 {
@@ -318,7 +318,7 @@ func TestApprovalQueueDeliversOnceUnderConcurrentHooks(t *testing.T) {
 			input, _ := json.Marshal(map[string]any{
 				"session_id": strings.TrimPrefix(target.ID, "codex:"), "hook_event_name": "Stop", "status": "completed",
 			})
-			if err := service.Hook("codex", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+			if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 				t.Error(err)
 			}
 		}()

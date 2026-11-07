@@ -173,7 +173,7 @@ func TestCursorPromptReactivatesResumedConversation(t *testing.T) {
 			"hook_event_name": event, "status": "completed",
 		})
 		var out bytes.Buffer
-		if err := service.Hook("cursor", bytes.NewReader(input), &out); err != nil {
+		if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), &out); err != nil {
 			t.Fatal(err)
 		}
 		if out.Len() != 0 {

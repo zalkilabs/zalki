@@ -83,7 +83,7 @@ func newModelHeldFixture(t *testing.T, hookDelivery bool) (bus.Service, *fakeAda
 func releaseModelHeld(t *testing.T, service bus.Service, to agent) {
 	t.Helper()
 	input := fmt.Sprintf(`{"session_id":%q,"hook_event_name":"stop"}`, to.NativeID)
-	if err := service.Hook("beta", bytes.NewBufferString(input), &bytes.Buffer{}); err != nil {
+	if err := service.Hook(t.Context(), "beta", bytes.NewBufferString(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 }

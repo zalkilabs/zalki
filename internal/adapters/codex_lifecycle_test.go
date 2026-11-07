@@ -18,7 +18,7 @@ func checkCodexPrompt(t *testing.T, service *bus.Service, actor, prompt string, 
 	t.Helper()
 	input, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(actor, "codex:"), Event: "UserPromptSubmit", Prompt: prompt})
 	var out bytes.Buffer
-	if err := service.Hook("codex", bytes.NewReader(input), &out); err != nil {
+	if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), &out); err != nil {
 		t.Fatal(err)
 	}
 	if !stopped {
@@ -80,7 +80,7 @@ func TestCodexPromptDoesNotReplayPreviousRegistration(t *testing.T) {
 	for range 7 {
 		input, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(to.ID, "codex:"), Event: "UserPromptSubmit", Prompt: bus.Envelope(msg)})
 		var out bytes.Buffer
-		if err := service.Hook("codex", bytes.NewReader(input), &out); err != nil {
+		if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), &out); err != nil {
 			t.Fatal(err)
 		}
 		if strings.TrimSpace(out.String()) != `{"continue":false}` {
@@ -97,7 +97,7 @@ func codexStartHook(t *testing.T, service *bus.Service, target bus.Session, sour
 	t.Helper()
 	input, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(target.ID, "codex:"), CWD: target.CWD, Event: "SessionStart", Source: source})
 	var out bytes.Buffer
-	if err := service.Hook("codex", bytes.NewReader(input), &out); err != nil {
+	if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), &out); err != nil {
 		t.Fatal(err)
 	}
 	var result struct {

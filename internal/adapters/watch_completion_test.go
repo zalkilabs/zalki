@@ -53,7 +53,7 @@ func TestWatchCompletionIsDecidedFromCanonicalEventsForEveryAdapter(t *testing.T
 				payload["session_id"] = native
 			}
 			input, _ := json.Marshal(payload)
-			if err := service.Hook(tc.kind, bytes.NewReader(input), &bytes.Buffer{}); err != nil {
+			if err := service.Hook(t.Context(), tc.kind, bytes.NewReader(input), &bytes.Buffer{}); err != nil {
 				t.Fatal(err)
 			}
 			if tc.want == "" {

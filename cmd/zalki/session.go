@@ -73,7 +73,7 @@ func newHookCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return service.Hook(kind, cmd.InOrStdin(), cmd.OutOrStdout())
+			return service.Hook(cmd.Context(), kind, cmd.InOrStdin(), cmd.OutOrStdout())
 		},
 	}
 	cmd.Flags().StringVar(&kind, "agent", "", "registered native agent (required)")

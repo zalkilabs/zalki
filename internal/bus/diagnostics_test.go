@@ -194,7 +194,7 @@ func TestCursorResumedPromptReplacesExitedOwnerEvidence(t *testing.T) {
 	input, _ := json.Marshal(map[string]any{"conversation_id": strings.TrimPrefix(v.ID, "cursor:"), "hook_event_name": "beforeSubmitPrompt"})
 	var out bytes.Buffer
 
-	if err := service.Hook("cursor", bytes.NewReader(input), &out); err != nil {
+	if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), &out); err != nil {
 		t.Fatal(err)
 	}
 	resumed, err := store.authenticate(v.ID, key)
