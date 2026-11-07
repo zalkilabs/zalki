@@ -41,8 +41,8 @@ func (Adapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
 }
 
-func (Adapter) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities {
-	return bus.ReceiveCapabilities{IdleWake: true, Delivery: "experimental_socket", Inbox: bus.InboxNative, BusyDelivery: bus.DeliveryBetweenTools, LifecycleHooks: true, Experimental: true, RequiresEndpoint: true}
+func (Adapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities {
+	return model.ReceiveCapabilities{IdleWake: true, Delivery: "experimental_socket", Inbox: model.InboxNative, BusyDelivery: model.DeliveryBetweenTools, LifecycleHooks: true, Experimental: true, RequiresEndpoint: true}
 }
 
 func (Adapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {

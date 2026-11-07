@@ -18,10 +18,10 @@ func TestDiscoverySummarizesEachSessionWithoutRewritingIt(t *testing.T) {
 		busy         model.DeliveryTiming
 		experimental bool
 	}{
-		{"codex", false, true, DeliveryNextTurn, false},
-		{"claude", false, true, DeliveryBetweenTools, true},
-		{"cursor", false, false, DeliveryNextHook, false},
-		{"cursor", true, true, DeliveryNotification, false},
+		{"codex", false, true, model.DeliveryNextTurn, false},
+		{"claude", false, true, model.DeliveryBetweenTools, true},
+		{"cursor", false, false, model.DeliveryNextHook, false},
+		{"cursor", true, true, model.DeliveryNotification, false},
 	} {
 		v, _ := register(t, store, test.kind)
 		v.Name = "fixture reviewer"
@@ -29,7 +29,7 @@ func TestDiscoverySummarizesEachSessionWithoutRewritingIt(t *testing.T) {
 		// Discovery uses seconds; the full session retains its original precision.
 		v.UpdatedAt = "2026-10-01T12:34:56.123456789Z"
 		if test.listener {
-			v.Listener = &ListenerLease{ID: newID(), Generation: v.Generation}
+			v.Listener = &model.ListenerLease{ID: newID(), Generation: v.Generation}
 		}
 		if err := store.saveSession(v); err != nil {
 			t.Fatal(err)
@@ -52,7 +52,7 @@ func TestDiscoverySummarizesEachSessionWithoutRewritingIt(t *testing.T) {
 		if got == nil || got.Name != v.Name || got.CWD != v.CWD || got.State != StateApproval || got.UpdatedAt != "2026-10-01T12:34:56Z" {
 			t.Fatalf("discovery lost identity/activity: %+v", got)
 		}
-		if got.IdleWake != nil || (got.Delivery != DeliveryNextHook) != test.idle || got.Delivery != test.busy || got.Experimental != test.experimental {
+		if got.IdleWake != nil || (got.Delivery != model.DeliveryNextHook) != test.idle || got.Delivery != test.busy || got.Experimental != test.experimental {
 			t.Fatalf("%s listener=%t: bad summary %+v", test.kind, test.listener, got)
 		}
 		encoded, err := json.Marshal(got)
@@ -94,14 +94,14 @@ type discoveryAdapter struct {
 	busy model.DeliveryTiming
 }
 
-func (a discoveryAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
+func (a discoveryAdapter) ReceiveCapabilities(Session) model.ReceiveCapabilities {
 	c := a.stubCodexAdapter.ReceiveCapabilities(Session{})
 	c.IdleWake, c.BusyDelivery = a.idle, a.busy
 	return c
 }
 
 func TestDiscoveryDefaultsAndWakeOverrides(t *testing.T) {
-	for _, timing := range []model.DeliveryTiming{DeliveryNextTurn, DeliveryBetweenTools, DeliveryNextHook, DeliveryNotification} {
+	for _, timing := range []model.DeliveryTiming{model.DeliveryNextTurn, model.DeliveryBetweenTools, model.DeliveryNextHook, model.DeliveryNotification} {
 		for _, idle := range []bool{false, true} {
 			store := fixtureStore(t)
 			registry, err := agent.NewRegistry(discoveryAdapter{idle: idle, busy: timing})
@@ -118,11 +118,11 @@ func TestDiscoveryDefaultsAndWakeOverrides(t *testing.T) {
 			if row.State != "" || row.Liveness != "" || row.Experimental || row.Delivery != timing {
 				t.Fatalf("discovery lost defaults/timing: %+v", row)
 			}
-			wake := row.Delivery != DeliveryNextHook
+			wake := row.Delivery != model.DeliveryNextHook
 			if row.IdleWake != nil {
 				wake = *row.IdleWake
 			}
-			if wake != idle || (row.IdleWake != nil) != (idle != (timing != DeliveryNextHook)) {
+			if wake != idle || (row.IdleWake != nil) != (idle != (timing != model.DeliveryNextHook)) {
 				t.Fatalf("discovery lost idle capability: idle=%t timing=%s row=%+v", idle, timing, row)
 			}
 			encoded, _ := json.Marshal(row)

@@ -16,8 +16,8 @@ type declarationFixture struct{ files []model.ConfigDeclaration }
 func (declarationFixture) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "fixture", Label: "Fixture"}
 }
-func (declarationFixture) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities {
-	return bus.ReceiveCapabilities{Delivery: "fixture", Inbox: bus.InboxNative, BusyDelivery: bus.DeliveryNextTurn}
+func (declarationFixture) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities {
+	return model.ReceiveCapabilities{Delivery: "fixture", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn}
 }
 func (declarationFixture) Deliver(context.Context, bus.Message, bus.Session) bus.Receipt {
 	panic("configuration conversion must not deliver messages")

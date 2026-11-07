@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestListenStopsAtAcquisitionFailure(t *testing.T) {
@@ -20,7 +21,7 @@ func TestListenStopsAtAcquisitionFailure(t *testing.T) {
 		var lease *bus.Lease
 		return lease, want
 	}
-	inspect := func(string) (*bus.Endpoint, error) {
+	inspect := func(string) (*model.Endpoint, error) {
 		t.Fatal("endpoint inspection ran after acquisition failed")
 		return nil, nil
 	}

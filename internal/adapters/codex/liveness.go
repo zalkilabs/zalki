@@ -2,7 +2,6 @@ package codex
 
 import (
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -15,5 +14,5 @@ func (Adapter) TracksOwnProcess() bool { return false }
 // daemon alive would mark idle threads live; calling it exited would refuse
 // sends and prune threads that are only quiet. Unknown keeps both available.
 func (Adapter) Liveness(agent.LivenessView, agent.LivenessProbes) model.Liveness {
-	return bus.LivenessUnknown
+	return model.LivenessUnknown
 }

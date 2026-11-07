@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestCursorSenderRequiresExactHintEcho(t *testing.T) {
@@ -46,7 +47,7 @@ func TestCursorSenderRequiresExactHintEcho(t *testing.T) {
 				t.Fatal(err)
 			}
 			generation := newTestID()
-			target := bus.Session{Kind: "cursor", Generation: generation, Listener: &bus.ListenerLease{ID: newTestID(), Generation: generation, Endpoint: *endpoint}}
+			target := bus.Session{Kind: "cursor", Generation: generation, Listener: &model.ListenerLease{ID: newTestID(), Generation: generation, Endpoint: *endpoint}}
 			message := bus.Message{ID: newTestID(), Body: "peer body must stay in the journal"}
 			done := make(chan error, 1)
 			go func() {

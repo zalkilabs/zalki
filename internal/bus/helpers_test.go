@@ -3,6 +3,8 @@ package bus
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func fixtureStore(t *testing.T) Store {
@@ -12,9 +14,9 @@ func fixtureStore(t *testing.T) Store {
 
 func register(t *testing.T, store Store, kind string) (Session, string) {
 	t.Helper()
-	var endpoint *Endpoint
+	var endpoint *model.Endpoint
 	if kind == "claude" {
-		endpoint = &Endpoint{Path: "/fixture/not-a-real-socket"}
+		endpoint = &model.Endpoint{Path: "/fixture/not-a-real-socket"}
 	}
 	session, key, err := store.Register(kind, newID(), "/workspace", endpoint)
 	if err != nil {

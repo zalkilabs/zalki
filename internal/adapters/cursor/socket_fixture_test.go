@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func listenCursorSocket(t *testing.T) (*net.UnixListener, *bus.Endpoint) {
+func listenCursorSocket(t *testing.T) (*net.UnixListener, *model.Endpoint) {
 	t.Helper()
 	dir, err := os.MkdirTemp("/tmp", "zalki-socket-")
 	if err != nil {

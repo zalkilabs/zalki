@@ -18,6 +18,7 @@ import (
 
 	agentapi "github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // The characterization tests use the exported bus API and persisted journal
@@ -27,7 +28,7 @@ import (
 // fakeAdapter is a minimal client adapter with scripted transport behavior.
 type fakeAdapter struct {
 	kind string
-	caps bus.ReceiveCapabilities
+	caps model.ReceiveCapabilities
 
 	mu      sync.Mutex
 	calls   int
@@ -38,7 +39,7 @@ func (a *fakeAdapter) Descriptor() agentapi.AdapterDescriptor {
 	return agentapi.AdapterDescriptor{Kind: a.kind, Label: a.kind, ProcessNames: []string{a.kind}, OwnerRole: "client", Executable: a.kind}
 }
 
-func (a *fakeAdapter) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities { return a.caps }
+func (a *fakeAdapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities { return a.caps }
 
 func (a *fakeAdapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 	a.mu.Lock()
@@ -65,16 +66,16 @@ func (a *fakeAdapter) script(deliver func(context.Context, bus.Message, bus.Sess
 
 // nativeAdapter delivers through an in-process native inbox.
 func nativeAdapter(kind string) *fakeAdapter {
-	return &fakeAdapter{kind: kind, caps: bus.ReceiveCapabilities{
-		IdleWake: true, Delivery: "fake_native", Inbox: bus.InboxNative, BusyDelivery: bus.DeliveryNextTurn,
+	return &fakeAdapter{kind: kind, caps: model.ReceiveCapabilities{
+		IdleWake: true, Delivery: "fake_native", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn,
 	}}
 }
 
 // listenerAdapter needs a native listener, like a client that wakes through a
 // background process.
 func listenerAdapter(kind string) *fakeAdapter {
-	return &fakeAdapter{kind: kind, caps: bus.ReceiveCapabilities{
-		Delivery: "fake_listener", Inbox: bus.InboxJournal, BusyDelivery: bus.DeliveryNextHook, RequiresListener: true,
+	return &fakeAdapter{kind: kind, caps: model.ReceiveCapabilities{
+		Delivery: "fake_listener", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, RequiresListener: true,
 	}}
 }
 
@@ -181,7 +182,7 @@ func snapshot(t *testing.T, dir string) map[string]string {
 }
 
 // listenSocket binds a private Unix socket so a lease can arm a real endpoint.
-func listenSocket(t *testing.T) *bus.Endpoint {
+func listenSocket(t *testing.T) *model.Endpoint {
 	t.Helper()
 	dir, err := os.MkdirTemp("/tmp", "zalki-char-")
 	if err != nil {

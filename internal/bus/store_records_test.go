@@ -17,7 +17,7 @@ import (
 
 func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 	store := fixtureStore(t)
-	registry, err := agent.NewRegistry(fixtureAdapter{kind: "fourth", inbox: InboxNative})
+	registry, err := agent.NewRegistry(fixtureAdapter{kind: "fourth", inbox: model.InboxNative})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestNativeIdentityValidationAndUUIDCompatibility(t *testing.T) {
 
 func TestOpaqueAdapterStateSurvivesCompaction(t *testing.T) {
 	store := fixtureStore(t)
-	registry, err := agent.NewRegistry(fixtureAdapter{kind: "fourth", inbox: InboxNative})
+	registry, err := agent.NewRegistry(fixtureAdapter{kind: "fourth", inbox: model.InboxNative})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestLegacyRecordsMigrateOnWrite(t *testing.T) {
 	delete(legacy, "schema")
 	delete(legacy, "native_id")
 	delete(legacy, "adapter_state")
-	legacy["cursor_wake"] = Endpoint{Path: "/fixture/wake"}
+	legacy["cursor_wake"] = model.Endpoint{Path: "/fixture/wake"}
 	legacy["cursor_recovery_attempted"], legacy["cursor_recovery_suppressed"] = true, true
 	if err := writeJSON(path, legacy); err != nil {
 		t.Fatal(err)
@@ -269,26 +269,26 @@ func TestFutureSchemaSessionSkipsRegistryReadsWithoutWriting(t *testing.T) {
 // (73e3050) decode and rewrite it. They reject schemas above 1 before using a
 // record, and silently drop fields they do not know when they write it back.
 type preLeaseSession struct {
-	Schema          int                 `json:"schema"`
-	NativeID        string              `json:"native_id,omitempty"`
-	AdapterState    json.RawMessage     `json:"adapter_state,omitempty"`
-	ID              string              `json:"id"`
-	Kind            string              `json:"kind"`
-	Name            string              `json:"name,omitempty"`
-	NameSource      string              `json:"name_source,omitempty"`
-	NativeConfigDir string              `json:"native_config_dir,omitempty"`
-	CWD             string              `json:"cwd"`
-	Generation      string              `json:"generation"`
-	State           SessionState        `json:"state"`
-	UpdatedAt       string              `json:"updated_at"`
-	Retired         bool                `json:"retired"`
-	RetiredReason   string              `json:"retired_reason,omitempty"`
-	Owner           *model.ProcessRef   `json:"owner,omitempty"`
-	Liveness        string              `json:"liveness,omitempty"`
-	HookBuild       string              `json:"hook_build,omitempty"`
-	Endpoint        *Endpoint           `json:"endpoint,omitempty"`
-	KeyHash         string              `json:"key_hash,omitempty"`
-	Receive         ReceiveCapabilities `json:"receive"`
+	Schema          int                       `json:"schema"`
+	NativeID        string                    `json:"native_id,omitempty"`
+	AdapterState    json.RawMessage           `json:"adapter_state,omitempty"`
+	ID              string                    `json:"id"`
+	Kind            string                    `json:"kind"`
+	Name            string                    `json:"name,omitempty"`
+	NameSource      string                    `json:"name_source,omitempty"`
+	NativeConfigDir string                    `json:"native_config_dir,omitempty"`
+	CWD             string                    `json:"cwd"`
+	Generation      string                    `json:"generation"`
+	State           SessionState              `json:"state"`
+	UpdatedAt       string                    `json:"updated_at"`
+	Retired         bool                      `json:"retired"`
+	RetiredReason   string                    `json:"retired_reason,omitempty"`
+	Owner           *model.ProcessRef         `json:"owner,omitempty"`
+	Liveness        string                    `json:"liveness,omitempty"`
+	HookBuild       string                    `json:"hook_build,omitempty"`
+	Endpoint        *model.Endpoint           `json:"endpoint,omitempty"`
+	KeyHash         string                    `json:"key_hash,omitempty"`
+	Receive         model.ReceiveCapabilities `json:"receive"`
 }
 
 // preLeaseRewrite reads a record as an older build would and, when it accepts
@@ -352,7 +352,7 @@ func TestListenerLeaseUnderOlderSchemaIsRejected(t *testing.T) {
 	if err := readJSON(path, &record); err != nil {
 		t.Fatal(err)
 	}
-	record["listener"] = ListenerLease{ID: newID(), Generation: to.Generation, Endpoint: Endpoint{Path: "/tmp/zalki-x/inbox.sock"}}
+	record["listener"] = model.ListenerLease{ID: newID(), Generation: to.Generation, Endpoint: model.Endpoint{Path: "/tmp/zalki-x/inbox.sock"}}
 	if err := writeJSON(path, record); err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +371,7 @@ func TestPreLeaseWakeIsNotCarriedIntoRewrittenRecords(t *testing.T) {
 	if err := readJSON(path, &record); err != nil {
 		t.Fatal(err)
 	}
-	record["adapter_state"] = map[string]any{"schema": 1, "recovery_attempted": true, "wake": Endpoint{Path: "/tmp/zalki-old/inbox.sock"}}
+	record["adapter_state"] = map[string]any{"schema": 1, "recovery_attempted": true, "wake": model.Endpoint{Path: "/tmp/zalki-old/inbox.sock"}}
 	if err := writeJSON(path, record); err != nil {
 		t.Fatal(err)
 	}

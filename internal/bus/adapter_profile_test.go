@@ -17,7 +17,7 @@ func TestAdapterDefinesItsOwnConfigurationOverride(t *testing.T) {
 	home, profile := t.TempDir(), t.TempDir()
 	t.Setenv("FOURTH_CONFIG_DIR", profile)
 	adapter := configFixtureAdapter{
-		fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: InboxNative},
+		fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: model.InboxNative},
 		files:          []model.ConfigDeclaration{{Path: ".fourth/mcp.json", ConfigRootEnv: "FOURTH_CONFIG_DIR", Draft: "fourth-mcp.json", JSON: install.MCPConfig("/fixture/zalki", nil, false)}},
 	}
 	registry, err := agent.NewRegistry(adapter)

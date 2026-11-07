@@ -82,14 +82,14 @@ func (s Store) saveSession(v Session) error {
 	return saveSessionWith(s, v, commitWriter{dir: s.Dir})
 }
 
-func (s Store) Register(kind, id, cwd string, endpoint *Endpoint) (Session, string, error) {
+func (s Store) Register(kind, id, cwd string, endpoint *model.Endpoint) (Session, string, error) {
 	return s.register(kind, id, cwd, endpoint, false)
 }
 
 // Compaction refreshes the model's private capability without replacing the
 // receiving registration. Its native queue still belongs to that registration.
 // Startup/resume and explicit registration continue to create a new generation.
-func (s Store) register(kind, id, cwd string, endpoint *Endpoint, compact bool) (Session, string, error) {
+func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact bool) (Session, string, error) {
 	var session Session
 	full, err := s.sessionID(kind, id)
 	if err != nil {
@@ -154,7 +154,7 @@ func (s Store) authenticate(id, key string) (Session, error) {
 	if current.Retired {
 		return current, fail(CodeUnavailable, "session is retired; registration is required")
 	}
-	if s.sessionLiveness(current) == LivenessExited {
+	if s.sessionLiveness(current) == model.LivenessExited {
 		return current, fail(CodeUnavailable, "registered owner process has exited; resume or register the session again")
 	}
 	hash := sha256.Sum256([]byte(key))
@@ -209,7 +209,7 @@ func (s Store) sessionsWithWarnings() ([]Session, int, error) {
 	}
 	for _, v := range rows {
 		v.Liveness = s.sessionLiveness(v)
-		if !v.Retired && v.Liveness != LivenessExited {
+		if !v.Retired && v.Liveness != model.LivenessExited {
 			v.KeyHash = ""
 			sessions = append(sessions, v)
 		}

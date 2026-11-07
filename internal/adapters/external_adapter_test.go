@@ -12,6 +12,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // fourthAdapter is compiled outside package bus. It proves an external client
@@ -30,8 +31,8 @@ func (fourthAdapter) Descriptor() agent.AdapterDescriptor {
 // on Cursor's state format, credential operations or private journal helpers.
 type fourthJournalAdapter struct{ fourthAdapter }
 
-func (fourthJournalAdapter) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities {
-	return bus.ReceiveCapabilities{Delivery: "fixture_hooks", Inbox: bus.InboxJournal, BusyDelivery: bus.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true}
+func (fourthJournalAdapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities {
+	return model.ReceiveCapabilities{Delivery: "fixture_hooks", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true}
 }
 
 func (fourthJournalAdapter) Deliver(context.Context, bus.Message, bus.Session) bus.Receipt {
@@ -105,9 +106,9 @@ func TestExternalAdapterUsesTrustedLifecycleHost(t *testing.T) {
 	}
 }
 
-func (fourthAdapter) ReceiveCapabilities(bus.Session) bus.ReceiveCapabilities {
-	return bus.ReceiveCapabilities{
-		Delivery: "external_log", Inbox: bus.InboxNative, BusyDelivery: bus.DeliveryNextTurn, LifecycleHooks: true,
+func (fourthAdapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities {
+	return model.ReceiveCapabilities{
+		Delivery: "external_log", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: true,
 	}
 }
 

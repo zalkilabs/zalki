@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // registryOrderAdapter records only the callbacks NewRegistry may invoke.
@@ -13,7 +14,7 @@ import (
 type registryOrderAdapter struct {
 	tag        string
 	descriptor agent.AdapterDescriptor
-	caps       ReceiveCapabilities
+	caps       model.ReceiveCapabilities
 	calls      *[]string
 	inputs     *[]Session
 }
@@ -23,7 +24,7 @@ func (a registryOrderAdapter) Descriptor() agent.AdapterDescriptor {
 	return a.descriptor
 }
 
-func (a registryOrderAdapter) ReceiveCapabilities(v Session) ReceiveCapabilities {
+func (a registryOrderAdapter) ReceiveCapabilities(v Session) model.ReceiveCapabilities {
 	*a.calls = append(*a.calls, a.tag+".capabilities")
 	*a.inputs = append(*a.inputs, v)
 	return a.caps
@@ -47,19 +48,19 @@ func TestRegistryErrorAndCallbackPrecedence(t *testing.T) {
 		kind      string
 		label     string
 		hooks     map[string]string
-		caps      ReceiveCapabilities
+		caps      model.ReceiveCapabilities
 		withHooks bool
 		want      string
 	}{
-		{"kind before capabilities", "../probe", "Probe", nil, ReceiveCapabilities{}, false,
+		{"kind before capabilities", "../probe", "Probe", nil, model.ReceiveCapabilities{}, false,
 			"invalid agent kind or display label"},
-		{"label before capabilities", "probe", "", nil, ReceiveCapabilities{}, false,
+		{"label before capabilities", "probe", "", nil, model.ReceiveCapabilities{}, false,
 			"invalid agent kind or display label"},
-		{"declaration before hook consistency", "probe", "Probe", map[string]string{"start": "SessionStart"}, ReceiveCapabilities{}, true,
+		{"declaration before hook consistency", "probe", "Probe", map[string]string{"start": "SessionStart"}, model.ReceiveCapabilities{}, true,
 			"probe capabilities: delivery and inbox mode must be declared"},
-		{"hook inbox before timing", "probe", "Probe", nil, ReceiveCapabilities{Delivery: "fixture", Inbox: InboxNative, HookDelivery: true}, false,
+		{"hook inbox before timing", "probe", "Probe", nil, model.ReceiveCapabilities{Delivery: "fixture", Inbox: model.InboxNative, HookDelivery: true}, false,
 			"probe capabilities: hook delivery requires a journal inbox"},
-		{"timing before descriptor consistency", "probe", "Probe", map[string]string{"start": "SessionStart"}, ReceiveCapabilities{Delivery: "fixture", Inbox: InboxNative}, true,
+		{"timing before descriptor consistency", "probe", "Probe", map[string]string{"start": "SessionStart"}, model.ReceiveCapabilities{Delivery: "fixture", Inbox: model.InboxNative}, true,
 			"probe capabilities: busy delivery timing must be declared"},
 		{"descriptor consistency before mapping", "probe", "Probe", map[string]string{"start": "unsupported"}, registryOrderCaps(false), true,
 			"probe hook capabilities do not match its descriptor"},
@@ -94,8 +95,8 @@ func TestRegistryErrorAndCallbackPrecedence(t *testing.T) {
 	}
 }
 
-func registryOrderCaps(hooks bool) ReceiveCapabilities {
-	return ReceiveCapabilities{Delivery: "fixture", Inbox: InboxNative, BusyDelivery: DeliveryNextTurn, LifecycleHooks: hooks}
+func registryOrderCaps(hooks bool) model.ReceiveCapabilities {
+	return model.ReceiveCapabilities{Delivery: "fixture", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: hooks}
 }
 
 func assertRegistryOrder(t *testing.T, calls []string, inputs []Session, want []string) {

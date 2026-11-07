@@ -92,13 +92,13 @@ func TestReceiptNotesNeverPromiseRefusedOrUnconfirmedDelivery(t *testing.T) {
 	}{
 		{bus.StatusApprovalBlocked, "", "Not sent"},
 		{bus.StatusPendingActivity, "", "next delivery hook"},
-		{bus.StatusTransportWritten, bus.DeliveryBetweenTools, "between tool calls"},
-		{bus.StatusSubmitted, bus.DeliveryNextTurn, "next turn"},
-		{bus.StatusWakeWritten, bus.DeliveryNotification, "native notification"},
-		{bus.StatusSubmitted, bus.DeliveryNextHook, "next hook"},
-		{bus.StatusNotSent, bus.DeliveryNextTurn, ""},
-		{bus.StatusUnknownTimeout, bus.DeliveryNextTurn, ""},
-		{bus.StatusUnknownWrite, bus.DeliveryBetweenTools, ""},
+		{bus.StatusTransportWritten, model.DeliveryBetweenTools, "between tool calls"},
+		{bus.StatusSubmitted, model.DeliveryNextTurn, "next turn"},
+		{bus.StatusWakeWritten, model.DeliveryNotification, "native notification"},
+		{bus.StatusSubmitted, model.DeliveryNextHook, "next hook"},
+		{bus.StatusNotSent, model.DeliveryNextTurn, ""},
+		{bus.StatusUnknownTimeout, model.DeliveryNextTurn, ""},
+		{bus.StatusUnknownWrite, model.DeliveryBetweenTools, ""},
 	} {
 		receipt, err := messageReceipt(bus.Message{Status: test.status, BusyDelivery: test.timing}, nil)
 		if err != nil || (test.want == "" && receipt.Note != "") || (test.want != "" && !strings.Contains(receipt.Note, test.want)) {

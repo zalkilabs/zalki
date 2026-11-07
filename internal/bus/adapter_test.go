@@ -41,7 +41,7 @@ func TestAdapterRejectsInvalidDraftsAndEmptyPatches(t *testing.T) {
 		{Path: ".fourth/mcp.json", Draft: "fourth.json", JSON: map[string]any{}},
 		{Path: ".fourth/mcp.json", Draft: "fourth.json", JSON: install.MCPConfig("/bin/zalki", nil, false), TOML: "also TOML"},
 	} {
-		adapter := configFixtureAdapter{fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: InboxNative}, files: []model.ConfigDeclaration{file}}
+		adapter := configFixtureAdapter{fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: model.InboxNative}, files: []model.ConfigDeclaration{file}}
 		registry, err := agent.NewRegistry(adapter)
 		if err != nil {
 			t.Fatal(err)
@@ -61,8 +61,8 @@ func (a fixtureAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: a.kind, Label: "Fixture", Hooks: map[string]string{"start": "SessionStart", "end": "SessionEnd", "tool": "PostToolUse"}, ProcessNames: []string{"fixture-agent"}, OwnerRole: "client"}
 }
 
-func (a fixtureAdapter) ReceiveCapabilities(Session) ReceiveCapabilities {
-	return ReceiveCapabilities{Delivery: "fixture", Inbox: a.inbox, BusyDelivery: DeliveryNextTurn, LifecycleHooks: true, HookDelivery: a.inbox == InboxJournal}
+func (a fixtureAdapter) ReceiveCapabilities(Session) model.ReceiveCapabilities {
+	return model.ReceiveCapabilities{Delivery: "fixture", Inbox: a.inbox, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: true, HookDelivery: a.inbox == model.InboxJournal}
 }
 
 func (a fixtureAdapter) Deliver(_ context.Context, _ Message, _ Session) Receipt {
@@ -70,7 +70,7 @@ func (a fixtureAdapter) Deliver(_ context.Context, _ Message, _ Session) Receipt
 		a.deliveries.Add(1)
 	}
 	status := StatusSubmitted
-	if a.inbox == InboxJournal {
+	if a.inbox == model.InboxJournal {
 		status = StatusPendingActivity
 	}
 	return Receipt{At: model.Timestamp(), Status: status}
@@ -89,7 +89,7 @@ func (a fixtureAdapter) Configuration(binary string, args []string) []model.Conf
 }
 
 func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
-	for _, inbox := range []model.InboxMode{InboxNative, InboxJournal} {
+	for _, inbox := range []model.InboxMode{model.InboxNative, model.InboxJournal} {
 		t.Run(string(inbox), func(t *testing.T) {
 			var deliveries atomic.Int32
 			adapter := fixtureAdapter{kind: "fourth-agent", inbox: inbox, deliveries: &deliveries}
@@ -134,10 +134,10 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 			if err != nil || len(incoming) != 1 {
 				t.Fatalf("%+v %v", incoming, err)
 			}
-			if incoming[0].BodyDeferred != (inbox == InboxNative) {
+			if incoming[0].BodyDeferred != (inbox == model.InboxNative) {
 				t.Fatal("inbox behavior was inferred from the agent kind")
 			}
-			if inbox == InboxJournal {
+			if inbox == model.InboxJournal {
 				text, err := store.EmitPending(to.ID)
 				if err != nil || !strings.Contains(text, "ping") {
 					t.Fatalf("%q %v", text, err)
@@ -172,9 +172,9 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 }
 
 func TestRegistryRejectsInvalidAndDuplicateAdapters(t *testing.T) {
-	valid := fixtureAdapter{kind: "fixture", inbox: InboxNative}
+	valid := fixtureAdapter{kind: "fixture", inbox: model.InboxNative}
 	for _, adapters := range [][]agent.Adapter{
-		{nil}, {valid, valid}, {fixtureAdapter{kind: "../escape", inbox: InboxNative}}, {fixtureAdapter{kind: "fixture", inbox: ""}},
+		{nil}, {valid, valid}, {fixtureAdapter{kind: "../escape", inbox: model.InboxNative}}, {fixtureAdapter{kind: "fixture", inbox: ""}},
 	} {
 		if _, err := agent.NewRegistry(adapters...); err == nil {
 			t.Fatal("invalid adapter registry accepted")
@@ -193,9 +193,9 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 		timing                       model.DeliveryTiming
 		idle, listener, experimental bool
 	}{
-		{"codex", InboxNative, DeliveryNextTurn, true, false, false},
-		{"claude", InboxNative, DeliveryBetweenTools, true, false, true},
-		{"cursor", InboxJournal, DeliveryNextHook, false, true, false},
+		{"codex", model.InboxNative, model.DeliveryNextTurn, true, false, false},
+		{"claude", model.InboxNative, model.DeliveryBetweenTools, true, false, true},
+		{"cursor", model.InboxJournal, model.DeliveryNextHook, false, true, false},
 	} {
 		t.Run(test.kind, func(t *testing.T) {
 			adapter, err := testRegistry().Lookup(test.kind)
@@ -211,8 +211,8 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 			}
 		})
 	}
-	c := (stubCursorAdapter{}).ReceiveCapabilities(Session{Listener: &ListenerLease{}})
-	if !c.IdleWake || c.Inbox != InboxJournal || c.BusyDelivery != DeliveryNotification {
+	c := (stubCursorAdapter{}).ReceiveCapabilities(Session{Listener: &model.ListenerLease{}})
+	if !c.IdleWake || c.Inbox != model.InboxJournal || c.BusyDelivery != model.DeliveryNotification {
 		t.Fatal("armed listener did not change the advertised receive profile")
 	}
 }
@@ -255,7 +255,7 @@ func TestNewAdapterConfigurationUpgradeAndRemoval(t *testing.T) {
 	if _, err := install.Apply(installDeclare(testRegistry()), "/old/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
-	registry, err := agent.NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, stubCursorAdapter{}, fixtureAdapter{kind: "fourth", inbox: InboxNative})
+	registry, err := agent.NewRegistry(stubCodexAdapter{}, stubClaudeAdapter{}, stubCursorAdapter{}, fixtureAdapter{kind: "fourth", inbox: model.InboxNative})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +297,7 @@ func TestAdapterConfigurationCannotClaimArbitraryPaths(t *testing.T) {
 	clearConfigOverrides(t)
 	for _, path := range []string{"../outside.json", "/outside.json", ".fourth/../outside.json"} {
 		t.Run(path, func(t *testing.T) {
-			registry, err := agent.NewRegistry(fixtureAdapter{kind: "fourth", inbox: InboxNative, path: path})
+			registry, err := agent.NewRegistry(fixtureAdapter{kind: "fourth", inbox: model.InboxNative, path: path})
 			if err != nil {
 				t.Fatal(err)
 			}

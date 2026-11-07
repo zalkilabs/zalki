@@ -44,8 +44,8 @@ const (
 	retiredAgo     = 3 * 24 * time.Hour
 )
 
-func staleListener() *ListenerLease {
-	return &ListenerLease{ID: newID(), Generation: newID(), Endpoint: Endpoint{Path: "/fixture/not-a-real-socket"}}
+func staleListener() *model.ListenerLease {
+	return &model.ListenerLease{ID: newID(), Generation: newID(), Endpoint: model.Endpoint{Path: "/fixture/not-a-real-socket"}}
 }
 
 func ageOf(t *testing.T, stamp string) time.Duration {
@@ -380,7 +380,7 @@ func exitedOwner(t *testing.T, store Store, sessions ...Session) {
 	}
 	_ = cmd.Wait()
 	waited = true
-	if processLiveness(ref) != LivenessExited {
+	if processLiveness(ref) != model.LivenessExited {
 		t.Fatal("the owner is still alive")
 	}
 }

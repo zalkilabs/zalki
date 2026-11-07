@@ -70,7 +70,7 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 	}
 	deliver := adapter.Deliver
 	target.KeyHash = ""
-	if s.Deliver != nil && target.Receive.Inbox == InboxNative {
+	if s.Deliver != nil && target.Receive.Inbox == model.InboxNative {
 		deliver = s.Deliver
 	}
 	receipt := s.runTransport(ctx, deliver, msg, target)
@@ -94,7 +94,7 @@ func (s *Service) revalidateTarget(id string, target Session) (current Session, 
 		if current.Retired || current.Generation != target.Generation {
 			return fail(CodeUnavailable, "destination registration changed before delivery")
 		}
-		if s.Store.sessionLiveness(current) == LivenessExited {
+		if s.Store.sessionLiveness(current) == model.LivenessExited {
 			return fail(CodeUnavailable, "destination owner process exited before delivery")
 		}
 		if current.State != StateApproval {

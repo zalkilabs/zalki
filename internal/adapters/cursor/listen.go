@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -35,7 +34,7 @@ type ListenerHandle interface {
 	// Generation identifies the registration for which this handle was acquired.
 	Generation() string
 	// Arm binds the handle to the inspected endpoint.
-	Arm(*bus.Endpoint) error
+	Arm(*model.Endpoint) error
 	// Confirm applies adapter state after readiness was announced. Core runs the
 	// policy inside its journal transaction, so the policy must be fast and pure.
 	Confirm(func(model.SessionView) (json.RawMessage, error)) error
@@ -59,7 +58,7 @@ var errListenerOutput = errors.New("Cursor listener output failed")
 // changes the listener's lease lifecycle or owns its socket.
 // Acquisition must return a usable handle on success; on error the listener
 // ignores the handle. A failed acquisition owns no listener resources.
-func Listen(ctx context.Context, acquire func(actor, key string) (ListenerHandle, error), inspect func(string) (*bus.Endpoint, error), actor, key string, output io.Writer) (resultErr error) {
+func Listen(ctx context.Context, acquire func(actor, key string) (ListenerHandle, error), inspect func(string) (*model.Endpoint, error), actor, key string, output io.Writer) (resultErr error) {
 	lease, err := acquire(actor, key)
 	if err != nil {
 		return err
