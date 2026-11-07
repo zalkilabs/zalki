@@ -59,11 +59,11 @@ func waitFor(t *testing.T, what string, ok func() bool) {
 	t.Fatalf("timed out waiting for %s", what)
 }
 
-// fakeExitSource is a controllable exitSource for the portable observer logic.
+// fakeExitSource is a controllable procwatch.Source for the portable observer logic.
 type fakeExitSource struct {
 	mu        sync.Mutex
-	events    chan exitEvent
-	procs     map[processKey]bool
+	events    chan procwatch.Event
+	procs     map[procwatch.Identity]bool
 	dirs      map[string]bool
 	watchFail error
 	closed    bool
@@ -71,21 +71,21 @@ type fakeExitSource struct {
 }
 
 func newFakeExitSource() *fakeExitSource {
-	return &fakeExitSource{events: make(chan exitEvent, 16), procs: map[processKey]bool{}, dirs: map[string]bool{}}
+	return &fakeExitSource{events: make(chan procwatch.Event, 16), procs: map[procwatch.Identity]bool{}, dirs: map[string]bool{}}
 }
 
-func (f *fakeExitSource) WatchProcess(ref ProcessRef) error {
+func (f *fakeExitSource) WatchProcess(ref procwatch.Identity) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.watchFail != nil {
 		return f.watchFail
 	}
-	f.procs[keyOf(ref)] = true
+	f.procs[ref] = true
 	return nil
 }
-func (f *fakeExitSource) Unwatch(ref ProcessRef) {
+func (f *fakeExitSource) Unwatch(ref procwatch.Identity) {
 	f.mu.Lock()
-	delete(f.procs, keyOf(ref))
+	delete(f.procs, ref)
 	f.mu.Unlock()
 }
 func (f *fakeExitSource) WatchDir(path string) error {
@@ -94,7 +94,7 @@ func (f *fakeExitSource) WatchDir(path string) error {
 	f.mu.Unlock()
 	return nil
 }
-func (f *fakeExitSource) Events() <-chan exitEvent { return f.events }
+func (f *fakeExitSource) Events() <-chan procwatch.Event { return f.events }
 func (f *fakeExitSource) Close() error {
 	f.mu.Lock()
 	f.closed = true
@@ -107,7 +107,7 @@ func (f *fakeExitSource) Close() error {
 func (f *fakeExitSource) watchingProcess(ref ProcessRef) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.procs[keyOf(ref)]
+	return f.procs[procwatch.Identity{PID: ref.PID, Start: ref.Start}]
 }
 func (f *fakeExitSource) watchingDir(path string) bool {
 	f.mu.Lock()
@@ -126,9 +126,9 @@ func (f *fakeExitSource) closeCount() int {
 	return f.closes
 }
 
-func (f *fakeExitSource) open() (exitSource, error) { return f, nil }
+func (f *fakeExitSource) open() (procwatch.Source, error) { return f, nil }
 
-func unsupportedExitSource() (exitSource, error) { return nil, errExitSourceUnsupported }
+func unsupportedExitSource() (procwatch.Source, error) { return nil, procwatch.ErrUnsupported }
 
 var (
 	deadOwner = ProcessRef{PID: 1 << 30, Start: "1", Role: "client"}
@@ -176,7 +176,7 @@ func exitedWatchedTarget(t *testing.T, service Service) (watcher Session, key st
 }
 
 // runObserver runs the observer until the test ends or the returned stop is called.
-func runObserver(t *testing.T, service Service, sweep time.Duration, open func() (exitSource, error)) (stop func()) {
+func runObserver(t *testing.T, service Service, sweep time.Duration, open func() (procwatch.Source, error)) (stop func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -217,7 +217,7 @@ func TestObserverNoticesAProcessExitEventWithoutAnySweep(t *testing.T) {
 	}
 	// The process exits: the record now shows a dead owner and the kernel says so.
 	setOwner(t, service.Store, target.ID, &deadOwner)
-	fake.events <- exitEvent{Kind: exitProcess, Process: *setLive}
+	fake.events <- procwatch.Event{Kind: procwatch.ProcessExited, Process: procwatch.Identity{PID: setLive.PID, Start: setLive.Start}}
 	waitFor(t, "ended notice", func() bool { return counter.count() == 1 })
 	if body := counter.first(); body == "" || !strings.Contains(body, ") ended the session at ") {
 		t.Fatalf("notice body: %q", body)
@@ -240,7 +240,7 @@ func TestObserverPicksUpAWatchArmedAfterItStartedFromADirectoryEvent(t *testing.
 	if fake.watchingProcess(*owner) {
 		t.Fatal("registered an owner before any directory event")
 	}
-	fake.events <- exitEvent{Kind: exitDirChanged}
+	fake.events <- procwatch.Event{Kind: procwatch.DirectoryChanged}
 	waitFor(t, "owner registration after a directory event", func() bool { return fake.watchingProcess(*owner) })
 	if !fake.watchingDir(filepath.Join(service.Store.Dir, "watches", strings.ReplaceAll(target.ID, ":", "_"))) {
 		t.Fatal("the new target directory was not watched")
@@ -259,8 +259,8 @@ func TestTwoObserversDeliverExactlyOneNotice(t *testing.T) {
 	runObserver(t, second, neverSweeps, fakeB.open)
 	waitFor(t, "both observers watching", func() bool { return fakeA.watchingProcess(*owner) && fakeB.watchingProcess(*owner) })
 	setOwner(t, first.Store, target.ID, &deadOwner)
-	fakeA.events <- exitEvent{Kind: exitProcess, Process: *owner}
-	fakeB.events <- exitEvent{Kind: exitProcess, Process: *owner}
+	fakeA.events <- procwatch.Event{Kind: procwatch.ProcessExited, Process: procwatch.Identity{PID: owner.PID, Start: owner.Start}}
+	fakeB.events <- procwatch.Event{Kind: procwatch.ProcessExited, Process: procwatch.Identity{PID: owner.PID, Start: owner.Start}}
 	waitFor(t, "ended notice", func() bool { return counter.count() >= 1 })
 	time.Sleep(200 * time.Millisecond)
 	if counter.count() != 1 {
@@ -280,7 +280,7 @@ func TestObserverIgnoresAnExitEventForARecycledOwnerPID(t *testing.T) {
 	// The session re-registered under a new live owner; a late event for the old
 	// process must not produce an "ended" notice.
 	setOwner(t, service.Store, target.ID, selfOwner(t))
-	fake.events <- exitEvent{Kind: exitProcess, Process: *owner}
+	fake.events <- procwatch.Event{Kind: procwatch.ProcessExited, Process: procwatch.Identity{PID: owner.PID, Start: owner.Start}}
 	time.Sleep(200 * time.Millisecond)
 	if counter.count() != 0 {
 		t.Fatal("noticed a session that is still alive")
@@ -313,7 +313,7 @@ func TestObserverKeepsSweepingAfterTheExitSourceFails(t *testing.T) {
 	fake := newFakeExitSource()
 	runObserver(t, service, testSweep, fake.open)
 	waitFor(t, "owner registration", func() bool { return fake.watchingProcess(*owner) })
-	fake.events <- exitEvent{Kind: exitSourceFailed}
+	fake.events <- procwatch.Event{Kind: procwatch.SourceFailed}
 	setOwner(t, service.Store, target.ID, &deadOwner)
 	waitFor(t, "sweep notice after source failure", func() bool { return counter.count() == 1 })
 }

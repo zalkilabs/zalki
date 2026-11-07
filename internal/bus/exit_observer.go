@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
 // DefaultSweepInterval is the fallback sweep period. Kernel notifications make
@@ -34,10 +36,10 @@ const dirSettle = 50 * time.Millisecond
 // on the kernel; with the platform's exit source unavailable it falls back to the
 // sweep alone.
 func (s *Service) ObserveExits(ctx context.Context, sweep time.Duration) {
-	s.observeExits(ctx, sweep, newExitSource)
+	s.observeExits(ctx, sweep, procwatch.NewSource)
 }
 
-func (s *Service) observeExits(ctx context.Context, sweep time.Duration, open func() (exitSource, error)) {
+func (s *Service) observeExits(ctx context.Context, sweep time.Duration, open func() (procwatch.Source, error)) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			s.Store.logEvent(slog.LevelError, "watch.observer_panic", eventData{Err: errors.New("exit observer panicked")})
@@ -45,7 +47,7 @@ func (s *Service) observeExits(ctx context.Context, sweep time.Duration, open fu
 	}()
 	o := &exitObserver{
 		service: s, root: filepath.Join(s.Store.Dir, "watches"),
-		procs: map[processKey]ProcessRef{}, owners: map[processKey][]string{},
+		procs: map[procwatch.Identity]struct{}{}, owners: map[procwatch.Identity][]string{},
 	}
 	if !o.canWrite() {
 		<-ctx.Done()
@@ -56,7 +58,7 @@ func (s *Service) observeExits(ctx context.Context, sweep time.Duration, open fu
 		s.Store.logEvent(slog.LevelDebug, "watch.observer_skipped", eventData{Err: err})
 		o.rootUnusable = true
 	}
-	var events <-chan exitEvent
+	var events <-chan procwatch.Event
 	if source, err := open(); err != nil {
 		s.Store.logEvent(slog.LevelDebug, "watch.observer_sweep_only", eventData{Err: err})
 	} else {
@@ -93,14 +95,14 @@ func (s *Service) observeExits(ctx context.Context, sweep time.Duration, open fu
 			return
 		case event := <-events:
 			switch event.Kind {
-			case exitProcess:
+			case procwatch.ProcessExited:
 				o.processExited(ctx, event.Process)
-			case exitDirChanged:
+			case procwatch.DirectoryChanged:
 				if !settling {
 					settling = true
 					settle.Reset(dirSettle)
 				}
-			case exitSourceFailed:
+			case procwatch.SourceFailed:
 				s.Store.logEvent(slog.LevelWarn, "watch.observer_source_failed", eventData{Err: errors.New("exit notification source failed")})
 				o.source, events = nil, nil
 			}
@@ -129,11 +131,11 @@ type exitObserver struct {
 	service      *Service
 	root         string
 	rootUnusable bool
-	fenced       bool       // Sticky until this observer's context ends, even if the marker changes.
-	source       exitSource // nil in sweep-only mode
-	closeSource  func()     // Retains ownership after source failure; clears itself after Close.
-	procs        map[processKey]ProcessRef
-	owners       map[processKey][]string // watched owner process -> targets it owns
+	fenced       bool             // Sticky until this observer's context ends, even if the marker changes.
+	source       procwatch.Source // nil in sweep-only mode
+	closeSource  func()           // Retains ownership after source failure; clears itself after Close.
+	procs        map[procwatch.Identity]struct{}
+	owners       map[procwatch.Identity][]string // watched owner process -> targets it owns
 }
 
 // canWrite is checked before directory creation, scans and every delivery.
@@ -181,7 +183,7 @@ func (o *exitObserver) sync(ctx context.Context) {
 	o.watchRoot()
 	info, err := os.Lstat(o.root)
 	if err != nil || !info.IsDir() {
-		o.reconcile(map[processKey]ProcessRef{}, map[processKey][]string{})
+		o.reconcile(map[procwatch.Identity]struct{}{}, map[procwatch.Identity][]string{})
 		return
 	}
 	entries, err := os.ReadDir(o.root)
@@ -206,14 +208,14 @@ func (o *exitObserver) watchRoot() {
 
 // watchScan is what one pass over the watched targets found.
 type watchScan struct {
-	wanted map[processKey]ProcessRef // owner processes to watch
-	owners map[processKey][]string   // watched owner process -> targets it owns
-	exited []string                  // targets that already look exited
+	wanted map[procwatch.Identity]struct{} // owner processes to watch
+	owners map[procwatch.Identity][]string // watched owner process -> targets it owns
+	exited []string                        // targets that already look exited
 }
 
 // scanWatchTargets looks at every canonical target directory in entries.
 func (o *exitObserver) scanWatchTargets(entries []os.DirEntry) watchScan {
-	scan := watchScan{wanted: map[processKey]ProcessRef{}, owners: map[processKey][]string{}}
+	scan := watchScan{wanted: map[procwatch.Identity]struct{}{}, owners: map[procwatch.Identity][]string{}}
 	for _, entry := range entries {
 		id, ok := watchNameID(entry.Name())
 		if !ok || !entry.Type().IsDir() {
@@ -248,8 +250,8 @@ func (o *exitObserver) scanWatchTarget(scan *watchScan, id, dir string) {
 		return
 	}
 	if v.Owner != nil && v.Owner.PID > 1 {
-		key := keyOf(*v.Owner)
-		scan.wanted[key] = *v.Owner
+		key := procwatch.Identity{PID: v.Owner.PID, Start: v.Owner.Start}
+		scan.wanted[key] = struct{}{}
 		scan.owners[key] = append(scan.owners[key], id)
 	}
 }
@@ -266,35 +268,35 @@ func (o *exitObserver) noticeExited(ctx context.Context, exited []string) {
 }
 
 // reconcile makes the exit source watch exactly the wanted owner processes.
-func (o *exitObserver) reconcile(wanted map[processKey]ProcessRef, owners map[processKey][]string) {
+func (o *exitObserver) reconcile(wanted map[procwatch.Identity]struct{}, owners map[procwatch.Identity][]string) {
 	o.owners = owners
 	if o.source == nil {
 		return
 	}
-	for key, ref := range o.procs {
+	for key := range o.procs {
 		if _, ok := wanted[key]; !ok {
-			o.source.Unwatch(ref)
+			o.source.Unwatch(key)
 			delete(o.procs, key)
 		}
 	}
-	for key, ref := range wanted {
+	for key := range wanted {
 		if _, ok := o.procs[key]; ok {
 			continue
 		}
-		if err := o.source.WatchProcess(ref); err != nil {
+		if err := o.source.WatchProcess(key); err != nil {
 			// The sweep still covers this target.
 			o.service.Store.logEvent(slog.LevelDebug, "watch.observer_skipped", eventData{Err: err})
 			continue
 		}
-		o.procs[key] = ref
+		o.procs[key] = struct{}{}
 	}
 }
 
 // processExited handles a kernel exit event for one owner process. The decision
 // is still made from the session record under the lock, so an adapter whose
 // liveness is not simply "owner alive" keeps its own rule.
-func (o *exitObserver) processExited(ctx context.Context, ref ProcessRef) {
-	key := keyOf(ref)
+func (o *exitObserver) processExited(ctx context.Context, ref procwatch.Identity) {
+	key := ref
 	targets := o.owners[key]
 	delete(o.owners, key)
 	delete(o.procs, key)
