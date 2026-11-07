@@ -7,6 +7,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Messages returns full history for local diagnostics and integrations.
@@ -287,7 +289,7 @@ func (s Store) pendingForHook(actor string, current Session) ([]Message, error) 
 		if readErr != nil {
 			return readErr
 		}
-		if msg.To == actor && msg.TargetGeneration == current.Generation && hookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
+		if msg.To == actor && msg.TargetGeneration == current.Generation && model.HookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
 			pending = append(pending, msg)
 		}
 		return nil

@@ -28,15 +28,6 @@ const (
 	StatusUnknownWrite      = model.StatusUnknownWrite
 )
 
-func hookPendingStatus(s DeliveryStatus) bool { return model.HookPendingStatus(s) }
-
-// transition forwards the pure delivery rule to model.
-func transition(from, to DeliveryStatus, held bool) (DeliveryStatus, error) {
-	return model.Transition(from, to, held)
-}
-
-const approvalQueuedNote = model.ApprovalQueuedNote
-
 // ErrorCode is the compatibility name for model.ErrorCode.
 type ErrorCode = model.ErrorCode
 
