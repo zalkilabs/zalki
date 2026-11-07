@@ -5,25 +5,12 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
-type SessionDiagnostic struct {
-	ID              string              `json:"id"`
-	Kind            string              `json:"kind"`
-	Name            string              `json:"name,omitempty"`
-	State           SessionState        `json:"state"`
-	Retired         bool                `json:"retired"`
-	RetiredReason   string              `json:"retired_reason,omitempty"`
-	Liveness        Liveness            `json:"liveness"`
-	Owner           *ProcessRef         `json:"owner,omitempty"`
-	UpdatedAt       string              `json:"updated_at"`
-	TransportHealth string              `json:"transport_health"`
-	ListenerHealth  string              `json:"listener_health,omitempty"`
-	HookBuild       string              `json:"hook_build,omitempty"`
-	HookBuildStatus string              `json:"hook_build_status"`
-	RecoveryHint    string              `json:"recovery_hint,omitempty"`
-	Receive         ReceiveCapabilities `json:"receive"`
-}
+// SessionDiagnostic is the compatibility name for model.SessionDiagnostic.
+type SessionDiagnostic = model.SessionDiagnostic
 
 type DiagnosticReport struct {
 	Agents             []AgentDiagnostic   `json:"agents"`
