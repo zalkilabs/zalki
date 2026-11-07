@@ -45,11 +45,11 @@ func TestClientVersionProbeAndUnknownVersionDiagnostics(t *testing.T) {
 		if err := os.WriteFile(path, []byte("#!/bin/sh\nprintf '%s\\n' '"+test.output+"'\n"), 0700); err != nil {
 			t.Fatal(err)
 		}
-		if got := probeClientVersion(path); got != test.want {
+		if got := probeClientVersion(t.Context(), path); got != test.want {
 			t.Fatalf("got version %q want %q", got, test.want)
 		}
 		diagnostic := AgentDiagnostic{Kind: "codex", Binary: path, Found: true}
-		annotateClientCompatibility(&diagnostic)
+		annotateClientCompatibility(t.Context(), &diagnostic)
 		if test.want == "0.163.0" && diagnostic.Compatibility != "fixture_covered" {
 			t.Fatal("known fixture version was not identified")
 		}

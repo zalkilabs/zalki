@@ -134,7 +134,7 @@ func TestRuntimeTrackingCleanupAndNoCredentialLeak(t *testing.T) {
 	if info := lease.Info(); len(info.Actors) != 1 || info.LoadedBuild == "" {
 		t.Fatal("runtime actor/build metadata missing")
 	}
-	report, err := store.Diagnostics()
+	report, err := store.Diagnostics(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}

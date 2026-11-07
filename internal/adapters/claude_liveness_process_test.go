@@ -92,7 +92,7 @@ func TestClaudeLivenessAfterKillAndCleanExit(t *testing.T) {
 					t.Fatalf("exited session stayed listed as %s", session.Liveness)
 				}
 			}
-			report, err := store.Diagnostics()
+			report, err := store.Diagnostics(t.Context())
 			if err != nil {
 				t.Fatal(err)
 			}

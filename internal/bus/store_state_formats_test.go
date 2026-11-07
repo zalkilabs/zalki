@@ -95,7 +95,7 @@ func TestStateFormatFenceKeepsReadsAndRefusesEveryWriteWithoutChanges(t *testing
 	if rows, err := store.Discover(); err != nil || len(rows) != 2 {
 		t.Fatal("discovery blocked", err)
 	}
-	if report, err := store.Diagnostics(); err != nil || len(report.Sessions) != 2 {
+	if report, err := store.Diagnostics(t.Context()); err != nil || len(report.Sessions) != 2 {
 		t.Fatal("doctor blocked", err)
 	}
 	query := MessageQuery{Actor: from.ID, Capability: key, Sent: true, Limit: 1}

@@ -248,7 +248,7 @@ func TestFutureSchemaSessionSkipsRegistryReadsWithoutWriting(t *testing.T) {
 	if rows, skipped, err := store.DiscoverWithWarnings("", ""); err != nil || len(rows) != 2 || skipped != 1 {
 		t.Fatal("discovery lost healthy sessions or skip count", rows, skipped, err)
 	}
-	if report, err := store.Diagnostics(); err != nil || len(report.Sessions) != 2 {
+	if report, err := store.Diagnostics(t.Context()); err != nil || len(report.Sessions) != 2 {
 		t.Fatal("doctor lost healthy sessions", report, err)
 	}
 	if err := store.Update(future.ID, StateBusy, false); ErrorCodeOf(err) != CodeUnsupportedSchema {

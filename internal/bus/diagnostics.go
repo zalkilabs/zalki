@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -35,13 +36,13 @@ type AgentDiagnostic struct {
 	Receive         ReceiveCapabilities `json:"receive"`
 }
 
-func (s Store) Diagnostics() (DiagnosticReport, error) {
+func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
 	report := DiagnosticReport{Runtime: CurrentRuntimeInfo(), Runtimes: []RuntimeInfo{},
 		UntrackedProcesses: []ProcessRef{}, Sessions: []SessionDiagnostic{}, Notes: []string{
 			"Process liveness does not establish an attached terminal.",
 			"Untracked processes have an unknown loaded build; they may predate runtime tracking.",
 		}}
-	s.diagnoseAgents(&report)
+	s.diagnoseAgents(ctx, &report)
 	var sessions []Session
 	var runtimes []RuntimeInfo
 	err := s.readLocked(func() error {
@@ -69,13 +70,13 @@ func (s Store) Diagnostics() (DiagnosticReport, error) {
 }
 
 // diagnoseAgents reports each registered client's executable and compatibility.
-func (s Store) diagnoseAgents(report *DiagnosticReport) {
+func (s Store) diagnoseAgents(ctx context.Context, report *DiagnosticReport) {
 	for _, kind := range s.registry().Kinds() {
 		adapter, _ := s.registry().Lookup(kind)
 		d := adapter.Descriptor()
 		binary, err := exec.LookPath(d.Executable)
 		diagnostic := AgentDiagnostic{Kind: kind, Label: d.Label, Binary: binary, Found: err == nil, Receive: adapter.ReceiveCapabilities(Session{})}
-		annotateClientCompatibility(&diagnostic)
+		annotateClientCompatibility(ctx, &diagnostic)
 		annotateAdapterCompatibility(&diagnostic, adapter)
 		report.Agents = append(report.Agents, diagnostic)
 		report.Notes = append(report.Notes, d.Notes...)

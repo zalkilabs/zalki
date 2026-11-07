@@ -39,7 +39,7 @@ func newDoctorCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			report, err := service.Store.Diagnostics()
+			report, err := service.Store.Diagnostics(cmd.Context())
 			if err != nil {
 				return err
 			}

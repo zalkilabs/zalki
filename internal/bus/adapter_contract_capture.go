@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -14,7 +15,7 @@ import (
 
 // Capture is opt-in and allowlisted: no prompts, tool input, environment,
 // credentials, native IDs, titles, or workstation paths reach the fixture.
-func captureHookContract(adapter agent.Adapter, event agent.HookInput) error {
+func captureHookContract(ctx context.Context, adapter agent.Adapter, event agent.HookInput) error {
 	root := os.Getenv("ZALKI_CAPTURE_CONTRACTS")
 	if root == "" {
 		return nil
@@ -48,7 +49,7 @@ func captureHookContract(adapter agent.Adapter, event agent.HookInput) error {
 	}
 	version := "unknown"
 	if path, err := execClientPath(adapter.Descriptor().Executable); err == nil {
-		if value := probeClientVersion(path); value != "" {
+		if value := probeClientVersion(ctx, path); value != "" {
 			version = value
 		}
 	}

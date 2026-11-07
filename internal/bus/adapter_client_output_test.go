@@ -28,7 +28,7 @@ func TestClientVersionProbeBoundsExecutableOutput(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := versionOutputExecutable(t, test.script)
-			if got := probeClientVersion(path); got != test.want {
+			if got := probeClientVersion(t.Context(), path); got != test.want {
 				t.Fatalf("version=%q want=%q", got, test.want)
 			}
 		})

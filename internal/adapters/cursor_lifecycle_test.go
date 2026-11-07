@@ -77,7 +77,7 @@ func TestCursorReplacementRegistrationFencesARunningListener(t *testing.T) {
 	if err := listenCursorWithStore(ctx, store, old.ID, key, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "already has a listener") || time.Since(started) > time.Second {
 		t.Fatal("a second listener was not promptly refused for lifetime lock ownership", err)
 	}
-	report, err := store.Diagnostics()
+	report, err := store.Diagnostics(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
