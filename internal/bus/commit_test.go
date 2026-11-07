@@ -1,0 +1,210 @@
+package bus
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+
+	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/model"
+)
+
+type commitFixture struct {
+	writer   commitWriter
+	previous json.RawMessage
+	next     Session
+	event    model.Event
+}
+
+func newCommitFixture(t *testing.T) commitFixture {
+	t.Helper()
+	dir := t.TempDir()
+	for _, subdir := range []string{"sessions", "commits", "events/records"} {
+		if err := os.MkdirAll(filepath.Join(dir, subdir), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	session := Session{Schema: 1, ID: "codex:00000000-0000-4000-8000-000000000003",
+		Kind: "codex", NativeID: "00000000-0000-4000-8000-000000000003",
+		Generation: "00000000-0000-4000-8000-000000000004", State: StateReady,
+		CWD: "/private/workspace", KeyHash: "private-key-hash", Task: "private task"}
+	raw, err := json.Marshal(session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Include extension bytes that a typed Session alone would lose.
+	raw = append(raw[:len(raw)-1], []byte(",\"extension\":{\"keep\":true}}\n")...)
+	event := model.Event{Schema: 0, ID: "00000000-0000-4000-8000-000000000001",
+		Type: "session.state_changed", OccurredAt: "2026-11-07T11:00:00Z",
+		TransactionID: "00000000-0000-4000-8000-000000000002",
+		Session:       model.EventSession{ID: session.ID, Generation: session.Generation, Previous: StateReady, State: StateBusy}}
+	if err := os.WriteFile(filepath.Join(dir, eventSessionPath(event)), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	session.State = StateBusy
+	return commitFixture{commitWriter{dir}, raw, session, event}
+}
+
+func readCommitFile(t *testing.T, path string) []byte {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
+func TestDormantCommitPublishesMatchingStateAndMetadata(t *testing.T) {
+	f := newCommitFixture(t)
+	if err := f.writer.commit(f.previous, f.next, f.event); err != nil {
+		t.Fatal(err)
+	}
+	raw := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
+	var state map[string]any
+	if err := json.Unmarshal(raw, &state); err != nil {
+		t.Fatal(err)
+	}
+	if state["state"] != "busy" || !reflect.DeepEqual(state["extension"], map[string]any{"keep": true}) {
+		t.Fatalf("state/extension = %v", state)
+	}
+	metadata := readCommitFile(t, filepath.Join(f.writer.dir, eventRecordPath(f.event)))
+	var got model.Event
+	if err := json.Unmarshal(metadata, &got); err != nil || got != f.event {
+		t.Fatalf("event = %+v, %v", got, err)
+	}
+	for _, secret := range []string{"private-key-hash", "private task", "/private/workspace", "key_hash", "cwd"} {
+		if bytes.Contains(metadata, []byte(secret)) {
+			t.Fatalf("metadata leaked %q", secret)
+		}
+	}
+	if err := f.writer.recover(); err != nil {
+		t.Fatalf("completed recovery: %v", err)
+	}
+}
+
+func preparedCommit(t *testing.T, f commitFixture) journal.Batch {
+	t.Helper()
+	state, err := mergeRecordJSON(f.previous, f.next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateBytes, err := encodeStateJSON(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventBytes, err := journal.EncodeJSON(f.event, 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return journal.Batch{Schema: 1, ID: f.event.TransactionID, Puts: []journal.Put{
+		journal.NewPut(eventSessionPath(f.event), f.previous, stateBytes),
+		journal.NewPut(eventRecordPath(f.event), nil, eventBytes),
+	}}
+}
+
+func stageCommit(t *testing.T, f commitFixture, batch journal.Batch) {
+	t.Helper()
+	raw, err := journal.EncodeJSON(batch, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := journal.WriteAtomic(filepath.Join(f.writer.dir, "commits", "pending.json"), raw); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDormantCommitRecoversWithoutChangingEventIDOrBytes(t *testing.T) {
+	f := newCommitFixture(t)
+	batch := preparedCommit(t, f)
+	stageCommit(t, f, batch)
+	// Model a crash after the state file, but before event materialization.
+	if err := journal.WriteAtomic(filepath.Join(f.writer.dir, batch.Puts[0].Path), batch.Puts[0].Data); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.writer.recover(); err != nil {
+		t.Fatal(err)
+	}
+	got := readCommitFile(t, filepath.Join(f.writer.dir, batch.Puts[1].Path))
+	if !bytes.Equal(got, batch.Puts[1].Data) {
+		t.Fatal("recovery changed event bytes")
+	}
+	stageCommit(t, f, batch)
+	if err := f.writer.recover(); err != nil {
+		t.Fatalf("repeated recovery: %v", err)
+	}
+	if after := readCommitFile(t, filepath.Join(f.writer.dir, batch.Puts[1].Path)); !bytes.Equal(after, got) {
+		t.Fatal("repeated recovery changed event")
+	}
+}
+
+func TestDormantCommitRejectsMismatchedEventBeforeWriting(t *testing.T) {
+	for _, mismatch := range []string{"before", "after", "generation", "future schema"} {
+		t.Run(mismatch, func(t *testing.T) {
+			f := newCommitFixture(t)
+			switch mismatch {
+			case "before":
+				f.event.Session.Previous = StateApproval
+			case "after":
+				f.next.State = StateApproval
+			case "generation":
+				f.next.Generation = newID()
+			case "future schema":
+				f.next.Schema = 99
+			}
+			if err := f.writer.commit(f.previous, f.next, f.event); err == nil {
+				t.Fatal("mismatched state/event accepted")
+			}
+			got := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
+			if !bytes.Equal(got, f.previous) {
+				t.Fatal("state changed after rejection")
+			}
+		})
+	}
+}
+
+func TestDormantRecoveryRejectsForeignFamilyBeforeAnyWrite(t *testing.T) {
+	f := newCommitFixture(t)
+	batch := preparedCommit(t, f)
+	batch.Puts[0].Path = "sessions/foreign.json"
+	stageCommit(t, f, batch)
+	if err := f.writer.recover(); !errors.Is(err, journal.ErrInvalidBatch) {
+		t.Fatalf("foreign target = %v", err)
+	}
+	got := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
+	if !bytes.Equal(got, f.previous) {
+		t.Fatal("state changed before validation")
+	}
+}
+
+func TestExistingStoreWritersDoNotActivateDormantOutbox(t *testing.T) {
+	store := fixtureStore(t)
+	session, _ := register(t, store, "codex")
+	if err := store.Update(session.ID, StateBusy, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range []string{"commits", "events"} {
+		if _, err := os.Stat(filepath.Join(store.Dir, dir)); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("ordinary state write activated %s: %v", dir, err)
+		}
+	}
+}
+
+func TestDormantRecoveryRejectsPrivateEventFields(t *testing.T) {
+	f := newCommitFixture(t)
+	batch := preparedCommit(t, f)
+	raw := bytes.TrimSpace(batch.Puts[1].Data)
+	raw = append(bytes.Clone(raw[:len(raw)-1]), []byte(",\"body\":\"private\"}\n")...)
+	batch.Puts[1] = journal.NewPut(batch.Puts[1].Path, nil, raw)
+	stageCommit(t, f, batch)
+	if err := f.writer.recover(); err == nil {
+		t.Fatal("private event field accepted")
+	}
+	got := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
+	if !bytes.Equal(got, f.previous) {
+		t.Fatal("state changed before metadata validation")
+	}
+}
