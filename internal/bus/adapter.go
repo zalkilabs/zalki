@@ -20,7 +20,4 @@ const (
 	DeliveryNotification = model.DeliveryNotification
 )
 
-// validKind forwards syntax validation without consulting the registry.
-func validKind(kind string) bool { return model.ValidKind(kind) }
-
 func (s Store) registry() *agent.Registry { return s.Registry }
