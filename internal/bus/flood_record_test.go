@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/zalkilabs/zalki/internal/model"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestFloodRecordJSONFixtures(t *testing.T) {
@@ -52,19 +53,19 @@ func floodErrorCases(now time.Time, sender, id string) []struct {
 		code ErrorCode
 		want string
 	}{
-		{"pair short fractional", func(s *floodRecord) { s.Senders[sender] = model.FloodBucket{Tokens: 0.5, At: now} }, now, CodeRateLimited, "rate limited: pair short bucket (12 burst, 12/minute refill) to %s; retry in 3s (at 2026-11-01T10:00:02.623456789Z); wait or reply less often"},
-		{"inbound short fractional", func(s *floodRecord) { s.Inbound.Tokens = 0.5 }, now, CodeRateLimited, "rate limited: inbound short bucket (48 burst, 40/minute refill, all senders) to %s; retry in 1s (at 2026-11-01T10:00:00.873456789Z); wait or reply less often"},
+		{"pair short fractional", func(s *floodRecord) { s.Senders[sender] = model.FloodBucket{Tokens: 0.5, At: now} }, now, model.CodeRateLimited, "rate limited: pair short bucket (12 burst, 12/minute refill) to %s; retry in 3s (at 2026-11-01T10:00:02.623456789Z); wait or reply less often"},
+		{"inbound short fractional", func(s *floodRecord) { s.Inbound.Tokens = 0.5 }, now, model.CodeRateLimited, "rate limited: inbound short bucket (48 burst, 40/minute refill, all senders) to %s; retry in 1s (at 2026-11-01T10:00:00.873456789Z); wait or reply less often"},
 		{"pair hourly", func(s *floodRecord) {
 			s.Recent = arrivals(now, 120)
 			for i := range s.Recent {
 				s.Recent[i].Sender = sender
 			}
-		}, now, CodeRateLimited, "rate limited: pair hourly cap (120/hour) to %s; retry in 58m0s (at 2026-11-01T10:58:00.123456789Z); wait or reply less often"},
-		{"inbound hourly", func(s *floodRecord) { s.Recent = arrivals(now, 400) }, now, CodeRateLimited, "rate limited: inbound hourly cap (400/hour, all senders) to %s; retry in 53m20s (at 2026-11-01T10:53:20.123456789Z); wait or reply less often"},
-		{"rollback wait uses actual clock", func(s *floodRecord) { s.Senders[sender] = model.FloodBucket{At: now} }, now.Add(-time.Minute), CodeRateLimited, "rate limited: pair short bucket (12 burst, 12/minute refill) to %s; retry in 1m5s (at 2026-11-01T10:00:05.123456789Z); wait or reply less often"},
-		{"reserved conflict", func(s *floodRecord) { s.Recent = []model.FloodArrival{{ID: id, Sender: "other", At: now}} }, now, CodeConflict, "message UUID already reserved by another sender"},
-		{"invalid arrival", func(s *floodRecord) { s.Recent = []model.FloodArrival{{}} }, now, CodeInvalidInput, "invalid flood quota arrival time"},
-		{"invalid sender", func(s *floodRecord) { s.Senders["bad"] = model.FloodBucket{Tokens: -1, At: now} }, now, CodeInvalidInput, "invalid sender flood quota state"},
+		}, now, model.CodeRateLimited, "rate limited: pair hourly cap (120/hour) to %s; retry in 58m0s (at 2026-11-01T10:58:00.123456789Z); wait or reply less often"},
+		{"inbound hourly", func(s *floodRecord) { s.Recent = arrivals(now, 400) }, now, model.CodeRateLimited, "rate limited: inbound hourly cap (400/hour, all senders) to %s; retry in 53m20s (at 2026-11-01T10:53:20.123456789Z); wait or reply less often"},
+		{"rollback wait uses actual clock", func(s *floodRecord) { s.Senders[sender] = model.FloodBucket{At: now} }, now.Add(-time.Minute), model.CodeRateLimited, "rate limited: pair short bucket (12 burst, 12/minute refill) to %s; retry in 1m5s (at 2026-11-01T10:00:05.123456789Z); wait or reply less often"},
+		{"reserved conflict", func(s *floodRecord) { s.Recent = []model.FloodArrival{{ID: id, Sender: "other", At: now}} }, now, model.CodeConflict, "message UUID already reserved by another sender"},
+		{"invalid arrival", func(s *floodRecord) { s.Recent = []model.FloodArrival{{}} }, now, model.CodeInvalidInput, "invalid flood quota arrival time"},
+		{"invalid sender", func(s *floodRecord) { s.Senders["bad"] = model.FloodBucket{Tokens: -1, At: now} }, now, model.CodeInvalidInput, "invalid sender flood quota state"},
 	}
 }
 
@@ -86,7 +87,7 @@ func TestFloodAdmissionHostErrorsKeepExactTextAndRetryTimes(t *testing.T) {
 			before := floodBytes(t, store, msg.To)
 			err = spendFlood(store, msg, test.at)
 			want := string(test.code) + ": " + test.want
-			if test.code == CodeRateLimited {
+			if test.code == model.CodeRateLimited {
 				want = fmt.Sprintf(want, msg.To)
 			}
 			if err == nil || ErrorCodeOf(err) != test.code || err.Error() != want {

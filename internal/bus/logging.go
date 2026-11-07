@@ -8,6 +8,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/logging"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Deliberately has no body, capability, name, path, output or free-text error
@@ -112,9 +113,9 @@ func appendErrorAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 	}
 	if code != "" {
 		switch code {
-		case CodeInvalidInput, CodeInvalidIdentity, CodeUnauthorized, CodeConflict, CodeUnavailable, CodeRateLimited, CodeNotFound, CodeUnsupportedSchema, CodeInvalidTransition, CodeInternal:
+		case model.CodeInvalidInput, model.CodeInvalidIdentity, model.CodeUnauthorized, model.CodeConflict, model.CodeUnavailable, model.CodeRateLimited, model.CodeNotFound, model.CodeUnsupportedSchema, model.CodeInvalidTransition, model.CodeInternal:
 		default:
-			code = CodeInternal
+			code = model.CodeInternal
 		}
 		attrs = append(attrs, slog.String("error_code", string(code)))
 	}
@@ -140,9 +141,9 @@ func messageEvent(msg Message) eventData {
 func (s Store) logReservation(msg Message) {
 	level := slog.LevelInfo
 	data := messageEvent(msg)
-	if msg.Status == StatusApprovalBlocked || msg.Status == StatusNotSent {
+	if msg.Status == model.StatusApprovalBlocked || msg.Status == model.StatusNotSent {
 		level = slog.LevelWarn
-		data.Code = CodeUnavailable
+		data.Code = model.CodeUnavailable
 	}
 	s.logEvent(level, "message.reserved", data)
 }

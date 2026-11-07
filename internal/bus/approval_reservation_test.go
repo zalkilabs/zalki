@@ -4,12 +4,14 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestHeldReservationWriteFailureRollsBackTheCount(t *testing.T) {
 	store := fixtureStore(t)
 	target, _ := register(t, store, "cursor")
-	msg := Message{ID: newID(), To: target.ID, Status: StatusAttempting}
+	msg := Message{ID: newID(), To: target.ID, Status: model.StatusAttempting}
 	if err := msg.Hold(); err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +32,7 @@ func TestHeldReservationWriteFailureRollsBackTheCount(t *testing.T) {
 func TestHookPollPreservesApprovalCountUntilResolution(t *testing.T) {
 	store := fixtureStore(t)
 	target, _ := register(t, store, "cursor")
-	target.State, target.ApprovalHeld = StateApproval, 1
+	target.State, target.ApprovalHeld = model.StateApproval, 1
 	if err := store.saveSession(target); err != nil {
 		t.Fatal(err)
 	}

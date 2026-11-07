@@ -41,14 +41,14 @@ func floodWait(scope, target string, now, retry time.Time) error {
 	if wait < retry.Sub(now) {
 		wait += time.Second
 	}
-	return fail(CodeRateLimited, "rate limited: %s to %s; retry in %s (at %s); wait or reply less often", scope, target, wait, retry.UTC().Format(time.RFC3339Nano))
+	return model.NewError(model.CodeRateLimited, "rate limited: %s to %s; retry in %s (at %s); wait or reply less often", scope, target, wait, retry.UTC().Format(time.RFC3339Nano))
 }
 
 // consumeFloodQuota is called under the journal lock, after the exact-ID retry
 // check and validation. One atomic target file contains both buckets, so a
 // rejected inbound check never spends a sender token (or vice versa).
 func (s Store) consumeFloodQuota(msg Message, now time.Time) error {
-	if msg.Kind == noticeKind {
+	if msg.Kind == model.NoticeKind {
 		return nil
 	}
 	path, err := s.floodPath(msg.To)
@@ -61,10 +61,10 @@ func (s Store) consumeFloodQuota(msg Message, now time.Time) error {
 	}
 	decision := model.DecideFloodAdmission(floodQuota(state), derivedID("zalki/flood/sender/v1", msg.From), msg.ID, now)
 	switch {
-	case decision.Code == CodeRateLimited:
+	case decision.Code == model.CodeRateLimited:
 		return floodWait(decision.Reason, state.Target, now, decision.RetryAt)
 	case decision.Code != "":
-		return fail(decision.Code, "%s", decision.Reason)
+		return model.NewError(decision.Code, "%s", decision.Reason)
 	case !decision.Changed:
 		return nil
 	}
@@ -81,10 +81,10 @@ func loadFloodState(path, target string, now time.Time) (floodRecord, error) {
 		state = withFloodQuota(floodRecord{Schema: 1, Target: target}, model.NewFloodState(now))
 	}
 	if state.Schema != 1 {
-		return state, fail(CodeUnsupportedSchema, "unsupported flood quota schema %d", state.Schema)
+		return state, model.NewError(model.CodeUnsupportedSchema, "unsupported flood quota schema %d", state.Schema)
 	}
 	if state.Target != target || !floodQuota(state).ValidHeader() {
-		return state, fail(CodeInvalidInput, "invalid flood quota state")
+		return state, model.NewError(model.CodeInvalidInput, "invalid flood quota state")
 	}
 	return state, nil
 }

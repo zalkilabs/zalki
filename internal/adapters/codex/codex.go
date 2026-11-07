@@ -121,7 +121,7 @@ func queueCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.Re
 	defer cancel()
 	id := bus.NativeID(target)
 	if _, err := bus.UUID(id); err != nil {
-		return failedReceipt(bus.StatusNotSent, err)
+		return failedReceipt(model.StatusNotSent, err)
 	}
 	command := exec.CommandContext(ctx, "codex", //nolint:gosec // G204: fixed executable; thread id is a validated bus.UUID
 		"queue", "--thread", id, "--message", bus.Envelope(msg))
@@ -129,19 +129,19 @@ func queueCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.Re
 		command.Env = append(os.Environ(), "CODEX_HOME="+target.NativeConfigDir)
 	}
 	output, err := command.CombinedOutput()
-	receipt := bus.NewReceipt(bus.StatusSubmitted)
+	receipt := bus.NewReceipt(model.StatusSubmitted)
 	receipt.Output = string(output)
 	if len(receipt.Output) > 8192 {
 		receipt.Output = receipt.Output[:8192] + " [truncated]"
 	}
 	if ctx.Err() != nil {
-		receipt.Status = bus.StatusUnknownTimeout
+		receipt.Status = model.StatusUnknownTimeout
 		receipt.Error = ctx.Err().Error()
 		receipt = receipt.WithCause(ctx.Err())
 	} else if err != nil {
-		receipt.Status = bus.StatusCommandFailed
+		receipt.Status = model.StatusCommandFailed
 		if errors.Is(err, exec.ErrNotFound) {
-			receipt.Status = bus.StatusNotSent
+			receipt.Status = model.StatusNotSent
 		}
 		receipt.Error = err.Error()
 		receipt = receipt.WithCause(err)

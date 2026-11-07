@@ -10,6 +10,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // These tests use the actual Builtin registry through Service.Hook. Only delivery
@@ -145,7 +146,7 @@ func TestCodexCompactionPreservesQueuedMessageRegistration(t *testing.T) {
 		}
 		checkCodexPrompt(t, &service, to.ID, bus.Envelope(msg), false)
 		stored := adapterTestMessage(t, store, msg.ID)
-		if stored.TargetGeneration != to.Generation || stored.Status != bus.StatusSubmitted || stored.AcknowledgedAt != "" {
+		if stored.TargetGeneration != to.Generation || stored.Status != model.StatusSubmitted || stored.AcknowledgedAt != "" {
 			t.Fatal("compaction changed the pending native delivery")
 		}
 		previousKey = capability

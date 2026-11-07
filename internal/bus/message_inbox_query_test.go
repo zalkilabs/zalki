@@ -12,7 +12,7 @@ func TestExactLookupAvoidsUnrelatedJournalReadsAndPreservesHistory(t *testing.T)
 	store := fixtureStore(t)
 	sender, _, receiver, key := registerPair(t, store, "codex", "cursor")
 	other, otherKey := register(t, store, "cursor")
-	msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "review result", CreatedAt: model.Timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
+	msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "review result", CreatedAt: model.Timestamp(), TargetGeneration: receiver.Generation, Status: model.StatusSubmitted}
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestExactLookupAvoidsUnrelatedJournalReadsAndPreservesHistory(t *testing.T)
 		t.Fatal("exact lookup scanned unrelated records or lost content", err)
 	}
 	query.Actor, query.Capability = other.ID, otherKey
-	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != CodeUnauthorized {
+	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("exact lookup exposed another session's message", err)
 	}
 	stored, err := store.message(msg.ID)
@@ -37,7 +37,7 @@ func TestExactLookupAvoidsUnrelatedJournalReadsAndPreservesHistory(t *testing.T)
 func TestHistoryBodiesAreOptInAndNativeBodiesStayDeferred(t *testing.T) {
 	store := fixtureStore(t)
 	sender, key, receiver, toKey := registerPair(t, store, "cursor", "codex")
-	msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "review result", CreatedAt: model.Timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
+	msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "review result", CreatedAt: model.Timestamp(), TargetGeneration: receiver.Generation, Status: model.StatusSubmitted}
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}

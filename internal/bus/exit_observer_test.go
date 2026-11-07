@@ -30,7 +30,7 @@ func (c *noticeCounter) hook(_ context.Context, msg Message, _ Session) Receipt 
 	c.mu.Lock()
 	c.bodies = append(c.bodies, msg.Body)
 	c.mu.Unlock()
-	return NewReceipt(StatusSubmitted)
+	return NewReceipt(model.StatusSubmitted)
 }
 
 func (c *noticeCounter) count() int {
@@ -461,7 +461,7 @@ func TestObserverStartupNoticesRetiredTargetsAndSkipsExpiredWatches(t *testing.T
 		if err != nil {
 			t.Fatal(err)
 		}
-		current.Retired, current.State = true, StateRetired
+		current.Retired, current.State = true, model.StateRetired
 		if err := service.Store.saveSession(current); err != nil {
 			t.Fatal(err)
 		}
@@ -529,7 +529,7 @@ func TestObserverStopsPromptlyWhenCancelledMidDelivery(t *testing.T) {
 	service.Deliver = func(ctx context.Context, _ Message, _ Session) Receipt {
 		once.Do(func() { close(entered) })
 		<-ctx.Done()
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}
 	exitedWatchedTarget(t, service)
 	fake := newFakeExitSource()

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestCompactEnvelopeKeepsRoutingPrivate(t *testing.T) {
@@ -222,7 +223,7 @@ func TestReplyKeepsReadAcknowledgementWhenDeliveryRefused(t *testing.T) {
 	}
 
 	reply, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: key, MessageID: parent.ID, Body: "pong"})
-	if err != nil || reply.Status != StatusApprovalBlocked {
+	if err != nil || reply.Status != model.StatusApprovalBlocked {
 		t.Fatalf("reply crossed a pending approval: %+v %v", reply, err)
 	}
 	stored, err := store.message(parent.ID)

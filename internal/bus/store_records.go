@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 const recordSchema = 1
@@ -28,7 +29,7 @@ func readRecord(path string, value any, schema *int) error {
 		return err
 	}
 	if *schema < 0 || *schema > recordSchema {
-		return fail(CodeUnsupportedSchema, "unsupported journal schema %d", *schema)
+		return model.NewError(model.CodeUnsupportedSchema, "unsupported journal schema %d", *schema)
 	}
 	return nil
 }
@@ -43,16 +44,16 @@ func (s Store) readSession(path string) (Session, error) {
 		return v, err
 	}
 	if v.Schema < 0 || v.Schema > leaseSessionSchema {
-		return v, fail(CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
+		return v, model.NewError(model.CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
 	}
 	if v.Listener != nil && v.Schema != leaseSessionSchema {
-		return v, fail(CodeUnsupportedSchema, "a listener lease requires session schema %d", leaseSessionSchema)
+		return v, model.NewError(model.CodeUnsupportedSchema, "a listener lease requires session schema %d", leaseSessionSchema)
 	}
 	if v.NativeID == "" {
 		v.NativeID = NativeID(v)
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
-		return v, fail(CodeInvalidIdentity, "native and Zalki session identities do not match")
+		return v, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")
 	}
 	extensions, err := stateExtensions(raw)
 	if err != nil {
@@ -64,7 +65,7 @@ func (s Store) readSession(path string) (Session, error) {
 
 func canonicalNativeID(id string) (string, error) {
 	if len(id) == 0 || len(id) > 1024 || !utf8.ValidString(id) || strings.ContainsFunc(id, unicode.IsControl) {
-		return "", fail(CodeInvalidIdentity, "native session ID must be 1..1024 UTF-8 bytes without control characters")
+		return "", model.NewError(model.CodeInvalidIdentity, "native session ID must be 1..1024 UTF-8 bytes without control characters")
 	}
 	if uuid, err := UUID(id); err == nil {
 		return uuid, nil
@@ -111,13 +112,13 @@ func (s Store) scanSessions() ([]Session, []SessionIssue, error) {
 		if readErr == nil {
 			expected, pathErr := s.sessionPath(v.ID)
 			if pathErr != nil || expected != path || v.ID != id || !strings.HasPrefix(v.ID, v.Kind+":") {
-				readErr = fail(CodeInvalidIdentity, "session file identity mismatch")
+				readErr = model.NewError(model.CodeInvalidIdentity, "session file identity mismatch")
 			}
 		}
 		if readErr != nil {
-			if ErrorCodeOf(readErr) == CodeUnsupportedSchema {
+			if ErrorCodeOf(readErr) == model.CodeUnsupportedSchema {
 				reason = "session_unsupported_schema"
-			} else if ErrorCodeOf(readErr) == CodeInvalidIdentity {
+			} else if ErrorCodeOf(readErr) == model.CodeInvalidIdentity {
 				reason = "session_identity_mismatch"
 			}
 			kind, _, _ := strings.Cut(id, ":")

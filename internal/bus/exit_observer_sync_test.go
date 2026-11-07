@@ -225,7 +225,7 @@ func TestSyncRegistersOwnersBeforeAnyNoticeIsSent(t *testing.T) {
 	var registeredAtNotice []bool
 	service.Deliver = func(_ context.Context, _ Message, _ Session) Receipt {
 		registeredAtNotice = append(registeredAtNotice, fake.watchingProcess(*owner))
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}
 	o := newSyncObserver(service, fake)
 	o.sync(context.Background())
@@ -242,7 +242,7 @@ func TestSyncStopsSendingNoticesOnceTheContextIsDone(t *testing.T) {
 	service.Deliver = func(_ context.Context, _ Message, _ Session) Receipt {
 		delivered++
 		cancel() // the observer is stopped while it sends the first notice
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}
 	exitedWatchedTarget(t, service)
 	exitedWatchedTarget(t, service)

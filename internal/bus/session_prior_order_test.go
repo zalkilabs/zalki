@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // This models the permitted durable namespace after a rename whose directory
@@ -56,7 +57,7 @@ func TestZeroEventPriorRenameOrdering(t *testing.T) {
 		t.Fatalf("prior rename not ordered before event intent; replay = %v", err)
 	}
 	next, err := store.session(session.ID)
-	if err != nil || next.State != StateBusy || next.Task != "D1 private value" {
+	if err != nil || next.State != model.StateBusy || next.Task != "D1 private value" {
 		t.Fatalf("D2 replay = %+v,%v", next, err)
 	}
 	if eventState(t, store).Count != 2 {
@@ -87,7 +88,7 @@ func simulatePrivateRenameSyncFailure(t *testing.T, store Store, session Session
 
 func publishEventBeforeTargetCut(t *testing.T, store Store, session Session, writer commitWriter) {
 	t.Helper()
-	session.State = StateBusy
+	session.State = model.StateBusy
 	err := store.locked(func() error { return saveSessionWith(store, session, writer) })
 	if !errors.Is(err, os.ErrPermission) {
 		t.Fatalf("event target write cut = %v", err)

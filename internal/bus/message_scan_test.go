@@ -5,12 +5,14 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestMessageScanCallersKeepTheirUnreadableRecordPolicies(t *testing.T) {
 	store := fixtureStore(t)
 	from, key, to, toKey := registerPair(t, store, "codex", "cursor")
-	if err := store.Update(to.ID, StateApproval, false); err != nil {
+	if err := store.Update(to.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	msg, err := (&Service{Store: store}).Send(context.Background(), SendRequest{

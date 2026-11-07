@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // capturingCursorAdapter records what its codec was given.
@@ -85,7 +86,7 @@ func TestStateExtensionsAreBounded(t *testing.T) {
 			store := fixtureStore(t)
 			to, _ := register(t, store, "cursor")
 			rewriteRecord(t, store, to.ID, edit)
-			if _, err := store.session(to.ID); ErrorCodeOf(err) != CodeInvalidInput {
+			if _, err := store.session(to.ID); ErrorCodeOf(err) != model.CodeInvalidInput {
 				t.Fatal("an unbounded record reached the adapter codec", err)
 			}
 		})
@@ -117,7 +118,7 @@ func TestStateMigrationCannotRemoveCoreFields(t *testing.T) {
 	}
 	store.Registry = registry
 	rewriteRecord(t, store, target.ID, func(record map[string]any) { record["obsolete_extension"] = true; record["future_extension"] = true })
-	if err := store.Update(target.ID, StateBusy, false); err != nil {
+	if err := store.Update(target.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.authenticate(target.ID, key); err != nil {

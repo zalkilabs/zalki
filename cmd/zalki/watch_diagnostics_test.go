@@ -9,6 +9,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestDiagnosticsKeepOutputWhenACompletionWatcherIsUnreachable(t *testing.T) {
@@ -36,7 +37,7 @@ func TestDiagnosticsKeepOutputWhenACompletionWatcherIsUnreachable(t *testing.T) 
 				t.Fatal(err)
 			}
 			for _, id := range []string{watcher.ID, target.ID} {
-				if err := store.Update(id, bus.StateRetired, true); err != nil {
+				if err := store.Update(id, model.StateRetired, true); err != nil {
 					t.Fatal(err)
 				}
 			}

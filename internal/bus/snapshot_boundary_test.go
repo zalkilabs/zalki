@@ -12,9 +12,9 @@ import (
 )
 
 func TestSessionViewBuilderDetachesAdapterState(t *testing.T) {
-	source := Session{ID: "cursor:id", Kind: "cursor", Generation: "gen", State: StateBusy, Retired: true, AdapterState: json.RawMessage(`{"v":1}`), KeyHash: "private hash"}
+	source := Session{ID: "cursor:id", Kind: "cursor", Generation: "gen", State: model.StateBusy, Retired: true, AdapterState: json.RawMessage(`{"v":1}`), KeyHash: "private hash"}
 	view := viewOf(source)
-	if view.Actor != "cursor:id" || view.Kind != "cursor" || view.Generation != "gen" || view.State != StateBusy || !view.Retired || string(view.AdapterState) != `{"v":1}` {
+	if view.Actor != "cursor:id" || view.Kind != "cursor" || view.Generation != "gen" || view.State != model.StateBusy || !view.Retired || string(view.AdapterState) != `{"v":1}` {
 		t.Fatalf("view fields changed: %+v", view)
 	}
 	view.AdapterState[5] = '2'

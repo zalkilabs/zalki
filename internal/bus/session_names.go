@@ -72,7 +72,7 @@ func (s Store) resolve(destination string) (Session, error) {
 		}
 	}
 	if !model.ValidName(name) {
-		return Session{}, fail(CodeInvalidInput, "destination must be a complete kind:UUID or an exact native session name")
+		return Session{}, model.NewError(model.CodeInvalidInput, "destination must be a complete kind:UUID or an exact native session name")
 	}
 	sessions, err := s.sessions()
 	if err != nil {
@@ -89,9 +89,9 @@ func (s Store) resolve(destination string) (Session, error) {
 		return matches[0], nil
 	}
 	if len(matches) > 1 {
-		return Session{}, fail(CodeConflict, "ambiguous session name %q; use an exact ID: %s", destination, strings.Join(ids, ", "))
+		return Session{}, model.NewError(model.CodeConflict, "ambiguous session name %q; use an exact ID: %s", destination, strings.Join(ids, ", "))
 	}
-	return Session{}, fail(CodeUnavailable, "no registered session named %q; use list_agents for names and exact IDs", destination)
+	return Session{}, model.NewError(model.CodeUnavailable, "no registered session named %q; use list_agents for names and exact IDs", destination)
 }
 
 func (s Store) hookName(id, name string) error {

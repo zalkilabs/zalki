@@ -101,7 +101,7 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 		t.Fatalf("socket recovery still suggests an opt-in integration: %q", hint)
 	}
 	receipt := adapter.Deliver(context.Background(), bus.Message{ID: newTestID(), Body: "stale binding"}, bus.Session{Endpoint: endpoint})
-	if receipt.Status != bus.StatusNotSent || receipt.Error == "" || receipt.At == "" {
+	if receipt.Status != model.StatusNotSent || receipt.Error == "" || receipt.At == "" {
 		t.Fatalf("delivery accepted a replaced endpoint: %+v", receipt)
 	}
 }
@@ -118,7 +118,7 @@ func TestClaudeServiceWritesOnceAndPreservesSenderLabel(t *testing.T) {
 	request := bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "write once"}
 	for range 2 {
 		msg, err := service.Send(context.Background(), request)
-		if err != nil || msg.Status != bus.StatusTransportWritten || msg.FromLabel != "Codex" {
+		if err != nil || msg.Status != model.StatusTransportWritten || msg.FromLabel != "Codex" {
 			t.Fatal("native delivery or idempotent retry failed", msg.Status, err)
 		}
 	}

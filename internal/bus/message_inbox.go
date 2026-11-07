@@ -48,10 +48,10 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 		limit = 5
 	}
 	if limit < 1 || limit > 100 {
-		return MessageBatch{}, fail(CodeInvalidInput, "limit must be 1..100")
+		return MessageBatch{}, model.NewError(model.CodeInvalidInput, "limit must be 1..100")
 	}
 	if !query.Sent && (query.To != "" || query.Preview) {
-		return MessageBatch{}, fail(CodeInvalidInput, "to and preview require sent:true")
+		return MessageBatch{}, model.NewError(model.CodeInvalidInput, "to and preview require sent:true")
 	}
 	batch := MessageBatch{Messages: []Message{}}
 	err := s.readLocked(func() error {
@@ -116,13 +116,13 @@ func (s Store) readExactMessage(r messageRead) (Message, error) {
 		return Message{}, err
 	}
 	if message.From != actor && message.To != actor {
-		return Message{}, fail(CodeUnauthorized, "message belongs to another session")
+		return Message{}, model.NewError(model.CodeUnauthorized, "message belongs to another session")
 	}
 	if r.query.Sent && message.From != actor {
-		return Message{}, fail(CodeNotFound, "message was not sent by this session")
+		return Message{}, model.NewError(model.CodeNotFound, "message was not sent by this session")
 	}
 	if r.recipient != "" && message.To != r.recipient {
-		return Message{}, fail(CodeNotFound, "message was not sent to this recipient")
+		return Message{}, model.NewError(model.CodeNotFound, "message was not sent to this recipient")
 	}
 	return r.view(message, false), nil
 }
@@ -166,7 +166,7 @@ func (s Store) scanCursor(query MessageQuery) (*Message, error) {
 		return nil, err
 	}
 	if anchor.From != query.Actor && anchor.To != query.Actor {
-		return nil, fail(CodeUnauthorized, "cursor belongs to another session")
+		return nil, model.NewError(model.CodeUnauthorized, "cursor belongs to another session")
 	}
 	return &anchor, nil
 }

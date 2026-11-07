@@ -37,7 +37,7 @@ func fullModelReceive() model.ReceiveCapabilities {
 }
 
 func fullModelReceipt() bus.Receipt {
-	r := bus.Receipt{At: "at", Status: bus.StatusSubmitted, Code: bus.CodeUnavailable, Error: "public error", Output: "output"}
+	r := bus.Receipt{At: "at", Status: model.StatusSubmitted, Code: model.CodeUnavailable, Error: "public error", Output: "output"}
 	return r.WithCause(errors.New("live cause must not serialize"))
 }
 
@@ -45,7 +45,7 @@ func fullModelSession() bus.Session {
 	return bus.Session{
 		Schema: 2, NativeID: "native", AdapterState: json.RawMessage(`{"schema":1,"flag":true}`), ID: "alpha:id", Kind: "alpha",
 		Name: "Name", NameSource: "fixture", Task: "Task", NativeConfigDir: "/config", CWD: "/workspace", Generation: "generation",
-		State: bus.StateBusy, UpdatedAt: "updated", Retired: true, RetiredReason: "done", ApprovalHeld: 2,
+		State: model.StateBusy, UpdatedAt: "updated", Retired: true, RetiredReason: "done", ApprovalHeld: 2,
 		Owner: &model.ProcessRef{PID: 7, Start: "start", Role: "client"}, Liveness: model.LivenessAlive, HookBuild: "build",
 		Endpoint: &model.Endpoint{Path: "/socket", Device: 3, Inode: 5, ChangedNS: 7},
 		Listener: &model.ListenerLease{ID: "lease", Generation: "generation", Endpoint: model.Endpoint{Path: "/listener", Device: 11, Inode: 13, ChangedNS: 17}},
@@ -84,7 +84,7 @@ func TestModelMessageJSONSurface(t *testing.T) {
 		{"all fields", bus.Message{
 			BusyDelivery: model.DeliveryNextTurn, BodyPreview: "not serialized", Schema: 1, ID: "message", From: "alpha:from", Kind: "notice",
 			FromName: "Sender", FromLabel: "Alpha", To: "beta:to", RequestedTo: "Alias", Body: "body", BodyOmitted: true, BodyDeferred: true,
-			ReplyTo: "parent", TargetGeneration: "generation", CreatedAt: "created", Status: bus.StatusSubmitted, Held: true, Receipt: &receipt, AcknowledgedAt: "acknowledged",
+			ReplyTo: "parent", TargetGeneration: "generation", CreatedAt: "created", Status: model.StatusSubmitted, Held: true, Receipt: &receipt, AcknowledgedAt: "acknowledged",
 		}, `{"schema":1,"id":"message","from":"alpha:from","kind":"notice","from_name":"Sender","from_label":"Alpha","to":"beta:to","requested_to":"Alias","body":"body","body_omitted":true,"body_deferred":true,"reply_to":"parent","target_generation":"generation","created_at":"created","status":"submitted","held":true,"receipt":{"at":"at","status":"submitted","code":"unavailable","error":"public error","output":"output"},"acknowledged_at":"acknowledged"}`},
 	} {
 		t.Run(test.name, func(t *testing.T) { requireModelJSON(t, test.value, test.want) })
@@ -112,7 +112,7 @@ func TestModelDiagnosticJSONSurface(t *testing.T) {
 	}{
 		{"zero", model.SessionDiagnostic{}, `{"id":"","kind":"","state":"","retired":false,"liveness":"","updated_at":"","transport_health":"","hook_build_status":"","receive":` + zeroModelReceiveJSON + `}`},
 		{"non-nil zero owner", model.SessionDiagnostic{Owner: &model.ProcessRef{}}, `{"id":"","kind":"","state":"","retired":false,"liveness":"","owner":{"pid":0,"start":"","role":""},"updated_at":"","transport_health":"","hook_build_status":"","receive":` + zeroModelReceiveJSON + `}`},
-		{"all fields", model.SessionDiagnostic{ID: "alpha:id", Kind: "alpha", Name: "Name", State: bus.StateRetired, Retired: true,
+		{"all fields", model.SessionDiagnostic{ID: "alpha:id", Kind: "alpha", Name: "Name", State: model.StateRetired, Retired: true,
 			RetiredReason: "done", Liveness: model.LivenessExited, Owner: &model.ProcessRef{PID: 7, Start: "start", Role: "client"}, UpdatedAt: "updated",
 			TransportHealth: "transport", ListenerHealth: "listener", HookBuild: "build", HookBuildStatus: "current", RecoveryHint: "hint", Receive: fullModelReceive()},
 			`{"id":"alpha:id","kind":"alpha","name":"Name","state":"retired","retired":true,"retired_reason":"done","liveness":"exited","owner":{"pid":7,"start":"start","role":"client"},"updated_at":"updated","transport_health":"transport","listener_health":"listener","hook_build":"build","hook_build_status":"current","recovery_hint":"hint","receive":` + fullModelReceiveJSON + `}`},

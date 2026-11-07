@@ -14,7 +14,7 @@ func TestInboxFiltersBeforeLimitWithoutLosingUnreadWork(t *testing.T) {
 	for i := range 130 {
 		msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "work",
 			CreatedAt: fmt.Sprintf("2026-10-23T%02d:%02d:00.000000000Z", i/60, i%60),
-			Status:    StatusSubmitted, TargetGeneration: receiver.Generation}
+			Status:    model.StatusSubmitted, TargetGeneration: receiver.Generation}
 		switch {
 		case i < 25:
 			unread = append(unread, msg)
@@ -23,7 +23,7 @@ func TestInboxFiltersBeforeLimitWithoutLosingUnreadWork(t *testing.T) {
 		case i == 26:
 			msg.TargetGeneration = newID()
 		case i == 27:
-			msg.Status = StatusNotSent
+			msg.Status = model.StatusNotSent
 		default:
 			msg.AcknowledgedAt = model.Timestamp()
 		}
@@ -62,7 +62,7 @@ func TestMessageHistoryPaginationDoesNotRepeatRecords(t *testing.T) {
 	store := fixtureStore(t)
 	sender, _, receiver, key := registerPair(t, store, "codex", "cursor")
 	for i := range 12 {
-		msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "history", CreatedAt: fmt.Sprintf("2026-10-23T00:00:%02d.000000000Z", i), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
+		msg := Message{ID: newID(), From: sender.ID, To: receiver.ID, Body: "history", CreatedAt: fmt.Sprintf("2026-10-23T00:00:%02d.000000000Z", i), TargetGeneration: receiver.Generation, Status: model.StatusSubmitted}
 		if err := store.saveMessage(msg); err != nil {
 			t.Fatal(err)
 		}

@@ -38,9 +38,9 @@ func TestPruneDeletesOnlyOldRetiredSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	old := time.Now().Add(-8 * 24 * time.Hour).UTC().Format(time.RFC3339Nano)
-	from.Retired, from.State, from.RetiredReason, from.UpdatedAt = true, StateRetired, "session_end", old
+	from.Retired, from.State, from.RetiredReason, from.UpdatedAt = true, model.StateRetired, "session_end", old
 	live.UpdatedAt = old
-	young.Retired, young.State, young.RetiredReason = true, StateRetired, "session_end"
+	young.Retired, young.State, young.RetiredReason = true, model.StateRetired, "session_end"
 	for _, v := range []Session{from, live, young} {
 		if err := store.locked(func() error { return store.saveSession(v) }); err != nil {
 			t.Fatal(err)
@@ -51,7 +51,7 @@ func TestPruneDeletesOnlyOldRetiredSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	heldSession, _ := register(t, store, "cursor")
-	heldSession.Retired, heldSession.State, heldSession.RetiredReason, heldSession.UpdatedAt = true, StateRetired, "session_end", old
+	heldSession.Retired, heldSession.State, heldSession.RetiredReason, heldSession.UpdatedAt = true, model.StateRetired, "session_end", old
 	if err := store.locked(func() error { return store.saveSession(heldSession) }); err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestPruneDeletesOnlyOldRetiredSessions(t *testing.T) {
 		t.Fatalf("recipient could not read the deleted sender's message: %+v %v", history.Messages, err)
 	}
 	reply, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: toKey, MessageID: msg.ID, Body: "still here"})
-	if err != nil || reply.To != from.ID || reply.Status != StatusNotSent || reply.FromLabel != "Cursor" {
+	if err != nil || reply.To != from.ID || reply.Status != model.StatusNotSent || reply.FromLabel != "Cursor" {
 		t.Fatalf("reply did not survive a deleted sender record: %+v %v", reply, err)
 	}
 	if _, err := store.PruneRetired(false, nil, -time.Second); err == nil {

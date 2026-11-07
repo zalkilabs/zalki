@@ -15,7 +15,7 @@ func TestEventRecoveryRunsBeforeLegacyReplyChangesSession(t *testing.T) {
 		t.Fatalf("mixed recovery failed: %v", err)
 	}
 	got, err := store.session(target.ID)
-	if err != nil || got.State != StateBusy || got.ApprovalHeld != 1 {
+	if err != nil || got.State != model.StateBusy || got.ApprovalHeld != 1 {
 		t.Fatalf("reply recovery overwrote/wedged state: %+v, %v", got, err)
 	}
 	if metadata := eventState(t, store); metadata.Count != 2 {

@@ -25,7 +25,7 @@ func eventState(t *testing.T, store Store) eventMetadata {
 func TestEventUpdatePublishesOneCoveredTransition(t *testing.T) {
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")
-	if err := store.Update(session.ID, StateBusy, false); err != nil {
+	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
 	metadata := eventState(t, store)
@@ -34,10 +34,10 @@ func TestEventUpdatePublishesOneCoveredTransition(t *testing.T) {
 	}
 	raw := readCommitFile(t, filepath.Join(store.Dir, eventRecordPath(2)))
 	var record eventRecord
-	if err := decodeEventJSON(raw, &record); err != nil || record.Event.Session.State != StateBusy || record.Event.Session.Previous != StateReady {
+	if err := decodeEventJSON(raw, &record); err != nil || record.Event.Session.State != model.StateBusy || record.Event.Session.Previous != model.StateReady {
 		t.Fatalf("event = %+v, %v", record, err)
 	}
-	if err := store.Update(session.ID, StateBusy, false); err != nil {
+	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
 	if got := eventState(t, store); got != metadata {
@@ -65,8 +65,8 @@ func setEventTestState(t *testing.T, store Store, id string, state SessionState,
 
 func testCoveredUpdate(t *testing.T, store Store, id string, writer commitWriter) {
 	t.Helper()
-	setEventTestState(t, store, id, StateReady, writer)
-	setEventTestState(t, store, id, StateBusy, writer)
+	setEventTestState(t, store, id, model.StateReady, writer)
+	setEventTestState(t, store, id, model.StateBusy, writer)
 }
 
 func TestEventRetentionNeverBlocksHealthyFullLog(t *testing.T) {
@@ -103,9 +103,9 @@ func stagedLiveCommit(t *testing.T) (Store, Session, journal.Batch) {
 	}
 	before := readCommitFile(t, path)
 	next := session
-	next.State, next.UpdatedAt = StateBusy, model.Timestamp()
+	next.State, next.UpdatedAt = model.StateBusy, model.Timestamp()
 	event := model.Event{ID: newID(), Type: "session.state_changed", OccurredAt: next.UpdatedAt, TransactionID: newID(),
-		Session: model.EventSession{ID: next.ID, Generation: next.Generation, Previous: StateReady, State: StateBusy}}
+		Session: model.EventSession{ID: next.ID, Generation: next.Generation, Previous: model.StateReady, State: model.StateBusy}}
 	batch, err := (commitWriter{dir: store.Dir}).prepare(before, next, event, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -139,7 +139,7 @@ func assertEventRecoveryCase(t *testing.T, operation string, applied int) {
 		if _, err := store.List(); err != nil {
 			t.Fatal(err)
 		}
-	} else if err := store.Update(session.ID, StateApproval, false); err != nil {
+	} else if err := store.Update(session.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	expectedCount := uint64(2)
@@ -164,7 +164,7 @@ func TestEventMalformedIntentBlocksReadsAndWrites(t *testing.T) {
 	if _, err := store.List(); err == nil {
 		t.Fatal("read bypassed malformed intent")
 	}
-	if err := store.Update(session.ID, StateApproval, false); err == nil {
+	if err := store.Update(session.ID, model.StateApproval, false); err == nil {
 		t.Fatal("write bypassed malformed intent")
 	}
 	if after := journalSnapshot(t, store); !reflect.DeepEqual(before, after) {
@@ -178,10 +178,10 @@ func TestEventPendingIntentUnderFormatFenceRefusesReadCallbacks(t *testing.T) {
 	before := journalSnapshot(t, store)
 	called := false
 	err := store.readLocked(func() error { called = true; return nil })
-	if ErrorCodeOf(err) != CodeUnsupportedSchema || called {
+	if ErrorCodeOf(err) != model.CodeUnsupportedSchema || called {
 		t.Fatalf("fenced pending intent permitted read callback: called=%v, err=%v", called, err)
 	}
-	if _, err := store.List(); ErrorCodeOf(err) != CodeUnsupportedSchema {
+	if _, err := store.List(); ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 		t.Fatalf("public read bypassed fenced pending intent: %v", err)
 	}
 	if after := journalSnapshot(t, store); !reflect.DeepEqual(before, after) {
@@ -212,7 +212,7 @@ func TestEventExactPriorWhitespaceAndUnknownFieldsSurvive(t *testing.T) {
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(session.ID, StateBusy, false); err != nil {
+	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
 	var result map[string]any
@@ -235,7 +235,7 @@ func TestEventDirectorySyncFailureLeavesStateAndFencesUntouched(t *testing.T) {
 	if after := journalSnapshot(t, store); !reflect.DeepEqual(before, after) {
 		t.Fatal("failed directory sync published a marker or changed state")
 	}
-	if err := store.Update(session.ID, StateBusy, false); err != nil {
+	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatalf("retry failed to finish directory setup: %v", err)
 	}
 }
@@ -246,7 +246,7 @@ func TestEventUpdatePreservesLegacySessionFormatDeclaration(t *testing.T) {
 	if err := os.Remove(filepath.Join(store.Dir, stateFormatFile)); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(session.ID, StateBusy, false); err != nil {
+	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
 	marker, _, err := store.readStateFormats()

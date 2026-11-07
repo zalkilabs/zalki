@@ -1,6 +1,9 @@
 package bus
 
-import "github.com/zalkilabs/zalki/internal/agent"
+import (
+	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
+)
 
 type sessionRecord struct {
 	path    string
@@ -10,7 +13,7 @@ type sessionRecord struct {
 
 func prepareSessionRecord(s Store, v Session) (sessionRecord, error) {
 	if v.Schema < 0 || v.Schema > leaseSessionSchema {
-		return sessionRecord{}, fail(CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
+		return sessionRecord{}, model.NewError(model.CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
 	}
 	path, err := s.sessionPath(v.ID)
 	if err != nil {
@@ -29,7 +32,7 @@ func prepareSessionRecord(s Store, v Session) (sessionRecord, error) {
 		v.NativeID = NativeID(v)
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
-		return sessionRecord{}, fail(CodeInvalidIdentity, "native and Zalki session identities do not match")
+		return sessionRecord{}, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")
 	}
 	var removed []string
 	if migration, ok := adapter.(agent.SessionStateMigrationAdapter); ok {

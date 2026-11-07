@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestPruneDeletesOrphanFloodWithMatchingDryRun(t *testing.T) {
@@ -23,8 +25,8 @@ func TestPruneDeletesOrphanFloodWithMatchingDryRun(t *testing.T) {
 		paths[v.ID] = path
 		before[v.ID] = string(floodBytes(t, store, v.ID))
 	}
-	young.Retired, young.State = true, StateRetired
-	old.Retired, old.State = true, StateRetired
+	young.Retired, young.State = true, model.StateRetired
+	old.Retired, old.State = true, model.StateRetired
 	old.UpdatedAt = time.Now().Add(-8 * 24 * time.Hour).UTC().Format(time.RFC3339Nano)
 	for _, v := range []Session{young, old} {
 		if err := store.saveSession(v); err != nil {
@@ -47,7 +49,7 @@ func TestPruneDeletesOrphanFloodWithMatchingDryRun(t *testing.T) {
 	if err := os.WriteFile(formerPath, []byte("old quota"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	history := Message{ID: newID(), From: sender.ID, To: old.ID, Body: "keep history", Status: StatusSubmitted}
+	history := Message{ID: newID(), From: sender.ID, To: old.ID, Body: "keep history", Status: model.StatusSubmitted}
 	if err := store.saveMessage(history); err != nil {
 		t.Fatal(err)
 	}

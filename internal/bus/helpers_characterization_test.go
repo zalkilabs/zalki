@@ -47,7 +47,7 @@ func (a *fakeAdapter) Deliver(ctx context.Context, msg bus.Message, target bus.S
 	deliver := a.deliver
 	a.mu.Unlock()
 	if deliver == nil {
-		return bus.NewReceipt(bus.StatusSubmitted)
+		return bus.NewReceipt(model.StatusSubmitted)
 	}
 	return deliver(ctx, msg, target)
 }

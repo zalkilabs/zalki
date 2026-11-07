@@ -14,13 +14,13 @@ import (
 func queueThenDropCount(t *testing.T, store Store) (Session, Message, Message) {
 	t.Helper()
 	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
-	if err := store.Update(target.ID, StateApproval, false); err != nil {
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	var delivered []string
 	service := approvalService(t, store, &delivered)
 	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "held"})
-	if err != nil || !msg.Held || msg.Status != StatusApprovalBlocked {
+	if err != nil || !msg.Held || msg.Status != model.StatusApprovalBlocked {
 		t.Fatalf("queue: %+v %v", msg, err)
 	}
 	current, err := store.session(target.ID)
@@ -31,7 +31,7 @@ func queueThenDropCount(t *testing.T, store Store) (Session, Message, Message) {
 	if err := store.locked(func() error { return store.saveSession(current) }); err != nil {
 		t.Fatal(err)
 	}
-	legacy := Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: StatusApprovalBlocked}
+	legacy := Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusApprovalBlocked}
 	if err := store.saveMessage(legacy); err != nil {
 		t.Fatal(err)
 	}
@@ -65,11 +65,11 @@ func TestPruneRecountsADroppedApprovalHold(t *testing.T) {
 		t.Fatalf("count: %+v %v", restored.ApprovalHeld, err)
 	}
 	held, err := store.message(msg.ID)
-	if err != nil || !held.Held || held.Status != StatusApprovalBlocked {
+	if err != nil || !held.Held || held.Status != model.StatusApprovalBlocked {
 		t.Fatalf("live queue was settled: %+v %v", held, err)
 	}
 	savedLegacy, err := store.message(legacy.ID)
-	if err != nil || savedLegacy.Held || savedLegacy.Status != StatusApprovalBlocked {
+	if err != nil || savedLegacy.Held || savedLegacy.Status != model.StatusApprovalBlocked {
 		t.Fatalf("legacy refusal was counted: %+v %v", savedLegacy, err)
 	}
 	after, err := os.ReadFile(mustSessionPath(t, store, untouched.ID))
@@ -112,7 +112,7 @@ func TestPruneLowersAnInflatedApprovalHold(t *testing.T) {
 func TestPruneSettlesHeldMessagesWhenTheTargetIsRetired(t *testing.T) {
 	store := fixtureStore(t)
 	target, msg, _ := queueThenDropCount(t, store)
-	if err := store.Update(target.ID, StateRetired, true); err != nil {
+	if err := store.Update(target.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	report, err := store.Prune(true, nil)
@@ -128,7 +128,7 @@ func TestPruneSettlesHeldMessagesWhenTheTargetIsRetired(t *testing.T) {
 		t.Fatalf("prune: %+v %v", report.Sessions, err)
 	}
 	settled, err := store.message(msg.ID)
-	if err != nil || settled.Held || settled.Status != StatusNotSent || settled.Receipt == nil || settled.Receipt.Error != "destination has retired" {
+	if err != nil || settled.Held || settled.Status != model.StatusNotSent || settled.Receipt == nil || settled.Receipt.Error != "destination has retired" {
 		t.Fatalf("retired queue: %+v %v", settled, err)
 	}
 	current, err := store.session(target.ID)
@@ -152,7 +152,7 @@ func TestPruneSettlesHeldMessagesWhenTheTargetIsGone(t *testing.T) {
 		t.Fatalf("missing target: %+v %v", report.Sessions, err)
 	}
 	settled, err := store.message(msg.ID)
-	if err != nil || settled.Held || settled.Status != StatusNotSent {
+	if err != nil || settled.Held || settled.Status != model.StatusNotSent {
 		t.Fatalf("orphaned queue: %+v %v", settled, err)
 	}
 }
@@ -161,11 +161,11 @@ func TestPruneReportsUnreadableMessagesAndContinues(t *testing.T) {
 	store := fixtureStore(t)
 	live, liveMsg, _ := queueThenDropCount(t, store)
 	retired, retiredMsg, _ := queueThenDropCount(t, store)
-	if err := store.Update(retired.ID, StateRetired, true); err != nil {
+	if err := store.Update(retired.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	old, _ := register(t, store, "cursor")
-	old.Retired, old.State, old.RetiredReason = true, StateRetired, "session_end"
+	old.Retired, old.State, old.RetiredReason = true, model.StateRetired, "session_end"
 	old.UpdatedAt = time.Now().Add(-8 * 24 * time.Hour).UTC().Format(time.RFC3339Nano)
 	if err := store.locked(func() error { return store.saveSession(old) }); err != nil {
 		t.Fatal(err)
@@ -204,7 +204,7 @@ func TestPruneReportsUnreadableMessagesAndContinues(t *testing.T) {
 		t.Fatalf("live message: %+v %v", held, err)
 	}
 	settled, err := store.message(retiredMsg.ID)
-	if err != nil || settled.Held || settled.Status != StatusNotSent {
+	if err != nil || settled.Held || settled.Status != model.StatusNotSent {
 		t.Fatalf("retired message: %+v %v", settled, err)
 	}
 	if _, err := store.session(old.ID); !errors.Is(err, os.ErrNotExist) {
@@ -250,7 +250,7 @@ func TestPrunePreviewSettlesQueueForSelectedLiveTarget(t *testing.T) {
 		t.Fatalf("applied retirement differs from preview: %+v %+v %v", preview, applied, err)
 	}
 	settled, err := store.message(msg.ID)
-	if err != nil || settled.Held || settled.Status != StatusNotSent {
+	if err != nil || settled.Held || settled.Status != model.StatusNotSent {
 		t.Fatalf("selected retirement left held work: %+v %v", settled, err)
 	}
 }

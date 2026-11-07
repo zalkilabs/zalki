@@ -82,7 +82,7 @@ func newRefusedReplyFixture(t *testing.T, missing bool) refusedReplyFixture {
 	service := newTestService(t)
 	store := service.Store
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: StatusSubmitted}
+	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func newRefusedReplyFixture(t *testing.T, missing bool) refusedReplyFixture {
 		if err := os.Remove(path); err != nil {
 			t.Fatal(err)
 		}
-	} else if err := store.Update(from.ID, StateRetired, true); err != nil {
+	} else if err := store.Update(from.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	return refusedReplyFixture{t: t, service: service, from: from, to: to, key: key, parent: parent}
@@ -138,7 +138,7 @@ func TestRefusedReplyRetryDoesNotSpendFloodQuotaAgain(t *testing.T) {
 			store := f.service.Store
 
 			first, err := f.reply("pong")
-			if err != nil || first.Status != StatusNotSent {
+			if err != nil || first.Status != model.StatusNotSent {
 				t.Fatalf("first reply = %+v, %v; want a recorded refusal", first, err)
 			}
 			f.requireOneArrivalForTheFirstReply(first)
@@ -162,7 +162,7 @@ func TestRefusedReplyRetryDoesNotSpendFloodQuotaAgain(t *testing.T) {
 			// ... while a reply with a new body is a new record that needs quota.
 			used := f.flood()
 			other, err := f.reply("a different reply")
-			if ErrorCodeOf(err) != CodeRateLimited {
+			if ErrorCodeOf(err) != model.CodeRateLimited {
 				t.Fatalf("new reply with the quota used up = %+v, %v; want a rate limit", other, err)
 			}
 			if string(f.flood()) != string(used) {
@@ -176,17 +176,17 @@ func TestRefusedReplyWithANewBodySpendsOneMoreArrival(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: StatusSubmitted}
+	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(from.ID, StateRetired, true); err != nil {
+	if err := store.Update(from.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	ids := make([]string, 0, 3)
 	for _, body := range []string{"one", "two", "three"} {
 		reply, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: key, MessageID: parent.ID, Body: body})
-		if err != nil || reply.Status != StatusNotSent {
+		if err != nil || reply.Status != model.StatusNotSent {
 			t.Fatalf("reply %q = %+v, %v", body, reply, err)
 		}
 		ids = append(ids, reply.ID)

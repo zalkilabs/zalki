@@ -54,14 +54,14 @@ func newHookContextFixture(t *testing.T, branch string, jobs int) hookContextFix
 	subject, _ := register(t, store, "context-hook")
 	sender, key := register(t, store, "codex")
 	if branch == "watch" {
-		if err := store.Update(subject.ID, StateBusy, false); err != nil {
+		if err := store.Update(subject.ID, model.StateBusy, false); err != nil {
 			t.Fatal(err)
 		}
 		if result, err := service.Watch(sender.ID, key, subject.ID); err != nil || result.Status != "watching" {
 			t.Fatal("could not arm context fixture watch", err)
 		}
 	} else {
-		if err := store.Update(subject.ID, StateApproval, false); err != nil {
+		if err := store.Update(subject.ID, model.StateApproval, false); err != nil {
 			t.Fatal(err)
 		}
 		for range jobs {
@@ -110,7 +110,7 @@ func assertHookContextOutcome(t *testing.T, fixture hookContextFixture, ids []st
 func assertHookContextSession(t *testing.T, fixture hookContextFixture) {
 	t.Helper()
 	current, err := fixture.service.Store.session(fixture.subject.ID)
-	if err != nil || current.State != StateReady || current.ApprovalHeld != 0 || current.KeyHash != fixture.subject.KeyHash || current.Generation != fixture.subject.Generation {
+	if err != nil || current.State != model.StateReady || current.ApprovalHeld != 0 || current.KeyHash != fixture.subject.KeyHash || current.Generation != fixture.subject.Generation {
 		t.Fatal("context handling changed credentials/generation or left lifecycle/approval state incomplete", err)
 	}
 }

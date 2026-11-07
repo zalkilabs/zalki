@@ -19,7 +19,7 @@ func BenchmarkMessageLookup(b *testing.B) {
 			var first string
 			for i := range size {
 				msg := Message{ID: newID(), From: "codex:" + newID(), To: receiver.ID, Body: "review result",
-					CreatedAt: model.Timestamp(), TargetGeneration: receiver.Generation, Status: StatusSubmitted}
+					CreatedAt: model.Timestamp(), TargetGeneration: receiver.Generation, Status: model.StatusSubmitted}
 				if i == 0 {
 					first = msg.ID
 				}

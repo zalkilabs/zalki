@@ -91,7 +91,7 @@ func TestSessionExtensionsSurviveLifecycleTaskApprovalLeaseAndRegistration(t *te
 		name string
 		run  func() error
 	}{
-		{"state", func() error { return store.Update(target.ID, StateBusy, false) }},
+		{"state", func() error { return store.Update(target.ID, model.StateBusy, false) }},
 		{"task set", func() error { _, err := service.SetTask(target.ID, key, "testing upgrades"); return err }},
 		{"task clear", func() error { _, err := service.SetTask(target.ID, key, ""); return err }},
 		{"approval increment", func() error { return store.locked(func() error { return store.rememberApprovalHold(target.ID, 1) }) }},
@@ -132,7 +132,7 @@ func TestSessionExtensionsSurviveLifecycleTaskApprovalLeaseAndRegistration(t *te
 		t.Fatal(err)
 	}
 	requireRecordExtension(t, path)
-	if err := store.Update(target.ID, StateRetired, true); err != nil {
+	if err := store.Update(target.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	requireRecordExtension(t, path)
@@ -142,7 +142,7 @@ func TestMessageExtensionsSurviveReceiptsAcknowledgementAndHookEmission(t *testi
 	service := newTestService(t)
 	store := service.Store
 	from, key, to, toKey := registerPair(t, store, "cursor", "codex")
-	service.Deliver = func(_ context.Context, _ Message, _ Session) Receipt { return NewReceipt(StatusSubmitted) }
+	service.Deliver = func(_ context.Context, _ Message, _ Session) Receipt { return NewReceipt(model.StatusSubmitted) }
 	msg, err := service.Send(t.Context(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, Body: "fixture"})
 	if err != nil {
 		t.Fatal(err)
@@ -163,7 +163,7 @@ func TestMessageExtensionsSurviveReceiptsAcknowledgementAndHookEmission(t *testi
 	if err := writeJSON(path, record); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Finish(msg.ID, NewReceipt(StatusSubmitted)); err != nil {
+	if _, err := store.Finish(msg.ID, NewReceipt(model.StatusSubmitted)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.Ack(to.ID, toKey, msg.ID); err != nil {
@@ -180,7 +180,7 @@ func TestMessageExtensionsSurviveReceiptsAcknowledgementAndHookEmission(t *testi
 	if _, exists := receipt["error"]; exists {
 		t.Fatal("receipt error resurrected")
 	}
-	pending := Message{ID: newID(), To: from.ID, From: to.ID, TargetGeneration: from.Generation, Body: "pending", Status: StatusPendingActivity}
+	pending := Message{ID: newID(), To: from.ID, From: to.ID, TargetGeneration: from.Generation, Body: "pending", Status: model.StatusPendingActivity}
 	if err := store.saveMessage(pending); err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestMixedSessionScanSkipsRecordsAndPrunePreservesThem(t *testing.T) {
 			t.Fatal("skipped record changed", path)
 		}
 	}
-	if _, err := store.session(future.ID); ErrorCodeOf(err) != CodeUnsupportedSchema {
+	if _, err := store.session(future.ID); ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 		t.Fatal("exact lookup lost schema error", err)
 	}
 }
@@ -374,7 +374,7 @@ func TestReleasedStateFixturesRoundTripWithoutFieldLoss(t *testing.T) {
 func TestFutureRecordsRefuseFreshRewriteValuesAndKeepBytes(t *testing.T) {
 	store := fixtureStore(t)
 	from, _, target, _ := registerPair(t, store, "codex", "cursor")
-	message := Message{ID: newID(), From: from.ID, To: target.ID, Status: StatusSubmitted}
+	message := Message{ID: newID(), From: from.ID, To: target.ID, Status: model.StatusSubmitted}
 	if err := store.saveMessage(message); err != nil {
 		t.Fatal(err)
 	}
@@ -412,7 +412,7 @@ func TestFutureRecordsRefuseFreshRewriteValuesAndKeepBytes(t *testing.T) {
 				t.Fatal(err)
 			}
 			before, _ := os.ReadFile(test.path)
-			if err := test.rewrite(); ErrorCodeOf(err) != CodeUnsupportedSchema {
+			if err := test.rewrite(); ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 				t.Fatal("fresh value overwrote future record", err)
 			}
 			if after, _ := os.ReadFile(test.path); !bytes.Equal(before, after) {
@@ -428,7 +428,7 @@ func TestHeldExtensionsSurviveApprovalReleaseAndRetirement(t *testing.T) {
 			service := newTestService(t)
 			store := service.Store
 			from, key, target, _ := registerPair(t, store, "cursor", "codex")
-			if err := store.Update(target.ID, StateApproval, false); err != nil {
+			if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 				t.Fatal(err)
 			}
 			msg, err := service.Send(t.Context(), SendRequest{Actor: from.ID, Capability: key, To: target.ID, Body: "held"})
@@ -443,8 +443,8 @@ func TestHeldExtensionsSurviveApprovalReleaseAndRetirement(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				service.Deliver = func(context.Context, Message, Session) Receipt { return NewReceipt(StatusSubmitted) }
-				if err := store.Update(target.ID, StateReady, false); err != nil {
+				service.Deliver = func(context.Context, Message, Session) Receipt { return NewReceipt(model.StatusSubmitted) }
+				if err := store.Update(target.ID, model.StateReady, false); err != nil {
 					t.Fatal(err)
 				}
 				if err := service.releaseApprovalQueue(t.Context(), target.ID); err != nil {

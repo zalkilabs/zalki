@@ -32,13 +32,13 @@ func TestCursorOnlyAnActualPromptReactivatesARetiredConversation(t *testing.T) {
 	cursorHook(t, &service, to.ID, "sessionEnd", "", 0)
 	for _, event := range []struct{ name, status string }{{"postToolUse", ""}, {"stop", "completed"}} {
 		cursorHookAllowingError(t.Context(), &service, to.ID, event.name, event.status)
-		if current := adapterTestSession(t, store, to.ID); !current.Retired || current.State != bus.StateRetired {
+		if current := adapterTestSession(t, store, to.ID); !current.Retired || current.State != model.StateRetired {
 			t.Fatalf("late %s hook reactivated a retired conversation", event.name)
 		}
 	}
 	cursorHook(t, &service, to.ID, "beforeSubmitPrompt", "", 0)
 	current := adapterTestSession(t, store, to.ID)
-	if current.Retired || current.RetiredReason != "" || current.State != bus.StateBusy || current.Generation != to.Generation {
+	if current.Retired || current.RetiredReason != "" || current.State != model.StateBusy || current.Generation != to.Generation {
 		t.Fatalf("prompt did not resume the same registration: %+v", current)
 	}
 	if _, err := store.Messages(to.ID, key); err != nil {
@@ -201,7 +201,7 @@ func TestPruneReleasesALeaseLeftOnARetiredSession(t *testing.T) {
 	}
 	current := adapterTestSession(t, store, to.ID)
 	healed := sessionFile(t, store, to.ID)
-	if !current.Retired || current.RetiredReason != "explicit_cleanup" || current.State != bus.StateRetired ||
+	if !current.Retired || current.RetiredReason != "explicit_cleanup" || current.State != model.StateRetired ||
 		current.Listener != nil || current.Schema != 1 || current.Receive.IdleWake ||
 		healed["schema"] != float64(1) || healed["listener"] != nil {
 		t.Fatalf("retired record kept its lease: record=%v session=%+v", healed, current)

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // TestPersistedJournalLayout pins what the current build writes: directory and
@@ -52,8 +53,8 @@ func TestPersistedJournalLayout(t *testing.T) {
 			run: func(t *testing.T, _, beta *fakeAdapter, svc bus.Service, from, to agent) {
 				t.Helper()
 				beta.script(func(context.Context, bus.Message, bus.Session) bus.Receipt {
-					receipt := bus.NewReceipt(bus.StatusNotSent)
-					receipt.Code, receipt.Error, receipt.Output = bus.CodeUnavailable, "no route", "native output"
+					receipt := bus.NewReceipt(model.StatusNotSent)
+					receipt.Code, receipt.Error, receipt.Output = model.CodeUnavailable, "no route", "native output"
 					return receipt
 				})
 				send(t, svc, from, to)
@@ -65,7 +66,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 			skip:     []string{".receive."},
 			run: func(t *testing.T, _, _ *fakeAdapter, svc bus.Service, from, to agent) {
 				t.Helper()
-				if err := svc.Store.Update(to.ID, bus.StateApproval, false); err != nil {
+				if err := svc.Store.Update(to.ID, model.StateApproval, false); err != nil {
 					t.Fatal(err)
 				}
 				send(t, svc, from, to)
@@ -77,7 +78,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 			skip:     []string{".receive."},
 			run: func(t *testing.T, _, _ *fakeAdapter, svc bus.Service, _, to agent) {
 				t.Helper()
-				if err := svc.Store.Update(to.ID, bus.StateRetired, true); err != nil {
+				if err := svc.Store.Update(to.ID, model.StateRetired, true); err != nil {
 					t.Fatal(err)
 				}
 			},

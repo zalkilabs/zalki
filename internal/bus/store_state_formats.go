@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 const stateFormatFile = "state-formats.json"
@@ -36,7 +38,7 @@ func IsUpgradeRequired(err error) bool {
 }
 
 func formatWriteError() error {
-	return &stateFormatError{cause: fail(CodeUnsupportedSchema, "state formats are unsupported or unreadable; upgrade zalki before writing")}
+	return &stateFormatError{cause: model.NewError(model.CodeUnsupportedSchema, "state formats are unsupported or unreadable; upgrade zalki before writing")}
 }
 
 func (s Store) readStateFormats() (stateFormats, json.RawMessage, error) {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 const (
@@ -50,7 +51,7 @@ func stateExtensions(record json.RawMessage) (map[string]json.RawMessage, error)
 			continue
 		}
 		if len(extensions) == maxExtensions || len(value) > maxAdapterState {
-			return nil, fail(CodeInvalidInput, "session record has more than %d extension fields or one over %d bytes", maxExtensions, maxAdapterState)
+			return nil, model.NewError(model.CodeInvalidInput, "session record has more than %d extension fields or one over %d bytes", maxExtensions, maxAdapterState)
 		}
 		extensions[key] = append(json.RawMessage(nil), value...)
 	}
@@ -79,7 +80,7 @@ func (s Store) decodeAdapterState(kind string, in agent.StateInput) (json.RawMes
 // boundedAdapterState returns a compacted copy of valid, size-limited state.
 func boundedAdapterState(state json.RawMessage) (json.RawMessage, error) {
 	if len(state) > maxAdapterState || !json.Valid(state) {
-		return nil, fail(CodeInvalidInput, "adapter state must be valid JSON of at most %d bytes", maxAdapterState)
+		return nil, model.NewError(model.CodeInvalidInput, "adapter state must be valid JSON of at most %d bytes", maxAdapterState)
 	}
 	compact := bytes.Buffer{}
 	if err := json.Compact(&compact, state); err != nil {

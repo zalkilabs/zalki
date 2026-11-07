@@ -102,9 +102,9 @@ func sampleSessionPath(t *testing.T, s *sessionLatencySubject, mode string) int6
 func (s *sessionLatencySubject) reset(mode string) error {
 	switch mode {
 	case "busy", "approval", "adapter-busy", "hook-permission":
-		return s.store.Update(s.session.ID, StateReady, false)
+		return s.store.Update(s.session.ID, model.StateReady, false)
 	case "ready", "adapter-ready", "hook-stop":
-		return s.store.Update(s.session.ID, StateBusy, false)
+		return s.store.Update(s.session.ID, model.StateBusy, false)
 	case "retire", "hook-end":
 		next, key, err := s.store.Register(s.session.Kind, NativeID(s.session), s.session.CWD, nil)
 		if err == nil {
@@ -112,7 +112,7 @@ func (s *sessionLatencySubject) reset(mode string) error {
 		}
 		return err
 	case "same-state":
-		return s.store.Update(s.session.ID, StateBusy, false)
+		return s.store.Update(s.session.ID, model.StateBusy, false)
 	case "count":
 		return s.store.locked(func() error { return s.store.clearApprovalHeld(s.session.ID) })
 	default:
@@ -142,7 +142,7 @@ func (s *sessionLatencySubject) run(t *testing.T, mode string) error {
 }
 
 func (s *sessionLatencySubject) runState(mode string) error {
-	state := map[string]SessionState{"busy": StateBusy, "same-state": StateBusy, "ready": StateReady, "approval": StateApproval, "retire": StateRetired}[mode]
+	state := map[string]SessionState{"busy": model.StateBusy, "same-state": model.StateBusy, "ready": model.StateReady, "approval": model.StateApproval, "retire": model.StateRetired}[mode]
 	return s.store.Update(s.session.ID, state, mode == "retire")
 }
 

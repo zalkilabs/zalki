@@ -14,7 +14,7 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 		t.Run(stage, func(t *testing.T) {
 			store := fixtureStore(t)
 			from, _, to, key := registerPair(t, store, "codex", "cursor")
-			parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: StatusSubmitted}
+			parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
 			if err := store.saveMessage(parent); err != nil {
 				t.Fatal(err)
 			}
@@ -48,7 +48,7 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 				}
 			}
 			if stage == "receipt" {
-				reply.Status = StatusSubmitted
+				reply.Status = model.StatusSubmitted
 				reply.AcknowledgedAt = model.Timestamp()
 				if err := store.saveMessage(reply); err != nil {
 					t.Fatal(err)
@@ -72,7 +72,10 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 				t.Fatal("committed intent not cleared", err)
 			}
 			calls := 0
-			service := Service{Store: restarted, Deliver: func(context.Context, Message, Session) Receipt { calls++; return Receipt{Status: StatusSubmitted} }}
+			service := Service{Store: restarted, Deliver: func(context.Context, Message, Session) Receipt {
+				calls++
+				return Receipt{Status: model.StatusSubmitted}
+			}}
 			if _, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: key, MessageID: parent.ID, Body: "pong"}); err != nil || calls != 0 {
 				t.Fatal("recovery resubmitted an uncertain reply", err)
 			}
@@ -84,7 +87,7 @@ func TestReplyCannotAcknowledgeWithoutDurableIntent(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: StatusSubmitted}
+	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +113,7 @@ func TestReplyRecordsUnavailableDestinationWithAcknowledgement(t *testing.T) {
 		service := newTestService(t)
 		store := service.Store
 		from, _, to, key := registerPair(t, store, "codex", "cursor")
-		parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: StatusSubmitted}
+		parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
 		if err := store.saveMessage(parent); err != nil {
 			t.Fatal(err)
 		}
@@ -119,12 +122,12 @@ func TestReplyRecordsUnavailableDestinationWithAcknowledgement(t *testing.T) {
 			if err := os.Remove(path); err != nil {
 				t.Fatal(err)
 			}
-		} else if err := store.Update(from.ID, StateRetired, true); err != nil {
+		} else if err := store.Update(from.ID, model.StateRetired, true); err != nil {
 			t.Fatal(err)
 		}
 
 		reply, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: key, MessageID: parent.ID, Body: "pong"})
-		if err != nil || reply.Status != StatusNotSent || reply.Receipt == nil || reply.Receipt.Code == "" {
+		if err != nil || reply.Status != model.StatusNotSent || reply.Receipt == nil || reply.Receipt.Code == "" {
 			t.Fatal("missing failed reply reservation", reply, err)
 		}
 		ack, err := store.message(parent.ID)
@@ -132,7 +135,7 @@ func TestReplyRecordsUnavailableDestinationWithAcknowledgement(t *testing.T) {
 			t.Fatal("read acknowledgement lost", err)
 		}
 		again, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: key, MessageID: parent.ID, Body: "pong"})
-		if err != nil || again.ID != reply.ID || again.Status != StatusNotSent {
+		if err != nil || again.ID != reply.ID || again.Status != model.StatusNotSent {
 			t.Fatal("failed reply retried", err)
 		}
 	}

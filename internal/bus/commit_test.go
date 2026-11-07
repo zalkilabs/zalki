@@ -30,7 +30,7 @@ func newCommitFixture(t *testing.T) commitFixture {
 	}
 	session := Session{Schema: 1, ID: "codex:00000000-0000-4000-8000-000000000003",
 		Kind: "codex", NativeID: "00000000-0000-4000-8000-000000000003",
-		Generation: "00000000-0000-4000-8000-000000000004", State: StateReady,
+		Generation: "00000000-0000-4000-8000-000000000004", State: model.StateReady,
 		CWD: "/private/workspace", KeyHash: "private-key-hash", Task: "private task"}
 	raw, err := json.Marshal(session)
 	if err != nil {
@@ -41,11 +41,11 @@ func newCommitFixture(t *testing.T) commitFixture {
 	event := model.Event{ID: "00000000-0000-4000-8000-000000000001",
 		Type: "session.state_changed", OccurredAt: "2026-11-07T11:00:00Z",
 		TransactionID: "00000000-0000-4000-8000-000000000002",
-		Session:       model.EventSession{ID: session.ID, Generation: session.Generation, Previous: StateReady, State: StateBusy}}
+		Session:       model.EventSession{ID: session.ID, Generation: session.Generation, Previous: model.StateReady, State: model.StateBusy}}
 	if err := os.WriteFile(filepath.Join(dir, eventSessionPath(event)), raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	session.State = StateBusy
+	session.State = model.StateBusy
 	return commitFixture{commitWriter{dir: dir}, raw, session, event}
 }
 
@@ -136,9 +136,9 @@ func TestDormantCommitRejectsMismatchedEventBeforeWriting(t *testing.T) {
 			f := newCommitFixture(t)
 			switch mismatch {
 			case "before":
-				f.event.Session.Previous = StateApproval
+				f.event.Session.Previous = model.StateApproval
 			case "after":
-				f.next.State = StateApproval
+				f.next.State = model.StateApproval
 			case "generation":
 				f.next.Generation = newID()
 			case "future schema":
@@ -172,7 +172,7 @@ func TestDormantRecoveryRejectsForeignFamilyBeforeAnyWrite(t *testing.T) {
 func TestSessionLifecycleWritersActivateOutbox(t *testing.T) {
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")
-	if err := store.Update(session.ID, StateApproval, false); err != nil {
+	if err := store.Update(session.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	if got := eventState(t, store); got.Count != 2 {

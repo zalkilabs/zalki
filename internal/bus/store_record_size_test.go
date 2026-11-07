@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // A released or future build may write compact JSON that is readable but grows
@@ -53,14 +55,14 @@ func compactExtendedMessage(t *testing.T, store Store, msg Message) (string, []b
 
 func requireEncodedSizeError(t *testing.T, err error) {
 	t.Helper()
-	if ErrorCodeOf(err) != CodeInvalidInput || !strings.Contains(err.Error(), "encoded state record") || !strings.Contains(err.Error(), strconv.Itoa(maxStateFileBytes)) {
+	if ErrorCodeOf(err) != model.CodeInvalidInput || !strings.Contains(err.Error(), "encoded state record") || !strings.Contains(err.Error(), strconv.Itoa(maxStateFileBytes)) {
 		t.Fatal("missing clear encoded-size refusal", err)
 	}
 }
 
 func TestPreservedExtensionsRemainWithinEncodedReadLimit(t *testing.T) {
 	store := fixtureStore(t)
-	msg := Message{ID: newID(), From: "codex:" + newID(), To: "cursor:" + newID(), Body: "fixture", Status: StatusSubmitted}
+	msg := Message{ID: newID(), From: "codex:" + newID(), To: "cursor:" + newID(), Body: "fixture", Status: model.StatusSubmitted}
 	path, before := compactExtendedMessage(t, store, msg)
 	requireEncodedSizeError(t, store.saveMessage(msg))
 	after, err := os.ReadFile(path)
@@ -129,9 +131,9 @@ func TestMessageWriteSizeRefusalKeepsDurableStatusAndLogsFailure(t *testing.T) {
 		t.Run(operation, func(t *testing.T) {
 			store := fixtureStore(t)
 			from, _, target, key := registerPair(t, store, "codex", "cursor")
-			status := StatusSubmitted
+			status := model.StatusSubmitted
 			if operation == "receipt" {
-				status = StatusAttempting
+				status = model.StatusAttempting
 			}
 			msg := Message{ID: newID(), From: from.ID, To: target.ID, TargetGeneration: target.Generation, Body: "private-body-size-sentinel", Status: status}
 			path, before := compactExtendedMessage(t, store, msg)
@@ -142,7 +144,7 @@ func TestMessageWriteSizeRefusalKeepsDurableStatusAndLogsFailure(t *testing.T) {
 			var err error
 			wantEvent := "message.ack_failed"
 			if operation == "receipt" {
-				result, err = store.Finish(msg.ID, NewReceipt(StatusSubmitted))
+				result, err = store.Finish(msg.ID, NewReceipt(model.StatusSubmitted))
 				wantEvent = "message.receipt_save_failed"
 			} else {
 				result, err = store.Ack(target.ID, key, msg.ID)
@@ -163,7 +165,7 @@ func TestMessageWriteSizeRefusalKeepsDurableStatusAndLogsFailure(t *testing.T) {
 				t.Fatal("size refusal changed the journal or marker")
 			}
 			rows := logRows(t, &diagnostic)
-			if len(rows) != 1 || rows[0]["msg"] != wantEvent || rows[0]["message_id"] != msg.ID || rows[0]["error_code"] != string(CodeInvalidInput) {
+			if len(rows) != 1 || rows[0]["msg"] != wantEvent || rows[0]["message_id"] != msg.ID || rows[0]["error_code"] != string(model.CodeInvalidInput) {
 				t.Fatal("write refusal was not logged", rows)
 			}
 			if strings.Contains(diagnostic.String(), msg.Body) || strings.Contains(diagnostic.String(), key) {
@@ -178,10 +180,10 @@ func TestMaxControlCharacterBodyFitsEncodedJournalLimit(t *testing.T) {
 	store := service.Store
 	from, key, target, targetKey := registerPair(t, store, "cursor", "codex")
 	calls := 0
-	service.Deliver = func(context.Context, Message, Session) Receipt { calls++; return NewReceipt(StatusSubmitted) }
+	service.Deliver = func(context.Context, Message, Session) Receipt { calls++; return NewReceipt(model.StatusSubmitted) }
 	body := strings.Repeat("\x01", 16*1024)
 	msg, err := service.Send(t.Context(), SendRequest{Actor: from.ID, Capability: key, To: target.ID, Body: body})
-	if err != nil || msg.Status != StatusSubmitted || calls != 1 {
+	if err != nil || msg.Status != model.StatusSubmitted || calls != 1 {
 		t.Fatal("normal maximum body was refused", err)
 	}
 	if _, err := store.Ack(target.ID, targetKey, msg.ID); err != nil {

@@ -38,7 +38,7 @@ func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 	if err != nil || second.ID != first.ID || second.Generation == first.Generation {
 		t.Fatal("registration lost its stable address or generation fence", err)
 	}
-	if _, err := store.authenticate(first.ID, key); ErrorCodeOf(err) != CodeUnauthorized {
+	if _, err := store.authenticate(first.ID, key); ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("old capability survived registration", err)
 	}
 	from, fromKey, err := store.Register("fourth", "another-native-id", "/workspace", nil)
@@ -49,13 +49,13 @@ func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 		if NativeID(target) != native || target.ID != first.ID || target.KeyHash != "" {
 			t.Error("adapter did not receive the original native identity with credentials removed")
 		}
-		return Receipt{Status: StatusSubmitted}
+		return Receipt{Status: model.StatusSubmitted}
 	}}
 	if _, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: fromKey, To: first.ID, MessageID: newID(), Body: "ping"}); err != nil {
 		t.Fatal(err)
 	}
 	// A UUID-shaped native ID cannot overwrite a mapped non-UUID identity.
-	if _, _, err := store.Register("fourth", strings.TrimPrefix(first.ID, "fourth:"), "/workspace", nil); ErrorCodeOf(err) != CodeConflict {
+	if _, _, err := store.Register("fourth", strings.TrimPrefix(first.ID, "fourth:"), "/workspace", nil); ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("native identity collision accepted", err)
 	}
 	input, _ := json.Marshal(agent.HookInput{SessionID: native, CWD: "/workspace", Event: "end"})
@@ -76,7 +76,7 @@ func TestNativeIdentityValidationAndUUIDCompatibility(t *testing.T) {
 		t.Fatal("legacy UUID address changed", err)
 	}
 	for _, invalid := range []string{"", "id\nforged", "id\x00", string([]byte{255}), strings.Repeat("a", 1025)} {
-		if _, _, err := store.Register("codex", invalid, "/workspace", nil); ErrorCodeOf(err) != CodeInvalidIdentity {
+		if _, _, err := store.Register("codex", invalid, "/workspace", nil); ErrorCodeOf(err) != model.CodeInvalidIdentity {
 			t.Fatal("invalid native ID accepted", err)
 		}
 	}
@@ -94,7 +94,7 @@ func TestOpaqueAdapterStateSurvivesCompaction(t *testing.T) {
 		t.Fatal(err)
 	}
 	v.AdapterState = json.RawMessage(`{"schema":1,"client_field":"keep"}`)
-	v.State = StateBusy
+	v.State = model.StateBusy
 	if err := store.saveSession(v); err != nil {
 		t.Fatal(err)
 	}
@@ -102,13 +102,13 @@ func TestOpaqueAdapterStateSurvivesCompaction(t *testing.T) {
 	if err != nil || next.Generation != v.Generation || next.State != v.State || !equalJSON(next.AdapterState, v.AdapterState) {
 		t.Fatal("compaction lost adapter-owned state", err)
 	}
-	if _, err := store.authenticate(v.ID, oldKey); ErrorCodeOf(err) != CodeUnauthorized {
+	if _, err := store.authenticate(v.ID, oldKey); ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("compaction retained the old credential", err)
 	}
 	if _, err := store.authenticate(v.ID, key); err != nil {
 		t.Fatal("compaction did not install the new credential", err)
 	}
-	if err := store.Update(v.ID, StateRetired, true); err != nil {
+	if err := store.Update(v.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	replacement, _, err := store.register(v.Kind, v.NativeID, v.CWD, nil, true)
@@ -147,7 +147,7 @@ func TestLegacyRecordsMigrateOnWrite(t *testing.T) {
 	if !bytes.Equal(before, after) {
 		t.Fatal("discovery rewrote a legacy record")
 	}
-	if err := store.Update(v.ID, StateBusy, false); err != nil {
+	if err := store.Update(v.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
 	var upgraded map[string]any
@@ -158,7 +158,7 @@ func TestLegacyRecordsMigrateOnWrite(t *testing.T) {
 		t.Fatal("adapter state was not migrated", upgraded)
 	}
 	from, _ := register(t, store, "codex")
-	msg := Message{ID: newID(), From: from.ID, To: v.ID, Body: "ping", Status: StatusSubmitted}
+	msg := Message{ID: newID(), From: from.ID, To: v.ID, Body: "ping", Status: model.StatusSubmitted}
 	messagePath := filepath.Join(store.Dir, "messages", msg.ID+".json")
 	if err := writeJSON(messagePath, msg); err != nil {
 		t.Fatal(err)
@@ -178,7 +178,7 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 			store := fixtureStore(t)
 			v, key := register(t, store, "cursor")
 			path, _ := store.sessionPath(v.ID)
-			msg := Message{ID: newID(), From: "codex:" + newID(), To: v.ID, Body: "ping", Status: StatusSubmitted}
+			msg := Message{ID: newID(), From: "codex:" + newID(), To: v.ID, Body: "ping", Status: model.StatusSubmitted}
 			if kind == "message" {
 				path = filepath.Join(store.Dir, "messages", msg.ID+".json")
 				msg.Schema = 99
@@ -200,9 +200,9 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 			if kind == "message" {
 				_, err = store.Ack(v.ID, key, msg.ID)
 			} else {
-				err = store.Update(v.ID, StateBusy, false)
+				err = store.Update(v.ID, model.StateBusy, false)
 			}
-			if ErrorCodeOf(err) != CodeUnsupportedSchema {
+			if ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 				t.Fatal("future schema was accepted", err)
 			}
 			if kind == "message" {
@@ -210,7 +210,7 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 			} else {
 				_, err = store.List()
 			}
-			if kind == "message" && ErrorCodeOf(err) != CodeUnsupportedSchema {
+			if kind == "message" && ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 				t.Fatal("exact message schema was accepted", err)
 			}
 			if kind != "message" && err != nil {
@@ -251,10 +251,10 @@ func TestFutureSchemaSessionSkipsRegistryReadsWithoutWriting(t *testing.T) {
 	if report, err := store.Diagnostics(t.Context()); err != nil || len(report.Sessions) != 2 {
 		t.Fatal("doctor lost healthy sessions", report, err)
 	}
-	if err := store.Update(future.ID, StateBusy, false); ErrorCodeOf(err) != CodeUnsupportedSchema {
+	if err := store.Update(future.ID, model.StateBusy, false); ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 		t.Fatal("lifecycle update accepted a future session record", err)
 	}
-	if _, _, _, err := store.ReserveMessage(SendRequest{Actor: from.ID, Capability: key, To: future.ID, MessageID: newID(), Body: "body"}); ErrorCodeOf(err) != CodeUnsupportedSchema {
+	if _, _, _, err := store.ReserveMessage(SendRequest{Actor: from.ID, Capability: key, To: future.ID, MessageID: newID(), Body: "body"}); ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 		t.Fatal("send accepted a future recipient record", err)
 	}
 	if _, _, _, err := store.ReserveMessage(SendRequest{Actor: from.ID, Capability: key, To: healthy.ID, MessageID: newID(), Body: "body"}); err != nil {
@@ -301,9 +301,9 @@ func preLeaseRewrite(t *testing.T, store Store, id string) error {
 		return err
 	}
 	if v.Schema < 0 || v.Schema > 1 {
-		return fail(CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
+		return model.NewError(model.CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
 	}
-	v.Schema, v.State, v.UpdatedAt = 1, StateBusy, model.Timestamp()
+	v.Schema, v.State, v.UpdatedAt = 1, model.StateBusy, model.Timestamp()
 	return writeJSON(path, v)
 }
 
@@ -312,7 +312,7 @@ func TestLeasedRecordsAreHiddenFromOlderWriters(t *testing.T) {
 	to, key := register(t, store, "cursor")
 	lease := armedLease(t, store, to.ID, key)
 	before := sessionBytes(t, store, to.ID)
-	if err := preLeaseRewrite(t, store, to.ID); ErrorCodeOf(err) != CodeUnsupportedSchema || !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
+	if err := preLeaseRewrite(t, store, to.ID); ErrorCodeOf(err) != model.CodeUnsupportedSchema || !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
 		t.Fatal("an older build could rewrite a leased record and drop its lease", err)
 	}
 	lease.Close(nil)
@@ -320,7 +320,7 @@ func TestLeasedRecordsAreHiddenFromOlderWriters(t *testing.T) {
 		t.Fatal("a record without a lease was not returned to older builds", err)
 	}
 	current, err := store.session(to.ID)
-	if err != nil || current.Listener != nil || current.State != StateBusy || current.Receive.IdleWake {
+	if err != nil || current.Listener != nil || current.State != model.StateBusy || current.Receive.IdleWake {
 		t.Fatalf("an older build's rewrite was not readable or revived a listener: %+v %v", current, err)
 	}
 }
@@ -333,7 +333,7 @@ func TestInterruptedLeaseIsRetiredByRecovery(t *testing.T) {
 	if err := syscall.Flock(lease.fd, syscall.LOCK_UN); err != nil {
 		t.Fatal(err)
 	}
-	if err := preLeaseRewrite(t, store, to.ID); ErrorCodeOf(err) != CodeUnsupportedSchema {
+	if err := preLeaseRewrite(t, store, to.ID); ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 		t.Fatal("an older build could rewrite an interrupted lease", err)
 	}
 	if grant, err := claimCursorRecovery(store, to.ID); err != nil || grant.Capability == "" {
@@ -356,7 +356,7 @@ func TestListenerLeaseUnderOlderSchemaIsRejected(t *testing.T) {
 	if err := writeJSON(path, record); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.session(to.ID); ErrorCodeOf(err) != CodeUnsupportedSchema {
+	if _, err := store.session(to.ID); ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 		t.Fatal("accepted a lease stored under a schema older builds would rewrite", err)
 	}
 }
@@ -375,7 +375,7 @@ func TestPreLeaseWakeIsNotCarriedIntoRewrittenRecords(t *testing.T) {
 	if err := writeJSON(path, record); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(to.ID, StateBusy, false); err != nil {
+	if err := store.Update(to.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
 	var written struct {

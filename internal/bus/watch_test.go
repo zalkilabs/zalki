@@ -26,7 +26,7 @@ func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
 	var delivered []Message
 	service.Deliver = func(_ context.Context, msg Message, _ Session) Receipt {
 		delivered = append(delivered, msg)
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}
 	first, err := service.Watch(watcher.ID, key, target.ID)
 	if err != nil || first.Status != "watching" || first.To != target.ID {
@@ -49,7 +49,7 @@ func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
 		t.Fatalf("stop delivered %d notices", len(delivered))
 	}
 	note := delivered[0]
-	if note.To != watcher.ID || note.From != target.ID || note.Kind != noticeKind || note.FromLabel != "Zalki" || !strings.Contains(note.Body, "Zalki notice: reviewer ("+target.ID+") finished a turn at ") {
+	if note.To != watcher.ID || note.From != target.ID || note.Kind != model.NoticeKind || note.FromLabel != "Zalki" || !strings.Contains(note.Body, "Zalki notice: reviewer ("+target.ID+") finished a turn at ") {
 		t.Fatalf("notice: %+v", note)
 	}
 	frame := Envelope(note)
@@ -58,7 +58,7 @@ func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
 	if strings.Contains(frame, "From:") || !strings.Contains(frame, "[zalki notice "+note.ID+"]") || !strings.Contains(frame, headline+"\n"+caution+"\n"+status) {
 		t.Fatalf("frame: %s", frame)
 	}
-	if _, err := service.Reply(context.Background(), ReplyRequest{Actor: watcher.ID, Capability: key, MessageID: note.ID, Body: "ack"}); ErrorCodeOf(err) != CodeInvalidInput || !strings.Contains(err.Error(), "automatic notice") || !strings.Contains(err.Error(), target.ID) {
+	if _, err := service.Reply(context.Background(), ReplyRequest{Actor: watcher.ID, Capability: key, MessageID: note.ID, Body: "ack"}); ErrorCodeOf(err) != model.CodeInvalidInput || !strings.Contains(err.Error(), "automatic notice") || !strings.Contains(err.Error(), target.ID) {
 		t.Fatal("reply to a notice was accepted", err)
 	}
 	line := strings.Split(note.Body, "\n")
@@ -67,7 +67,7 @@ func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
 		t.Fatalf("status line: %q", note.Body)
 	}
 	saved, err := store.message(note.ID)
-	if err != nil || saved.Status != StatusSubmitted || saved.Receipt == nil {
+	if err != nil || saved.Status != model.StatusSubmitted || saved.Receipt == nil {
 		t.Fatalf("receipt: %+v %v", saved, err)
 	}
 	if err := service.Hook(t.Context(), "claude", bytes.NewReader(input), &bytes.Buffer{}); err != nil {
@@ -99,7 +99,7 @@ func TestWatchSkipsAnUnfinishedStopAndExpires(t *testing.T) {
 	var delivered int
 	service.Deliver = func(context.Context, Message, Session) Receipt {
 		delivered++
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}
 	if result, err := service.Watch(watcher.ID, key, target.ID); err != nil || result.Status != "watching" {
 		t.Fatal(result, err)
@@ -163,7 +163,7 @@ func TestWatchWaitsForTheNextStopWhenArmedMidTurn(t *testing.T) {
 	var delivered int
 	service.Deliver = func(context.Context, Message, Session) Receipt {
 		delivered++
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}
 	if _, err := service.Watch(watcher.ID, key, target.ID); err != nil {
 		t.Fatal(err)
@@ -207,7 +207,7 @@ func TestWatchEndsWhenExitIsObservedWithoutSessionEnd(t *testing.T) {
 	var delivered []Message
 	service.Deliver = func(_ context.Context, msg Message, _ Session) Receipt {
 		delivered = append(delivered, msg)
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}
 	if _, err := service.Watch(watcher.ID, key, target.ID); err != nil {
 		t.Fatal(err)
@@ -232,7 +232,7 @@ func TestWatchEndsWhenExitIsObservedWithoutSessionEnd(t *testing.T) {
 	if err := service.NoticeExitedSessions(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if len(delivered) != 1 || !strings.Contains(delivered[0].Body, ") ended the session at ") || delivered[0].Kind != noticeKind {
+	if len(delivered) != 1 || !strings.Contains(delivered[0].Body, ") ended the session at ") || delivered[0].Kind != model.NoticeKind {
 		t.Fatalf("exit notice: %+v", delivered)
 	}
 	if err := service.NoticeExitedSessions(context.Background()); err != nil {
@@ -276,7 +276,7 @@ func TestWatchAnswersAnEndedSessionImmediately(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	watcher, key, target, _ := registerPair(t, store, "codex", "cursor")
-	if err := store.Update(target.ID, StateRetired, true); err != nil {
+	if err := store.Update(target.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -294,7 +294,7 @@ func TestWatchAnswersAnEndedSessionImmediately(t *testing.T) {
 	if len(entries) != 0 {
 		t.Fatalf("immediate answer stored a watch: %v", entries)
 	}
-	if _, err := service.Watch(watcher.ID, key, watcher.ID); ErrorCodeOf(err) != CodeInvalidInput {
+	if _, err := service.Watch(watcher.ID, key, watcher.ID); ErrorCodeOf(err) != model.CodeInvalidInput {
 		t.Fatal("self watch accepted", err)
 	}
 	exited, _ := register(t, store, "cursor")
@@ -338,7 +338,7 @@ func TestWatchSubscribedDuringStopSurvivesThatCompletion(t *testing.T) {
 	var delivered int
 	service := &Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
 		delivered++
-		return NewReceipt(StatusSubmitted)
+		return NewReceipt(model.StatusSubmitted)
 	}}
 	var once sync.Once
 	release := func() { once.Do(func() { close(adapter.release) }) }
@@ -384,7 +384,7 @@ func TestNoticeObservationReadErrorsAreNotDeliveryWarnings(t *testing.T) {
 	if err := os.WriteFile(path, []byte("{bad"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(target.ID, StateRetired, true); err != nil {
+	if err := store.Update(target.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	err = service.NoticeExitedSessions(context.Background())

@@ -10,6 +10,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // queueArgs reads the recorded Codex CLI contract shared with the core tests.
@@ -65,7 +66,7 @@ func TestCodexQueueUsesRecipientProfile(t *testing.T) {
 	t.Setenv("CODEX_HOME", filepath.Join(bin, "sender-profile"))
 	receipt := queueCodex(context.Background(), bus.Message{ID: newTestID(), Body: "profile test"}, bus.Session{Kind: "codex", ID: "codex:" + newTestID(), NativeConfigDir: recipient})
 	data, err := os.ReadFile(output)
-	if err != nil || string(data) != recipient || receipt.Status != bus.StatusSubmitted {
+	if err != nil || string(data) != recipient || receipt.Status != model.StatusSubmitted {
 		t.Fatal("queue inherited sender profile", string(data), receipt, err)
 	}
 }

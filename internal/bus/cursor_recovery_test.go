@@ -120,7 +120,7 @@ func TestCursorRecoveryClaimPreservesRegistrationAndPendingMessages(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Finish(message.ID, NewReceipt(StatusPendingActivity)); err != nil {
+	if _, err := store.Finish(message.ID, NewReceipt(model.StatusPendingActivity)); err != nil {
 		t.Fatal(err)
 	}
 	claim, err := claimCursorRecovery(store, to.ID)
@@ -135,7 +135,7 @@ func TestCursorRecoveryClaimPreservesRegistrationAndPendingMessages(t *testing.T
 		t.Fatal("old capability survived recovery")
 	}
 	pending, err := store.message(message.ID)
-	if err != nil || pending.TargetGeneration != to.Generation || pending.AcknowledgedAt != "" || pending.Status != StatusPendingActivity {
+	if err != nil || pending.TargetGeneration != to.Generation || pending.AcknowledgedAt != "" || pending.Status != model.StatusPendingActivity {
 		t.Fatal("recovery changed a pending message", err)
 	}
 	path, err := store.sessionPath(to.ID)

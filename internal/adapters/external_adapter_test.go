@@ -36,14 +36,14 @@ func (fourthJournalAdapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabi
 }
 
 func (fourthJournalAdapter) Deliver(context.Context, bus.Message, bus.Session) bus.Receipt {
-	return bus.NewReceipt(bus.StatusPendingActivity)
+	return bus.NewReceipt(model.StatusPendingActivity)
 }
 
 func (fourthJournalAdapter) HandleHook(host agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error) {
 	if event.Event != "PostToolUse" {
 		return false, nil
 	}
-	if err := host.UpdateSession(id, bus.StateBusy, false); err != nil {
+	if err := host.UpdateSession(id, model.StateBusy, false); err != nil {
 		return true, err
 	}
 	text, err := host.EmitPending(id)
@@ -72,7 +72,7 @@ func TestExternalAdapterUsesTrustedLifecycleHost(t *testing.T) {
 	}
 	service := bus.Service{Store: store}
 	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: "00000000-0000-4000-8000-000000000011", Body: "external lifecycle note"})
-	if err != nil || msg.Status != bus.StatusPendingActivity {
+	if err != nil || msg.Status != model.StatusPendingActivity {
 		t.Fatal("external client did not defer to its lifecycle hook", err)
 	}
 	input, err := json.Marshal(agent.HookInput{SessionID: "receiver", Event: "PostToolUse"})
@@ -92,7 +92,7 @@ func TestExternalAdapterUsesTrustedLifecycleHost(t *testing.T) {
 		}
 	}
 	page, err := store.QueryMessages(bus.MessageQuery{Actor: to.ID, Capability: toKey, MessageID: msg.ID})
-	if err != nil || len(page) != 1 || page[0].Status != bus.StatusContextEmitted || page[0].AcknowledgedAt != "" {
+	if err != nil || len(page) != 1 || page[0].Status != model.StatusContextEmitted || page[0].AcknowledgedAt != "" {
 		t.Fatal("lifecycle delivery forged acknowledgement or lost the receipt", err)
 	}
 	sessions, err := store.List()
@@ -100,7 +100,7 @@ func TestExternalAdapterUsesTrustedLifecycleHost(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, session := range sessions {
-		if session.ID == to.ID && session.State != bus.StateBusy {
+		if session.ID == to.ID && session.State != model.StateBusy {
 			t.Fatal("trusted lifecycle transition was lost")
 		}
 	}
@@ -113,7 +113,7 @@ func (fourthAdapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities 
 }
 
 func (fourthAdapter) Deliver(context.Context, bus.Message, bus.Session) bus.Receipt {
-	receipt := bus.NewReceipt(bus.StatusSubmitted)
+	receipt := bus.NewReceipt(model.StatusSubmitted)
 	receipt.Output = "external-fourth"
 	return receipt
 }
@@ -154,7 +154,7 @@ func TestExternalAdapterComposesWithBuiltins(t *testing.T) {
 	msg, err := service.Send(context.Background(), bus.SendRequest{
 		Actor: from.ID, Capability: key, To: target.ID, MessageID: "00000000-0000-4000-8000-000000000010", Body: "hello from outside bus",
 	})
-	if err != nil || msg.Status != bus.StatusSubmitted || msg.Receipt == nil || msg.Receipt.Output != "external-fourth" {
+	if err != nil || msg.Status != model.StatusSubmitted || msg.Receipt == nil || msg.Receipt.Output != "external-fourth" {
 		t.Fatalf("external delivery was not accepted: %+v %v", msg, err)
 	}
 	files, err := registry.Configuration("/bin/zalki", store.Dir)

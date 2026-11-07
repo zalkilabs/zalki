@@ -8,12 +8,13 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func requireRawLockError(t *testing.T, err error, want syscall.Errno, text string) {
 	t.Helper()
 	got, ok := err.(syscall.Errno) //nolint:errorlint // Raw errno, rather than an unwrap-compatible error, is the baseline contract.
-	if !ok || got != want || err.Error() != text || ErrorCodeOf(err) != CodeInternal {
+	if !ok || got != want || err.Error() != text || ErrorCodeOf(err) != model.CodeInternal {
 		t.Fatalf("raw lock error = %T %v (code %s), want errno %d, text %q, code internal", err, err, ErrorCodeOf(err), want, text)
 	}
 }
@@ -97,11 +98,11 @@ func TestPrivateDirectoryRejectionsKeepTheirTextAndPrecedeLockCreation(t *testin
 			want := "state directory must be a private directory, not a symlink: " + store.Dir
 			if shape == "regular file" {
 				// MkdirAll fails first, before the custom private-directory check.
-				pathError, ok := err.(*os.PathError)                                                                                                                                                                //nolint:errorlint // Pin the direct PathError produced by MkdirAll, with no additional wrapper.
-				if !ok || pathError.Op != "mkdir" || pathError.Path != store.Dir || pathError.Err != syscall.ENOTDIR || err.Error() != "mkdir "+store.Dir+": not a directory" || ErrorCodeOf(err) != CodeInternal { //nolint:errorlint // Preserve the direct inner errno, not merely errors.Is compatibility.
+				pathError, ok := err.(*os.PathError)                                                                                                                                                                      //nolint:errorlint // Pin the direct PathError produced by MkdirAll, with no additional wrapper.
+				if !ok || pathError.Op != "mkdir" || pathError.Path != store.Dir || pathError.Err != syscall.ENOTDIR || err.Error() != "mkdir "+store.Dir+": not a directory" || ErrorCodeOf(err) != model.CodeInternal { //nolint:errorlint // Preserve the direct inner errno, not merely errors.Is compatibility.
 					t.Fatalf("regular-file directory error = %T %v", err, err)
 				}
-			} else if err == nil || errors.Unwrap(err) != nil || err.Error() != want || ErrorCodeOf(err) != CodeInternal {
+			} else if err == nil || errors.Unwrap(err) != nil || err.Error() != want || ErrorCodeOf(err) != model.CodeInternal {
 				t.Fatalf("private-directory error = %T %v, want %q", err, err, want)
 			}
 			if called {
@@ -160,7 +161,7 @@ func TestListenerUnlinkRetryIsBoundedAndKeepsConflictText(t *testing.T) {
 		syscall.Close(fd)
 		t.Fatalf("unlinked lock returned fd %d", fd)
 	}
-	if attempts != 3 || ErrorCodeOf(err) != CodeConflict || err.Error() != "conflict: listener lock changed while it was being acquired" {
+	if attempts != 3 || ErrorCodeOf(err) != model.CodeConflict || err.Error() != "conflict: listener lock changed while it was being acquired" {
 		t.Fatalf("unlink exhaustion: attempts=%d, error=%v; want three attempts and original conflict", attempts, err)
 	}
 	requireAbsentLock(t, path)

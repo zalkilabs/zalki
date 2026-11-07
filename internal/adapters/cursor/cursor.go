@@ -53,7 +53,7 @@ func (Adapter) ReceiveCapabilities(v bus.Session) model.ReceiveCapabilities {
 
 func (Adapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 	if target.Listener == nil {
-		return bus.NewReceipt(bus.StatusPendingActivity)
+		return bus.NewReceipt(model.StatusPendingActivity)
 	}
 	return signalCursor(ctx, msg, target)
 }
@@ -111,9 +111,9 @@ func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string,
 	if event.Event == "Interrupt" || event.Event == "Stop" && (event.Status != "completed" || event.LoopCount >= 5) {
 		return true, s.ApplyLifecycle(suppressRecovery)
 	}
-	state := bus.StateBusy
+	state := model.StateBusy
 	if event.Event == "Stop" {
-		state = bus.StateReady
+		state = model.StateReady
 	}
 	if err := s.UpdateSession(id, state, false); err != nil {
 		return true, err

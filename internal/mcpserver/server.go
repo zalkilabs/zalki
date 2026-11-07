@@ -43,17 +43,17 @@ func messageReceipt(message bus.Message, err error) (MessageReceipt, error) {
 		return receipt, err
 	}
 	if message.IsQueuedForApproval() {
-		receipt.Status = bus.StatusQueuedForApproval
+		receipt.Status = model.StatusQueuedForApproval
 		receipt.Note = "Queued until the target's permission prompt is answered."
 		receipt.Error, receipt.Code = "", ""
 		return receipt, err
 	}
 	switch message.Status {
-	case bus.StatusApprovalBlocked:
+	case model.StatusApprovalBlocked:
 		receipt.Note = "Not sent: target awaiting approval; no automatic retry."
-	case bus.StatusPendingActivity:
+	case model.StatusPendingActivity:
 		receipt.Note = "Deferred until the next delivery hook."
-	case bus.StatusSubmitted, bus.StatusTransportWritten, bus.StatusWakeWritten:
+	case model.StatusSubmitted, model.StatusTransportWritten, model.StatusWakeWritten:
 		switch message.BusyDelivery {
 		case model.DeliveryBetweenTools:
 			receipt.Note = "Target busy; delivery between tool calls."
@@ -108,7 +108,7 @@ func messageViews(messages []bus.Message) []MessageView {
 			view.Error, view.Code = msg.Receipt.Error, msg.Receipt.Code
 		}
 		if msg.IsQueuedForApproval() {
-			view.Status = bus.StatusQueuedForApproval
+			view.Status = model.StatusQueuedForApproval
 			view.Error, view.Code = "", ""
 		}
 		views = append(views, view)

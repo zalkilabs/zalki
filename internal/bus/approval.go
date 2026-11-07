@@ -52,7 +52,7 @@ func (s Store) approvalCapacity(targetID string) error {
 		return err
 	}
 	if target.ApprovalHeld >= approvalQueueCap {
-		return fail(CodeUnavailable, "too many messages are waiting for this session's permission prompt")
+		return model.NewError(model.CodeUnavailable, "too many messages are waiting for this session's permission prompt")
 	}
 	return nil
 }
@@ -126,7 +126,7 @@ func (s Store) settleQueued(msg Message, reason string) error {
 	if !current.IsQueuedForApproval() {
 		return nil
 	}
-	if err := current.SettleNotSent(CodeUnavailable, reason); err != nil {
+	if err := current.SettleNotSent(model.CodeUnavailable, reason); err != nil {
 		return err
 	}
 	return s.saveMessage(current)
@@ -268,7 +268,7 @@ func (s Store) resolveApprovalQueue(current Session, hookPoll bool) (approvalRes
 		reason = "destination owner process has exited"
 	}
 	result := approvalResolution{unreachable: reason != ""}
-	if current.ApprovalHeld == 0 || (hookPoll && reason == "" && current.State == StateApproval) {
+	if current.ApprovalHeld == 0 || (hookPoll && reason == "" && current.State == model.StateApproval) {
 		return result, nil
 	}
 	queued, err := s.queuedApprovals(current.ID)
@@ -285,7 +285,7 @@ func (s Store) resolveApprovalQueue(current Session, hookPoll bool) (approvalRes
 			}
 		}
 	} else {
-		if current.State == StateApproval {
+		if current.State == model.StateApproval {
 			return result, nil
 		}
 		result.jobs, err = s.releaseReadyApprovals(current, queued)
@@ -298,9 +298,9 @@ func (s Store) resolveApprovalQueue(current Session, hookPoll bool) (approvalRes
 
 func (s Store) releaseReadyApprovals(current Session, queued []Message) ([]Message, error) {
 	var jobs []Message
-	next := StatusAttempting
+	next := model.StatusAttempting
 	if current.Receive.HookDelivery {
-		next = StatusPendingActivity
+		next = model.StatusPendingActivity
 	}
 	for _, msg := range queued {
 		if msg.TargetGeneration != current.Generation {

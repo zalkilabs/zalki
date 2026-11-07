@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func writeTestWatch(t *testing.T, store Store, watcher, target string, expires time.Time) string {
@@ -59,7 +61,7 @@ func TestPruneDeletesStaleWatchesWithMatchingDryRun(t *testing.T) {
 	if err := os.Remove(store.sessionPathMust(t, orphan.ID)); err != nil {
 		t.Fatal(err)
 	}
-	old.Retired, old.State = true, StateRetired
+	old.Retired, old.State = true, model.StateRetired
 	old.UpdatedAt = time.Now().Add(-8 * 24 * time.Hour).UTC().Format(time.RFC3339Nano)
 	if err := store.saveSession(old); err != nil {
 		t.Fatal(err)

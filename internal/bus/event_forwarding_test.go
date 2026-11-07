@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Keep the cross-actor audit strict while admitting the one expected outbox
@@ -24,7 +26,7 @@ func allowBoundStateEvent(t *testing.T, store Store, target Session, before map[
 	if err := decodeEventJSON(raw, &record); err != nil {
 		t.Fatal(err)
 	}
-	if record.Event.Session.ID != target.ID || record.Event.Session.Generation != target.Generation || record.Event.Session.Previous != StateReady || record.Event.Session.State != StateBusy {
+	if record.Event.Session.ID != target.ID || record.Event.Session.Generation != target.Generation || record.Event.Session.Previous != model.StateReady || record.Event.Session.State != model.StateBusy {
 		t.Fatal("event was not bound to the updated session")
 	}
 	var expected stateFormats

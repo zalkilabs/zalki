@@ -13,7 +13,7 @@ func Envelope(msg Message) string { return model.Envelope(msg) }
 // withLabel fills the sender display label for records written before labels
 // were snapshotted. The result is for rendering only and is never saved.
 func (s Store) withLabel(msg Message) Message {
-	if msg.Kind == noticeKind || msg.FromLabel != "" {
+	if msg.Kind == model.NoticeKind || msg.FromLabel != "" {
 		return msg
 	}
 	kind, _, _ := strings.Cut(msg.From, ":")

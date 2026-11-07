@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing.T) {
@@ -18,13 +19,13 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 	service := newTestService(t)
 	store := service.Store
 	from, key, to, _ := registerPair(t, store, "cursor", "00000000-0000-4000-8000-000000000021", "codex", "00000000-0000-4000-8000-000000000022")
-	if err := store.Update(to.ID, bus.StateApproval, false); err != nil {
+	if err := store.Update(to.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
 	calls := 0
 	service.Deliver = func(context.Context, bus.Message, bus.Session) bus.Receipt {
 		calls++
-		return bus.NewReceipt(bus.StatusSubmitted)
+		return bus.NewReceipt(model.StatusSubmitted)
 	}
 	client, ctx := testClient(t, service)
 	send := func(id, body string) MessageReceipt {
@@ -51,12 +52,12 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 		return output.Data
 	}
 	held := send("", "held receipt fixture")
-	if held.Status != bus.StatusQueuedForApproval || held.Note != "Queued until the target's permission prompt is answered." || held.Error != "" {
+	if held.Status != model.StatusQueuedForApproval || held.Note != "Queued until the target's permission prompt is answered." || held.Error != "" {
 		t.Fatalf("held receipt: status=%s note=%q error=%q", held.Status, held.Note, held.Error)
 	}
 	legacy := bus.Message{Schema: 1, ID: "00000000-0000-4000-8000-000000000023", From: from.ID, To: to.ID,
-		Receipt: &bus.Receipt{Status: bus.StatusApprovalBlocked, Error: "queued until the permission prompt is answered"},
-		Body:    "legacy receipt fixture", TargetGeneration: to.Generation, CreatedAt: "2026-11-01T00:00:00Z", Status: bus.StatusApprovalBlocked}
+		Receipt: &bus.Receipt{Status: model.StatusApprovalBlocked, Error: "queued until the permission prompt is answered"},
+		Body:    "legacy receipt fixture", TargetGeneration: to.Generation, CreatedAt: "2026-11-01T00:00:00Z", Status: model.StatusApprovalBlocked}
 	encoded, err := json.Marshal(legacy)
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +66,7 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 		t.Fatal(err)
 	}
 	refused := send(legacy.ID, legacy.Body)
-	if refused.Status != bus.StatusApprovalBlocked || refused.Note != "Not sent: target awaiting approval; no automatic retry." {
+	if refused.Status != model.StatusApprovalBlocked || refused.Note != "Not sent: target awaiting approval; no automatic retry." {
 		t.Fatalf("legacy receipt: status=%s note=%q", refused.Status, refused.Note)
 	}
 	result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: "list_messages", Arguments: map[string]any{
@@ -76,7 +77,7 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 	}
 	var page Output[MessagePage]
 	view, _ := json.Marshal(result.StructuredContent)
-	if err := json.Unmarshal(view, &page); err != nil || len(page.Data.Messages) != 1 || page.Data.Messages[0].Status != bus.StatusQueuedForApproval || page.Data.Messages[0].Error != "" {
+	if err := json.Unmarshal(view, &page); err != nil || len(page.Data.Messages) != 1 || page.Data.Messages[0].Status != model.StatusQueuedForApproval || page.Data.Messages[0].Error != "" {
 		t.Fatal("held history lost its derived queue view", err)
 	}
 	if calls != 0 {
@@ -94,7 +95,7 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 		if err := json.Unmarshal(data, &stored); err != nil {
 			t.Fatal(err)
 		}
-		if stored.Status != bus.StatusApprovalBlocked || stored.Held != test.held {
+		if stored.Status != model.StatusApprovalBlocked || stored.Held != test.held {
 			t.Fatalf("message %s held=%t, want %t", test.id, stored.Held, test.held)
 		}
 	}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // hookTrace retains safe correlation and the exact failure stage across helpers.
@@ -21,7 +22,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 	started := time.Now()
 	trace := hookTrace{stage: "adapter"}
 	defer func() {
-		if IsUpgradeRequired(resultErr) || ErrorCodeOf(resultErr) == CodeUnsupportedSchema {
+		if IsUpgradeRequired(resultErr) || ErrorCodeOf(resultErr) == model.CodeUnsupportedSchema {
 			s.Store.logEvent(slog.LevelWarn, "hook.upgrade_required", eventData{Agent: kind, Actor: trace.actor, HookEvent: trace.lifecycle, Err: resultErr})
 			resultErr = nil
 			return
@@ -160,13 +161,13 @@ func (s *Service) startSession(kind string, hooks agent.HookAdapter, event agent
 func (s *Service) applyLifecycleState(id, event string) error {
 	switch event {
 	case "SessionEnd":
-		return s.Store.Update(id, StateRetired, true)
+		return s.Store.Update(id, model.StateRetired, true)
 	case "PermissionRequest":
-		return s.Store.Update(id, StateApproval, false)
+		return s.Store.Update(id, model.StateApproval, false)
 	case "PostToolUse", "UserPromptSubmit":
-		return s.Store.Update(id, StateBusy, false)
+		return s.Store.Update(id, model.StateBusy, false)
 	case "Stop", "Interrupt":
-		return s.Store.Update(id, StateReady, false)
+		return s.Store.Update(id, model.StateReady, false)
 	default:
 		return errors.New("unsupported agent lifecycle event")
 	}

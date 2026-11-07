@@ -69,9 +69,9 @@ func (a fixtureAdapter) Deliver(_ context.Context, _ Message, _ Session) Receipt
 	if a.deliveries != nil {
 		a.deliveries.Add(1)
 	}
-	status := StatusSubmitted
+	status := model.StatusSubmitted
 	if a.inbox == model.InboxJournal {
-		status = StatusPendingActivity
+		status = model.StatusPendingActivity
 	}
 	return Receipt{At: model.Timestamp(), Status: status}
 }

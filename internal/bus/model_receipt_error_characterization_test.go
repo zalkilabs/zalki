@@ -16,6 +16,7 @@ import (
 
 	agentapi "github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 var modelReceiptTimestamp = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{9}Z$`)
@@ -31,7 +32,7 @@ func requireModelTimestamp(t *testing.T, at string) {
 }
 
 func TestModelNewReceiptBaseline(t *testing.T) {
-	receipt := bus.NewReceipt(bus.StatusUnknownWrite)
+	receipt := bus.NewReceipt(model.StatusUnknownWrite)
 	requireModelTimestamp(t, receipt.At)
 	// Normalize only the clock sample; every other output remains a literal.
 	receipt.At = "TIME"
@@ -65,7 +66,7 @@ func transportCauseKind(t *testing.T, receipt bus.Receipt) string {
 }
 
 func TestModelReceiptCauseIsCopiedAndNotEncoded(t *testing.T) {
-	original := bus.Receipt{At: "at", Status: bus.StatusSubmitted, Error: "public error", Output: "output"}
+	original := bus.Receipt{At: "at", Status: model.StatusSubmitted, Error: "public error", Output: "output"}
 	withCause := original.WithCause(fmt.Errorf("private diagnostic: %w", syscall.ECONNREFUSED))
 	const want = `{"at":"at","status":"submitted","error":"public error","output":"output"}`
 	requireModelJSON(t, original, want)

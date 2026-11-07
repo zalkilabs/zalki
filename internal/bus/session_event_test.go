@@ -55,21 +55,21 @@ func TestSessionLifecycleProducerEvents(t *testing.T) {
 		state   SessionState
 		retired bool
 	}{
-		{"Update approval", func(s Store, v Session) error { return s.Update(v.ID, StateApproval, false) }, StateApproval, false},
-		{"Update busy", func(s Store, v Session) error { return s.Update(v.ID, StateBusy, false) }, StateBusy, false},
+		{"Update approval", func(s Store, v Session) error { return s.Update(v.ID, model.StateApproval, false) }, model.StateApproval, false},
+		{"Update busy", func(s Store, v Session) error { return s.Update(v.ID, model.StateBusy, false) }, model.StateBusy, false},
 		{"hook permission", func(s Store, v Session) error {
 			return (&Service{Store: s}).applyLifecycleState(v.ID, "PermissionRequest")
-		}, StateApproval, false},
+		}, model.StateApproval, false},
 		{"host update", func(s Store, v Session) error {
-			return (hookRuntime{store: s, actor: v.ID}).UpdateSession(v.ID, StateBusy, false)
-		}, StateBusy, false},
+			return (hookRuntime{store: s, actor: v.ID}).UpdateSession(v.ID, model.StateBusy, false)
+		}, model.StateBusy, false},
 		{"adapter prompt", func(s Store, v Session) error {
 			return cursorHost(s, v.ID, "UserPromptSubmit").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 				return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate}, nil
 			})
-		}, StateBusy, false},
-		{"retirement", func(s Store, v Session) error { return s.Update(v.ID, StateRetired, true) }, StateRetired, true},
-		{"prune retirement", func(s Store, v Session) error { _, err := s.PruneRetired(false, []string{v.ID}, 0); return err }, StateRetired, true},
+		}, model.StateBusy, false},
+		{"retirement", func(s Store, v Session) error { return s.Update(v.ID, model.StateRetired, true) }, model.StateRetired, true},
+		{"prune retirement", func(s Store, v Session) error { _, err := s.PruneRetired(false, []string{v.ID}, 0); return err }, model.StateRetired, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -79,7 +79,7 @@ func TestSessionLifecycleProducerEvents(t *testing.T) {
 				t.Fatal(err)
 			}
 			event := latestSessionEvent(t, store)
-			if event.Type != "session.state_changed" || event.Session.Previous != StateReady || event.Session.State != tc.state || event.Session.Retired != tc.retired || eventState(t, store).Last != 2 {
+			if event.Type != "session.state_changed" || event.Session.Previous != model.StateReady || event.Session.State != tc.state || event.Session.Retired != tc.retired || eventState(t, store).Last != 2 {
 				t.Fatalf("lifecycle event = %+v", event)
 			}
 		})
@@ -89,7 +89,7 @@ func TestSessionLifecycleProducerEvents(t *testing.T) {
 func TestSessionReadyAndReactivationEvents(t *testing.T) {
 	store := fixtureStore(t)
 	session, _ := register(t, store, "cursor")
-	if err := store.Update(session.ID, StateBusy, false); err != nil {
+	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := cursorHost(store, session.ID, "Stop").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
@@ -97,10 +97,10 @@ func TestSessionReadyAndReactivationEvents(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if e := latestSessionEvent(t, store); e.Session.Previous != StateBusy || e.Session.State != StateReady {
+	if e := latestSessionEvent(t, store); e.Session.Previous != model.StateBusy || e.Session.State != model.StateReady {
 		t.Fatal(e)
 	}
-	if err := store.Update(session.ID, StateRetired, true); err != nil {
+	if err := store.Update(session.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
 	if err := cursorHost(store, session.ID, "UserPromptSubmit").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
@@ -108,7 +108,7 @@ func TestSessionReadyAndReactivationEvents(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if e := latestSessionEvent(t, store); e.Session.Previous != StateRetired || !e.Session.PreviousRetired || e.Session.Retired || e.Session.State != StateBusy {
+	if e := latestSessionEvent(t, store); e.Session.Previous != model.StateRetired || !e.Session.PreviousRetired || e.Session.Retired || e.Session.State != model.StateBusy {
 		t.Fatal(e)
 	}
 }
@@ -122,7 +122,7 @@ func TestSessionRetiredFlagWithoutStateChangeProducesFact(t *testing.T) {
 		t.Fatal(err)
 	}
 	event := latestSessionEvent(t, store)
-	if event.Type != "session.state_changed" || event.Session.Previous != StateReady || event.Session.State != StateReady || event.Session.PreviousRetired || !event.Session.Retired {
+	if event.Type != "session.state_changed" || event.Session.Previous != model.StateReady || event.Session.State != model.StateReady || event.Session.PreviousRetired || !event.Session.Retired {
 		t.Fatalf("retirement-only fact = %+v", event)
 	}
 	if after := eventState(t, store); after.Count != before.Count+1 || after.Last != before.Last+1 {
@@ -249,7 +249,7 @@ func assertInitialSessionCut(t *testing.T, applied int) {
 	t.Helper()
 	store := fixtureStore(t)
 	native := newID()
-	next := Session{Schema: recordSchema, ID: "cursor:" + native, NativeID: native, Kind: "cursor", Generation: newID(), State: StateReady, CWD: "/workspace", KeyHash: "private test key", UpdatedAt: model.Timestamp()}
+	next := Session{Schema: recordSchema, ID: "cursor:" + native, NativeID: native, Kind: "cursor", Generation: newID(), State: model.StateReady, CWD: "/workspace", KeyHash: "private test key", UpdatedAt: model.Timestamp()}
 	batch := stageInitialSessionCut(t, store, next, applied)
 	sessions, err := store.List()
 	if err != nil || len(sessions) != 1 || sessions[0].ID != next.ID {

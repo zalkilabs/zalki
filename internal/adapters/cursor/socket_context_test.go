@@ -27,7 +27,7 @@ func TestCursorSocketHonorsContext(t *testing.T) {
 			if mode == "already canceled" {
 				cancel()
 				receipt := (Adapter{}).Deliver(ctx, bus.Message{ID: newTestID()}, target)
-				if receipt.Status != bus.StatusPendingActivity {
+				if receipt.Status != model.StatusPendingActivity {
 					t.Fatalf("unsent hint became uncertain: %+v", receipt)
 				}
 				assertNoSocketConnection(t, listener)
@@ -54,7 +54,7 @@ func TestCursorSocketHonorsContext(t *testing.T) {
 			}
 			select {
 			case receipt := <-result:
-				if receipt.Status != bus.StatusWakeUncertain || receipt.Error == "" {
+				if receipt.Status != model.StatusWakeUncertain || receipt.Error == "" {
 					t.Fatalf("canceled written hint lost uncertainty: %+v", receipt)
 				}
 			case <-time.After(time.Second):

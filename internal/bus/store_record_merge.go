@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // mergeRecordJSON preserves fields outside the typed record while replacing
@@ -62,11 +63,11 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 	}
 	relative, err := filepath.Rel(s.Dir, path)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
-		return fail(CodeInvalidIdentity, "record path is outside state directory")
+		return model.NewError(model.CodeInvalidIdentity, "record path is outside state directory")
 	}
 	family, _, _ := strings.Cut(relative, string(os.PathSeparator))
 	if family == "sessions" {
-		return fail(CodeInvalidInput, "session writes require the commit path")
+		return model.NewError(model.CodeInvalidInput, "session writes require the commit path")
 	}
 	version := nextSchema
 	if version == 0 {
@@ -84,7 +85,7 @@ func checkSchema(raw json.RawMessage, supported int) (int, error) {
 	version, err := journal.CheckSchema(raw, supported)
 	var schema *journal.SchemaError
 	if errors.As(err, &schema) {
-		return 0, fail(CodeUnsupportedSchema, "unsupported journal schema %d; upgrade zalki", schema.Version)
+		return 0, model.NewError(model.CodeUnsupportedSchema, "unsupported journal schema %d; upgrade zalki", schema.Version)
 	}
 	return version, err
 }
