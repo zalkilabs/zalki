@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type PruneItem struct {
@@ -141,7 +143,7 @@ func (r *pruneRun) sweepSessions(sessions []Session) error {
 // retirement. Releasing sets UpdatedAt to now, which also restarts the
 // retention window (characterized, not endorsed).
 func (r *pruneRun) sweepRetired(v Session) error {
-	if retiredLongEnough(v.UpdatedAt, r.now, r.retention) {
+	if model.RetiredLongEnough(v.UpdatedAt, r.now, r.retention) {
 		return r.deleteRetired(v)
 	}
 	if v.Listener == nil {
@@ -159,7 +161,12 @@ func (r *pruneRun) sweepRetired(v Session) error {
 // retireIfDue retires a live session that was selected or whose owner exited.
 // The decision is reported before the record is saved; a dry run stops there.
 func (r *pruneRun) retireIfDue(v Session) error {
-	reason := r.retirementReason(v)
+	selected := r.selected[v.ID]
+	liveness := LivenessUnknown
+	if !selected {
+		liveness = r.store.sessionLiveness(v)
+	}
+	reason := model.PruneRetirementReason(selected, liveness)
 	if reason == "" {
 		return nil
 	}
@@ -170,18 +177,6 @@ func (r *pruneRun) retireIfDue(v Session) error {
 	}
 	retireSession(&v, reason)
 	return r.store.saveSession(v)
-}
-
-// retirementReason says why a live session is retired, or "" if it is not. An
-// explicit selection wins, and liveness is only read when it was not selected.
-func (r *pruneRun) retirementReason(v Session) string {
-	if r.selected[v.ID] {
-		return "explicit_cleanup"
-	}
-	if r.store.sessionLiveness(v) == LivenessExited {
-		return "owner_exited"
-	}
-	return ""
 }
 
 func (r *pruneRun) deleteExitedRuntimes(runtimes []RuntimeInfo) error {
@@ -197,16 +192,6 @@ func (r *pruneRun) deleteExitedRuntimes(runtimes []RuntimeInfo) error {
 		}
 	}
 	return nil
-}
-
-// retiredLongEnough is true only when updatedAt is strictly older than the
-// window. An unparsable timestamp is kept.
-func retiredLongEnough(updatedAt string, now time.Time, window time.Duration) bool {
-	updated, err := time.Parse(time.RFC3339Nano, updatedAt)
-	if err != nil {
-		return false
-	}
-	return updated.Before(now.Add(-window))
 }
 
 func (r *pruneRun) deleteRetired(v Session) error {

@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestRetiredRetentionBoundaryIsStrictlyOlder(t *testing.T) {
@@ -15,13 +17,13 @@ func TestRetiredRetentionBoundaryIsStrictlyOlder(t *testing.T) {
 	window := 7 * 24 * time.Hour
 	exact := now.Add(-window).Format(time.RFC3339Nano)
 	older := now.Add(-window - time.Nanosecond).Format(time.RFC3339Nano)
-	if retiredLongEnough(exact, now, window) {
+	if model.RetiredLongEnough(exact, now, window) {
 		t.Fatal("a record at the retention boundary was eligible")
 	}
-	if !retiredLongEnough(older, now, window) {
+	if !model.RetiredLongEnough(older, now, window) {
 		t.Fatal("a record older than the window was kept")
 	}
-	if retiredLongEnough("not-a-time", now, window) {
+	if model.RetiredLongEnough("not-a-time", now, window) {
 		t.Fatal("an unparsable timestamp was eligible")
 	}
 }

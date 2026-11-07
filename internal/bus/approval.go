@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os"
 	"sort"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // approvalQueueCap bounds messages waiting on one session's permission prompt.
@@ -182,48 +184,24 @@ func (s Store) reconcileApprovalHolds(dryRun bool, report *PruneReport, retiring
 	return s.settleMissingTargets(counts, seen, dryRun, report)
 }
 
-// reconcileSessionHold fixes the approval count of one session. A retired (or
-// about to be retired) session is settled; a live one is recounted.
+// reconcileSessionHold applies a pure count decision under the caller's lock.
+// Report before a dry-run return; settle before reloading and clearing the count.
 func (s Store) reconcileSessionHold(v Session, count int, retired, dryRun bool, report *PruneReport) error {
-	if retired {
-		return s.settleRetiredHold(v, count, dryRun, report)
-	}
-	return s.recountHold(v, count, dryRun, report)
-}
-
-// settleRetiredHold settles the queued approvals of a retired session and
-// clears its count. A session with no queue and no count is left alone. The
-// decision is reported before the dry-run check.
-func (s Store) settleRetiredHold(v Session, count int, dryRun bool, report *PruneReport) error {
-	if count == 0 && v.ApprovalHeld == 0 {
+	decision := model.DecideApprovalHold(v.ApprovalHeld, count, retired)
+	if decision.Reason == "" {
 		return nil
 	}
-	reason := "approval_recounted"
-	if count > 0 {
-		reason = "approval_settled"
-	}
-	report.Sessions = append(report.Sessions, PruneItem{ID: v.ID, Reason: reason})
+	report.Sessions = append(report.Sessions, PruneItem{ID: v.ID, Reason: decision.Reason})
 	if dryRun {
 		return nil
 	}
-	if count > 0 {
+	if decision.SettleQueue {
 		if err := s.settleReadableApprovalQueue(v.ID, "destination has retired"); err != nil {
 			return err
 		}
 	}
-	return s.clearApprovalHeld(v.ID)
-}
-
-// recountHold sets the approval count of a live session to the number of
-// messages that are queued for it. The decision is reported before the
-// dry-run check.
-func (s Store) recountHold(v Session, count int, dryRun bool, report *PruneReport) error {
-	if v.ApprovalHeld == count {
-		return nil
-	}
-	report.Sessions = append(report.Sessions, PruneItem{ID: v.ID, Reason: "approval_recounted"})
-	if dryRun {
-		return nil
+	if decision.ClearCount {
+		return s.clearApprovalHeld(v.ID)
 	}
 	v.ApprovalHeld = count
 	return s.saveSession(v)
