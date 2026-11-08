@@ -67,6 +67,10 @@ func fakeChild(outbox string) error {
 	if err := recordFakeChildEnvironment(state); err != nil {
 		return err
 	}
+	if string(mode) == "eof-before-hello" {
+		_, err := io.Copy(io.Discard, os.Stdin)
+		return err
+	}
 	if string(mode) == "no-hello" {
 		time.Sleep(10 * time.Second)
 		return nil
@@ -77,6 +81,10 @@ func fakeChild(outbox string) error {
 	}
 	if err := writeFrame(os.Stdout, frame{Hello: &hello{Version: version}}); err != nil {
 		return err
+	}
+	if string(mode) == "no-read" {
+		time.Sleep(10 * time.Second)
+		return nil
 	}
 	if string(mode) == "close-stdout-hold-eof" {
 		_ = os.Stdout.Close()
@@ -129,6 +137,13 @@ func fakeDeliveries(state, mode string) error {
 }
 
 func fakeEOF(state, mode string) {
+	if mode == "cleanup-eof" {
+		_ = os.WriteFile(filepath.Join(state, ".eof-cleaned"), []byte("clean"), 0600)
+		return
+	}
+	if mode == "error-eof" {
+		os.Exit(17)
+	}
 	if mode == "hold-eof" || mode == "bad-ack-hold-eof" || mode == "close-stdout-hold-eof" {
 		_ = os.WriteFile(filepath.Join(state, ".eof-seen"), []byte("yes"), 0600)
 		waitPermit(state, ".release-eof", 3*time.Second)
