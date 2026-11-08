@@ -16,6 +16,8 @@ const ChildCommand = "plugin-notifier"
 
 const maxFrame = 64 << 10
 
+var errPartialFrameEOF = errors.New("plugin stream ended mid-frame")
+
 type hello struct {
 	Version string `json:"version"`
 }
@@ -31,14 +33,17 @@ type frame struct {
 func readFrame(reader *bufio.Reader) (frame, error) {
 	var value frame
 	raw, err := reader.ReadSlice('\n')
-	if err != nil {
-		if len(raw) != 0 {
-			return value, io.ErrUnexpectedEOF
-		}
-		return value, err
-	}
 	if len(raw) > maxFrame {
 		return value, errors.New("plugin frame exceeds 64KiB")
+	}
+	if err != nil {
+		if len(raw) == 0 {
+			return value, err
+		}
+		if errors.Is(err, io.EOF) {
+			return value, errors.Join(io.ErrUnexpectedEOF, errPartialFrameEOF)
+		}
+		return value, errors.Join(io.ErrUnexpectedEOF, err)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()

@@ -165,7 +165,7 @@ func (c *child) deadlineError(file *os.File, err error) error {
 }
 
 func (c *child) pipeError(err error) error {
-	if c.parent.Err() != nil && (errors.Is(err, io.EOF) || errors.Is(err, os.ErrClosed) || errors.Is(err, syscall.EPIPE) || errors.Is(err, os.ErrDeadlineExceeded)) {
+	if c.parent.Err() != nil && (errors.Is(err, io.EOF) || errors.Is(err, errPartialFrameEOF) || errors.Is(err, os.ErrClosed) || errors.Is(err, syscall.EPIPE) || errors.Is(err, os.ErrDeadlineExceeded)) {
 		return errors.Join(errChildCanceled, err)
 	}
 	return err
