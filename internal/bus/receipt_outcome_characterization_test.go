@@ -50,7 +50,7 @@ func TestTransportOutcomesPersistAndControlAcknowledgement(t *testing.T) {
 			} else {
 				target = nativeAdapter("beta")
 			}
-			target.script(func(context.Context, bus.Message, bus.Session) bus.Receipt {
+			target.script(func(context.Context, model.Message, model.Session) model.Receipt {
 				receipt := model.NewReceipt(test.status)
 				receipt.Code, receipt.Error, receipt.Output = test.code, test.text, "native output"
 				return receipt
@@ -129,7 +129,7 @@ func TestApprovalHoldIsAnOutcomeNotAnError(t *testing.T) {
 	store := newStore(t, nativeAdapter("alpha"), target)
 	from, to := register(t, store, "alpha"), register(t, store, "beta")
 	svc := bus.Service{Store: store}
-	send := func() (bus.Message, error) {
+	send := func() (model.Message, error) {
 		return svc.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "hello"})
 	}
 

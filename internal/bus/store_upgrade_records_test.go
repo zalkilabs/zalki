@@ -49,7 +49,7 @@ func requireRecordExtension(t *testing.T, path string) map[string]json.RawMessag
 }
 
 func TestRecordMergeClearsEveryOmittedKnownField(t *testing.T) {
-	for _, value := range []any{Session{}, Message{}, Watch{}, Receipt{}} {
+	for _, value := range []any{model.Session{}, model.Message{}, Watch{}, model.Receipt{}} {
 		typ := reflect.TypeOf(value)
 		for i := range typ.NumField() {
 			field := typ.Field(i)
@@ -142,7 +142,9 @@ func TestMessageExtensionsSurviveReceiptsAcknowledgementAndHookEmission(t *testi
 	service := newTestService(t)
 	store := service.Store
 	from, key, to, toKey := registerPair(t, store, "cursor", "codex")
-	service.Deliver = func(_ context.Context, _ Message, _ Session) Receipt { return model.NewReceipt(model.StatusSubmitted) }
+	service.Deliver = func(_ context.Context, _ model.Message, _ model.Session) model.Receipt {
+		return model.NewReceipt(model.StatusSubmitted)
+	}
 	msg, err := service.Send(t.Context(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, Body: "fixture"})
 	if err != nil {
 		t.Fatal(err)
@@ -180,7 +182,7 @@ func TestMessageExtensionsSurviveReceiptsAcknowledgementAndHookEmission(t *testi
 	if _, exists := receipt["error"]; exists {
 		t.Fatal("receipt error resurrected")
 	}
-	pending := Message{ID: newID(), To: from.ID, From: to.ID, TargetGeneration: from.Generation, Body: "pending", Status: model.StatusPendingActivity}
+	pending := model.Message{ID: newID(), To: from.ID, From: to.ID, TargetGeneration: from.Generation, Body: "pending", Status: model.StatusPendingActivity}
 	if err := store.saveMessage(pending); err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +211,7 @@ func TestWatchAndFloodExtensionsSurviveRefreshAndAdmission(t *testing.T) {
 		t.Fatal("cleared watch timestamp resurrected")
 	}
 	now := time.Now()
-	first := Message{ID: newID(), From: from.ID, To: target.ID}
+	first := model.Message{ID: newID(), From: from.ID, To: target.ID}
 	if err := spendFlood(store, first, now); err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +224,7 @@ func TestWatchAndFloodExtensionsSurviveRefreshAndAdmission(t *testing.T) {
 	if after, _ := os.ReadFile(path); !bytes.Equal(before, after) {
 		t.Fatal("retry rewrote quota")
 	}
-	if err := spendFlood(store, Message{ID: newID(), From: from.ID, To: target.ID}, now); err != nil {
+	if err := spendFlood(store, model.Message{ID: newID(), From: from.ID, To: target.ID}, now); err != nil {
 		t.Fatal(err)
 	}
 	requireRecordExtension(t, path)
@@ -242,7 +244,7 @@ func TestMixedSessionScanSkipsRecordsAndPrunePreservesThem(t *testing.T) {
 	rewriteRecord(t, store, mismatch.ID, func(fields map[string]any) { fields["id"] = healthy.ID })
 	missingID := "removed-client:" + newID()
 	missingPath, _ := store.sessionRecordPath(missingID)
-	if err := writeJSON(missingPath, Session{Schema: 1, ID: missingID, Kind: "removed-client", NativeID: strings.TrimPrefix(missingID, "removed-client:")}); err != nil {
+	if err := writeJSON(missingPath, model.Session{Schema: 1, ID: missingID, Kind: "removed-client", NativeID: strings.TrimPrefix(missingID, "removed-client:")}); err != nil {
 		t.Fatal(err)
 	}
 	paths = append(paths, missingPath)
@@ -345,7 +347,7 @@ func TestReleasedStateFixturesRoundTripWithoutFieldLoss(t *testing.T) {
 					}
 				}
 			}
-			if err := store.eachMessage(func(_ string, msg Message, readErr error) error {
+			if err := store.eachMessage(func(_ string, msg model.Message, readErr error) error {
 				if readErr != nil {
 					return readErr
 				}
@@ -374,7 +376,7 @@ func TestReleasedStateFixturesRoundTripWithoutFieldLoss(t *testing.T) {
 func TestFutureRecordsRefuseFreshRewriteValuesAndKeepBytes(t *testing.T) {
 	store := fixtureStore(t)
 	from, _, target, _ := registerPair(t, store, "codex", "cursor")
-	message := Message{ID: newID(), From: from.ID, To: target.ID, Status: model.StatusSubmitted}
+	message := model.Message{ID: newID(), From: from.ID, To: target.ID, Status: model.StatusSubmitted}
 	if err := store.saveMessage(message); err != nil {
 		t.Fatal(err)
 	}
@@ -382,7 +384,7 @@ func TestFutureRecordsRefuseFreshRewriteValuesAndKeepBytes(t *testing.T) {
 	if err := store.saveWatch(watch); err != nil {
 		t.Fatal(err)
 	}
-	quotaMessage := Message{ID: newID(), From: from.ID, To: target.ID}
+	quotaMessage := model.Message{ID: newID(), From: from.ID, To: target.ID}
 	if err := spendFlood(store, quotaMessage, time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -443,7 +445,9 @@ func TestHeldExtensionsSurviveApprovalReleaseAndRetirement(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				service.Deliver = func(context.Context, Message, Session) Receipt { return model.NewReceipt(model.StatusSubmitted) }
+				service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
+					return model.NewReceipt(model.StatusSubmitted)
+				}
 				if err := store.Update(target.ID, model.StateReady, false); err != nil {
 					t.Fatal(err)
 				}

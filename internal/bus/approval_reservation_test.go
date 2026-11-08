@@ -11,7 +11,7 @@ import (
 func TestHeldReservationWriteFailureRollsBackTheCount(t *testing.T) {
 	store := fixtureStore(t)
 	target, _ := register(t, store, "cursor")
-	msg := Message{ID: newID(), To: target.ID, Status: model.StatusAttempting}
+	msg := model.Message{ID: newID(), To: target.ID, Status: model.StatusAttempting}
 	if err := msg.Hold(); err != nil {
 		t.Fatal(err)
 	}

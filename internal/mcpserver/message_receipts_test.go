@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -22,7 +21,7 @@ func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := 0
-	service.Deliver = func(context.Context, bus.Message, bus.Session) bus.Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		calls++
 		return model.NewReceipt(model.StatusSubmitted)
 	}
@@ -77,11 +76,11 @@ func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
 }
 
 func TestReceiptNotesNeverPromiseRefusedOrUnconfirmedDelivery(t *testing.T) {
-	queued, err := messageReceipt(bus.Message{Status: model.StatusApprovalBlocked, Held: true}, nil)
+	queued, err := messageReceipt(model.Message{Status: model.StatusApprovalBlocked, Held: true}, nil)
 	if err != nil || queued.Note != "Queued until the target's permission prompt is answered." {
 		t.Fatal("a queued approval message was described as refused")
 	}
-	acknowledged, err := messageReceipt(bus.Message{Status: model.StatusPendingActivity, AcknowledgedAt: "2026-11-01T00:00:00Z"}, nil)
+	acknowledged, err := messageReceipt(model.Message{Status: model.StatusPendingActivity, AcknowledgedAt: "2026-11-01T00:00:00Z"}, nil)
 	if err != nil || !acknowledged.Acknowledged || acknowledged.Note != "" {
 		t.Fatal("an acknowledged message was still described as deferred")
 	}
@@ -100,7 +99,7 @@ func TestReceiptNotesNeverPromiseRefusedOrUnconfirmedDelivery(t *testing.T) {
 		{model.StatusUnknownTimeout, model.DeliveryNextTurn, ""},
 		{model.StatusUnknownWrite, model.DeliveryBetweenTools, ""},
 	} {
-		receipt, err := messageReceipt(bus.Message{Status: test.status, BusyDelivery: test.timing}, nil)
+		receipt, err := messageReceipt(model.Message{Status: test.status, BusyDelivery: test.timing}, nil)
 		if err != nil || (test.want == "" && receipt.Note != "") || (test.want != "" && !strings.Contains(receipt.Note, test.want)) {
 			t.Fatalf("status=%s timing=%s: note=%q want=%q", test.status, test.timing, receipt.Note, test.want)
 		}

@@ -47,7 +47,7 @@ func floodWait(scope, target string, now, retry time.Time) error {
 // consumeFloodQuota is called under the journal lock, after the exact-ID retry
 // check and validation. One atomic target file contains both buckets, so a
 // rejected inbound check never spends a sender token (or vice versa).
-func (s Store) consumeFloodQuota(msg Message, now time.Time) error {
+func (s Store) consumeFloodQuota(msg model.Message, now time.Time) error {
 	if msg.Kind == model.NoticeKind {
 		return nil
 	}

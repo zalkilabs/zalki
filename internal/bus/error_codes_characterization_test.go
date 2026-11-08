@@ -120,7 +120,7 @@ func send(store bus.Store, request bus.SendRequest) error {
 	return err
 }
 
-func sendOK(t *testing.T, store bus.Store, from, to agent) bus.Message {
+func sendOK(t *testing.T, store bus.Store, from, to agent) model.Message {
 	t.Helper()
 	msg, err := (&bus.Service{Store: store}).Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "hi"})
 	if err != nil {

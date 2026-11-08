@@ -99,7 +99,7 @@ func (s Store) rememberOwner(id, kind string, refresh bool) error {
 // on refresh: a found one is recorded, and if none is found a refresh drops a
 // recorded owner that has exited. A trusted new prompt proves resumed activity
 // even when the OS cannot supply a replacement owner fingerprint.
-func (s Store) updateOwner(v *Session, kind string, refresh bool) bool {
+func (s Store) updateOwner(v *model.Session, kind string, refresh bool) bool {
 	if !s.tracksOwnProcess(kind) {
 		if refresh && v.Owner != nil {
 			v.Owner = nil

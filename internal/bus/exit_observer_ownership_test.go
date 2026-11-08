@@ -63,7 +63,7 @@ type ownershipObserverFixture struct {
 	service Service
 	source  *ownershipExitSource
 	owner   *model.ProcessRef
-	target  Session
+	target  model.Session
 	counter *noticeCounter
 	records chan string
 	stop    func()

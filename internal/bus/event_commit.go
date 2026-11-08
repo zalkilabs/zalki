@@ -8,9 +8,10 @@ import (
 	"path/filepath"
 
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func saveSessionWith(s Store, next Session, writer commitWriter) error {
+func saveSessionWith(s Store, next model.Session, writer commitWriter) error {
 	record, err := prepareSessionRecord(s, next)
 	if err != nil {
 		return err

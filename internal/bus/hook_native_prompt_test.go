@@ -15,8 +15,8 @@ func TestReceiptReadDoesNotCreateSecondNativeInbox(t *testing.T) {
 			store := service.Store
 			from, key := register(t, store, "cursor")
 			to, toKey := register(t, store, kind)
-			service.Deliver = func(context.Context, Message, Session) Receipt {
-				return Receipt{Status: "submitted"}
+			service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
+				return model.Receipt{Status: "submitted"}
 			}
 			msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "handle once"})
 			if err != nil {
@@ -56,7 +56,7 @@ func TestCompletedNativePromptGenerationFenceIsReadOnly(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	from, key, to, _ := registerPair(t, store, "cursor", "codex")
-	service.Deliver = func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		return model.NewReceipt(model.StatusSubmitted)
 	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "queued"})

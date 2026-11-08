@@ -60,7 +60,7 @@ func ageOf(t *testing.T, stamp string) time.Duration {
 // retiredWithLease registers a cursor session and rewrites it as a retired
 // record, updated the given time ago, that still holds a listener lease (an
 // older build can leave one behind).
-func retiredWithLease(t *testing.T, store Store, ago time.Duration) Session {
+func retiredWithLease(t *testing.T, store Store, ago time.Duration) model.Session {
 	t.Helper()
 	v, _ := register(t, store, "cursor")
 	v.Retired, v.State, v.RetiredReason, v.Listener = true, model.StateRetired, "session_end", staleListener()
@@ -71,7 +71,7 @@ func retiredWithLease(t *testing.T, store Store, ago time.Duration) Session {
 	return v
 }
 
-func lockFile(t *testing.T, store Store, v Session) string {
+func lockFile(t *testing.T, store Store, v model.Session) string {
 	t.Helper()
 	path := store.listenerLockPath(v.Kind, v.ID)
 	if err := os.WriteFile(path, nil, 0600); err != nil {
@@ -192,11 +192,11 @@ func TestPruneLeaseReleaseRestartsTheRetentionWindow(t *testing.T) {
 }
 
 // queuedFor stores a message that waits for the target's permission prompt.
-func queuedFor(t *testing.T, store Store, sender Session, target string) Message {
+func queuedFor(t *testing.T, store Store, sender model.Session, target string) model.Message {
 	t.Helper()
-	msg := Message{
+	msg := model.Message{
 		Schema: recordSchema, ID: newID(), From: sender.ID, To: target, Body: "waits", CreatedAt: model.Timestamp(),
-		Status: model.StatusApprovalBlocked, Held: true, Receipt: &Receipt{At: model.Timestamp(), Status: model.StatusApprovalBlocked, Error: model.ApprovalQueuedNote},
+		Status: model.StatusApprovalBlocked, Held: true, Receipt: &model.Receipt{At: model.Timestamp(), Status: model.StatusApprovalBlocked, Error: model.ApprovalQueuedNote},
 	}
 	if current, err := store.session(target); err == nil {
 		msg.TargetGeneration = current.Generation
@@ -207,7 +207,7 @@ func queuedFor(t *testing.T, store Store, sender Session, target string) Message
 	return msg
 }
 
-func fixedSession(t *testing.T, store Store, last string) Session {
+func fixedSession(t *testing.T, store Store, last string) model.Session {
 	t.Helper()
 	v, _, err := store.Register("cursor", "00000000-0000-4000-8000-0000000000"+last, "/workspace", nil)
 	if err != nil {
@@ -216,7 +216,7 @@ func fixedSession(t *testing.T, store Store, last string) Session {
 	return v
 }
 
-func withHeld(t *testing.T, store Store, v Session, held int) Session {
+func withHeld(t *testing.T, store Store, v model.Session, held int) model.Session {
 	t.Helper()
 	v.ApprovalHeld = held
 	if err := store.locked(func() error { return store.saveSession(v) }); err != nil {
@@ -230,7 +230,7 @@ func TestPruneDryRunOnAMissingApprovalTargetMatchesTheAppliedRun(t *testing.T) {
 	sender, _ := register(t, store, "codex")
 	// Two targets without a session record; their queues are settled in ID order.
 	second, first := "cursor:00000000-0000-4000-8000-0000000000f2", "cursor:00000000-0000-4000-8000-0000000000f1"
-	queued := []Message{queuedFor(t, store, sender, second), queuedFor(t, store, sender, first)}
+	queued := []model.Message{queuedFor(t, store, sender, second), queuedFor(t, store, sender, first)}
 	want := []PruneItem{{ID: first, Reason: "approval_settled"}, {ID: second, Reason: "approval_settled"}}
 
 	preview, err := store.Prune(true, nil)
@@ -257,7 +257,7 @@ func TestPruneDryRunOnAMissingApprovalTargetMatchesTheAppliedRun(t *testing.T) {
 	}
 }
 
-func journalMessage(t *testing.T, store Store, id string) Message {
+func journalMessage(t *testing.T, store Store, id string) model.Message {
 	t.Helper()
 	msg, err := store.message(id)
 	if err != nil {
@@ -344,7 +344,7 @@ func TestPruneReportsApprovalDecisionsInOrderAndDryRunMatchesApply(t *testing.T)
 
 // exitedOwner records an owned child process, then kills and reaps it. The
 // deadline also bounds cleanup if a fixture operation fails before the kill.
-func exitedOwner(t *testing.T, store Store, sessions ...Session) {
+func exitedOwner(t *testing.T, store Store, sessions ...model.Session) {
 	t.Helper()
 	selfProcess(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)

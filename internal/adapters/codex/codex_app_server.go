@@ -60,7 +60,7 @@ type codexSocket struct {
 	Device, Inode uint64
 }
 
-func codexConfigRoot(target bus.Session) string {
+func codexConfigRoot(target model.Session) string {
 	if filepath.IsAbs(target.NativeConfigDir) {
 		return filepath.Clean(target.NativeConfigDir)
 	}
@@ -133,7 +133,7 @@ func (s codexSocket) unchanged() error {
 	return nil
 }
 
-func deliverCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+func deliverCodex(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
 	id, err := model.UUID(model.NativeID(target))
 	if err != nil {
 		return failedReceipt(model.StatusNotSent, err)
@@ -150,11 +150,11 @@ func deliverCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.
 	return queueCodex(ctx, msg, target)
 }
 
-func deliverCodexAppServer(ctx context.Context, msg bus.Message, target bus.Session, threadID string) (bus.Receipt, bool) {
+func deliverCodexAppServer(ctx context.Context, msg model.Message, target model.Session, threadID string) (model.Receipt, bool) {
 	root := codexConfigRoot(target)
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {
-		return bus.Receipt{}, true
+		return model.Receipt{}, true
 	}
 	attempt, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
@@ -178,7 +178,7 @@ func deliverCodexAppServer(ctx context.Context, msg bus.Message, target bus.Sess
 		}
 		return failedReceipt(status, err), false
 	}
-	return bus.Receipt{}, true
+	return model.Receipt{}, true
 }
 
 func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, threadID, output string) (joined bool, err error) {

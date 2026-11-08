@@ -39,7 +39,7 @@ func TestWatchCompletionIsDecidedFromCanonicalEventsForEveryAdapter(t *testing.T
 			watcher, key := registerAdapterSession(t, store, watcherKind)
 			target, _ := registerAdapterSession(t, store, tc.kind)
 			var bodies []string
-			service := bus.Service{Store: store, Deliver: func(_ context.Context, msg bus.Message, _ bus.Session) bus.Receipt {
+			service := bus.Service{Store: store, Deliver: func(_ context.Context, msg model.Message, _ model.Session) model.Receipt {
 				bodies = append(bodies, msg.Body)
 				return model.NewReceipt(model.StatusSubmitted)
 			}}

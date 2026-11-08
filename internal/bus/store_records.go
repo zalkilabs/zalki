@@ -34,9 +34,9 @@ func readRecord(path string, value any, schema *int) error {
 	return nil
 }
 
-func (s Store) readSession(path string) (Session, error) {
+func (s Store) readSession(path string) (model.Session, error) {
 	var raw json.RawMessage
-	var v Session
+	var v model.Session
 	if err := readJSON(path, &raw); err != nil {
 		return v, err
 	}
@@ -95,12 +95,12 @@ type SessionIssue struct {
 
 // scanSessions is shared by list, prune, diagnostics and exit observation.
 // Caller holds the journal lock; directory scan errors remain fatal.
-func (s Store) scanSessions() ([]Session, []SessionIssue, error) {
+func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
 	files, err := filepath.Glob(filepath.Join(s.Dir, "sessions", "*.json"))
 	if err != nil {
 		return nil, nil, err
 	}
-	items, issues := []Session{}, []SessionIssue{}
+	items, issues := []model.Session{}, []SessionIssue{}
 	for _, path := range files {
 		id, validName := watchNameID(strings.TrimSuffix(filepath.Base(path), ".json"))
 		if !validName {
@@ -134,7 +134,7 @@ func (s Store) scanSessions() ([]Session, []SessionIssue, error) {
 	return items, issues, nil
 }
 
-func (s Store) rawSessions() ([]Session, error) {
+func (s Store) rawSessions() ([]model.Session, error) {
 	sessions, _, err := s.scanSessions()
 	return sessions, err
 }

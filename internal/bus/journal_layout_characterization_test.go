@@ -14,7 +14,7 @@ import (
 // key hashes and adjustable flood token balances are normalized. JSON key
 // order is deliberately ignored; schema versions and remaining values are exact.
 func TestPersistedJournalLayout(t *testing.T) {
-	send := func(t *testing.T, svc bus.Service, from, to agent) bus.Message {
+	send := func(t *testing.T, svc bus.Service, from, to agent) model.Message {
 		t.Helper()
 		msg, err := svc.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "hi"})
 		if err != nil {
@@ -52,7 +52,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 			prefixes: []string{"messages"},
 			run: func(t *testing.T, _, beta *fakeAdapter, svc bus.Service, from, to agent) {
 				t.Helper()
-				beta.script(func(context.Context, bus.Message, bus.Session) bus.Receipt {
+				beta.script(func(context.Context, model.Message, model.Session) model.Receipt {
 					receipt := model.NewReceipt(model.StatusNotSent)
 					receipt.Code, receipt.Error, receipt.Output = model.CodeUnavailable, "no route", "native output"
 					return receipt

@@ -7,11 +7,11 @@ import (
 
 type sessionRecord struct {
 	path    string
-	value   Session
+	value   model.Session
 	removed []string
 }
 
-func prepareSessionRecord(s Store, v Session) (sessionRecord, error) {
+func prepareSessionRecord(s Store, v model.Session) (sessionRecord, error) {
 	if v.Schema < 0 || v.Schema > leaseSessionSchema {
 		return sessionRecord{}, model.NewError(model.CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
 	}

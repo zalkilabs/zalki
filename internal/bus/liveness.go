@@ -19,7 +19,7 @@ func (s Store) tracksOwnProcess(kind string) bool {
 	return !ok || policy.TracksOwnProcess()
 }
 
-func (s Store) sessionLiveness(v Session) model.Liveness {
+func (s Store) sessionLiveness(v model.Session) model.Liveness {
 	adapter, err := s.registry().Lookup(v.Kind)
 	if err != nil {
 		return model.LivenessUnknown

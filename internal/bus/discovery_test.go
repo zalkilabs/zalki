@@ -94,8 +94,8 @@ type discoveryAdapter struct {
 	busy model.DeliveryTiming
 }
 
-func (a discoveryAdapter) ReceiveCapabilities(Session) model.ReceiveCapabilities {
-	c := a.stubCodexAdapter.ReceiveCapabilities(Session{})
+func (a discoveryAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
+	c := a.stubCodexAdapter.ReceiveCapabilities(model.Session{})
 	c.IdleWake, c.BusyDelivery = a.idle, a.busy
 	return c
 }

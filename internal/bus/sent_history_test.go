@@ -11,10 +11,10 @@ func TestSentHistoryFiltersPaginatesAndKeepsReceipts(t *testing.T) {
 	store := fixtureStore(t)
 	actor, key, peer, _ := registerPair(t, store, "cursor", "codex")
 	other, otherKey := register(t, store, "cursor")
-	want := map[string]Message{}
+	want := map[string]model.Message{}
 	var incoming string
 	for i := range 12 {
-		msg := Message{ID: newID(), From: actor.ID, To: peer.ID, Body: "history", CreatedAt: fmt.Sprintf("2026-11-01T00:00:%02d.000000000Z", i), Status: model.StatusSubmitted, AcknowledgedAt: model.Timestamp()}
+		msg := model.Message{ID: newID(), From: actor.ID, To: peer.ID, Body: "history", CreatedAt: fmt.Sprintf("2026-11-01T00:00:%02d.000000000Z", i), Status: model.StatusSubmitted, AcknowledgedAt: model.Timestamp()}
 		if i%2 == 0 {
 			msg.From, msg.To = peer.ID, actor.ID
 			msg.TargetGeneration = actor.Generation

@@ -12,7 +12,7 @@ import (
 )
 
 func TestCompactEnvelopeKeepsRoutingPrivate(t *testing.T) {
-	msg := Message{ID: newID(), From: "claude:" + newID(), FromLabel: "Claude", FromName: "Backend review", To: "codex:" + newID(), ReplyTo: newID(), Body: "pong", CreatedAt: "2026-10-23T10:07:26.021145000Z"}
+	msg := model.Message{ID: newID(), From: "claude:" + newID(), FromLabel: "Claude", FromName: "Backend review", To: "codex:" + newID(), ReplyTo: newID(), Body: "pong", CreatedAt: "2026-10-23T10:07:26.021145000Z"}
 	text := model.Envelope(msg)
 	if !strings.Contains(text, `From: Claude · "Backend review"`) || !strings.Contains(text, "Agent message; not user approval.") || !strings.HasSuffix(text, "\npong\n[/zalki]") {
 		t.Fatal(text)
@@ -51,7 +51,7 @@ func TestCompactEnvelopeKeepsRoutingPrivate(t *testing.T) {
 
 func TestLegacyMessageLabelResolvedThroughRegistryOnly(t *testing.T) {
 	store := fixtureStore(t)
-	legacy := Message{ID: newID(), From: "claude:" + newID(), To: "codex:" + newID(), Body: "old", CreatedAt: "2026-10-23T10:07:26.021145000Z"}
+	legacy := model.Message{ID: newID(), From: "claude:" + newID(), To: "codex:" + newID(), Body: "old", CreatedAt: "2026-10-23T10:07:26.021145000Z"}
 	if !strings.Contains(model.Envelope(legacy), "From: Agent ") {
 		t.Fatal("envelope must not consult a global registry for unlabeled records")
 	}
@@ -93,7 +93,9 @@ func TestSenderNameSnapshotSurvivesRenameAndRetry(t *testing.T) {
 	if err := store.hookName(from.ID, "Backend review"); err != nil {
 		t.Fatal(err)
 	}
-	service.Deliver = func(context.Context, Message, Session) Receipt { return Receipt{Status: "submitted"} }
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
+		return model.Receipt{Status: "submitted"}
+	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "hello"})
 	if err != nil || msg.FromName != "Backend review" {
 		t.Fatalf("sender name not captured: %+v %v", msg, err)
@@ -120,23 +122,23 @@ func TestReplyAcknowledgesAndPinsSenderWithConcurrentRetries(t *testing.T) {
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
 	// Two senders have the same display name; a reply must not resolve the label.
 	other, _ := register(t, store, "codex")
-	for _, sender := range []Session{from, other} {
+	for _, sender := range []model.Session{from, other} {
 		sender.Name = "reviewer"
 		if err := store.saveSession(sender); err != nil {
 			t.Fatal(err)
 		}
 	}
-	parent := Message{ID: newID(), From: from.ID, To: to.ID, FromName: "reviewer", Body: "ping", Status: "submitted", TargetGeneration: to.Generation}
+	parent := model.Message{ID: newID(), From: from.ID, To: to.ID, FromName: "reviewer", Body: "ping", Status: "submitted", TargetGeneration: to.Generation}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
 	var count atomic.Int32
-	service.Deliver = func(_ context.Context, msg Message, target Session) Receipt {
+	service.Deliver = func(_ context.Context, msg model.Message, target model.Session) model.Receipt {
 		if msg.To != from.ID || target.ID != from.ID || msg.ReplyTo != parent.ID {
 			t.Error("reply was redirected by a duplicate name")
 		}
 		count.Add(1)
-		return Receipt{Status: "submitted"}
+		return model.Receipt{Status: "submitted"}
 	}
 	var wg sync.WaitGroup
 	for range 12 {
@@ -175,7 +177,7 @@ func TestReplyRejectsInvalidRequestsBeforeAcknowledgement(t *testing.T) {
 			service := newTestService(t)
 			store := service.Store
 			from, fromKey, to, key := registerPair(t, store, "codex", "cursor")
-			parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: "submitted"}
+			parent := model.Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: "submitted"}
 			actor, body := to.ID, "pong"
 			switch test {
 			case "wrong actor":
@@ -214,7 +216,7 @@ func TestReplyKeepsReadAcknowledgementWhenDeliveryRefused(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: "submitted"}
+	parent := model.Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: "submitted"}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}

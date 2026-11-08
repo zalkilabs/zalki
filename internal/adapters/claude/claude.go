@@ -41,11 +41,11 @@ func (Adapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
 }
 
-func (Adapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities {
+func (Adapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
 	return model.ReceiveCapabilities{IdleWake: true, Delivery: "experimental_socket", Inbox: model.InboxNative, BusyDelivery: model.DeliveryBetweenTools, LifecycleHooks: true, Experimental: true, RequiresEndpoint: true}
 }
 
-func (Adapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+func (Adapter) Deliver(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
 	return writeClaude(ctx, msg, target)
 }
 
@@ -54,7 +54,7 @@ func (Adapter) ConfigDir() string {
 	return configDir("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 }
 
-func (a Adapter) LookupName(v bus.Session, indexes map[string]map[string]string) (string, string) {
+func (a Adapter) LookupName(v model.Session, indexes map[string]map[string]string) (string, string) {
 	root := v.NativeConfigDir
 	if !filepath.IsAbs(root) {
 		root = a.ConfigDir()
@@ -74,7 +74,7 @@ func (Adapter) RegisterHook(event agent.HookInput) (agent.HookRegistration, erro
 	return agent.HookRegistration{Endpoint: endpoint}, err
 }
 
-func (Adapter) Health(_ agent.HealthHost, v bus.Session) (string, string) {
+func (Adapter) Health(_ agent.HealthHost, v model.Session) (string, string) {
 	if bus.CheckEndpoint(v.Endpoint) == nil {
 		return "bound_socket_present", ""
 	}
@@ -88,7 +88,7 @@ func (Adapter) RecoveryHint(d model.SessionDiagnostic) string {
 	return ""
 }
 
-func writeClaude(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+func writeClaude(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
 	if err := bus.CheckEndpoint(target.Endpoint); err != nil {
 		return failedReceipt(model.StatusNotSent, err)
 	}
@@ -117,7 +117,7 @@ func writeClaude(ctx context.Context, msg bus.Message, target bus.Session) bus.R
 	return writeClaudeFrame(ctx, conn, encoded)
 }
 
-func writeClaudeFrame(ctx context.Context, conn net.Conn, encoded []byte) bus.Receipt {
+func writeClaudeFrame(ctx context.Context, conn net.Conn, encoded []byte) model.Receipt {
 	release, err := socketio.BindContext(ctx, conn, 5*time.Second)
 	if err != nil {
 		return failedReceipt(model.StatusNotSent, err)
@@ -209,7 +209,7 @@ func configDir(variable, fallback string) string {
 	return fallback
 }
 
-func failedReceipt(status model.DeliveryStatus, err error) bus.Receipt {
+func failedReceipt(status model.DeliveryStatus, err error) model.Receipt {
 	receipt := model.NewReceipt(status)
 	receipt.Error = err.Error()
 	return receipt.WithCause(err)

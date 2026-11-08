@@ -53,7 +53,7 @@ func TestEventSequenceTwoProcesses(t *testing.T) {
 		}
 	}()
 	var logs [2]bytes.Buffer
-	for i, session := range []Session{one, two} {
+	for i, session := range []model.Session{one, two} {
 		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestEventSequenceTwoProcesses$", "-test.count=1")
 		cmd.Env = append(os.Environ(), "ZALKI_EVENT_TEST_STATE="+store.Dir, "ZALKI_EVENT_TEST_ID="+session.ID)
 		cmd.Stdout, cmd.Stderr, cmd.WaitDelay = &logs[i], &logs[i], time.Second

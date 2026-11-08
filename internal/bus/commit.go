@@ -25,7 +25,7 @@ func (w commitWriter) log() journal.BatchLog {
 
 // previous must be the exact on-disk bytes, including surrounding whitespace;
 // decoding into json.RawMessage is not an exact-byte read for this purpose.
-func (w commitWriter) prepare(previous []byte, next Session, event model.Event, removed []string) (journal.Batch, error) {
+func (w commitWriter) prepare(previous []byte, next model.Session, event model.Event, removed []string) (journal.Batch, error) {
 	if err := validatePreparedSession(previous, next, event); err != nil {
 		return journal.Batch{}, err
 	}
@@ -43,7 +43,7 @@ func (w commitWriter) prepare(previous []byte, next Session, event model.Event, 
 	return batch, nil
 }
 
-func prepareSessionBytes(previous []byte, next Session, removed []string) ([]byte, error) {
+func prepareSessionBytes(previous []byte, next model.Session, removed []string) ([]byte, error) {
 	var err error
 	mergePrior := json.RawMessage(previous)
 	if len(previous) != 0 && len(removed) != 0 {
@@ -66,7 +66,7 @@ func (w commitWriter) orderSessionDirectory(path string) error {
 	return journal.OrderDirectory(path)
 }
 
-func (w commitWriter) commit(previous []byte, next Session, event model.Event, removed []string) error {
+func (w commitWriter) commit(previous []byte, next model.Session, event model.Event, removed []string) error {
 	batch, err := w.prepare(previous, next, event, removed)
 	if err != nil {
 		return err
@@ -100,7 +100,7 @@ func (w commitWriter) validate(batch journal.Batch) error {
 }
 
 func validateEventSession(raw []byte, event model.Event) error {
-	var next Session
+	var next model.Session
 	if err := json.Unmarshal(raw, &next); err != nil {
 		return err
 	}

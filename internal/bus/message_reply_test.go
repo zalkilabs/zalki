@@ -14,11 +14,11 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 		t.Run(stage, func(t *testing.T) {
 			store := fixtureStore(t)
 			from, _, to, key := registerPair(t, store, "codex", "cursor")
-			parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
+			parent := model.Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
 			if err := store.saveMessage(parent); err != nil {
 				t.Fatal(err)
 			}
-			var reply Message
+			var reply model.Message
 			if err := store.locked(func() error {
 				var err error
 				reply, _, _, err = store.prepareMessage(SendRequest{Actor: to.ID, Capability: key, To: from.ID, MessageID: replyID(to.ID, parent.ID, "pong"), Body: "pong", ReplyTo: parent.ID}, false)
@@ -72,9 +72,9 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 				t.Fatal("committed intent not cleared", err)
 			}
 			calls := 0
-			service := Service{Store: restarted, Deliver: func(context.Context, Message, Session) Receipt {
+			service := Service{Store: restarted, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 				calls++
-				return Receipt{Status: model.StatusSubmitted}
+				return model.Receipt{Status: model.StatusSubmitted}
 			}}
 			if _, err := service.Reply(context.Background(), ReplyRequest{Actor: to.ID, Capability: key, MessageID: parent.ID, Body: "pong"}); err != nil || calls != 0 {
 				t.Fatal("recovery resubmitted an uncertain reply", err)
@@ -87,7 +87,7 @@ func TestReplyCannotAcknowledgeWithoutDurableIntent(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
+	parent := model.Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestReplyRecordsUnavailableDestinationWithAcknowledgement(t *testing.T) {
 		service := newTestService(t)
 		store := service.Store
 		from, _, to, key := registerPair(t, store, "codex", "cursor")
-		parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
+		parent := model.Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
 		if err := store.saveMessage(parent); err != nil {
 			t.Fatal(err)
 		}

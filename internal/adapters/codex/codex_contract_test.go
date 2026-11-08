@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestRecordedCodexHookAndMetadataContract(t *testing.T) {
@@ -47,7 +47,7 @@ func TestRecordedCodexHookAndMetadataContract(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	name, _ := adapter.LookupName(bus.Session{ID: "codex:" + hook.SessionID, Kind: "codex", NativeID: hook.SessionID, NativeConfigDir: root}, map[string]map[string]string{})
+	name, _ := adapter.LookupName(model.Session{ID: "codex:" + hook.SessionID, Kind: "codex", NativeID: hook.SessionID, NativeConfigDir: root}, map[string]map[string]string{})
 	if name != "Contract review" {
 		t.Fatalf("native metadata contract changed: got %q", name)
 	}

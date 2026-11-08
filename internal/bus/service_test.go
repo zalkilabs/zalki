@@ -15,10 +15,10 @@ func TestReceiptLogLevel(t *testing.T) {
 		model.StatusNotSent: slog.LevelWarn, model.StatusCommandFailed: slog.LevelWarn, model.StatusUnknownTimeout: slog.LevelWarn,
 		model.StatusUnknownWrite: slog.LevelWarn, model.StatusWakeUncertain: slog.LevelWarn,
 	} {
-		if got := receiptLogLevel(Receipt{Status: status}); got != want {
+		if got := receiptLogLevel(model.Receipt{Status: status}); got != want {
 			t.Errorf("%s logged at %v, want %v", status, got, want)
 		}
-		if receiptLogLevel(Receipt{Status: status, Error: "adapter reported a problem"}) != slog.LevelWarn {
+		if receiptLogLevel(model.Receipt{Status: status, Error: "adapter reported a problem"}) != slog.LevelWarn {
 			t.Errorf("%s carrying an error must warn", status)
 		}
 	}

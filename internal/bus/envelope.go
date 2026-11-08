@@ -8,7 +8,7 @@ import (
 
 // withLabel fills the sender display label for records written before labels
 // were snapshotted. The result is for rendering only and is never saved.
-func (s Store) withLabel(msg Message) Message {
+func (s Store) withLabel(msg model.Message) model.Message {
 	if msg.Kind == model.NoticeKind || msg.FromLabel != "" {
 		return msg
 	}

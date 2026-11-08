@@ -39,8 +39,8 @@ func TestCodexPromptFiltersOnlyCompletedExactEnvelopes(t *testing.T) {
 	from, key := registerAdapterSession(t, store, "cursor")
 	to, toKey := registerAdapterSession(t, store, "codex")
 	other, _ := registerAdapterSession(t, store, "codex")
-	service := bus.Service{Store: store, Deliver: func(context.Context, bus.Message, bus.Session) bus.Receipt {
-		return bus.Receipt{Status: "submitted"}
+	service := bus.Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
+		return model.Receipt{Status: "submitted"}
 	}}
 	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "hello"})
 	if err != nil {
@@ -67,8 +67,8 @@ func TestCodexPromptDoesNotReplayPreviousRegistration(t *testing.T) {
 	store := adapterTestStore(t)
 	from, key := registerAdapterSession(t, store, "cursor")
 	to, _ := registerAdapterSession(t, store, "codex")
-	service := bus.Service{Store: store, Deliver: func(context.Context, bus.Message, bus.Session) bus.Receipt {
-		return bus.Receipt{Status: "submitted"}
+	service := bus.Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
+		return model.Receipt{Status: "submitted"}
 	}}
 	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "previous registration"})
 	if err != nil {
@@ -94,7 +94,7 @@ func TestCodexPromptDoesNotReplayPreviousRegistration(t *testing.T) {
 	}
 }
 
-func codexStartHook(t *testing.T, service *bus.Service, target bus.Session, source string) (bus.Session, string) {
+func codexStartHook(t *testing.T, service *bus.Service, target model.Session, source string) (model.Session, string) {
 	t.Helper()
 	input, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(target.ID, "codex:"), CWD: target.CWD, Event: "SessionStart", Source: source})
 	var out bytes.Buffer
@@ -124,8 +124,8 @@ func TestCodexCompactionPreservesQueuedMessageRegistration(t *testing.T) {
 	if err := store.Update(to.ID, "busy", false); err != nil {
 		t.Fatal(err)
 	}
-	service := bus.Service{Store: store, Deliver: func(context.Context, bus.Message, bus.Session) bus.Receipt {
-		return bus.Receipt{Status: "submitted"}
+	service := bus.Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
+		return model.Receipt{Status: "submitted"}
 	}}
 	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "queued before compaction"})
 	if err != nil {

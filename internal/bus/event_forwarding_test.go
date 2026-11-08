@@ -11,7 +11,7 @@ import (
 
 // Keep the cross-actor audit strict while admitting the one expected outbox
 // event for a successful, bound ready-to-busy update.
-func allowBoundStateEvent(t *testing.T, store Store, target Session, before map[string]string) {
+func allowBoundStateEvent(t *testing.T, store Store, target model.Session, before map[string]string) {
 	t.Helper()
 	var prior eventMetadata
 	if err := json.Unmarshal([]byte(before[eventMetaPath]), &prior); err != nil {

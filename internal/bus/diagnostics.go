@@ -40,7 +40,7 @@ func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
 			"Untracked processes have an unknown loaded build; they may predate runtime tracking.",
 		}}
 	s.diagnoseAgents(ctx, &report)
-	var sessions []Session
+	var sessions []model.Session
 	var runtimes []RuntimeInfo
 	err := s.readLocked(func() error {
 		var err error
@@ -72,7 +72,7 @@ func (s Store) diagnoseAgents(ctx context.Context, report *DiagnosticReport) {
 		adapter, _ := s.registry().Lookup(kind)
 		d := adapter.Descriptor()
 		binary, err := exec.LookPath(d.Executable)
-		diagnostic := AgentDiagnostic{Kind: kind, Label: d.Label, Binary: binary, Found: err == nil, Receive: adapter.ReceiveCapabilities(Session{})}
+		diagnostic := AgentDiagnostic{Kind: kind, Label: d.Label, Binary: binary, Found: err == nil, Receive: adapter.ReceiveCapabilities(model.Session{})}
 		annotateClientCompatibility(ctx, &diagnostic)
 		annotateAdapterCompatibility(&diagnostic, adapter)
 		report.Agents = append(report.Agents, diagnostic)
@@ -80,7 +80,7 @@ func (s Store) diagnoseAgents(ctx context.Context, report *DiagnosticReport) {
 	}
 }
 
-func (s Store) diagnoseSessions(report *DiagnosticReport, sessions []Session) error {
+func (s Store) diagnoseSessions(report *DiagnosticReport, sessions []model.Session) error {
 	for _, v := range sessions {
 		d := model.SessionDiagnostic{ID: v.ID, Kind: v.Kind, Name: v.Name, State: v.State, Retired: v.Retired,
 			RetiredReason: v.RetiredReason, Liveness: s.sessionLiveness(v), Owner: v.Owner,

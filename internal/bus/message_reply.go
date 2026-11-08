@@ -16,10 +16,10 @@ import (
 )
 
 type replyTransaction struct {
-	Schema         int     `json:"schema"`
-	ParentID       string  `json:"parent_id"`
-	AcknowledgedAt string  `json:"acknowledged_at"`
-	Reply          Message `json:"reply"`
+	Schema         int           `json:"schema"`
+	ParentID       string        `json:"parent_id"`
+	AcknowledgedAt string        `json:"acknowledged_at"`
+	Reply          model.Message `json:"reply"`
 }
 
 // Bind reply IDs to sender, parent, and body so retries reuse the reservation.
@@ -32,7 +32,7 @@ func replyID(actor, parent, body string) string {
 // prepareReply reserves a reply and commits its durable intent under the journal
 // lock. The results are filled in even when it fails, as the caller needs the
 // reservation it was refused with (see prepareReplyLocked).
-func (s Store) prepareReply(request ReplyRequest) (msg Message, target Session, fresh bool, err error) {
+func (s Store) prepareReply(request ReplyRequest) (msg model.Message, target model.Session, fresh bool, err error) {
 	err = s.locked(func() error {
 		var lockedErr error
 		msg, target, fresh, lockedErr = s.prepareReplyLocked(request)
@@ -46,7 +46,7 @@ func (s Store) prepareReply(request ReplyRequest) (msg Message, target Session, 
 // still be acknowledged), then reserves the reply (reserveReply) and commits the
 // intent (commitReplyIntent). Every refusal before the reservation leaves the
 // journal as it was.
-func (s Store) prepareReplyLocked(request ReplyRequest) (msg Message, target Session, fresh bool, err error) {
+func (s Store) prepareReplyLocked(request ReplyRequest) (msg model.Message, target model.Session, fresh bool, err error) {
 	sender, err := s.authenticate(request.Actor, request.Capability)
 	if err != nil {
 		return msg, target, fresh, err
@@ -65,7 +65,7 @@ func (s Store) prepareReplyLocked(request ReplyRequest) (msg Message, target Ses
 // replyParent loads the message being answered. Only its recipient may reply,
 // an automatic notice cannot be answered, and a message that was not sent
 // cannot be acknowledged.
-func (s Store) replyParent(actor, id string) (Message, error) {
+func (s Store) replyParent(actor, id string) (model.Message, error) {
 	parent, err := s.message(id)
 	if err != nil {
 		return parent, err
@@ -86,7 +86,7 @@ func (s Store) replyParent(actor, id string) (Message, error) {
 // destination is unavailable or gone, the reply is still recorded, as not sent,
 // and the parent is still acknowledged by the caller (characterized, not
 // endorsed): see refuseReply.
-func (s Store) reserveReply(sender Session, request ReplyRequest, parent Message) (msg Message, target Session, fresh bool, err error) {
+func (s Store) reserveReply(sender model.Session, request ReplyRequest, parent model.Message) (msg model.Message, target model.Session, fresh bool, err error) {
 	actor, body := request.Actor, request.Body
 	msg, target, fresh, err = s.prepareMessage(SendRequest{Actor: actor, Capability: request.Capability, To: parent.From, MessageID: replyID(actor, parent.ID, body), Body: body, ReplyTo: parent.ID}, false)
 	if code := model.ErrorCodeOf(err); code == model.CodeUnavailable || code == model.CodeNotFound {
@@ -98,7 +98,7 @@ func (s Store) reserveReply(sender Session, request ReplyRequest, parent Message
 // refuseReply records a reply to an unavailable destination as a not-sent
 // message. The error it returns is nil when the refusal was recorded, so the
 // reply goes on to acknowledge the parent.
-func (s Store) refuseReply(sender Session, actor string, parent Message, body string, target Session, code model.ErrorCode, refusalReason string) (msg Message, _ Session, fresh bool, err error) {
+func (s Store) refuseReply(sender model.Session, actor string, parent model.Message, body string, target model.Session, code model.ErrorCode, refusalReason string) (msg model.Message, _ model.Session, fresh bool, err error) {
 	target.ID = parent.From
 	msg, err = s.outgoingMessage(sender, target, replyID(actor, parent.ID, body), body, parent.ID)
 	if err == nil {
@@ -114,7 +114,7 @@ func (s Store) refuseReply(sender Session, actor string, parent Message, body st
 // record that does not exist yet: a retry of an existing record must not spend
 // it again. If that fails, the message is settled again with that error's code.
 // Refused reply records also grow the journal, so they must use quota.
-func (s Store) chargeRefusedReply(msg *Message) error {
+func (s Store) chargeRefusedReply(msg *model.Message) error {
 	var err error
 	if _, lookupErr := s.message(msg.ID); errors.Is(lookupErr, os.ErrNotExist) {
 		err = s.consumeFloodQuota(*msg, time.Now())
@@ -131,7 +131,7 @@ func (s Store) chargeRefusedReply(msg *Message) error {
 
 // commitReplyIntent writes the durable intent (the commit point) and applies
 // it: reservation, acknowledgement of the parent, removal of the intent.
-func (s Store) commitReplyIntent(parent, msg Message, fresh bool) error {
+func (s Store) commitReplyIntent(parent, msg model.Message, fresh bool) error {
 	if parent.AcknowledgedAt == "" {
 		parent.AcknowledgedAt = model.Timestamp()
 	}
@@ -230,7 +230,7 @@ func validateReplyTransaction(dir, path string, tx replyTransaction) error {
 // matchingReplyParent loads the parent of the reply. It must exist, be
 // addressed to the reply's sender, come from the reply's recipient, and still
 // be acknowledgeable.
-func (s Store) matchingReplyParent(tx replyTransaction) (Message, error) {
+func (s Store) matchingReplyParent(tx replyTransaction) (model.Message, error) {
 	parent, err := s.message(tx.ParentID)
 	if err != nil {
 		return parent, err
@@ -274,7 +274,7 @@ func (s Store) restoreReplyReservation(path string, tx replyTransaction) error {
 
 // finishReplyTransaction acknowledges the parent if it is not yet, then removes
 // the intent: the last step, after which the reply is fully applied.
-func (s Store) finishReplyTransaction(path string, tx replyTransaction, parent Message) error {
+func (s Store) finishReplyTransaction(path string, tx replyTransaction, parent model.Message) error {
 	if parent.AcknowledgedAt == "" {
 		parent.AcknowledgedAt = tx.AcknowledgedAt
 		if err := s.saveMessage(parent); err != nil {

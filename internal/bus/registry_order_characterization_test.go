@@ -16,7 +16,7 @@ type registryOrderAdapter struct {
 	descriptor agent.AdapterDescriptor
 	caps       model.ReceiveCapabilities
 	calls      *[]string
-	inputs     *[]Session
+	inputs     *[]model.Session
 }
 
 func (a registryOrderAdapter) Descriptor() agent.AdapterDescriptor {
@@ -24,13 +24,13 @@ func (a registryOrderAdapter) Descriptor() agent.AdapterDescriptor {
 	return a.descriptor
 }
 
-func (a registryOrderAdapter) ReceiveCapabilities(v Session) model.ReceiveCapabilities {
+func (a registryOrderAdapter) ReceiveCapabilities(v model.Session) model.ReceiveCapabilities {
 	*a.calls = append(*a.calls, a.tag+".capabilities")
 	*a.inputs = append(*a.inputs, v)
 	return a.caps
 }
 
-func (registryOrderAdapter) Deliver(context.Context, Message, Session) Receipt {
+func (registryOrderAdapter) Deliver(context.Context, model.Message, model.Session) model.Receipt {
 	panic("registry construction must not deliver")
 }
 
@@ -75,7 +75,7 @@ func TestRegistryErrorAndCallbackPrecedence(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var calls []string
-			var inputs []Session
+			var inputs []model.Session
 			probe := registryOrderAdapter{tag: "probe", descriptor: agent.AdapterDescriptor{Kind: test.kind, Label: test.label, Hooks: test.hooks}, caps: test.caps, calls: &calls, inputs: &inputs}
 			var adapter agent.Adapter = probe
 			if test.withHooks {
@@ -99,7 +99,7 @@ func registryOrderCaps(hooks bool) model.ReceiveCapabilities {
 	return model.ReceiveCapabilities{Delivery: "fixture", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: hooks}
 }
 
-func assertRegistryOrder(t *testing.T, calls []string, inputs []Session, want []string) {
+func assertRegistryOrder(t *testing.T, calls []string, inputs []model.Session, want []string) {
 	t.Helper()
 	if !reflect.DeepEqual(calls, want) {
 		t.Fatalf("callback order=%v, want %v", calls, want)
@@ -114,7 +114,7 @@ func assertRegistryOrder(t *testing.T, calls []string, inputs []Session, want []
 		t.Fatalf("capability callback count=%d, want %d", len(inputs), count)
 	}
 	for _, input := range inputs {
-		if !reflect.DeepEqual(input, Session{}) {
+		if !reflect.DeepEqual(input, model.Session{}) {
 			t.Fatalf("registry capabilities received a nonzero session: %+v", input)
 		}
 	}
@@ -130,7 +130,7 @@ func TestRegistryNilAndDuplicateStopCallbacks(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			var calls []string
-			var inputs []Session
+			var inputs []model.Session
 			first := registryOrderAdapter{tag: "first", descriptor: agent.AdapterDescriptor{Kind: "probe", Label: "Probe"}, caps: registryOrderCaps(false), calls: &calls, inputs: &inputs}
 			second := registryOrderAdapter{tag: "second", descriptor: first.descriptor, calls: &calls, inputs: &inputs}
 			adapters := []agent.Adapter{nil, first}
@@ -152,7 +152,7 @@ func TestRegistryNilAndDuplicateStopCallbacks(t *testing.T) {
 
 func TestRegistryCallbacksFollowInputOrderAndUseZeroSessions(t *testing.T) {
 	var calls []string
-	var inputs []Session
+	var inputs []model.Session
 	first := registryOrderAdapter{tag: "first", descriptor: agent.AdapterDescriptor{Kind: "zeta", Label: "Zeta"}, caps: registryOrderCaps(false), calls: &calls, inputs: &inputs}
 	second := registryOrderAdapter{tag: "second", descriptor: agent.AdapterDescriptor{Kind: "alpha", Label: "Alpha", Hooks: map[string]string{"start": "SessionStart"}}, caps: registryOrderCaps(true), calls: &calls, inputs: &inputs}
 	registry, err := agent.NewRegistry(first, registryOrderHooks{registryOrderAdapter: second})

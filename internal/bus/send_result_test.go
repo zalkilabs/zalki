@@ -14,7 +14,7 @@ func TestSendGeneratesIDsAndExplicitRetryNeverResubmits(t *testing.T) {
 	store := service.Store
 	from, key, to, _ := registerPair(t, store, "cursor", "codex")
 	calls := 0
-	service.Deliver = func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		calls++
 		return model.NewReceipt(model.StatusSubmitted)
 	}
@@ -49,7 +49,9 @@ func TestBusyDeliveryObservationIsNotPersisted(t *testing.T) {
 	if err := store.Update(to.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	service.Deliver = func(context.Context, Message, Session) Receipt { return model.NewReceipt(model.StatusSubmitted) }
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
+		return model.NewReceipt(model.StatusSubmitted)
+	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, Body: "review"})
 	if err != nil || msg.BusyDelivery != model.DeliveryNextTurn {
 		t.Fatal("delivery lost busy target timing", err)

@@ -35,7 +35,7 @@ func adapterTestStore(t *testing.T) bus.Store {
 	return store
 }
 
-func registerAdapterSession(t *testing.T, store bus.Store, kind string) (bus.Session, string) {
+func registerAdapterSession(t *testing.T, store bus.Store, kind string) (model.Session, string) {
 	t.Helper()
 	var endpoint *model.Endpoint
 	if kind == "claude" {
@@ -56,9 +56,9 @@ func writeTestJSON(path string, value any) error {
 	return os.WriteFile(path, data, 0600)
 }
 
-func adapterTestSession(t *testing.T, store bus.Store, id string) bus.Session {
+func adapterTestSession(t *testing.T, store bus.Store, id string) model.Session {
 	t.Helper()
-	var session bus.Session
+	var session model.Session
 	data, err := os.ReadFile(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json"))
 	if err != nil {
 		t.Fatal(err)
@@ -85,9 +85,9 @@ func adapterTestSession(t *testing.T, store bus.Store, id string) bus.Session {
 	return session
 }
 
-func adapterTestMessage(t *testing.T, store bus.Store, id string) bus.Message {
+func adapterTestMessage(t *testing.T, store bus.Store, id string) model.Message {
 	t.Helper()
-	var message bus.Message
+	var message model.Message
 	data, err := os.ReadFile(filepath.Join(store.Dir, "messages", id+".json"))
 	if err != nil {
 		t.Fatal(err)
@@ -98,6 +98,6 @@ func adapterTestMessage(t *testing.T, store bus.Store, id string) bus.Message {
 	return message
 }
 
-func saveAdapterTestSession(store bus.Store, session bus.Session) error {
+func saveAdapterTestSession(store bus.Store, session model.Session) error {
 	return writeTestJSON(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(session.ID, ":", "_")+".json"), session)
 }

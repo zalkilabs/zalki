@@ -191,7 +191,7 @@ func statusLine(text string) string {
 	return text[:cut] + ellipsis
 }
 
-func completionBody(subject Session, event, at, line string) string {
+func completionBody(subject model.Session, event, at, line string) string {
 	name := subject.Name
 	if !model.ValidName(name) {
 		name = "unnamed"
@@ -230,9 +230,9 @@ func (s *Service) notifyWatches(ctx context.Context, actor string, event agent.H
 	return first
 }
 
-func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subject Session, body string) (Message, error) {
-	var msg Message
-	var target Session
+func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subject model.Session, body string) (model.Message, error) {
+	var msg model.Message
+	var target model.Session
 	var fresh bool
 	err := s.Store.locked(func() error {
 		current, err := s.Store.session(watcherID)
@@ -243,7 +243,7 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 			return err
 		}
 		target = current
-		msg = Message{
+		msg = model.Message{
 			Schema: recordSchema, ID: newID(), Kind: model.NoticeKind, From: subject.ID, FromName: subject.Name,
 			FromLabel: "Zalki", To: current.ID, Body: body,
 			TargetGeneration: current.Generation, CreatedAt: model.Timestamp(), Status: model.StatusAttempting,
@@ -278,7 +278,7 @@ func (e *NoticeDeliveryError) Unwrap() error { return e.Err }
 // target is retired or has positive exit evidence. List and prune call it
 // when they observe that exit. An expired watch is removed and not delivered.
 func (s *Service) NoticeExitedSessions(ctx context.Context) error {
-	var exited []Session
+	var exited []model.Session
 	err := s.Store.locked(func() error {
 		sessions, err := s.Store.rawSessions()
 		if err != nil {
@@ -313,7 +313,7 @@ func (s *Service) NoticeExitedSessions(ctx context.Context) error {
 
 // deliverEnded sends the ended notice for subject to each consumed watch and
 // returns the first delivery failure.
-func (s *Service) deliverEnded(ctx context.Context, subject Session, watches []Watch) error {
+func (s *Service) deliverEnded(ctx context.Context, subject model.Session, watches []Watch) error {
 	var first error
 	body := completionBody(subject, "ended", model.Timestamp(), "")
 	for _, watch := range watches {

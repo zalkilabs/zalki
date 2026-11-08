@@ -55,7 +55,7 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 	if err != nil || registration.Endpoint == nil || *registration.Endpoint != *endpoint || registration.PreserveGeneration {
 		t.Fatal("matching native identity did not bind the exact endpoint", err)
 	}
-	if transport, _ := adapter.Health(nil, bus.Session{Endpoint: endpoint}); transport != "bound_socket_present" {
+	if transport, _ := adapter.Health(nil, model.Session{Endpoint: endpoint}); transport != "bound_socket_present" {
 		t.Fatal("registered endpoint is unavailable", transport)
 	}
 	// Verify actual startup composition binds this endpoint, rather than only
@@ -93,14 +93,14 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer replacement.Close()
-	transport, _ := adapter.Health(nil, bus.Session{Endpoint: endpoint})
+	transport, _ := adapter.Health(nil, model.Session{Endpoint: endpoint})
 	if transport != "socket_unavailable" {
 		t.Fatal("health accepted a replaced endpoint", transport)
 	}
 	if hint := adapter.RecoveryHint(model.SessionDiagnostic{TransportHealth: transport}); !strings.Contains(hint, "default integration") || strings.Contains(hint, "enabled") {
 		t.Fatalf("socket recovery still suggests an opt-in integration: %q", hint)
 	}
-	receipt := adapter.Deliver(context.Background(), bus.Message{ID: newTestID(), Body: "stale binding"}, bus.Session{Endpoint: endpoint})
+	receipt := adapter.Deliver(context.Background(), model.Message{ID: newTestID(), Body: "stale binding"}, model.Session{Endpoint: endpoint})
 	if receipt.Status != model.StatusNotSent || receipt.Error == "" || receipt.At == "" {
 		t.Fatalf("delivery accepted a replaced endpoint: %+v", receipt)
 	}

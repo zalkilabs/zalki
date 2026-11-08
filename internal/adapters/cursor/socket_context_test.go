@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -17,7 +16,7 @@ func TestCursorSocketHonorsContext(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			listener, endpoint := listenCursorSocket(t)
 			generation := newTestID()
-			target := bus.Session{Kind: "cursor", Generation: generation, Listener: &model.ListenerLease{ID: newTestID(), Generation: generation, Endpoint: *endpoint}}
+			target := model.Session{Kind: "cursor", Generation: generation, Listener: &model.ListenerLease{ID: newTestID(), Generation: generation, Endpoint: *endpoint}}
 			ctx, cancel := context.WithCancel(context.Background())
 			if mode == "caller deadline" {
 				cancel()
@@ -26,15 +25,15 @@ func TestCursorSocketHonorsContext(t *testing.T) {
 			defer cancel()
 			if mode == "already canceled" {
 				cancel()
-				receipt := (Adapter{}).Deliver(ctx, bus.Message{ID: newTestID()}, target)
+				receipt := (Adapter{}).Deliver(ctx, model.Message{ID: newTestID()}, target)
 				if receipt.Status != model.StatusPendingActivity {
 					t.Fatalf("unsent hint became uncertain: %+v", receipt)
 				}
 				assertNoSocketConnection(t, listener)
 				return
 			}
-			result := make(chan bus.Receipt, 1)
-			go func() { result <- (Adapter{}).Deliver(ctx, bus.Message{ID: newTestID()}, target) }()
+			result := make(chan model.Receipt, 1)
+			go func() { result <- (Adapter{}).Deliver(ctx, model.Message{ID: newTestID()}, target) }()
 			conn, err := listener.AcceptUnix()
 			if err != nil {
 				t.Fatal(err)

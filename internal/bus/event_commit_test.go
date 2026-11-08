@@ -93,7 +93,7 @@ func TestEventRetentionNeverBlocksHealthyFullLog(t *testing.T) {
 	}
 }
 
-func stagedLiveCommit(t *testing.T) (Store, Session, journal.Batch) {
+func stagedLiveCommit(t *testing.T) (Store, model.Session, journal.Batch) {
 	t.Helper()
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")

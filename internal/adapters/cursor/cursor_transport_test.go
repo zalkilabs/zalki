@@ -47,8 +47,8 @@ func TestCursorSenderRequiresExactHintEcho(t *testing.T) {
 				t.Fatal(err)
 			}
 			generation := newTestID()
-			target := bus.Session{Kind: "cursor", Generation: generation, Listener: &model.ListenerLease{ID: newTestID(), Generation: generation, Endpoint: *endpoint}}
-			message := bus.Message{ID: newTestID(), Body: "peer body must stay in the journal"}
+			target := model.Session{Kind: "cursor", Generation: generation, Listener: &model.ListenerLease{ID: newTestID(), Generation: generation, Endpoint: *endpoint}}
+			message := model.Message{ID: newTestID(), Body: "peer body must stay in the journal"}
 			done := make(chan error, 1)
 			go func() {
 				conn, err := listener.AcceptUnix()

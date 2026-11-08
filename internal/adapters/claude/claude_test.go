@@ -45,8 +45,8 @@ func listenClaudeSocket(t *testing.T) (*net.UnixListener, *model.Endpoint) {
 
 func TestRealClaudeSocketFrame(t *testing.T) {
 	listener, endpoint := listenClaudeSocket(t)
-	msg := bus.Message{ID: newTestID(), From: "codex:" + newTestID(), FromLabel: "Codex", To: "claude:" + newTestID(), Body: "exact body"}
-	receipt := writeClaude(context.Background(), msg, bus.Session{Kind: "claude", Endpoint: endpoint})
+	msg := model.Message{ID: newTestID(), From: "codex:" + newTestID(), FromLabel: "Codex", To: "claude:" + newTestID(), Body: "exact body"}
+	receipt := writeClaude(context.Background(), msg, model.Session{Kind: "claude", Endpoint: endpoint})
 	if receipt.Status != "transport_written" {
 		t.Fatalf("%+v", receipt)
 	}
@@ -92,7 +92,7 @@ func TestClaudeFrameSizeAndMissingEndpoint(t *testing.T) {
 		{"oversized escaped frame", endpoint, strings.Repeat("\x01", 16*1024)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			receipt := adapter.Deliver(context.Background(), bus.Message{ID: newTestID(), Body: test.body}, bus.Session{Endpoint: test.endpoint})
+			receipt := adapter.Deliver(context.Background(), model.Message{ID: newTestID(), Body: test.body}, model.Session{Endpoint: test.endpoint})
 			if receipt.Status != model.StatusNotSent || receipt.Error == "" || receipt.At == "" {
 				t.Fatalf("invalid delivery was not rejected: %+v", receipt)
 			}

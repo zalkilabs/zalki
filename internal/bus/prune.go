@@ -123,7 +123,7 @@ func (r *pruneRun) execute() error {
 // sweepSessions handles each session in ID order: retired records are deleted
 // or have a leftover lease released, and live sessions are retired when they
 // were selected or their owner exited.
-func (r *pruneRun) sweepSessions(sessions []Session) error {
+func (r *pruneRun) sweepSessions(sessions []model.Session) error {
 	for _, v := range sessions {
 		var err error
 		if v.Retired {
@@ -142,7 +142,7 @@ func (r *pruneRun) sweepSessions(sessions []Session) error {
 // retired records can retain a lease: it is released without changing the
 // retirement. Releasing sets UpdatedAt to now, which also restarts the
 // retention window (characterized, not endorsed).
-func (r *pruneRun) sweepRetired(v Session) error {
+func (r *pruneRun) sweepRetired(v model.Session) error {
 	if model.RetiredLongEnough(v.UpdatedAt, r.now, r.retention) {
 		return r.deleteRetired(v)
 	}
@@ -160,7 +160,7 @@ func (r *pruneRun) sweepRetired(v Session) error {
 
 // retireIfDue retires a live session that was selected or whose owner exited.
 // The decision is reported before the record is saved; a dry run stops there.
-func (r *pruneRun) retireIfDue(v Session) error {
+func (r *pruneRun) retireIfDue(v model.Session) error {
 	selected := r.selected[v.ID]
 	liveness := model.LivenessUnknown
 	if !selected {
@@ -194,7 +194,7 @@ func (r *pruneRun) deleteExitedRuntimes(runtimes []RuntimeInfo) error {
 	return nil
 }
 
-func (r *pruneRun) deleteRetired(v Session) error {
+func (r *pruneRun) deleteRetired(v model.Session) error {
 	s, dryRun, report := r.store, r.dryRun, &r.report
 	r.deleted[v.ID] = true
 	report.DeletedSessions = append(report.DeletedSessions, PruneItem{v.ID, "retention"})

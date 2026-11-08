@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestCursorReceiveIsDeferredAndDoesNotRestartInterruptedTurn(t *testing.T) {
@@ -19,9 +20,9 @@ func TestCursorReceiveIsDeferredAndDoesNotRestartInterruptedTurn(t *testing.T) {
 	if target.Receive.IdleWake {
 		t.Fatal("Cursor incorrectly advertises idle wake")
 	}
-	service := bus.Service{Store: store, Deliver: func(context.Context, bus.Message, bus.Session) bus.Receipt {
+	service := bus.Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 		t.Fatal("used unsupported Cursor transport")
-		return bus.Receipt{}
+		return model.Receipt{}
 	}}
 	id := newTestID()
 	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: id, Body: "cursor body"})

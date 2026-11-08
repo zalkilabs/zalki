@@ -59,8 +59,8 @@ func (s Store) sessionPath(id string) (string, error) {
 	return path, nil
 }
 
-func (s Store) session(id string) (Session, error) {
-	var session Session
+func (s Store) session(id string) (model.Session, error) {
+	var session model.Session
 	path, err := s.sessionPath(id)
 	if err == nil {
 		session, err = s.readSession(path)
@@ -78,19 +78,19 @@ func (s Store) session(id string) (Session, error) {
 	return session, err
 }
 
-func (s Store) saveSession(v Session) error {
+func (s Store) saveSession(v model.Session) error {
 	return saveSessionWith(s, v, commitWriter{dir: s.Dir})
 }
 
-func (s Store) Register(kind, id, cwd string, endpoint *model.Endpoint) (Session, string, error) {
+func (s Store) Register(kind, id, cwd string, endpoint *model.Endpoint) (model.Session, string, error) {
 	return s.register(kind, id, cwd, endpoint, false)
 }
 
 // Compaction refreshes the model's private capability without replacing the
 // receiving registration. Its native queue still belongs to that registration.
 // Startup/resume and explicit registration continue to create a new generation.
-func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact bool) (Session, string, error) {
-	var session Session
+func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact bool) (model.Session, string, error) {
+	var session model.Session
 	full, err := s.sessionID(kind, id)
 	if err != nil {
 		return session, "", err
@@ -102,13 +102,13 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 	if err != nil {
 		return session, "", err
 	}
-	if adapter.ReceiveCapabilities(Session{}).RequiresEndpoint && endpoint == nil {
+	if adapter.ReceiveCapabilities(model.Session{}).RequiresEndpoint && endpoint == nil {
 		return session, "", fmt.Errorf("%s registration requires its own socket", adapter.Descriptor().Label)
 	}
 	key := newID() + newID()
 	hash := sha256.Sum256([]byte(key))
 	native, _ := canonicalNativeID(id)
-	session = Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: model.StateReady, UpdatedAt: model.Timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
+	session = model.Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: model.StateReady, UpdatedAt: model.Timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
 	if names, ok := adapter.(agent.NameAdapter); ok {
 		session.NativeConfigDir = names.ConfigDir()
 	}
@@ -146,7 +146,7 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 	return session, key, err
 }
 
-func (s Store) authenticate(id, key string) (Session, error) {
+func (s Store) authenticate(id, key string) (model.Session, error) {
 	current, err := s.session(id)
 	if err != nil {
 		return current, err
@@ -201,8 +201,8 @@ func (s Store) Update(id string, state model.SessionState, retire bool) error {
 
 // sessions is called with the journal lock held. Native names are a read-only
 // discovery view: they never change a session's routing identity or capability.
-func (s Store) sessionsWithWarnings() ([]Session, int, error) {
-	sessions := []Session{}
+func (s Store) sessionsWithWarnings() ([]model.Session, int, error) {
+	sessions := []model.Session{}
 	rows, issues, err := s.scanSessions()
 	if err != nil {
 		return nil, 0, err
@@ -230,19 +230,19 @@ func (s Store) sessionsWithWarnings() ([]Session, int, error) {
 	return sessions, len(issues), nil
 }
 
-func (s Store) sessions() ([]Session, error) {
+func (s Store) sessions() ([]model.Session, error) {
 	sessions, _, err := s.sessionsWithWarnings()
 	return sessions, err
 }
 
-func (s Store) List() ([]Session, error) {
+func (s Store) List() ([]model.Session, error) {
 	sessions, _, err := s.ListWithWarnings()
 	return sessions, err
 }
 
 // ListWithWarnings keeps the original row shape and reports skipped records once.
-func (s Store) ListWithWarnings() ([]Session, int, error) {
-	var sessions []Session
+func (s Store) ListWithWarnings() ([]model.Session, int, error) {
+	var sessions []model.Session
 	var skipped int
 	err := s.readLocked(func() error {
 		var err error
@@ -253,7 +253,7 @@ func (s Store) ListWithWarnings() ([]Session, int, error) {
 }
 
 // retireSession clears all active state, including any listener generation fence.
-func retireSession(v *Session, reason string) {
+func retireSession(v *model.Session, reason string) {
 	v.Retired, v.State, v.RetiredReason, v.Task, v.UpdatedAt = true, model.StateRetired, reason, "", model.Timestamp()
 	releaseListenerLease(v)
 }

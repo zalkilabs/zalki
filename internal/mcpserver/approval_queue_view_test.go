@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -23,7 +22,7 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 		t.Fatal(err)
 	}
 	calls := 0
-	service.Deliver = func(context.Context, bus.Message, bus.Session) bus.Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		calls++
 		return model.NewReceipt(model.StatusSubmitted)
 	}
@@ -55,8 +54,8 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 	if held.Status != model.StatusQueuedForApproval || held.Note != "Queued until the target's permission prompt is answered." || held.Error != "" {
 		t.Fatalf("held receipt: status=%s note=%q error=%q", held.Status, held.Note, held.Error)
 	}
-	legacy := bus.Message{Schema: 1, ID: "00000000-0000-4000-8000-000000000023", From: from.ID, To: to.ID,
-		Receipt: &bus.Receipt{Status: model.StatusApprovalBlocked, Error: "queued until the permission prompt is answered"},
+	legacy := model.Message{Schema: 1, ID: "00000000-0000-4000-8000-000000000023", From: from.ID, To: to.ID,
+		Receipt: &model.Receipt{Status: model.StatusApprovalBlocked, Error: "queued until the permission prompt is answered"},
 		Body:    "legacy receipt fixture", TargetGeneration: to.Generation, CreatedAt: "2026-11-01T00:00:00Z", Status: model.StatusApprovalBlocked}
 	encoded, err := json.Marshal(legacy)
 	if err != nil {
@@ -91,7 +90,7 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 		if err != nil {
 			t.Fatal(err)
 		}
-		var stored bus.Message
+		var stored model.Message
 		if err := json.Unmarshal(data, &stored); err != nil {
 			t.Fatal(err)
 		}

@@ -129,7 +129,7 @@ func TestLiveClients(t *testing.T) {
 			t.Fatalf("unknown smoke case %q", scenario)
 		}
 	}
-	selected := map[string]bus.Session{}
+	selected := map[string]model.Session{}
 	for _, id := range targets {
 		session := smokeSession(t, store, id)
 		cwd, err := filepath.EvalSymlinks(session.CWD)
@@ -235,7 +235,7 @@ func TestLiveClients(t *testing.T) {
 				t.Fatal("smoke send was not accepted:", request.Status, err)
 			}
 			timer := time.NewTimer(2 * time.Minute)
-			var reply bus.Message
+			var reply model.Message
 			select {
 			case replyID := <-signals.messages:
 				batch, err := store.ReadMessages(bus.MessageQuery{Actor: source.ID, Capability: key, MessageID: replyID})
@@ -272,7 +272,7 @@ func TestLiveClients(t *testing.T) {
 	t.Log(string(encoded))
 }
 
-func smokeSession(t *testing.T, store bus.Store, id string) bus.Session {
+func smokeSession(t *testing.T, store bus.Store, id string) model.Session {
 	t.Helper()
 	sessions, err := store.List()
 	if err != nil {
@@ -284,7 +284,7 @@ func smokeSession(t *testing.T, store bus.Store, id string) bus.Session {
 		}
 	}
 	t.Fatalf("%s is not a live registered session", id)
-	return bus.Session{}
+	return model.Session{}
 }
 
 func smokeAccepted(status model.DeliveryStatus) bool {

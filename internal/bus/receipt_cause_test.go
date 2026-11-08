@@ -6,11 +6,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestReceiptCauseAccessor(t *testing.T) {
-	original := bus.Receipt{}
+	original := model.Receipt{}
 	if original.Cause() != nil {
 		t.Fatal("zero receipt has a cause")
 	}

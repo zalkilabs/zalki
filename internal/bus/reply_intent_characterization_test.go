@@ -16,7 +16,7 @@ import (
 // been answered yet, plus the reply record that a real Reply would reserve.
 type replyFixture struct {
 	store  bus.Store
-	parent bus.Message
+	parent model.Message
 	// reply is the persisted JSON of the reservation for the reply "pong".
 	reply map[string]any
 	// replier is the recipient of the parent message.

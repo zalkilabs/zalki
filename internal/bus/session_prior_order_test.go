@@ -65,7 +65,7 @@ func TestZeroEventPriorRenameOrdering(t *testing.T) {
 	}
 }
 
-func simulatePrivateRenameSyncFailure(t *testing.T, store Store, session Session, path, directory string) {
+func simulatePrivateRenameSyncFailure(t *testing.T, store Store, session model.Session, path, directory string) {
 	t.Helper()
 	if err := os.Chmod(directory, 0300); err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func simulatePrivateRenameSyncFailure(t *testing.T, store Store, session Session
 	}
 }
 
-func publishEventBeforeTargetCut(t *testing.T, store Store, session Session, writer commitWriter) {
+func publishEventBeforeTargetCut(t *testing.T, store Store, session model.Session, writer commitWriter) {
 	t.Helper()
 	session.State = model.StateBusy
 	err := store.locked(func() error { return saveSessionWith(store, session, writer) })

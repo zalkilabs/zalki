@@ -6,7 +6,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -36,13 +35,13 @@ func fullModelReceive() model.ReceiveCapabilities {
 		LifecycleHooks: true, HookDelivery: true, RequiresListener: true, RequiresEndpoint: true, Experimental: true}
 }
 
-func fullModelReceipt() bus.Receipt {
-	r := bus.Receipt{At: "at", Status: model.StatusSubmitted, Code: model.CodeUnavailable, Error: "public error", Output: "output"}
+func fullModelReceipt() model.Receipt {
+	r := model.Receipt{At: "at", Status: model.StatusSubmitted, Code: model.CodeUnavailable, Error: "public error", Output: "output"}
 	return r.WithCause(errors.New("live cause must not serialize"))
 }
 
-func fullModelSession() bus.Session {
-	return bus.Session{
+func fullModelSession() model.Session {
+	return model.Session{
 		Schema: 2, NativeID: "native", AdapterState: json.RawMessage(`{"schema":1,"flag":true}`), ID: "alpha:id", Kind: "alpha",
 		Name: "Name", NameSource: "fixture", Task: "Task", NativeConfigDir: "/config", CWD: "/workspace", Generation: "generation",
 		State: model.StateBusy, UpdatedAt: "updated", Retired: true, RetiredReason: "done", ApprovalHeld: 2,
@@ -56,14 +55,14 @@ func fullModelSession() bus.Session {
 func TestModelSessionJSONSurface(t *testing.T) {
 	for _, test := range []struct {
 		name  string
-		value bus.Session
+		value model.Session
 		want  string
 	}{
-		{"zero", bus.Session{}, zeroModelSessionJSON},
-		{"empty raw state", bus.Session{AdapterState: json.RawMessage{}}, zeroModelSessionJSON},
-		{"explicit raw null", bus.Session{AdapterState: json.RawMessage(`null`)},
+		{"zero", model.Session{}, zeroModelSessionJSON},
+		{"empty raw state", model.Session{AdapterState: json.RawMessage{}}, zeroModelSessionJSON},
+		{"explicit raw null", model.Session{AdapterState: json.RawMessage(`null`)},
 			`{"schema":0,"adapter_state":null,"id":"","kind":"","cwd":"","generation":"","state":"","updated_at":"","retired":false,"receive":` + zeroModelReceiveJSON + `}`},
-		{"non-nil zero pointers", bus.Session{Owner: &model.ProcessRef{}, Endpoint: &model.Endpoint{}, Listener: &model.ListenerLease{}},
+		{"non-nil zero pointers", model.Session{Owner: &model.ProcessRef{}, Endpoint: &model.Endpoint{}, Listener: &model.ListenerLease{}},
 			`{"schema":0,"id":"","kind":"","cwd":"","generation":"","state":"","updated_at":"","retired":false,"owner":{"pid":0,"start":"","role":""},"endpoint":{"path":"","device":0,"inode":0,"changed_ns":0},"listener":{"id":"","generation":"","endpoint":{"path":"","device":0,"inode":0,"changed_ns":0}},"receive":` + zeroModelReceiveJSON + `}`},
 		{"all fields", fullModelSession(),
 			`{"schema":2,"native_id":"native","adapter_state":{"schema":1,"flag":true},"id":"alpha:id","kind":"alpha","name":"Name","name_source":"fixture","task":"Task","native_config_dir":"/config","cwd":"/workspace","generation":"generation","state":"busy","updated_at":"updated","retired":true,"retired_reason":"done","approval_held":2,"owner":{"pid":7,"start":"start","role":"client"},"liveness":"alive","hook_build":"build","endpoint":{"path":"/socket","device":3,"inode":5,"changed_ns":7},"listener":{"id":"lease","generation":"generation","endpoint":{"path":"/listener","device":11,"inode":13,"changed_ns":17}},"key_hash":"hash","receive":` + fullModelReceiveJSON + `}`},
@@ -76,12 +75,12 @@ func TestModelMessageJSONSurface(t *testing.T) {
 	receipt := fullModelReceipt()
 	for _, test := range []struct {
 		name  string
-		value bus.Message
+		value model.Message
 		want  string
 	}{
-		{"zero", bus.Message{}, `{"schema":0,"id":"","from":"","to":"","body":"","target_generation":"","created_at":"","status":""}`},
-		{"non-nil zero receipt", bus.Message{Receipt: &bus.Receipt{}}, `{"schema":0,"id":"","from":"","to":"","body":"","target_generation":"","created_at":"","status":"","receipt":{"at":"","status":""}}`},
-		{"all fields", bus.Message{
+		{"zero", model.Message{}, `{"schema":0,"id":"","from":"","to":"","body":"","target_generation":"","created_at":"","status":""}`},
+		{"non-nil zero receipt", model.Message{Receipt: &model.Receipt{}}, `{"schema":0,"id":"","from":"","to":"","body":"","target_generation":"","created_at":"","status":"","receipt":{"at":"","status":""}}`},
+		{"all fields", model.Message{
 			BusyDelivery: model.DeliveryNextTurn, BodyPreview: "not serialized", Schema: 1, ID: "message", From: "alpha:from", Kind: "notice",
 			FromName: "Sender", FromLabel: "Alpha", To: "beta:to", RequestedTo: "Alias", Body: "body", BodyOmitted: true, BodyDeferred: true,
 			ReplyTo: "parent", TargetGeneration: "generation", CreatedAt: "created", Status: model.StatusSubmitted, Held: true, Receipt: &receipt, AcknowledgedAt: "acknowledged",
@@ -94,10 +93,10 @@ func TestModelMessageJSONSurface(t *testing.T) {
 func TestModelReceiptJSONSurface(t *testing.T) {
 	for _, test := range []struct {
 		name  string
-		value bus.Receipt
+		value model.Receipt
 		want  string
 	}{
-		{"zero", bus.Receipt{}, `{"at":"","status":""}`},
+		{"zero", model.Receipt{}, `{"at":"","status":""}`},
 		{"all fields and live cause", fullModelReceipt(), `{"at":"at","status":"submitted","code":"unavailable","error":"public error","output":"output"}`},
 	} {
 		t.Run(test.name, func(t *testing.T) { requireModelJSON(t, test.value, test.want) })

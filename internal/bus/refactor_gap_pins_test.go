@@ -31,7 +31,7 @@ func TestEmitPendingRendersTheAdapterLabelOfARecordWithoutOne(t *testing.T) {
 		t.Fatalf("the test needs a real adapter label, got %q", label)
 	}
 	msg := f.queue(t, "hello", time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC))
-	f.rewrite(t, msg.ID, func(m *Message) { m.FromLabel = "" })
+	f.rewrite(t, msg.ID, func(m *model.Message) { m.FromLabel = "" })
 
 	context, err := f.store.EmitPending(f.target.ID)
 	if err != nil {
@@ -106,7 +106,7 @@ func TestPruneRecountsARetiredSessionThatHoldsACountButHasNoQueue(t *testing.T) 
 
 // retiredWithHeld registers a cursor session, retires it, and stores the given
 // approval count on it.
-func retiredWithHeld(t *testing.T, store Store, last string, held int) Session {
+func retiredWithHeld(t *testing.T, store Store, last string, held int) model.Session {
 	t.Helper()
 	v := fixedSession(t, store, last)
 	if err := store.Update(v.ID, model.StateRetired, true); err != nil {

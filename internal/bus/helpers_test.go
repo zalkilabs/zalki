@@ -12,7 +12,7 @@ func fixtureStore(t *testing.T) Store {
 	return Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: testRegistry()}
 }
 
-func register(t *testing.T, store Store, kind string) (Session, string) {
+func register(t *testing.T, store Store, kind string) (model.Session, string) {
 	t.Helper()
 	var endpoint *model.Endpoint
 	if kind == "claude" {
@@ -32,7 +32,7 @@ func newTestService(t *testing.T) Service {
 	return Service{Store: fixtureStore(t)}
 }
 
-func registerPair(t *testing.T, store Store, senderKind, targetKind string) (Session, string, Session, string) {
+func registerPair(t *testing.T, store Store, senderKind, targetKind string) (model.Session, string, model.Session, string) {
 	t.Helper()
 	sender, senderKey := register(t, store, senderKind)
 	target, targetKey := register(t, store, targetKind)

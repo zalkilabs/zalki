@@ -44,8 +44,8 @@ func TestMessageLogsCorrelateWithoutExposingPrivateContent(t *testing.T) {
 	if err := store.hookName(from.ID, private); err != nil {
 		t.Fatal(err)
 	}
-	service := Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
-		return Receipt{Status: model.StatusSubmitted, Output: private + key}
+	service := Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
+		return model.Receipt{Status: model.StatusSubmitted, Output: private + key}
 	}}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: private})
 	if err != nil {
@@ -66,8 +66,8 @@ func TestMessageLogsCorrelateWithoutExposingPrivateContent(t *testing.T) {
 		t.Fatal("credential leak accepted")
 	}
 	service.ObserveTool("send_message", from.ID, msg.ID, 1, fmt.Errorf("%s %s", key, private))
-	service.Deliver = func(context.Context, Message, Session) Receipt {
-		return Receipt{Status: model.StatusNotSent, Error: private + key, Code: model.ErrorCode(key), Output: private + key}.WithCause(fmt.Errorf("%s: %w", private, syscall.ECONNREFUSED))
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
+		return model.Receipt{Status: model.StatusNotSent, Error: private + key, Code: model.ErrorCode(key), Output: private + key}.WithCause(fmt.Errorf("%s: %w", private, syscall.ECONNREFUSED))
 	}
 	if _, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: private}); err != nil {
 		t.Fatal(err)
@@ -119,11 +119,11 @@ func TestRecoveryLoggingKeepsUncertainReplyUnsubmitted(t *testing.T) {
 	var output bytes.Buffer
 	store.Logger = slog.New(slog.NewJSONHandler(&output, nil))
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "private-recovery-body", Status: model.StatusSubmitted}
+	parent := model.Message{ID: newID(), From: from.ID, To: to.ID, Body: "private-recovery-body", Status: model.StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
-	var reply Message
+	var reply model.Message
 	if err := store.locked(func() error {
 		var err error
 		reply, _, _, err = store.prepareMessage(SendRequest{Actor: to.ID, Capability: key, To: from.ID, MessageID: replyID(to.ID, parent.ID, "private-reply-body"), Body: "private-reply-body", ReplyTo: parent.ID}, false)

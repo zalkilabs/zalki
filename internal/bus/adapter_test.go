@@ -61,11 +61,11 @@ func (a fixtureAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: a.kind, Label: "Fixture", Hooks: map[string]string{"start": "SessionStart", "end": "SessionEnd", "tool": "PostToolUse"}, ProcessNames: []string{"fixture-agent"}, OwnerRole: "client"}
 }
 
-func (a fixtureAdapter) ReceiveCapabilities(Session) model.ReceiveCapabilities {
+func (a fixtureAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
 	return model.ReceiveCapabilities{Delivery: "fixture", Inbox: a.inbox, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: true, HookDelivery: a.inbox == model.InboxJournal}
 }
 
-func (a fixtureAdapter) Deliver(_ context.Context, _ Message, _ Session) Receipt {
+func (a fixtureAdapter) Deliver(_ context.Context, _ model.Message, _ model.Session) model.Receipt {
 	if a.deliveries != nil {
 		a.deliveries.Add(1)
 	}
@@ -73,11 +73,11 @@ func (a fixtureAdapter) Deliver(_ context.Context, _ Message, _ Session) Receipt
 	if a.inbox == model.InboxJournal {
 		status = model.StatusPendingActivity
 	}
-	return Receipt{At: model.Timestamp(), Status: status}
+	return model.Receipt{At: model.Timestamp(), Status: status}
 }
 
 func (a fixtureAdapter) ConfigDir() string { return "/fixture" }
-func (a fixtureAdapter) LookupName(v Session, _ map[string]map[string]string) (string, string) {
+func (a fixtureAdapter) LookupName(v model.Session, _ map[string]map[string]string) (string, string) {
 	return a.kind + " " + model.NativeID(v), "fixture_metadata"
 }
 func (a fixtureAdapter) Configuration(binary string, args []string) []model.ConfigDeclaration {
@@ -202,7 +202,7 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			c := adapter.ReceiveCapabilities(Session{})
+			c := adapter.ReceiveCapabilities(model.Session{})
 			if c.Inbox != test.inbox || c.BusyDelivery != test.timing || c.IdleWake != test.idle || c.RequiresListener != test.listener || c.Experimental != test.experimental {
 				t.Fatalf("unexpected receive profile: %+v", c)
 			}
@@ -211,7 +211,7 @@ func TestBuiltinCapabilitiesDescribeInboxAndWakeRequirements(t *testing.T) {
 			}
 		})
 	}
-	c := (stubCursorAdapter{}).ReceiveCapabilities(Session{Listener: &model.ListenerLease{}})
+	c := (stubCursorAdapter{}).ReceiveCapabilities(model.Session{Listener: &model.ListenerLease{}})
 	if !c.IdleWake || c.Inbox != model.InboxJournal || c.BusyDelivery != model.DeliveryNotification {
 		t.Fatal("armed listener did not change the advertised receive profile")
 	}

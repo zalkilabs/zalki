@@ -17,7 +17,7 @@ import (
 
 // A released or future build may write compact JSON that is readable but grows
 // beyond the journal bound when an extension is indented during a rewrite.
-func compactExtendedMessage(t *testing.T, store Store, msg Message) (string, []byte) {
+func compactExtendedMessage(t *testing.T, store Store, msg model.Message) (string, []byte) {
 	t.Helper()
 	if err := store.locked(func() error { return nil }); err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func requireEncodedSizeError(t *testing.T, err error) {
 
 func TestPreservedExtensionsRemainWithinEncodedReadLimit(t *testing.T) {
 	store := fixtureStore(t)
-	msg := Message{ID: newID(), From: "codex:" + newID(), To: "cursor:" + newID(), Body: "fixture", Status: model.StatusSubmitted}
+	msg := model.Message{ID: newID(), From: "codex:" + newID(), To: "cursor:" + newID(), Body: "fixture", Status: model.StatusSubmitted}
 	path, before := compactExtendedMessage(t, store, msg)
 	requireEncodedSizeError(t, store.saveMessage(msg))
 	after, err := os.ReadFile(path)
@@ -135,12 +135,12 @@ func TestMessageWriteSizeRefusalKeepsDurableStatusAndLogsFailure(t *testing.T) {
 			if operation == "receipt" {
 				status = model.StatusAttempting
 			}
-			msg := Message{ID: newID(), From: from.ID, To: target.ID, TargetGeneration: target.Generation, Body: "private-body-size-sentinel", Status: status}
+			msg := model.Message{ID: newID(), From: from.ID, To: target.ID, TargetGeneration: target.Generation, Body: "private-body-size-sentinel", Status: status}
 			path, before := compactExtendedMessage(t, store, msg)
 			snapshot := journalSnapshot(t, store)
 			var diagnostic bytes.Buffer
 			store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
-			var result Message
+			var result model.Message
 			var err error
 			wantEvent := "message.ack_failed"
 			if operation == "receipt" {
@@ -180,7 +180,7 @@ func TestMaxControlCharacterBodyFitsEncodedJournalLimit(t *testing.T) {
 	store := service.Store
 	from, key, target, targetKey := registerPair(t, store, "cursor", "codex")
 	calls := 0
-	service.Deliver = func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		calls++
 		return model.NewReceipt(model.StatusSubmitted)
 	}

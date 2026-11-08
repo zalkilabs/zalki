@@ -16,7 +16,7 @@ import (
 
 func approvalService(t *testing.T, store Store, delivered *[]string) Service {
 	t.Helper()
-	return Service{Store: store, Deliver: func(_ context.Context, msg Message, _ Session) Receipt {
+	return Service{Store: store, Deliver: func(_ context.Context, msg model.Message, _ model.Session) model.Receipt {
 		*delivered = append(*delivered, msg.Body)
 		return model.NewReceipt(model.StatusSubmitted)
 	}}
@@ -42,7 +42,7 @@ func TestApprovalQueueDeliversOnceInOrder(t *testing.T) {
 	var delivered []string
 	service := approvalService(t, store, &delivered)
 	bodies := []string{"one", "two", "three"}
-	var first Message
+	var first model.Message
 	for i, body := range bodies {
 		msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: body})
 		if err != nil || msg.Status != model.StatusApprovalBlocked || msg.Receipt == nil || msg.Receipt.Error != model.ApprovalQueuedNote {
@@ -140,7 +140,7 @@ func TestLegacyApprovalRefusalIsNotReleased(t *testing.T) {
 	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
-	legacy := Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusApprovalBlocked}
+	legacy := model.Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusApprovalBlocked}
 	if err := store.saveMessage(legacy); err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +301,7 @@ func TestApprovalQueueDeliversOnceUnderConcurrentHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 	var n atomic.Int32
-	service.Deliver = func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		n.Add(1)
 		return model.NewReceipt(model.StatusSubmitted)
 	}

@@ -163,11 +163,11 @@ func TestStateFormatFenceKeepsReadsAndRefusesEveryWriteWithoutChanges(t *testing
 func TestFutureMarkerDefersReplyRecoveryAndRetainsUnknownIntentFields(t *testing.T) {
 	store := fixtureStore(t)
 	from, _, target, _ := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: target.ID, Body: "question", Status: model.StatusSubmitted, TargetGeneration: target.Generation}
+	parent := model.Message{ID: newID(), From: from.ID, To: target.ID, Body: "question", Status: model.StatusSubmitted, TargetGeneration: target.Generation}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
-	reply := Message{Schema: 1, ID: replyID(target.ID, parent.ID, "answer"), From: target.ID, To: from.ID, ReplyTo: parent.ID, Body: "answer", Status: model.StatusAttempting, TargetGeneration: from.Generation}
+	reply := model.Message{Schema: 1, ID: replyID(target.ID, parent.ID, "answer"), From: target.ID, To: from.ID, ReplyTo: parent.ID, Body: "answer", Status: model.StatusAttempting, TargetGeneration: from.Generation}
 	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: model.Timestamp(), Reply: reply}
 	txPath := filepath.Join(store.Dir, "transactions", reply.ID+".json")
 	if err := os.MkdirAll(filepath.Dir(txPath), 0700); err != nil {

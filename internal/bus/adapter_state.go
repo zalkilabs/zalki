@@ -18,7 +18,7 @@ const (
 // sessionFields lists the JSON names of every core session field.
 var sessionFields = func() []string {
 	var names []string
-	t := reflect.TypeOf(Session{})
+	t := reflect.TypeOf(model.Session{})
 	for i := range t.NumField() {
 		name, _, _ := strings.Cut(t.Field(i).Tag.Get("json"), ",")
 		if name != "" && name != "-" {
