@@ -54,38 +54,3 @@ func TestCheckSchema(t *testing.T) {
 		}
 	})
 }
-
-func TestDropFields(t *testing.T) {
-	tests := []struct {
-		name    string
-		record  string
-		names   []string
-		want    string
-		wantErr bool
-	}{
-		{"removes the named field", `{"a":1,"b":2}`, []string{"a"}, `{"b":2}`, false},
-		{"matches case-insensitively", `{"Legacy":1,"b":2}`, []string{"legacy"}, `{"b":2}`, false},
-		{"removes every capitalization", `{"legacy":1,"LEGACY":2,"b":3}`, []string{"Legacy"}, `{"b":3}`, false},
-		{"ignores absent names", `{"a":1}`, []string{"zzz"}, `{"a":1}`, false},
-		{"no names changes nothing", `{"a":1}`, nil, `{"a":1}`, false},
-		{"removing everything leaves an empty object", `{"a":1}`, []string{"a"}, `{}`, false},
-		{"output keys are sorted", `{"b":1,"a":2}`, nil, `{"a":2,"b":1}`, false},
-		{"nested values are kept verbatim", `{"a":{"x":[1,2]},"b":1}`, []string{"b"}, `{"a":{"x":[1,2]}}`, false},
-		{"not an object", `[1]`, []string{"a"}, ``, true},
-		{"truncated", `{"a":`, []string{"a"}, ``, true},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got, err := journal.DropFields(json.RawMessage(test.record), test.names)
-			if test.wantErr {
-				if err == nil {
-					t.Fatalf("got %s, want an error", got)
-				}
-				return
-			}
-			if err != nil || string(got) != test.want {
-				t.Fatalf("got %s, %v; want %s", got, err, test.want)
-			}
-		})
-	}
-}

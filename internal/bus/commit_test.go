@@ -60,7 +60,7 @@ func readCommitFile(t *testing.T, path string) []byte {
 
 func TestDormantCommitPublishesMatchingStateAndMetadata(t *testing.T) {
 	f := newCommitFixture(t)
-	if err := f.writer.commit(f.previous, f.next, f.event, nil); err != nil {
+	if err := f.writer.commit(f.previous, f.next, f.event); err != nil {
 		t.Fatal(err)
 	}
 	raw := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
@@ -88,7 +88,7 @@ func TestDormantCommitPublishesMatchingStateAndMetadata(t *testing.T) {
 
 func preparedCommit(t *testing.T, f commitFixture) journal.Batch {
 	t.Helper()
-	batch, err := f.writer.prepare(f.previous, f.next, f.event, nil)
+	batch, err := f.writer.prepare(f.previous, f.next, f.event)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestDormantCommitRejectsMismatchedEventBeforeWriting(t *testing.T) {
 			case "future schema":
 				f.next.Schema = 99
 			}
-			if err := f.writer.commit(f.previous, f.next, f.event, nil); err == nil {
+			if err := f.writer.commit(f.previous, f.next, f.event); err == nil {
 				t.Fatal("mismatched state/event accepted")
 			}
 			got := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))

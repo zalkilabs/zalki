@@ -1,14 +1,10 @@
 package bus
 
-import (
-	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/model"
-)
+import "github.com/zalkilabs/zalki/internal/model"
 
 type sessionRecord struct {
-	path    string
-	value   model.Session
-	removed []string
+	path  string
+	value model.Session
 }
 
 func prepareSessionRecord(s Store, v model.Session) (sessionRecord, error) {
@@ -31,13 +27,5 @@ func prepareSessionRecord(s Store, v model.Session) (sessionRecord, error) {
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return sessionRecord{}, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")
 	}
-	var removed []string
-	if migration, ok := adapter.(agent.SessionStateMigrationAdapter); ok {
-		for _, name := range migration.LegacyStateFields() {
-			if !coreField(name) {
-				removed = append(removed, name)
-			}
-		}
-	}
-	return sessionRecord{path: path, value: v, removed: removed}, nil
+	return sessionRecord{path: path, value: v}, nil
 }

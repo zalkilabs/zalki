@@ -30,7 +30,7 @@ func saveSessionWith(s Store, next model.Session, writer commitWriter) error {
 	if event.ID == "" {
 		return savePrivateSessionRecord(s, record, prior)
 	}
-	batch, err := writer.prepare(prior, record.value, event, record.removed)
+	batch, err := writer.prepare(prior, record.value, event)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func savePrivateSessionRecord(s Store, record sessionRecord, prior []byte) error
 	if kind != "" {
 		return journal.ErrInvalidBatch
 	}
-	state, err := prepareSessionBytes(prior, record.value, record.removed)
+	state, err := prepareSessionBytes(prior, record.value)
 	if err != nil {
 		return err
 	}

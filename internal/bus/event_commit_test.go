@@ -106,7 +106,7 @@ func stagedLiveCommit(t *testing.T) (Store, model.Session, journal.Batch) {
 	next.State, next.UpdatedAt = model.StateBusy, model.Timestamp()
 	event := model.Event{ID: newID(), Type: "session.state_changed", OccurredAt: next.UpdatedAt, TransactionID: newID(),
 		Session: model.EventSession{ID: next.ID, Generation: next.Generation, Previous: model.StateReady, State: model.StateBusy}}
-	batch, err := (commitWriter{dir: store.Dir}).prepare(before, next, event, nil)
+	batch, err := (commitWriter{dir: store.Dir}).prepare(before, next, event)
 	if err != nil {
 		t.Fatal(err)
 	}
