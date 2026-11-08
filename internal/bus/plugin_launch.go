@@ -25,6 +25,13 @@ type PluginLaunch struct {
 	PinSHA256  string   `json:"pin_sha256"`
 }
 
+// NewPluginLaunch returns a validated drift-checked launch without installing it.
+func NewPluginLaunch(executable string, args []string) (PluginLaunch, error) {
+	launch := PluginLaunch{Executable: executable, Args: args}
+	err := launch.pin()
+	return launch, err
+}
+
 func (l PluginLaunch) validate() error {
 	if !filepath.IsAbs(l.Executable) || filepath.Clean(l.Executable) != l.Executable || !utf8.ValidString(l.Executable) || strings.ContainsRune(l.Executable, 0) || len(l.Args) > 8 {
 		return model.NewError(model.CodeInvalidInput, "plugin requires a clean absolute executable and at most 8 arguments")
