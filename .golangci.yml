@@ -70,6 +70,21 @@ linters:
             - $gostd
             - github.com/zalkilabs/zalki/internal/fsutil$
             - golang.org/x/sys/unix$
+        plugins:
+          files: ["**/internal/plugins/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/zalkilabs/zalki/internal/bus$
+            - github.com/zalkilabs/zalki/internal/fsutil$
+            - github.com/zalkilabs/zalki/internal/journal$
+            - github.com/zalkilabs/zalki/internal/model$
+        plugin-importers:
+          files: ["$all", "!**/cmd/zalki/*.go"]
+          list-mode: lax
+          deny:
+            - pkg: github.com/zalkilabs/zalki/internal/plugins
+              desc: Only cmd/zalki may compose plugin hosts.
         composition:
           files: ["**/internal/adapters/*.go", "!$test"]
           list-mode: strict
