@@ -33,17 +33,8 @@ func (r *Registry) Configuration(binary, state string) ([]model.ConfigDeclaratio
 			continue
 		}
 		for _, file := range configuration.Configuration(binary, append([]string{}, args...)) {
-			if !fsutil.SafeRelativePath(file.Path) || !fsutil.SafeRelativePath(file.Draft) || filepath.Base(file.Draft) != file.Draft {
-				return nil, fmt.Errorf("%s declares an unsafe configuration path", kind)
-			}
-			if paths[file.Path] || drafts[file.Draft] {
-				return nil, errors.New("agent configuration paths and draft names must be unique")
-			}
-			if (file.JSON == nil) == (file.TOML == "") {
-				return nil, errors.New("configuration must declare exactly one JSON patch or TOML fragment")
-			}
-			if file.JSON != nil && len(file.JSON) == 0 {
-				return nil, errors.New("configuration JSON patch must not be empty")
+			if err := validateConfigurationDeclaration(kind, file, paths, drafts); err != nil {
+				return nil, err
 			}
 			paths[file.Path], drafts[file.Draft] = true, true
 			files = append(files, file)
@@ -54,4 +45,20 @@ func (r *Registry) Configuration(binary, state string) ([]model.ConfigDeclaratio
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	return files, nil
+}
+
+func validateConfigurationDeclaration(kind string, file model.ConfigDeclaration, paths, drafts map[string]bool) error {
+	if !fsutil.SafeRelativePath(file.Path) || !fsutil.SafeRelativePath(file.Draft) || filepath.Base(file.Draft) != file.Draft {
+		return fmt.Errorf("%s declares an unsafe configuration path", kind)
+	}
+	if paths[file.Path] || drafts[file.Draft] {
+		return errors.New("agent configuration paths and draft names must be unique")
+	}
+	if (file.JSON == nil) == (file.TOML == "") {
+		return errors.New("configuration must declare exactly one JSON patch or TOML fragment")
+	}
+	if file.JSON != nil && len(file.JSON) == 0 {
+		return errors.New("configuration JSON patch must not be empty")
+	}
+	return nil
 }
