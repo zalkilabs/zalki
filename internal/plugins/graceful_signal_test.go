@@ -123,7 +123,7 @@ func (h *signalFixtureHost) requireCleanupAndReleasedLease(t *testing.T) {
 }
 
 func TestPluginForegroundGroupSignalsAllowEOFCleanup(t *testing.T) {
-	for _, sig := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM} {
+	for _, sig := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP} {
 		t.Run(sig.String(), func(t *testing.T) {
 			h := startSignalFixtureHost(t)
 			group, err := syscall.Getpgid(h.cmd.Process.Pid)
