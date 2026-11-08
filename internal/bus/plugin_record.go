@@ -18,6 +18,8 @@ type pluginPosition struct {
 }
 
 type pluginRecord struct {
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
 	Enabled   bool           `json:"enabled"`
 	Sessions  []string       `json:"sessions"`
 	Position  pluginPosition `json:"position"`
@@ -25,15 +27,18 @@ type pluginRecord struct {
 	GapReason string         `json:"gap_reason,omitempty"`
 }
 
-// PluginFeedStatus describes the single local reference installation.
+// PluginFeedStatus describes a named installation, without claiming a live child.
 type PluginFeedStatus struct {
+	ID         string   `json:"id,omitempty"`
+	Name       string   `json:"plugin"`
+	DataDir    string   `json:"data_dir"`
 	Enabled    bool     `json:"enabled"`
 	Sessions   []string `json:"sessions"`
 	GapPending bool     `json:"gap_pending"`
 	LastGap    string   `json:"last_gap,omitempty"`
 }
 
-func (s PluginFeed) pluginPath() string { return filepath.Join(s.store.Dir, "plugin.json") }
+func (s PluginFeed) pluginPath() string { return filepath.Join(s.pluginDir(), s.name+".json") }
 
 func (s PluginFeed) checkPluginGrants(ids []string) error {
 	if len(ids) > maxPluginGrants {
@@ -52,6 +57,15 @@ func (s PluginFeed) checkPluginGrants(ids []string) error {
 
 func (s PluginFeed) loadPlugin() (pluginRecord, []byte, error) {
 	var p pluginRecord
+	if err := s.checkName(); err != nil {
+		return p, nil, err
+	}
+	if err := pluginDirectory(s.pluginDir(), false); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return p, nil, nil
+		}
+		return p, nil, err
+	}
 	raw, err := journal.ReadBytes(s.pluginPath(), 16<<10)
 	if errors.Is(err, os.ErrNotExist) {
 		return p, nil, nil
@@ -61,6 +75,9 @@ func (s PluginFeed) loadPlugin() (pluginRecord, []byte, error) {
 	}
 	if err := decodeEventJSON(raw, &p); err != nil {
 		return p, nil, err
+	}
+	if !canonicalEventID(p.ID) || p.Name != s.name {
+		return p, nil, journal.ErrInvalidBatch
 	}
 	if err := s.checkPluginGrants(p.Sessions); err != nil {
 		return p, nil, err
@@ -92,34 +109,43 @@ func (s PluginFeed) savePlugin(p pluginRecord) ([]byte, error) {
 
 // ConfigurePluginFeed replaces explicit grants only while execution is disabled.
 func (s PluginFeed) ConfigurePluginFeed(ids []string) error {
+	if err := s.checkName(); err != nil {
+		return err
+	}
 	ids = slices.Clone(ids)
 	slices.Sort(ids)
 	if err := s.checkPluginGrants(ids); err != nil {
 		return err
 	}
-	return s.store.locked(func() error {
+	return s.locked(func() error {
 		p, _, err := s.loadPlugin()
 		if err != nil {
 			return err
 		}
+		if p.ID == "" {
+			return model.NewError(model.CodeNotFound, "add the plugin first")
+		}
 		if p.Enabled {
 			return model.NewError(model.CodeConflict, "disable the plugin before changing its grants")
 		}
-		_, err = s.savePlugin(pluginRecord{Sessions: ids})
+		_, err = s.savePlugin(pluginRecord{ID: p.ID, Name: p.Name, Sessions: ids})
 		return err
 	})
 }
 
 // EnablePluginFeed starts at the current end; it never launches executable code.
 func (s PluginFeed) EnablePluginFeed(enabled bool) error {
-	return s.store.locked(func() error {
+	return s.locked(func() error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err
 		}
+		if p.ID == "" {
+			return model.NewError(model.CodeNotFound, "add the plugin first")
+		}
 		if p.Enabled == enabled {
 			if raw != nil {
-				return journal.SyncDir(s.store.Dir)
+				return journal.SyncDir(s.pluginDir())
 			}
 			return nil
 		}
@@ -141,10 +167,13 @@ func (s PluginFeed) EnablePluginFeed(enabled bool) error {
 
 // PluginStatus is owner-facing; journal positions are not part of child frames.
 func (s PluginFeed) PluginStatus() (PluginFeedStatus, error) {
+	if err := s.checkName(); err != nil {
+		return PluginFeedStatus{}, err
+	}
 	var status PluginFeedStatus
 	err := s.store.readLocked(func() error {
 		p, _, err := s.loadPlugin()
-		status = PluginFeedStatus{p.Enabled, slices.Clone(p.Sessions), p.GapID != "", p.GapReason}
+		status = PluginFeedStatus{ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Sessions: slices.Clone(p.Sessions), GapPending: p.GapID != "", LastGap: p.GapReason}
 		return err
 	})
 	return status, err

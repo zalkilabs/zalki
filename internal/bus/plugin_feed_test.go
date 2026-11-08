@@ -14,12 +14,27 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func enableFeed(t *testing.T, s Store, ids ...string) {
+func installFeed(t *testing.T, s Store) {
 	t.Helper()
-	if err := NewPluginFeed(s).ConfigurePluginFeed(ids); err != nil {
+	feed := NewPluginFeed(s, "fake-notifier")
+	status, err := feed.PluginStatus()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := NewPluginFeed(s).EnablePluginFeed(true); err != nil {
+	if status.ID == "" {
+		if err := feed.AddPlugin(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func enableFeed(t *testing.T, s Store, ids ...string) {
+	t.Helper()
+	installFeed(t, s)
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed(ids); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
 	d := feedNext(t, s)
@@ -31,7 +46,7 @@ func enableFeed(t *testing.T, s Store, ids ...string) {
 
 func feedNext(t *testing.T, s Store) PluginDelivery {
 	t.Helper()
-	d, err := NewPluginFeed(s).NextPluginFeed()
+	d, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,14 +55,14 @@ func feedNext(t *testing.T, s Store) PluginDelivery {
 
 func feedAck(t *testing.T, s Store, d PluginDelivery) {
 	t.Helper()
-	if err := NewPluginFeed(s).AckPluginFeed(d); err != nil {
+	if err := NewPluginFeed(s, "fake-notifier").AckPluginFeed(d); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func feedRecord(t *testing.T, s Store) pluginRecord {
 	t.Helper()
-	p, _, err := NewPluginFeed(s).loadPlugin()
+	p, _, err := NewPluginFeed(s, "fake-notifier").loadPlugin()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,10 +75,11 @@ func TestPluginFeedNowReplayAndPrivateReceipt(t *testing.T) {
 	if _, err := (&Service{Store: s}).SetTask(v.ID, key, "PRIVATE_TASK"); err != nil {
 		t.Fatal(err)
 	}
-	if err := NewPluginFeed(s).ConfigurePluginFeed([]string{v.ID}); err != nil {
+	installFeed(t, s)
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed([]string{v.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := NewPluginFeed(s).EnablePluginFeed(true); err != nil {
+	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
 	gap := feedNext(t, s)
@@ -92,7 +108,7 @@ func TestPluginFeedNowReplayAndPrivateReceipt(t *testing.T) {
 
 func assertPluginGapAcknowledged(t *testing.T, s Store) {
 	t.Helper()
-	status, err := NewPluginFeed(s).PluginStatus()
+	status, err := NewPluginFeed(s, "fake-notifier").PluginStatus()
 	if err != nil || status.GapPending || status.LastGap != "enabled" {
 		t.Fatalf("gap status = %+v, %v", status, err)
 	}
@@ -127,16 +143,16 @@ func TestPluginFeedRejectsForgedAndStaleReceipts(t *testing.T) {
 	if err := json.Unmarshal(raw, &forged); err != nil {
 		t.Fatal(err)
 	}
-	if err := NewPluginFeed(s).AckPluginFeed(forged); model.ErrorCodeOf(err) != model.CodeConflict {
+	if err := NewPluginFeed(s, "fake-notifier").AckPluginFeed(forged); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("child frame forged a host receipt", err)
 	}
 	changed := d
 	changed.ID = newID()
-	if err := NewPluginFeed(s).AckPluginFeed(changed); model.ErrorCodeOf(err) != model.CodeConflict {
+	if err := NewPluginFeed(s, "fake-notifier").AckPluginFeed(changed); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("ACK accepted another delivery ID", err)
 	}
 	feedAck(t, s, d)
-	if err := NewPluginFeed(s).AckPluginFeed(d); model.ErrorCodeOf(err) != model.CodeConflict {
+	if err := NewPluginFeed(s, "fake-notifier").AckPluginFeed(d); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("reused receipt advanced position twice", err)
 	}
 	if next := feedNext(t, s); next.ID != "" {
@@ -147,27 +163,28 @@ func TestPluginFeedRejectsForgedAndStaleReceipts(t *testing.T) {
 func TestPluginFeedExplicitGrantBounds(t *testing.T) {
 	s := fixtureStore(t)
 	a, _ := register(t, s, "codex")
-	status, err := NewPluginFeed(s).PluginStatus()
+	status, err := NewPluginFeed(s, "fake-notifier").PluginStatus()
 	if err != nil || status.Enabled || len(status.Sessions) != 0 {
 		t.Fatal("plugin is not disabled by default", status, err)
 	}
-	if _, err := os.Stat(NewPluginFeed(s).pluginPath()); !os.IsNotExist(err) {
+	if _, err := os.Stat(NewPluginFeed(s, "fake-notifier").pluginPath()); !os.IsNotExist(err) {
 		t.Fatal("status created configuration", err)
 	}
-	if err := NewPluginFeed(s).EnablePluginFeed(true); model.ErrorCodeOf(err) != model.CodeInvalidInput {
-		t.Fatal("enabled without explicit grants", err)
+	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(true); model.ErrorCodeOf(err) != model.CodeNotFound {
+		t.Fatal("enabled an absent installation", err)
 	}
+	installFeed(t, s)
 	tooMany := make([]string, 17)
 	for i := range tooMany {
 		tooMany[i] = "codex:" + newID()
 	}
 	invalid := [][]string{{"*"}, {"codex:../escape"}, {strings.ToUpper(a.ID)}, {a.ID, a.ID}, tooMany}
 	for _, ids := range invalid {
-		if err := NewPluginFeed(s).ConfigurePluginFeed(ids); err == nil {
+		if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed(ids); err == nil {
 			t.Fatal("accepted invalid scope", ids)
 		}
 	}
-	if err := NewPluginFeed(s).ConfigurePluginFeed(tooMany[:16]); err != nil {
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed(tooMany[:16]); err != nil {
 		t.Fatal("16 valid grants rejected", err)
 	}
 }
@@ -177,24 +194,24 @@ func TestPluginFeedGrantChangesAndDisable(t *testing.T) {
 	a, _ := register(t, s, "codex")
 	b, _ := register(t, s, "codex")
 	enableFeed(t, s, a.ID)
-	if err := NewPluginFeed(s).ConfigurePluginFeed([]string{b.ID}); model.ErrorCodeOf(err) != model.CodeConflict {
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed([]string{b.ID}); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("scope changed during execution", err)
 	}
 	if err := s.Update(a.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
 	old := feedNext(t, s)
-	if err := NewPluginFeed(s).EnablePluginFeed(false); err != nil {
+	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := NewPluginFeed(s).AckPluginFeed(old); model.ErrorCodeOf(err) != model.CodeConflict {
+	if err := NewPluginFeed(s, "fake-notifier").AckPluginFeed(old); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("disabled receipt remained valid", err)
 	}
-	if _, err := NewPluginFeed(s).NextPluginFeed(); model.ErrorCodeOf(err) != model.CodeUnauthorized {
+	if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("disabled feed dispatched", err)
 	}
 	enableFeed(t, s, b.ID)
-	if err := NewPluginFeed(s).AckPluginFeed(old); model.ErrorCodeOf(err) != model.CodeConflict {
+	if err := NewPluginFeed(s, "fake-notifier").AckPluginFeed(old); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("old receipt crossed a new enable/scope", err)
 	}
 	if err := s.Update(a.ID, model.StateReady, false); err != nil {
@@ -223,15 +240,15 @@ func pluginDirectorySyncCut(t *testing.T, s Store, action func() error) pluginRe
 	if os.Geteuid() == 0 {
 		t.Skip("permission cut requires an ordinary user")
 	}
-	t.Cleanup(func() { _ = os.Chmod(s.Dir, 0700) })
-	if err := os.Chmod(s.Dir, 0300); err != nil {
+	t.Cleanup(func() { _ = os.Chmod(NewPluginFeed(s, "fake-notifier").pluginDir(), 0700) })
+	if err := os.Chmod(NewPluginFeed(s, "fake-notifier").pluginDir(), 0300); err != nil {
 		t.Fatal(err)
 	}
 	if err := action(); !errors.Is(err, os.ErrPermission) {
 		t.Fatal("expected post-rename directory-sync failure", err)
 	}
 	live := feedRecord(t, s)
-	if err := os.Chmod(s.Dir, 0700); err != nil {
+	if err := os.Chmod(NewPluginFeed(s, "fake-notifier").pluginDir(), 0700); err != nil {
 		t.Fatal(err)
 	}
 	return live
@@ -241,16 +258,16 @@ func TestPluginFeedGapDirectorySyncFailure(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
 	enableFeed(t, s, v.ID)
-	prior := readCommitFile(t, NewPluginFeed(s).pluginPath())
+	prior := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
 	for range 3 {
 		testCoveredUpdate(t, s, v.ID, commitWriter{dir: s.Dir, limit: 2})
 	}
-	live := pluginDirectorySyncCut(t, s, func() error { _, err := NewPluginFeed(s).NextPluginFeed(); return err })
+	live := pluginDirectorySyncCut(t, s, func() error { _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); return err })
 	if live.GapID == "" || live.GapReason != "retention" {
 		t.Fatal("gap watermark was published without a pending notice", live)
 	}
 	// Simulate power loss retaining the old namespace after failed sync.
-	if err := journal.WriteAtomic(NewPluginFeed(s).pluginPath(), prior); err != nil {
+	if err := journal.WriteAtomic(NewPluginFeed(s, "fake-notifier").pluginPath(), prior); err != nil {
 		t.Fatal(err)
 	}
 	d := feedNext(t, s)
@@ -268,12 +285,12 @@ func TestPluginFeedAckDirectorySyncFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := feedNext(t, s)
-	prior := readCommitFile(t, NewPluginFeed(s).pluginPath())
-	live := pluginDirectorySyncCut(t, s, func() error { return NewPluginFeed(s).AckPluginFeed(d) })
+	prior := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
+	live := pluginDirectorySyncCut(t, s, func() error { return NewPluginFeed(s, "fake-notifier").AckPluginFeed(d) })
 	if live.Position != d.after {
 		t.Fatal("cut did not reach the rename")
 	}
-	if err := journal.WriteAtomic(NewPluginFeed(s).pluginPath(), prior); err != nil {
+	if err := journal.WriteAtomic(NewPluginFeed(s, "fake-notifier").pluginPath(), prior); err != nil {
 		t.Fatal(err)
 	}
 	replayed := feedNext(t, s)
@@ -287,19 +304,19 @@ func TestPluginFeedInvalidPrivateRecord(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
 	enableFeed(t, s, v.ID)
-	good := readCommitFile(t, NewPluginFeed(s).pluginPath())
+	good := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
 	for _, raw := range [][]byte{
 		[]byte(`{"enabled":true}`), []byte(`{"unknown":1}`),
 		bytes.Repeat([]byte(" "), 16<<10+1),
 		bytes.Replace(good, []byte(`"gap_reason": "enabled"`), []byte(`"gap_reason": "hidden"`), 1),
 	} {
-		if err := journal.WriteAtomic(NewPluginFeed(s).pluginPath(), raw); err != nil {
+		if err := journal.WriteAtomic(NewPluginFeed(s, "fake-notifier").pluginPath(), raw); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := NewPluginFeed(s).PluginStatus(); err == nil {
+		if _, err := NewPluginFeed(s, "fake-notifier").PluginStatus(); err == nil {
 			t.Fatal("invalid private record was accepted")
 		}
-		if _, err := NewPluginFeed(s).NextPluginFeed(); err == nil {
+		if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); err == nil {
 			t.Fatal("invalid private record was dispatched")
 		}
 	}
@@ -404,7 +421,7 @@ func TestPluginFeedRejectsBrokenRecordsWithoutAdvancing(t *testing.T) {
 		if err := journal.WriteAtomic(path, broken); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := NewPluginFeed(s).NextPluginFeed(); err == nil {
+		if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); err == nil {
 			t.Fatal("accepted corrupt source event")
 		}
 		if next := feedRecord(t, s); next.Position != p.Position {
@@ -414,13 +431,13 @@ func TestPluginFeedRejectsBrokenRecordsWithoutAdvancing(t *testing.T) {
 	if err := journal.WriteAtomic(path, good); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Remove(NewPluginFeed(s).pluginPath()); err != nil {
+	if err := os.Remove(NewPluginFeed(s, "fake-notifier").pluginPath()); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(path, NewPluginFeed(s).pluginPath()); err != nil {
+	if err := os.Symlink(path, NewPluginFeed(s, "fake-notifier").pluginPath()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewPluginFeed(s).PluginStatus(); !errors.Is(err, journal.ErrInvalidFile) {
+	if _, err := NewPluginFeed(s, "fake-notifier").PluginStatus(); !errors.Is(err, journal.ErrInvalidFile) {
 		t.Fatal("plugin record followed a symlink", err)
 	}
 }
@@ -485,14 +502,14 @@ func TestPluginFeedReceiptAfterFilteredProgress(t *testing.T) {
 	if d := feedNext(t, other); d.ID != "" {
 		t.Fatal("foreign event was offered", d)
 	}
-	prior := readCommitFile(t, NewPluginFeed(s).pluginPath())
+	prior := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
 	if err := s.Update(a.ID, model.StateReady, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := NewPluginFeed(s).AckPluginFeed(old); model.ErrorCodeOf(err) != model.CodeConflict {
+	if err := NewPluginFeed(s, "fake-notifier").AckPluginFeed(old); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("stale receipt crossed a filtered-progress save", err)
 	}
-	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s).pluginPath())) {
+	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {
 		t.Fatal("refused stale ACK changed the durable position")
 	}
 	d := feedNext(t, s)
@@ -508,10 +525,11 @@ func TestPluginFeedReceiptAfterFilteredProgress(t *testing.T) {
 func TestPluginFeedEmptyEnableFirstEventReplay(t *testing.T) {
 	s := fixtureStore(t)
 	id := newID()
-	if err := NewPluginFeed(s).ConfigurePluginFeed([]string{"codex:" + id}); err != nil {
+	installFeed(t, s)
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed([]string{"codex:" + id}); err != nil {
 		t.Fatal(err)
 	}
-	if err := NewPluginFeed(s).EnablePluginFeed(true); err != nil {
+	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
 	gap := feedNext(t, s)
@@ -556,16 +574,16 @@ func TestPluginFeedInvalidGrantsAndPosition(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := journal.WriteAtomic(NewPluginFeed(s).pluginPath(), raw); err != nil {
+			if err := journal.WriteAtomic(NewPluginFeed(s, "fake-notifier").pluginPath(), raw); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := NewPluginFeed(s).PluginStatus(); err == nil {
+			if _, err := NewPluginFeed(s, "fake-notifier").PluginStatus(); err == nil {
 				t.Fatal("hand-edited record was accepted")
 			}
-			if _, err := NewPluginFeed(s).NextPluginFeed(); err == nil {
+			if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); err == nil {
 				t.Fatal("hand-edited record was dispatched")
 			}
-			if !bytes.Equal(raw, readCommitFile(t, NewPluginFeed(s).pluginPath())) {
+			if !bytes.Equal(raw, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {
 				t.Fatal("refusing a record changed it")
 			}
 		})
@@ -576,16 +594,16 @@ func TestPluginFeedRejectsZeroFirstMetadata(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
 	enableFeed(t, s, v.ID)
-	prior := readCommitFile(t, NewPluginFeed(s).pluginPath())
+	prior := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
 	head := eventState(t, s)
 	head.First = 0
 	if err := writeJSON(filepath.Join(s.Dir, eventMetaPath), head); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewPluginFeed(s).NextPluginFeed(); !errors.Is(err, journal.ErrInvalidBatch) {
+	if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); !errors.Is(err, journal.ErrInvalidBatch) {
 		t.Fatal("nonempty zero-first metadata reached loss arithmetic", err)
 	}
-	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s).pluginPath())) {
+	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {
 		t.Fatal("invalid metadata changed the plugin position")
 	}
 }
@@ -597,7 +615,7 @@ func TestPluginFeedBoundsValidOversizeEvent(t *testing.T) {
 	if err := s.Update(v.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	prior := readCommitFile(t, NewPluginFeed(s).pluginPath())
+	prior := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
 	path := filepath.Join(s.Dir, eventRecordPath(feedRecord(t, s).Position.Sequence+1))
 	good := readCommitFile(t, path)
 	large := bytes.Repeat([]byte(" "), maxEventBytes+1)
@@ -608,10 +626,10 @@ func TestPluginFeedBoundsValidOversizeEvent(t *testing.T) {
 	if err := journal.WriteAtomic(path, large); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewPluginFeed(s).NextPluginFeed(); !errors.Is(err, journal.ErrInvalidFile) {
+	if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); !errors.Is(err, journal.ErrInvalidFile) {
 		t.Fatal("valid oversized event was not refused by the bounded reader", err)
 	}
-	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s).pluginPath())) {
+	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {
 		t.Fatal("oversize event advanced the plugin position")
 	}
 }
@@ -621,8 +639,8 @@ func denyPluginDirectoryRead(t *testing.T, s Store) {
 	if os.Geteuid() == 0 {
 		t.Skip("permission cut requires an ordinary user")
 	}
-	t.Cleanup(func() { _ = os.Chmod(s.Dir, 0700) })
-	if err := os.Chmod(s.Dir, 0300); err != nil {
+	t.Cleanup(func() { _ = os.Chmod(NewPluginFeed(s, "fake-notifier").pluginDir(), 0700) })
+	if err := os.Chmod(NewPluginFeed(s, "fake-notifier").pluginDir(), 0300); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -635,21 +653,21 @@ func TestPluginFeedPendingGapRequiresDirectoryConfirmation(t *testing.T) {
 		testCoveredUpdate(t, s, v.ID, commitWriter{dir: s.Dir, limit: 2})
 	}
 	denyPluginDirectoryRead(t, s)
-	if _, err := NewPluginFeed(s).NextPluginFeed(); !errors.Is(err, os.ErrPermission) {
+	if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); !errors.Is(err, os.ErrPermission) {
 		t.Fatal("expected post-rename gap sync failure", err)
 	}
 	visible := feedRecord(t, s)
 	if visible.GapID == "" || visible.GapReason != "retention" {
 		t.Fatal("cut did not publish the pending gap")
 	}
-	prior := readCommitFile(t, NewPluginFeed(s).pluginPath())
-	if d, err := NewPluginFeed(s).NextPluginFeed(); !errors.Is(err, os.ErrPermission) || d.ID != "" {
+	prior := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
+	if d, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); !errors.Is(err, os.ErrPermission) || d.ID != "" {
 		t.Fatal("unconfirmed pending gap was offered after failed directory sync", d, err)
 	}
-	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s).pluginPath())) {
+	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {
 		t.Fatal("failed durability confirmation changed the record")
 	}
-	if err := os.Chmod(s.Dir, 0700); err != nil {
+	if err := os.Chmod(NewPluginFeed(s, "fake-notifier").pluginDir(), 0700); err != nil {
 		t.Fatal(err)
 	}
 	d := feedNext(t, s)
@@ -669,28 +687,29 @@ func checkPluginEnableRetry(t *testing.T, enabled bool) {
 	t.Helper()
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
-	if err := NewPluginFeed(s).ConfigurePluginFeed([]string{v.ID}); err != nil {
+	installFeed(t, s)
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed([]string{v.ID}); err != nil {
 		t.Fatal(err)
 	}
 	if !enabled {
-		if err := NewPluginFeed(s).EnablePluginFeed(true); err != nil {
+		if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(true); err != nil {
 			t.Fatal(err)
 		}
 	}
 	denyPluginDirectoryRead(t, s)
-	if err := NewPluginFeed(s).EnablePluginFeed(enabled); !errors.Is(err, os.ErrPermission) {
+	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(enabled); !errors.Is(err, os.ErrPermission) {
 		t.Fatal("expected post-rename enable/disable sync failure", err)
 	}
 	if p := feedRecord(t, s); p.Enabled != enabled {
 		t.Fatal("cut did not reach replacement", p)
 	}
-	if err := NewPluginFeed(s).EnablePluginFeed(enabled); !errors.Is(err, os.ErrPermission) {
+	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(enabled); !errors.Is(err, os.ErrPermission) {
 		t.Fatal("idempotent retry reported success without directory confirmation", err)
 	}
-	if err := os.Chmod(s.Dir, 0700); err != nil {
+	if err := os.Chmod(NewPluginFeed(s, "fake-notifier").pluginDir(), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := NewPluginFeed(s).EnablePluginFeed(enabled); err != nil {
+	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(enabled); err != nil {
 		t.Fatal(err)
 	}
 	if p := feedRecord(t, s); p.Enabled != enabled {
