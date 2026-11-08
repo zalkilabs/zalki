@@ -190,6 +190,26 @@ func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, thre
 		return false, err
 	}
 	defer client.Close()
+	if err := initializeCodexToolOutput(ctx, client, endpoint, root); err != nil {
+		return false, err
+	}
+	if err := endpoint.unchanged(); err != nil {
+		return false, err
+	}
+	joined, err = readCodexToolOutputThread(ctx, client, threadID)
+	if err != nil {
+		return false, err
+	}
+	if err := endpoint.unchanged(); err != nil {
+		return false, err
+	}
+	if err := startCodexToolOutput(ctx, client, endpoint, root, threadID, output); err != nil {
+		return false, err
+	}
+	return joined, nil
+}
+
+func initializeCodexToolOutput(ctx context.Context, client *codexClient, endpoint codexSocket, root string) error {
 	var initialized struct {
 		CodexHome string `json:"codexHome"`
 		UserAgent string `json:"userAgent"`
@@ -200,18 +220,19 @@ func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, thre
 		if errors.Is(err, errCodexUnsupported) {
 			rememberCodexSupport(endpoint, root, codexSupportUnavailable)
 		}
-		return false, classifyCodexSetupError(err)
+		return classifyCodexSetupError(err)
 	}
 	if !codexPathsMatch(initialized.CodexHome, root) || !codexVersionAtLeast(initialized.UserAgent, codexToolOutputVersion) {
 		rememberCodexSupport(endpoint, root, codexSupportUnavailable)
-		return false, errCodexUnsupported
+		return errCodexUnsupported
 	}
 	if err := client.notify(ctx, "initialized", map[string]any{}); err != nil {
-		return false, classifyCodexSetupError(err)
+		return classifyCodexSetupError(err)
 	}
-	if err := endpoint.unchanged(); err != nil {
-		return false, err
-	}
+	return nil
+}
+
+func readCodexToolOutputThread(ctx context.Context, client *codexClient, threadID string) (bool, error) {
 	loaded, err := codexThreadLoaded(ctx, client, threadID)
 	if err != nil {
 		return false, classifyCodexSetupError(err)
@@ -241,14 +262,15 @@ func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, thre
 	}
 	switch read.Thread.Status.Type {
 	case "idle":
+		return false, nil
 	case "active":
-		joined = true
+		return true, nil
 	default:
 		return false, errCodexNotLoaded
 	}
-	if err := endpoint.unchanged(); err != nil {
-		return false, err
-	}
+}
+
+func startCodexToolOutput(ctx context.Context, client *codexClient, endpoint codexSocket, root, threadID, output string) error {
 	var started struct {
 		Turn struct {
 			ID string `json:"id"`
@@ -265,18 +287,18 @@ func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, thre
 			"name": "zalki", "namespace": "zalki", "output": output, "retain": true,
 		},
 	}
-	err = client.callSubmitted(ctx, "turn/start", params, &started)
+	err := client.callSubmitted(ctx, "turn/start", params, &started)
 	if err != nil {
 		if errors.Is(err, errCodexUnsupported) {
 			rememberCodexSupport(endpoint, root, codexSupportUnavailable)
 		}
-		return false, err
+		return err
 	}
 	if started.Turn.ID == "" {
-		return false, errCodexUncertain
+		return errCodexUncertain
 	}
 	rememberCodexSupport(endpoint, root, codexSupportVerified)
-	return joined, nil
+	return nil
 }
 
 func classifyCodexSetupError(err error) error {
