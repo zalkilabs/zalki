@@ -33,14 +33,14 @@ type PluginFeedStatus struct {
 	LastGap    string   `json:"last_gap,omitempty"`
 }
 
-func (s Store) pluginPath() string { return filepath.Join(s.Dir, "plugin.json") }
+func (s PluginFeed) pluginPath() string { return filepath.Join(s.store.Dir, "plugin.json") }
 
-func (s Store) checkPluginGrants(ids []string) error {
+func (s PluginFeed) checkPluginGrants(ids []string) error {
 	if len(ids) > maxPluginGrants {
 		return model.NewError(model.CodeInvalidInput, "plugin permits at most 16 explicit session grants")
 	}
 	for i, id := range ids {
-		if _, err := s.sessionRecordPath(id); err != nil {
+		if _, err := s.store.sessionRecordPath(id); err != nil {
 			return err
 		}
 		if i > 0 && ids[i-1] >= id {
@@ -50,7 +50,7 @@ func (s Store) checkPluginGrants(ids []string) error {
 	return nil
 }
 
-func (s Store) loadPlugin() (pluginRecord, []byte, error) {
+func (s PluginFeed) loadPlugin() (pluginRecord, []byte, error) {
 	var p pluginRecord
 	raw, err := journal.ReadBytes(s.pluginPath(), 16<<10)
 	if errors.Is(err, os.ErrNotExist) {
@@ -82,7 +82,7 @@ func (p pluginRecord) invalidPosition() bool {
 		(p.GapID != "" && (!canonicalEventID(p.GapID) || p.GapReason == ""))
 }
 
-func (s Store) savePlugin(p pluginRecord) ([]byte, error) {
+func (s PluginFeed) savePlugin(p pluginRecord) ([]byte, error) {
 	raw, err := journal.EncodeJSON(p, 16<<10)
 	if err != nil {
 		return nil, err
@@ -91,13 +91,13 @@ func (s Store) savePlugin(p pluginRecord) ([]byte, error) {
 }
 
 // ConfigurePluginFeed replaces explicit grants only while execution is disabled.
-func (s Store) ConfigurePluginFeed(ids []string) error {
+func (s PluginFeed) ConfigurePluginFeed(ids []string) error {
 	ids = slices.Clone(ids)
 	slices.Sort(ids)
 	if err := s.checkPluginGrants(ids); err != nil {
 		return err
 	}
-	return s.locked(func() error {
+	return s.store.locked(func() error {
 		p, _, err := s.loadPlugin()
 		if err != nil {
 			return err
@@ -111,15 +111,15 @@ func (s Store) ConfigurePluginFeed(ids []string) error {
 }
 
 // EnablePluginFeed starts at the current end; it never launches executable code.
-func (s Store) EnablePluginFeed(enabled bool) error {
-	return s.locked(func() error {
+func (s PluginFeed) EnablePluginFeed(enabled bool) error {
+	return s.store.locked(func() error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err
 		}
 		if p.Enabled == enabled {
 			if raw != nil {
-				return journal.SyncDir(s.Dir)
+				return journal.SyncDir(s.store.Dir)
 			}
 			return nil
 		}
@@ -140,9 +140,9 @@ func (s Store) EnablePluginFeed(enabled bool) error {
 }
 
 // PluginStatus is owner-facing; journal positions are not part of child frames.
-func (s Store) PluginStatus() (PluginFeedStatus, error) {
+func (s PluginFeed) PluginStatus() (PluginFeedStatus, error) {
 	var status PluginFeedStatus
-	err := s.readLocked(func() error {
+	err := s.store.readLocked(func() error {
 		p, _, err := s.loadPlugin()
 		status = PluginFeedStatus{p.Enabled, slices.Clone(p.Sessions), p.GapID != "", p.GapReason}
 		return err

@@ -292,7 +292,7 @@ func TestPluginOwnerConfigureValidatesGrantsAndEnabledState(t *testing.T) {
 	if raw, err := pluginOwnerLocal(t, store.Dir, "configure", "fake-notifier", "--session", ids[1], "--session", ids[0]); err != nil {
 		t.Fatal("unsorted canonical grants were refused", string(raw), err)
 	}
-	status, err := store.PluginStatus()
+	status, err := bus.NewPluginFeed(store).PluginStatus()
 	if err != nil || status.Enabled || !reflect.DeepEqual(status.Sessions, ids) {
 		t.Fatal("configure did not preserve sorted explicit grants", status, err)
 	}

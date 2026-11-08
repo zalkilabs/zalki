@@ -378,17 +378,17 @@ func seedFullOutbox(t *testing.T, path string) {
 
 func TestPluginCommandBinaryFullOutboxRecovery(t *testing.T) {
 	store, session := hostStore(t)
-	gap, err := store.NextPluginFeed()
+	gap, err := bus.NewPluginFeed(store).NextPluginFeed()
 	if err != nil || gap.Gap != "enabled" {
 		t.Fatal("initial gap", gap, err)
 	}
-	if err := store.AckPluginFeed(gap); err != nil {
+	if err := bus.NewPluginFeed(store).AckPluginFeed(gap); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	pending, err := store.NextPluginFeed()
+	pending, err := bus.NewPluginFeed(store).NextPluginFeed()
 	if err != nil || pending.Event == nil {
 		t.Fatal("missing pending state change", pending, err)
 	}
@@ -401,7 +401,7 @@ func TestPluginCommandBinaryFullOutboxRecovery(t *testing.T) {
 	if raw, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(raw), "outbox is full") {
 		t.Fatal("full outbox did not fail explicitly", string(raw), err)
 	}
-	again, err := store.NextPluginFeed()
+	again, err := bus.NewPluginFeed(store).NextPluginFeed()
 	if err != nil || again.ID != pending.ID {
 		t.Fatal("failed notification advanced core cursor", again, err)
 	}
@@ -443,8 +443,8 @@ func runReferenceUntilConsumed(t *testing.T, store bus.Store, binary string) {
 			t.Error("reference command did not exit")
 		}
 	})
-	eventually(t, func() bool { d, err := store.NextPluginFeed(); return err == nil && d.ID == "" })
-	if err := store.EnablePluginFeed(false); err != nil {
+	eventually(t, func() bool { d, err := bus.NewPluginFeed(store).NextPluginFeed(); return err == nil && d.ID == "" })
+	if err := bus.NewPluginFeed(store).EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
 	select {

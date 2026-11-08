@@ -23,9 +23,9 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 			}
 			switch action {
 			case "configure":
-				return service.Store.ConfigurePluginFeed(sessions)
+				return bus.NewPluginFeed(service.Store).ConfigurePluginFeed(sessions)
 			case "enable", "disable":
-				return service.Store.EnablePluginFeed(action == "enable")
+				return bus.NewPluginFeed(service.Store).EnablePluginFeed(action == "enable")
 			default:
 				return printPluginStatus(cmd, service.Store)
 			}
@@ -38,7 +38,7 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 }
 
 func printPluginStatus(cmd *cobra.Command, store bus.Store) error {
-	status, err := store.PluginStatus()
+	status, err := bus.NewPluginFeed(store).PluginStatus()
 	if err != nil {
 		return err
 	}
