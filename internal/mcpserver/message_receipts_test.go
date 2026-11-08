@@ -24,7 +24,7 @@ func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
 	calls := 0
 	service.Deliver = func(context.Context, bus.Message, bus.Session) bus.Receipt {
 		calls++
-		return bus.NewReceipt(model.StatusSubmitted)
+		return model.NewReceipt(model.StatusSubmitted)
 	}
 	client, ctx := testClient(t, service)
 	call := func(name string, args map[string]any, out any) {
@@ -41,7 +41,7 @@ func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
 	args := map[string]any{"actor": from.ID, "capability": key, "to": to.ID, "body": "review"}
 	var first Output[MessageReceipt]
 	call("send_message", args, &first)
-	if _, err := bus.UUID(first.Data.ID); err != nil || !strings.Contains(first.Data.Note, "next turn") {
+	if _, err := model.UUID(first.Data.ID); err != nil || !strings.Contains(first.Data.Note, "next turn") {
 		t.Fatal("missing generated ID or busy timing", err)
 	}
 	args["message_id"] = first.Data.ID
@@ -86,7 +86,7 @@ func TestReceiptNotesNeverPromiseRefusedOrUnconfirmedDelivery(t *testing.T) {
 		t.Fatal("an acknowledged message was still described as deferred")
 	}
 	for _, test := range []struct {
-		status bus.DeliveryStatus
+		status model.DeliveryStatus
 		timing model.DeliveryTiming
 		want   string
 	}{

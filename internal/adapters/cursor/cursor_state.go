@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -80,7 +79,7 @@ func (Adapter) DecodeState(in agent.StateInput) (json.RawMessage, error) {
 		return nil, err
 	}
 	if state.Schema != 1 {
-		return nil, &bus.Error{Code: model.CodeUnsupportedSchema, Message: "unsupported Cursor state schema"}
+		return nil, &model.Error{Code: model.CodeUnsupportedSchema, Message: "unsupported Cursor state schema"}
 	}
 	return encodeCursorState(decodeCursorState(in.State)), nil
 }

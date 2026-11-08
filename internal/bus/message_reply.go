@@ -89,7 +89,7 @@ func (s Store) replyParent(actor, id string) (Message, error) {
 func (s Store) reserveReply(sender Session, request ReplyRequest, parent Message) (msg Message, target Session, fresh bool, err error) {
 	actor, body := request.Actor, request.Body
 	msg, target, fresh, err = s.prepareMessage(SendRequest{Actor: actor, Capability: request.Capability, To: parent.From, MessageID: replyID(actor, parent.ID, body), Body: body, ReplyTo: parent.ID}, false)
-	if code := ErrorCodeOf(err); code == model.CodeUnavailable || code == model.CodeNotFound {
+	if code := model.ErrorCodeOf(err); code == model.CodeUnavailable || code == model.CodeNotFound {
 		return s.refuseReply(sender, actor, parent, body, target, code, err.Error())
 	}
 	return msg, target, fresh, err
@@ -98,7 +98,7 @@ func (s Store) reserveReply(sender Session, request ReplyRequest, parent Message
 // refuseReply records a reply to an unavailable destination as a not-sent
 // message. The error it returns is nil when the refusal was recorded, so the
 // reply goes on to acknowledge the parent.
-func (s Store) refuseReply(sender Session, actor string, parent Message, body string, target Session, code ErrorCode, refusalReason string) (msg Message, _ Session, fresh bool, err error) {
+func (s Store) refuseReply(sender Session, actor string, parent Message, body string, target Session, code model.ErrorCode, refusalReason string) (msg Message, _ Session, fresh bool, err error) {
 	target.ID = parent.From
 	msg, err = s.outgoingMessage(sender, target, replyID(actor, parent.ID, body), body, parent.ID)
 	if err == nil {
@@ -122,7 +122,7 @@ func (s Store) chargeRefusedReply(msg *Message) error {
 		err = lookupErr
 	}
 	if err != nil {
-		if moveErr := msg.SettleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+		if moveErr := msg.SettleNotSent(model.ErrorCodeOf(err), err.Error()); moveErr != nil {
 			return moveErr
 		}
 	}
@@ -212,7 +212,7 @@ func validateReplyTransaction(dir, path string, tx replyTransaction) error {
 	if tx.Schema != 1 || tx.Reply.Schema < 0 || tx.Reply.Schema > recordSchema {
 		return model.NewError(model.CodeUnsupportedSchema, "unsupported reply transaction schema")
 	}
-	if _, err := UUID(tx.Reply.ID); err != nil {
+	if _, err := model.UUID(tx.Reply.ID); err != nil {
 		return err
 	}
 	if path != filepath.Join(dir, "transactions", tx.Reply.ID+".json") || tx.ParentID != tx.Reply.ReplyTo || tx.AcknowledgedAt == "" {

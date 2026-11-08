@@ -98,7 +98,7 @@ func TestCursorWakeListenerAndDelivery(t *testing.T) {
 		if _, err := store.Ack(to.ID, toKey, id); err != nil {
 			t.Fatal(err)
 		}
-		msg, err = store.Finish(id, bus.NewReceipt(model.StatusWakeWritten))
+		msg, err = store.Finish(id, model.NewReceipt(model.StatusWakeWritten))
 		if err != nil || msg.Status != "hook_context_emitted" || msg.AcknowledgedAt == "" {
 			t.Fatalf("late receipt lost hook emission or ACK: %+v %v", msg, err)
 		}

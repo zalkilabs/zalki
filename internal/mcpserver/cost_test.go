@@ -85,7 +85,7 @@ func TestCollaborationCost(t *testing.T) {
 		t.Fatal(err)
 	}
 	requestID := initial.ID
-	if _, err := bus.UUID(requestID); err != nil {
+	if _, err := model.UUID(requestID); err != nil {
 		t.Fatal("send omitted a generated ID", err)
 	}
 	read(reviewer.ID, reviewerKey, requestID, body)

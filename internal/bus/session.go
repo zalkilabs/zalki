@@ -24,7 +24,7 @@ func (s Store) sessionID(kind, id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if uuid, err := UUID(native); err == nil {
+	if uuid, err := model.UUID(native); err == nil {
 		return kind + ":" + uuid, nil
 	}
 	return kind + ":" + derivedID("zalki/native/v1", kind, native), nil
@@ -37,7 +37,7 @@ func (s Store) sessionRecordPath(id string) (string, error) {
 	if len(parts) != 2 || !model.ValidKind(parts[0]) {
 		return "", model.NewError(model.CodeInvalidIdentity, "use the complete kind:UUID returned by list_agents")
 	}
-	uuid, err := UUID(parts[1])
+	uuid, err := model.UUID(parts[1])
 	if err != nil {
 		return "", err
 	}
@@ -117,7 +117,7 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 		preserved := false
 		current, err := s.session(full)
 		exists := err == nil
-		if exists && NativeID(current) != native {
+		if exists && model.NativeID(current) != native {
 			return model.NewError(model.CodeConflict, "native session identity collision")
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
@@ -164,7 +164,7 @@ func (s Store) authenticate(id, key string) (Session, error) {
 	return current, nil
 }
 
-func (s Store) Update(id string, state SessionState, retire bool) error {
+func (s Store) Update(id string, state model.SessionState, retire bool) error {
 	if !state.Valid() || (state == model.StateRetired) != retire {
 		return model.NewError(model.CodeInvalidTransition, "invalid session state/retirement transition")
 	}

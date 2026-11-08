@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -40,7 +39,7 @@ func TestCursorStateRejectsUnknownSchemasAndMalformedLegacyFields(t *testing.T) 
 			t.Fatalf("%s was accepted: %s", name, out)
 		}
 	}
-	if _, err := (Adapter{}).DecodeState(agent.StateInput{State: json.RawMessage(`{"schema":2}`)}); bus.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
+	if _, err := (Adapter{}).DecodeState(agent.StateInput{State: json.RawMessage(`{"schema":2}`)}); model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 		t.Fatal("a future Cursor schema was not reported as unsupported", err)
 	}
 }

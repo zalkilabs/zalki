@@ -55,7 +55,7 @@ func compactExtendedMessage(t *testing.T, store Store, msg Message) (string, []b
 
 func requireEncodedSizeError(t *testing.T, err error) {
 	t.Helper()
-	if ErrorCodeOf(err) != model.CodeInvalidInput || !strings.Contains(err.Error(), "encoded state record") || !strings.Contains(err.Error(), strconv.Itoa(maxStateFileBytes)) {
+	if model.ErrorCodeOf(err) != model.CodeInvalidInput || !strings.Contains(err.Error(), "encoded state record") || !strings.Contains(err.Error(), strconv.Itoa(maxStateFileBytes)) {
 		t.Fatal("missing clear encoded-size refusal", err)
 	}
 }
@@ -144,7 +144,7 @@ func TestMessageWriteSizeRefusalKeepsDurableStatusAndLogsFailure(t *testing.T) {
 			var err error
 			wantEvent := "message.ack_failed"
 			if operation == "receipt" {
-				result, err = store.Finish(msg.ID, NewReceipt(model.StatusSubmitted))
+				result, err = store.Finish(msg.ID, model.NewReceipt(model.StatusSubmitted))
 				wantEvent = "message.receipt_save_failed"
 			} else {
 				result, err = store.Ack(target.ID, key, msg.ID)
@@ -180,7 +180,10 @@ func TestMaxControlCharacterBodyFitsEncodedJournalLimit(t *testing.T) {
 	store := service.Store
 	from, key, target, targetKey := registerPair(t, store, "cursor", "codex")
 	calls := 0
-	service.Deliver = func(context.Context, Message, Session) Receipt { calls++; return NewReceipt(model.StatusSubmitted) }
+	service.Deliver = func(context.Context, Message, Session) Receipt {
+		calls++
+		return model.NewReceipt(model.StatusSubmitted)
+	}
 	body := strings.Repeat("\x01", 16*1024)
 	msg, err := service.Send(t.Context(), SendRequest{Actor: from.ID, Capability: key, To: target.ID, Body: body})
 	if err != nil || msg.Status != model.StatusSubmitted || calls != 1 {

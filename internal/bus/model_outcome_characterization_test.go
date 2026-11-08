@@ -101,7 +101,7 @@ func TestModelNativeReleaseClearsReceiptBeforeTransport(t *testing.T) {
 			t.Fatal("native release did not clear the durable held receipt before transport")
 		}
 		observedCleared = true
-		return bus.NewReceipt(model.StatusSubmitted)
+		return model.NewReceipt(model.StatusSubmitted)
 	})
 	releaseModelHeld(t, service, to)
 	stored := readJSONFile(t, filepath.Join(service.Store.Dir, "messages", held.ID+".json"))

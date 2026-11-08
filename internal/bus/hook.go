@@ -22,7 +22,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 	started := time.Now()
 	trace := hookTrace{stage: "adapter"}
 	defer func() {
-		if IsUpgradeRequired(resultErr) || ErrorCodeOf(resultErr) == model.CodeUnsupportedSchema {
+		if IsUpgradeRequired(resultErr) || model.ErrorCodeOf(resultErr) == model.CodeUnsupportedSchema {
 			s.Store.logEvent(slog.LevelWarn, "hook.upgrade_required", eventData{Agent: kind, Actor: trace.actor, HookEvent: trace.lifecycle, Err: resultErr})
 			resultErr = nil
 			return

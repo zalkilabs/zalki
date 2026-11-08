@@ -50,7 +50,7 @@ func (s Store) readSession(path string) (Session, error) {
 		return v, model.NewError(model.CodeUnsupportedSchema, "a listener lease requires session schema %d", leaseSessionSchema)
 	}
 	if v.NativeID == "" {
-		v.NativeID = NativeID(v)
+		v.NativeID = model.NativeID(v)
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return v, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")
@@ -67,7 +67,7 @@ func canonicalNativeID(id string) (string, error) {
 	if len(id) == 0 || len(id) > 1024 || !utf8.ValidString(id) || strings.ContainsFunc(id, unicode.IsControl) {
 		return "", model.NewError(model.CodeInvalidIdentity, "native session ID must be 1..1024 UTF-8 bytes without control characters")
 	}
-	if uuid, err := UUID(id); err == nil {
+	if uuid, err := model.UUID(id); err == nil {
 		return uuid, nil
 	}
 	return id, nil
@@ -116,9 +116,9 @@ func (s Store) scanSessions() ([]Session, []SessionIssue, error) {
 			}
 		}
 		if readErr != nil {
-			if ErrorCodeOf(readErr) == model.CodeUnsupportedSchema {
+			if model.ErrorCodeOf(readErr) == model.CodeUnsupportedSchema {
 				reason = "session_unsupported_schema"
-			} else if ErrorCodeOf(readErr) == model.CodeInvalidIdentity {
+			} else if model.ErrorCodeOf(readErr) == model.CodeInvalidIdentity {
 				reason = "session_identity_mismatch"
 			}
 			kind, _, _ := strings.Cut(id, ":")

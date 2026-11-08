@@ -24,13 +24,13 @@ func TestTransportOutcomesPersistAndControlAcknowledgement(t *testing.T) {
 	tests := []struct {
 		name        string
 		hookAdapter bool
-		status      bus.DeliveryStatus
+		status      model.DeliveryStatus
 		wireStatus  string
-		code        bus.ErrorCode
+		code        model.ErrorCode
 		text        string
 		// wantCode is the stored code. A receipt that carries an error text
 		// but no code is stored as "unavailable".
-		wantCode bus.ErrorCode
+		wantCode model.ErrorCode
 		// canAck is whether the recipient can acknowledge the stored message.
 		canAck bool
 	}{
@@ -51,7 +51,7 @@ func TestTransportOutcomesPersistAndControlAcknowledgement(t *testing.T) {
 				target = nativeAdapter("beta")
 			}
 			target.script(func(context.Context, bus.Message, bus.Session) bus.Receipt {
-				receipt := bus.NewReceipt(test.status)
+				receipt := model.NewReceipt(test.status)
 				receipt.Code, receipt.Error, receipt.Output = test.code, test.text, "native output"
 				return receipt
 			})
@@ -92,8 +92,8 @@ func TestTransportOutcomesPersistAndControlAcknowledgement(t *testing.T) {
 
 			// A late, different receipt cannot rewrite a settled outcome.
 			if test.status != model.StatusSubmitted {
-				if _, err := store.Finish(request.MessageID, bus.NewReceipt(model.StatusSubmitted)); bus.ErrorCodeOf(err) != model.CodeInvalidTransition {
-					t.Fatalf("late receipt over %q: error code %q (%v), want %q", test.status, bus.ErrorCodeOf(err), err, model.CodeInvalidTransition)
+				if _, err := store.Finish(request.MessageID, model.NewReceipt(model.StatusSubmitted)); model.ErrorCodeOf(err) != model.CodeInvalidTransition {
+					t.Fatalf("late receipt over %q: error code %q (%v), want %q", test.status, model.ErrorCodeOf(err), err, model.CodeInvalidTransition)
 				}
 				if after := readJSONFile(t, filepath.Join(store.Dir, "messages", request.MessageID+".json")); after["status"] != string(test.status) {
 					t.Fatalf("a rejected receipt changed the stored status to %v", after["status"])
@@ -107,12 +107,12 @@ func TestTransportOutcomesPersistAndControlAcknowledgement(t *testing.T) {
 				}
 				return
 			}
-			if bus.ErrorCodeOf(err) != model.CodeInvalidTransition {
-				t.Fatalf("acknowledging %q: error code %q (%v), want %q", test.status, bus.ErrorCodeOf(err), err, model.CodeInvalidTransition)
+			if model.ErrorCodeOf(err) != model.CodeInvalidTransition {
+				t.Fatalf("acknowledging %q: error code %q (%v), want %q", test.status, model.ErrorCodeOf(err), err, model.CodeInvalidTransition)
 			}
 			// Reply is an acknowledgement too, so it is refused for the same reason.
-			if _, err := svc.Reply(context.Background(), bus.ReplyRequest{Actor: to.ID, Capability: to.Key, MessageID: request.MessageID, Body: "ok"}); bus.ErrorCodeOf(err) != model.CodeInvalidTransition {
-				t.Fatalf("replying to %q: error code %q (%v)", test.status, bus.ErrorCodeOf(err), err)
+			if _, err := svc.Reply(context.Background(), bus.ReplyRequest{Actor: to.ID, Capability: to.Key, MessageID: request.MessageID, Body: "ok"}); model.ErrorCodeOf(err) != model.CodeInvalidTransition {
+				t.Fatalf("replying to %q: error code %q (%v)", test.status, model.ErrorCodeOf(err), err)
 			}
 		})
 	}
@@ -151,8 +151,8 @@ func TestApprovalHoldIsAnOutcomeNotAnError(t *testing.T) {
 		t.Fatal(err)
 	}
 	refused, err := send()
-	if bus.ErrorCodeOf(err) != model.CodeUnavailable {
-		t.Fatalf("send to a retired session: error code %q (%v), want %q", bus.ErrorCodeOf(err), err, model.CodeUnavailable)
+	if model.ErrorCodeOf(err) != model.CodeUnavailable {
+		t.Fatalf("send to a retired session: error code %q (%v), want %q", model.ErrorCodeOf(err), err, model.CodeUnavailable)
 	}
 	if refused.ID != "" || target.transportCalls() != 0 {
 		t.Fatalf("a refused send created %q or reached the transport (%d calls)", refused.ID, target.transportCalls())

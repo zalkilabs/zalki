@@ -53,7 +53,7 @@ func (Adapter) ReceiveCapabilities(v bus.Session) model.ReceiveCapabilities {
 
 func (Adapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 	if target.Listener == nil {
-		return bus.NewReceipt(model.StatusPendingActivity)
+		return model.NewReceipt(model.StatusPendingActivity)
 	}
 	return signalCursor(ctx, msg, target)
 }
@@ -78,7 +78,7 @@ func (a Adapter) LookupName(v bus.Session, _ map[string]map[string]string) (stri
 			roots = append(roots, filepath.Join(home, ".cursor"), filepath.Join(home, ".config", "cursor"))
 		}
 	}
-	return cursorNameInRoots(roots, bus.NativeID(v)), "cursor_session_metadata"
+	return cursorNameInRoots(roots, model.NativeID(v)), "cursor_session_metadata"
 }
 
 func (Adapter) NormalizeHook(event agent.HookInput) (agent.HookInput, error) {
@@ -189,7 +189,7 @@ func (Adapter) StartupOutput(startup agent.StartupContext) (any, error) {
 }
 
 func cursorNameInRoots(roots []string, id string) string {
-	if _, err := bus.UUID(id); err != nil {
+	if _, err := model.UUID(id); err != nil {
 		return ""
 	}
 	seen := map[string]bool{}

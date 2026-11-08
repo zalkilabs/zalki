@@ -36,7 +36,7 @@ func (fourthJournalAdapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabi
 }
 
 func (fourthJournalAdapter) Deliver(context.Context, bus.Message, bus.Session) bus.Receipt {
-	return bus.NewReceipt(model.StatusPendingActivity)
+	return model.NewReceipt(model.StatusPendingActivity)
 }
 
 func (fourthJournalAdapter) HandleHook(host agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error) {
@@ -113,7 +113,7 @@ func (fourthAdapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities 
 }
 
 func (fourthAdapter) Deliver(context.Context, bus.Message, bus.Session) bus.Receipt {
-	receipt := bus.NewReceipt(model.StatusSubmitted)
+	receipt := model.NewReceipt(model.StatusSubmitted)
 	receipt.Output = "external-fourth"
 	return receipt
 }

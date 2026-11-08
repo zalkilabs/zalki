@@ -3,12 +3,7 @@ package bus
 import (
 	"crypto/rand"
 	"encoding/hex"
-
-	"github.com/zalkilabs/zalki/internal/model"
 )
-
-// UUID forwards canonical identity validation to model.
-func UUID(s string) (string, error) { return model.UUID(s) }
 
 func newID() string {
 	b := make([]byte, 16)

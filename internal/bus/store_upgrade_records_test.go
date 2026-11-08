@@ -124,11 +124,11 @@ func TestSessionExtensionsSurviveLifecycleTaskApprovalLeaseAndRegistration(t *te
 	if _, exists := requireRecordExtension(t, path)["listener"]; exists {
 		t.Fatal("released listener resurrected")
 	}
-	if _, _, err := store.register(target.Kind, NativeID(target), target.CWD, nil, true); err != nil {
+	if _, _, err := store.register(target.Kind, model.NativeID(target), target.CWD, nil, true); err != nil {
 		t.Fatal(err)
 	}
 	requireRecordExtension(t, path)
-	if _, _, err := store.Register(target.Kind, NativeID(target), target.CWD, nil); err != nil {
+	if _, _, err := store.Register(target.Kind, model.NativeID(target), target.CWD, nil); err != nil {
 		t.Fatal(err)
 	}
 	requireRecordExtension(t, path)
@@ -142,7 +142,7 @@ func TestMessageExtensionsSurviveReceiptsAcknowledgementAndHookEmission(t *testi
 	service := newTestService(t)
 	store := service.Store
 	from, key, to, toKey := registerPair(t, store, "cursor", "codex")
-	service.Deliver = func(_ context.Context, _ Message, _ Session) Receipt { return NewReceipt(model.StatusSubmitted) }
+	service.Deliver = func(_ context.Context, _ Message, _ Session) Receipt { return model.NewReceipt(model.StatusSubmitted) }
 	msg, err := service.Send(t.Context(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, Body: "fixture"})
 	if err != nil {
 		t.Fatal(err)
@@ -163,7 +163,7 @@ func TestMessageExtensionsSurviveReceiptsAcknowledgementAndHookEmission(t *testi
 	if err := writeJSON(path, record); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Finish(msg.ID, NewReceipt(model.StatusSubmitted)); err != nil {
+	if _, err := store.Finish(msg.ID, model.NewReceipt(model.StatusSubmitted)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.Ack(to.ID, toKey, msg.ID); err != nil {
@@ -276,7 +276,7 @@ func TestMixedSessionScanSkipsRecordsAndPrunePreservesThem(t *testing.T) {
 			t.Fatal("skipped record changed", path)
 		}
 	}
-	if _, err := store.session(future.ID); ErrorCodeOf(err) != model.CodeUnsupportedSchema {
+	if _, err := store.session(future.ID); model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 		t.Fatal("exact lookup lost schema error", err)
 	}
 }
@@ -412,7 +412,7 @@ func TestFutureRecordsRefuseFreshRewriteValuesAndKeepBytes(t *testing.T) {
 				t.Fatal(err)
 			}
 			before, _ := os.ReadFile(test.path)
-			if err := test.rewrite(); ErrorCodeOf(err) != model.CodeUnsupportedSchema {
+			if err := test.rewrite(); model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 				t.Fatal("fresh value overwrote future record", err)
 			}
 			if after, _ := os.ReadFile(test.path); !bytes.Equal(before, after) {
@@ -443,7 +443,7 @@ func TestHeldExtensionsSurviveApprovalReleaseAndRetirement(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				service.Deliver = func(context.Context, Message, Session) Receipt { return NewReceipt(model.StatusSubmitted) }
+				service.Deliver = func(context.Context, Message, Session) Receipt { return model.NewReceipt(model.StatusSubmitted) }
 				if err := store.Update(target.ID, model.StateReady, false); err != nil {
 					t.Fatal(err)
 				}

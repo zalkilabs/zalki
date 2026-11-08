@@ -32,7 +32,7 @@ func requireModelTimestamp(t *testing.T, at string) {
 }
 
 func TestModelNewReceiptBaseline(t *testing.T) {
-	receipt := bus.NewReceipt(model.StatusUnknownWrite)
+	receipt := model.NewReceipt(model.StatusUnknownWrite)
 	requireModelTimestamp(t, receipt.At)
 	// Normalize only the clock sample; every other output remains a literal.
 	receipt.At = "TIME"
@@ -82,7 +82,7 @@ func TestModelReceiptCauseIsCopiedAndNotEncoded(t *testing.T) {
 }
 
 func TestModelErrorClassificationBaseline(t *testing.T) {
-	coded := &bus.Error{Code: "conflict", Message: "coded refusal"}
+	coded := &model.Error{Code: "conflict", Message: "coded refusal"}
 	for _, test := range []struct {
 		name string
 		err  error
@@ -98,7 +98,7 @@ func TestModelErrorClassificationBaseline(t *testing.T) {
 		{"not found wins joined permission", errors.Join(os.ErrPermission, os.ErrNotExist), "not_found"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := string(bus.ErrorCodeOf(test.err)); got != test.want {
+			if got := string(model.ErrorCodeOf(test.err)); got != test.want {
 				t.Fatalf("ErrorCodeOf(%v)=%q, want %q", test.err, got, test.want)
 			}
 		})
@@ -106,7 +106,7 @@ func TestModelErrorClassificationBaseline(t *testing.T) {
 }
 
 func TestModelTypedErrorTextAndIdentity(t *testing.T) {
-	coded := &bus.Error{Code: "invalid_input", Message: "bad value 7"}
+	coded := &model.Error{Code: "invalid_input", Message: "bad value 7"}
 	wrapped := fmt.Errorf("outer: %w", coded)
 	if got := coded.Error(); got != "invalid_input: bad value 7" {
 		t.Fatalf("typed error text=%q", got)
@@ -114,15 +114,15 @@ func TestModelTypedErrorTextAndIdentity(t *testing.T) {
 	if got := wrapped.Error(); got != "outer: invalid_input: bad value 7" {
 		t.Fatalf("wrapped error text=%q", got)
 	}
-	_, publicError := bus.UUID("malformed")
+	_, publicError := model.UUID("malformed")
 	if publicError == nil || publicError.Error() != "invalid_identity: expected an exact session/message UUID" {
 		t.Fatalf("public typed error text=%v", publicError)
 	}
-	var direct *bus.Error
+	var direct *model.Error
 	if !errors.As(publicError, &direct) || direct.Code != "invalid_identity" {
 		t.Fatal("public operation did not return a bus.Error-compatible value")
 	}
-	var recovered *bus.Error
+	var recovered *model.Error
 	if !errors.As(fmt.Errorf("outer: %w", publicError), &recovered) || recovered != direct {
 		t.Fatal("wrapped public error lost its typed pointer identity")
 	}

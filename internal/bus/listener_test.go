@@ -88,10 +88,10 @@ func pendingMessage(t *testing.T, store Store, to Session) Message {
 func TestListenerLeaseRequiresTheRegistrationsOwnCapability(t *testing.T) {
 	store := fixtureStore(t)
 	from, key, to, _ := registerPair(t, store, "codex", "cursor")
-	if _, err := store.AcquireListenerLease(to.ID, "wrong capability"); ErrorCodeOf(err) != model.CodeUnauthorized {
+	if _, err := store.AcquireListenerLease(to.ID, "wrong capability"); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("listener accepted a different session capability", err)
 	}
-	if _, err := store.AcquireListenerLease(from.ID, key); ErrorCodeOf(err) != model.CodeInvalidInput {
+	if _, err := store.AcquireListenerLease(from.ID, key); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 		t.Fatal("listener accepted an identity without a native listener", err)
 	}
 }
@@ -100,7 +100,7 @@ func TestListenerLeaseIsExclusiveUntilClosed(t *testing.T) {
 	store := fixtureStore(t)
 	to, key := register(t, store, "cursor")
 	first := acquire(t, store, to.ID, key)
-	if _, err := store.AcquireListenerLease(to.ID, key); ErrorCodeOf(err) != model.CodeConflict || !strings.Contains(err.Error(), "already has a listener") {
+	if _, err := store.AcquireListenerLease(to.ID, key); model.ErrorCodeOf(err) != model.CodeConflict || !strings.Contains(err.Error(), "already has a listener") {
 		t.Fatal("a second lease was acquired while the first held the lifetime lock", err)
 	}
 	first.Close(nil)
@@ -134,7 +134,7 @@ func TestAcquireDropsALockUnlinkedBeforeFlock(t *testing.T) {
 	if !unlinked {
 		t.Fatal("lock file was not unlinked between open and flock")
 	}
-	if second, err := store.AcquireListenerLease(to.ID, key); ErrorCodeOf(err) != model.CodeConflict {
+	if second, err := store.AcquireListenerLease(to.ID, key); model.ErrorCodeOf(err) != model.CodeConflict {
 		if second != nil {
 			second.Close(nil)
 		}
@@ -186,7 +186,7 @@ func TestArmRejectsACredentialRotatedAfterAcquisition(t *testing.T) {
 		t.Fatal("an unarmed lease blocked recovery", err)
 	}
 	before := sessionBytes(t, store, to.ID)
-	if err := lease.Arm(listenSocket(t)); ErrorCodeOf(err) != model.CodeUnauthorized {
+	if err := lease.Arm(listenSocket(t)); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("a rotated capability armed a listener", err)
 	}
 	if current, _ := store.session(to.ID); current.Generation != to.Generation || !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
@@ -200,7 +200,7 @@ func TestArmRejectsAReplacementRegistration(t *testing.T) {
 	store := fixtureStore(t)
 	to, key := register(t, store, "cursor")
 	lease := acquire(t, store, to.ID, key)
-	replacement, _, err := store.Register("cursor", NativeID(to), to.CWD, nil)
+	replacement, _, err := store.Register("cursor", model.NativeID(to), to.CWD, nil)
 	if err != nil || replacement.Generation == to.Generation {
 		t.Fatal("re-registration kept the generation", err)
 	}
@@ -233,7 +233,7 @@ func TestSupersededLeaseCannotConfirmValidateOrClear(t *testing.T) {
 	}
 	msg := pendingMessage(t, store, to)
 	before := sessionBytes(t, store, to.ID)
-	if err := old.Confirm(func(model.SessionView) (json.RawMessage, error) { return nil, nil }); ErrorCodeOf(err) != model.CodeConflict {
+	if err := old.Confirm(func(model.SessionView) (json.RawMessage, error) { return nil, nil }); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("a superseded lease confirmed setup", err)
 	}
 	if _, err := old.ValidateDelivery(msg.ID); err == nil {
@@ -278,7 +278,7 @@ func TestValidateDeliveryKeepsRecipientFences(t *testing.T) {
 		t.Fatal("an acknowledged message was not reported as acknowledged", err)
 	}
 	waiting := pendingMessage(t, store, to)
-	for _, state := range []SessionState{model.StateApproval, model.StateRetired} {
+	for _, state := range []model.SessionState{model.StateApproval, model.StateRetired} {
 		if err := store.Update(to.ID, state, state == model.StateRetired); err != nil {
 			t.Fatal(err)
 		}
@@ -369,7 +369,7 @@ func TestLeaseOwnershipRequiresEveryRecordedField(t *testing.T) {
 			before := sessionBytes(t, store, to.ID)
 			if err := lease.Confirm(func(model.SessionView) (json.RawMessage, error) {
 				return encodedCursorState(CursorListenerState{RecoverySuppressed: true}), nil
-			}); ErrorCodeOf(err) != model.CodeConflict {
+			}); model.ErrorCodeOf(err) != model.CodeConflict {
 				t.Fatal("confirmed a record owned by a different lease", err)
 			}
 			if _, err := lease.ValidateDelivery(msg.ID); err == nil {

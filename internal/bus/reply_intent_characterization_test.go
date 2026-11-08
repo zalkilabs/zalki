@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // replyFixture is a state directory with one incoming message that has not
@@ -98,7 +99,7 @@ func TestDamagedReplyIntentBlocksReadsAndSendsWithoutChangingState(t *testing.T)
 	tests := []struct {
 		name   string
 		damage func(tx map[string]any)
-		want   bus.ErrorCode
+		want   model.ErrorCode
 	}{
 		{"unsupported intent schema", func(tx map[string]any) { tx["schema"] = 2 }, "unsupported_schema"},
 		{"unsupported reply record schema", func(tx map[string]any) { tx["reply"].(map[string]any)["schema"] = 99 }, "unsupported_schema"},
@@ -126,13 +127,13 @@ func TestDamagedReplyIntentBlocksReadsAndSendsWithoutChangingState(t *testing.T)
 
 			restarted := restart(t, f.store)
 			for attempt := 1; attempt <= 2; attempt++ {
-				if _, err := restarted.List(); bus.ErrorCodeOf(err) != test.want {
-					t.Fatalf("attempt %d: List error code = %q (%v), want %q", attempt, bus.ErrorCodeOf(err), err, test.want)
+				if _, err := restarted.List(); model.ErrorCodeOf(err) != test.want {
+					t.Fatalf("attempt %d: List error code = %q (%v), want %q", attempt, model.ErrorCodeOf(err), err, test.want)
 				}
 			}
 			svc := bus.Service{Store: restarted}
-			if _, err := svc.Send(context.Background(), bus.SendRequest{Actor: f.replier.ID, Capability: f.replier.Key, To: f.parent.From, Body: "later"}); bus.ErrorCodeOf(err) != test.want {
-				t.Fatalf("Send error code = %q (%v), want %q: a damaged intent must not be skipped", bus.ErrorCodeOf(err), err, test.want)
+			if _, err := svc.Send(context.Background(), bus.SendRequest{Actor: f.replier.ID, Capability: f.replier.Key, To: f.parent.From, Body: "later"}); model.ErrorCodeOf(err) != test.want {
+				t.Fatalf("Send error code = %q (%v), want %q: a damaged intent must not be skipped", model.ErrorCodeOf(err), err, test.want)
 			}
 			if after := snapshot(t, f.store.Dir); !maps.Equal(before, after) {
 				t.Fatalf("state changed while rejecting a damaged intent:\nbefore %v\nafter  %v", keys(before), keys(after))
@@ -156,8 +157,8 @@ func TestReplyIntentForAMissingParentIsNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := snapshot(t, f.store.Dir)
-	if _, err := restart(t, f.store).List(); bus.ErrorCodeOf(err) != "not_found" {
-		t.Fatalf("List error code = %q (%v), want %q", bus.ErrorCodeOf(err), err, "not_found")
+	if _, err := restart(t, f.store).List(); model.ErrorCodeOf(err) != "not_found" {
+		t.Fatalf("List error code = %q (%v), want %q", model.ErrorCodeOf(err), err, "not_found")
 	}
 	if after := snapshot(t, f.store.Dir); !maps.Equal(before, after) {
 		t.Fatal("state changed while rejecting an intent without a parent")
@@ -175,8 +176,8 @@ func TestReplyIntentConflictingWithACommittedReservationIsRejected(t *testing.T)
 	writeJSONFile(t, filepath.Join(f.store.Dir, "messages", f.reply["id"].(string)+".json"), existing)
 	f.writeIntent(t, f.intent())
 	before := snapshot(t, f.store.Dir)
-	if _, err := restart(t, f.store).List(); bus.ErrorCodeOf(err) != "conflict" {
-		t.Fatalf("List error code = %q (%v), want %q", bus.ErrorCodeOf(err), err, "conflict")
+	if _, err := restart(t, f.store).List(); model.ErrorCodeOf(err) != "conflict" {
+		t.Fatalf("List error code = %q (%v), want %q", model.ErrorCodeOf(err), err, "conflict")
 	}
 	if after := snapshot(t, f.store.Dir); !maps.Equal(before, after) {
 		t.Fatal("state changed while rejecting a conflicting reservation")

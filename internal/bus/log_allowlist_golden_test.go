@@ -221,7 +221,7 @@ func TestLogEventNeverWritesErrorText(t *testing.T) {
 }
 
 func TestLogEventErrorCodePrecedenceAndAllowlist(t *testing.T) {
-	known := []ErrorCode{model.CodeInvalidInput, model.CodeInvalidIdentity, model.CodeUnauthorized, model.CodeConflict, model.CodeUnavailable, model.CodeRateLimited, model.CodeNotFound, model.CodeUnsupportedSchema, model.CodeInvalidTransition, model.CodeInternal}
+	known := []model.ErrorCode{model.CodeInvalidInput, model.CodeInvalidIdentity, model.CodeUnauthorized, model.CodeConflict, model.CodeUnavailable, model.CodeRateLimited, model.CodeNotFound, model.CodeUnsupportedSchema, model.CodeInvalidTransition, model.CodeInternal}
 	cases := make([]logCase, 0, len(known)+5)
 	for _, code := range known {
 		cases = append(cases, logCase{"the code " + string(code) + " is kept", eventData{Code: code}, []string{"error_code=" + string(code)}})
@@ -275,8 +275,8 @@ func TestLogEventWithSecretsInEveryFieldEmitsOnlyTheErrorClass(t *testing.T) {
 	got := loggedAttrs(t, eventData{
 		Actor: secret, Recipient: secret, MessageID: secret, ReplyTo: secret, Generation: secret,
 		Agent: secret, HookEvent: secret, HookStage: secret,
-		Status: DeliveryStatus(secret), ReceiptStatus: DeliveryStatus(secret), State: SessionState(secret),
-		Code: ErrorCode(secret), Err: errors.New(secret),
+		Status: model.DeliveryStatus(secret), ReceiptStatus: model.DeliveryStatus(secret), State: model.SessionState(secret),
+		Code: model.ErrorCode(secret), Err: errors.New(secret),
 	})
 	want := []string{"error_kind=other", "error_code=internal"}
 	if !slices.Equal(got, want) {

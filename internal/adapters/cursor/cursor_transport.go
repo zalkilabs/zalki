@@ -13,7 +13,7 @@ import (
 )
 
 func signalCursor(ctx context.Context, message bus.Message, target bus.Session) bus.Receipt {
-	receipt := bus.NewReceipt(model.StatusPendingActivity)
+	receipt := model.NewReceipt(model.StatusPendingActivity)
 	endpoint := &target.Listener.Endpoint
 	if err := bus.CheckEndpoint(endpoint); err != nil {
 		receipt.Error = "Cursor listener unavailable: " + err.Error()
@@ -61,6 +61,6 @@ func signalCursor(ctx context.Context, message bus.Message, target bus.Session) 
 		receipt.Error = "Cursor listener returned a different message identity"
 		return receipt
 	}
-	receipt.At, receipt.Status = bus.NewReceipt(model.StatusWakeWritten).At, model.StatusWakeWritten
+	receipt.At, receipt.Status = model.NewReceipt(model.StatusWakeWritten).At, model.StatusWakeWritten
 	return receipt
 }

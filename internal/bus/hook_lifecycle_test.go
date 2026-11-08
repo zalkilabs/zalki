@@ -50,7 +50,7 @@ func TestLifecycleTransitionsAreScopedToTheHookEvent(t *testing.T) {
 		err := cursorHost(store, to.ID, test.event).ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 			return agent.LifecycleChange{Transition: test.transition, AdapterState: encodedCursorState(CursorListenerState{RecoveryAttempted: true})}, nil
 		})
-		if ErrorCodeOf(err) != model.CodeInvalidTransition || !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
+		if model.ErrorCodeOf(err) != model.CodeInvalidTransition || !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
 			t.Fatalf("%s accepted transition %d: %v", test.event, test.transition, err)
 		}
 	}
@@ -60,7 +60,7 @@ func TestLifecycleTransitionsAreScopedToTheHookEvent(t *testing.T) {
 			called = true
 			return agent.RecoveryDecision{Recover: true}, nil
 		})
-		if ErrorCodeOf(err) != model.CodeInvalidTransition || called || grant.Capability != "" {
+		if model.ErrorCodeOf(err) != model.CodeInvalidTransition || called || grant.Capability != "" {
 			t.Fatalf("%s claimed recovery: %v", event, err)
 		}
 	}
@@ -162,11 +162,11 @@ func TestLifecycleHostIsBoundToItsSessionKind(t *testing.T) {
 	to, key := register(t, store, "cursor")
 	before := sessionBytes(t, store, to.ID)
 	wrong := hookRuntime{store: store, actor: to.ID, kind: "codex", event: "UserPromptSubmit"}
-	if err := wrong.ApplyLifecycle(stubResumeOnPrompt); ErrorCodeOf(err) != model.CodeInvalidIdentity {
+	if err := wrong.ApplyLifecycle(stubResumeOnPrompt); model.ErrorCodeOf(err) != model.CodeInvalidIdentity {
 		t.Fatal("another agent's hook changed a Cursor session", err)
 	}
 	wrong.event = "PostToolUse"
-	if grant, err := wrong.ClaimRecovery(stubClaimRecovery); ErrorCodeOf(err) != model.CodeInvalidIdentity || grant.Capability != "" {
+	if grant, err := wrong.ClaimRecovery(stubClaimRecovery); model.ErrorCodeOf(err) != model.CodeInvalidIdentity || grant.Capability != "" {
 		t.Fatal("another agent's hook reissued a Cursor credential", err)
 	}
 	if !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
@@ -207,7 +207,7 @@ func TestStopTransitionKeepsARetiredSessionRetired(t *testing.T) {
 func TestRecoveryGuardsRunBeforeThePolicy(t *testing.T) {
 	store := fixtureStore(t)
 	to, _ := register(t, store, "cursor")
-	for _, state := range []SessionState{model.StateApproval, model.StateRetired} {
+	for _, state := range []model.SessionState{model.StateApproval, model.StateRetired} {
 		if err := store.Update(to.ID, state, state == model.StateRetired); err != nil {
 			t.Fatal(err)
 		}
@@ -255,10 +255,10 @@ func TestCodecResultIsBoundedBeforePersisting(t *testing.T) {
 			}
 			store.Registry = registry
 			before := sessionBytes(t, store, to.ID)
-			if err := cursorHost(store, to.ID, "UserPromptSubmit").ApplyLifecycle(stubResumeOnPrompt); ErrorCodeOf(err) != model.CodeInvalidInput {
+			if err := cursorHost(store, to.ID, "UserPromptSubmit").ApplyLifecycle(stubResumeOnPrompt); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 				t.Fatal("lifecycle persisted an unbounded codec result", err)
 			}
-			if grant, err := cursorHost(store, to.ID, "PostToolUse").ClaimRecovery(stubClaimRecovery); ErrorCodeOf(err) != model.CodeInvalidInput || grant.Capability != "" {
+			if grant, err := cursorHost(store, to.ID, "PostToolUse").ClaimRecovery(stubClaimRecovery); model.ErrorCodeOf(err) != model.CodeInvalidInput || grant.Capability != "" {
 				t.Fatal("recovery persisted an unbounded codec result", err)
 			}
 			if !bytes.Equal(before, sessionBytes(t, store, to.ID)) {

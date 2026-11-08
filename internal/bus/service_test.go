@@ -8,7 +8,7 @@ import (
 )
 
 func TestReceiptLogLevel(t *testing.T) {
-	for status, want := range map[DeliveryStatus]slog.Level{
+	for status, want := range map[model.DeliveryStatus]slog.Level{
 		model.StatusAttempting: slog.LevelInfo, model.StatusApprovalBlocked: slog.LevelInfo, model.StatusQueuedForApproval: slog.LevelInfo,
 		model.StatusSubmitted: slog.LevelInfo, model.StatusTransportWritten: slog.LevelInfo, model.StatusWakeWritten: slog.LevelInfo,
 		model.StatusPendingActivity: slog.LevelInfo, model.StatusContextEmitted: slog.LevelInfo,

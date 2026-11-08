@@ -51,7 +51,7 @@ func TestInstallDeclarationsPreservesRegistryFailure(t *testing.T) {
 	var registry *agent.Registry
 	_, wantErr := registry.Configuration("/fixture/zalki", "/fixture/state")
 	got, err := installDeclarations(registry)("/fixture/zalki", "/fixture/state")
-	if got != nil || err == nil || err.Error() != wantErr.Error() || bus.ErrorCodeOf(err) != "internal" {
+	if got != nil || err == nil || err.Error() != wantErr.Error() || model.ErrorCodeOf(err) != "internal" {
 		t.Fatalf("registry refusal changed: files %+v error %v", got, err)
 	}
 }

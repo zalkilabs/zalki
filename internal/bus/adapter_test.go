@@ -78,7 +78,7 @@ func (a fixtureAdapter) Deliver(_ context.Context, _ Message, _ Session) Receipt
 
 func (a fixtureAdapter) ConfigDir() string { return "/fixture" }
 func (a fixtureAdapter) LookupName(v Session, _ map[string]map[string]string) (string, string) {
-	return a.kind + " " + NativeID(v), "fixture_metadata"
+	return a.kind + " " + model.NativeID(v), "fixture_metadata"
 }
 func (a fixtureAdapter) Configuration(binary string, args []string) []model.ConfigDeclaration {
 	path := a.path
@@ -127,7 +127,7 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 			if err != nil || msg.To != to.ID || msg.FromLabel != "Fixture" {
 				t.Fatalf("%+v %v", msg, err)
 			}
-			if !strings.Contains(Envelope(msg), "From: Fixture") {
+			if !strings.Contains(model.Envelope(msg), "From: Fixture") {
 				t.Fatal("new adapter display label was lost")
 			}
 			incoming, err := store.Messages(to.ID, toKey)

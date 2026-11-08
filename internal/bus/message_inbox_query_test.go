@@ -25,7 +25,7 @@ func TestExactLookupAvoidsUnrelatedJournalReadsAndPreservesHistory(t *testing.T)
 		t.Fatal("exact lookup scanned unrelated records or lost content", err)
 	}
 	query.Actor, query.Capability = other.ID, otherKey
-	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeUnauthorized {
+	if _, err := store.ReadMessages(query); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("exact lookup exposed another session's message", err)
 	}
 	stored, err := store.message(msg.ID)

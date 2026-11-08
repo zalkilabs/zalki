@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // These tests pin the read path of Store.ReadMessages (scanMessages and the
@@ -238,7 +239,7 @@ func TestReadMessagesChecksTheCallerThenTheCursorBeforeScanning(t *testing.T) {
 	})
 	t.Run("a missing cursor wins over an unreadable record", func(t *testing.T) {
 		_, err := f.read(as(f.a, bus.MessageQuery{Cursor: messageID(999)}))
-		if bus.ErrorCodeOf(err) != "not_found" {
+		if model.ErrorCodeOf(err) != "not_found" {
 			t.Fatalf("error = %v, want not_found for the cursor", err)
 		}
 	})

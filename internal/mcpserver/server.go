@@ -19,18 +19,18 @@ type Output[T any] struct {
 }
 
 type ToolError struct {
-	Code    bus.ErrorCode `json:"code"`
-	Message string        `json:"message"`
+	Code    model.ErrorCode `json:"code"`
+	Message string          `json:"message"`
 }
 
 // Mutations return receipts; full bodies and routing records live in history.
 type MessageReceipt struct {
-	ID           string             `json:"id"`
-	Status       bus.DeliveryStatus `json:"status"`
-	Acknowledged bool               `json:"acknowledged"`
-	Note         string             `json:"note,omitempty"`
-	Error        string             `json:"error,omitempty"`
-	Code         bus.ErrorCode      `json:"code,omitempty"`
+	ID           string               `json:"id"`
+	Status       model.DeliveryStatus `json:"status"`
+	Acknowledged bool                 `json:"acknowledged"`
+	Note         string               `json:"note,omitempty"`
+	Error        string               `json:"error,omitempty"`
+	Code         model.ErrorCode      `json:"code,omitempty"`
 }
 
 func messageReceipt(message bus.Message, err error) (MessageReceipt, error) {
@@ -80,22 +80,22 @@ func runtimeWarning(service *bus.Service) *bus.RuntimeStatus {
 
 // MessageView omits journal internals and native transport output.
 type MessageView struct {
-	ID             string             `json:"id"`
-	From           string             `json:"from"`
-	FromName       string             `json:"from_name,omitempty"`
-	FromLabel      string             `json:"from_label,omitempty"`
-	Kind           string             `json:"kind,omitempty"`
-	To             string             `json:"to"`
-	Body           string             `json:"body,omitempty"`
-	Preview        string             `json:"preview,omitempty"`
-	BodyOmitted    bool               `json:"body_omitted,omitempty"`
-	BodyDeferred   bool               `json:"body_deferred,omitempty"`
-	ReplyTo        string             `json:"reply_to,omitempty"`
-	CreatedAt      string             `json:"created_at"`
-	Status         bus.DeliveryStatus `json:"status"`
-	AcknowledgedAt string             `json:"acknowledged_at,omitempty"`
-	Error          string             `json:"error,omitempty"`
-	Code           bus.ErrorCode      `json:"code,omitempty"`
+	ID             string               `json:"id"`
+	From           string               `json:"from"`
+	FromName       string               `json:"from_name,omitempty"`
+	FromLabel      string               `json:"from_label,omitempty"`
+	Kind           string               `json:"kind,omitempty"`
+	To             string               `json:"to"`
+	Body           string               `json:"body,omitempty"`
+	Preview        string               `json:"preview,omitempty"`
+	BodyOmitted    bool                 `json:"body_omitted,omitempty"`
+	BodyDeferred   bool                 `json:"body_deferred,omitempty"`
+	ReplyTo        string               `json:"reply_to,omitempty"`
+	CreatedAt      string               `json:"created_at"`
+	Status         model.DeliveryStatus `json:"status"`
+	AcknowledgedAt string               `json:"acknowledged_at,omitempty"`
+	Error          string               `json:"error,omitempty"`
+	Code           model.ErrorCode      `json:"code,omitempty"`
 }
 
 func messageViews(messages []bus.Message) []MessageView {
@@ -165,7 +165,7 @@ type discoveryResult struct {
 func toolOutput[T any](service *bus.Service, value T, err error) Output[T] {
 	output := Output[T]{Data: value, Runtime: runtimeWarning(service)}
 	if err != nil {
-		output.Error = &ToolError{Code: bus.ErrorCodeOf(err), Message: err.Error()}
+		output.Error = &ToolError{Code: model.ErrorCodeOf(err), Message: err.Error()}
 	}
 	return output
 }

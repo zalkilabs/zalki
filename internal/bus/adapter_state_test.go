@@ -86,7 +86,7 @@ func TestStateExtensionsAreBounded(t *testing.T) {
 			store := fixtureStore(t)
 			to, _ := register(t, store, "cursor")
 			rewriteRecord(t, store, to.ID, edit)
-			if _, err := store.session(to.ID); ErrorCodeOf(err) != model.CodeInvalidInput {
+			if _, err := store.session(to.ID); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 				t.Fatal("an unbounded record reached the adapter codec", err)
 			}
 		})

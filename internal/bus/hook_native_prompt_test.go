@@ -57,16 +57,16 @@ func TestCompletedNativePromptGenerationFenceIsReadOnly(t *testing.T) {
 	store := service.Store
 	from, key, to, _ := registerPair(t, store, "cursor", "codex")
 	service.Deliver = func(context.Context, Message, Session) Receipt {
-		return NewReceipt(model.StatusSubmitted)
+		return model.NewReceipt(model.StatusSubmitted)
 	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "queued"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := store.Register(to.Kind, NativeID(to), to.CWD, nil); err != nil {
+	if _, _, err := store.Register(to.Kind, model.NativeID(to), to.CWD, nil); err != nil {
 		t.Fatal(err)
 	}
-	if reason, err := store.completedNativePrompt(to.ID, Envelope(msg)); err != nil || !strings.Contains(reason, "previous registration") {
+	if reason, err := store.completedNativePrompt(to.ID, model.Envelope(msg)); err != nil || !strings.Contains(reason, "previous registration") {
 		t.Fatalf("missing generation fence: %q %v", reason, err)
 	}
 	stored, err := store.message(msg.ID)

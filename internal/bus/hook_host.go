@@ -12,7 +12,7 @@ type hookRuntime struct {
 	actor, kind, event string
 }
 
-func (h hookRuntime) UpdateSession(id string, state SessionState, retired bool) error {
+func (h hookRuntime) UpdateSession(id string, state model.SessionState, retired bool) error {
 	if h.actor == "" || id != h.actor {
 		return model.NewError(model.CodeUnauthorized, "hook operation must use its bound session")
 	}

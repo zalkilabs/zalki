@@ -142,8 +142,8 @@ func TestPruneKeepsAnOrphanedListenerLockWhileItIsHeld(t *testing.T) {
 	if second, err := store.AcquireListenerLease(a.ID, a.Key); err == nil {
 		second.Close(nil)
 		t.Fatal("a second lease was acquired for a session that no longer exists")
-	} else if bus.ErrorCodeOf(err) != "not_found" {
-		t.Fatalf("missing session: error code %q (%v), want not_found", bus.ErrorCodeOf(err), err)
+	} else if model.ErrorCodeOf(err) != "not_found" {
+		t.Fatalf("missing session: error code %q (%v), want not_found", model.ErrorCodeOf(err), err)
 	}
 
 	// Once the holder lets go, the orphan is removed.

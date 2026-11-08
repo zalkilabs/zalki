@@ -53,7 +53,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 			run: func(t *testing.T, _, beta *fakeAdapter, svc bus.Service, from, to agent) {
 				t.Helper()
 				beta.script(func(context.Context, bus.Message, bus.Session) bus.Receipt {
-					receipt := bus.NewReceipt(model.StatusNotSent)
+					receipt := model.NewReceipt(model.StatusNotSent)
 					receipt.Code, receipt.Error, receipt.Output = model.CodeUnavailable, "no route", "native output"
 					return receipt
 				})

@@ -15,7 +15,7 @@ type AgentInfo struct {
 	// Task is the agent's own unverified claim. Empty claims are omitted.
 	Task         string               `json:"task,omitempty"`
 	CWD          string               `json:"cwd"`
-	State        SessionState         `json:"state,omitempty"`
+	State        model.SessionState   `json:"state,omitempty"`
 	Liveness     model.Liveness       `json:"liveness,omitempty"`
 	UpdatedAt    string               `json:"updated_at"`
 	Delivery     model.DeliveryTiming `json:"delivery"`
