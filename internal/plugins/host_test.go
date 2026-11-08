@@ -145,10 +145,10 @@ func hostStore(t *testing.T) (bus.Store, model.Session) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.ConfigurePluginFeed([]string{session.ID}); err != nil {
+	if err := bus.NewPluginFeed(store).ConfigurePluginFeed([]string{session.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.EnablePluginFeed(true); err != nil {
+	if err := bus.NewPluginFeed(store).EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
 	return store, session
@@ -249,7 +249,7 @@ func TestHostCrashRetainsLeaseUntilChildExits(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = worker.Process.Kill(); _, _ = worker.Process.Wait() })
-	eventually(t, func() bool { s, err := store.PluginStatus(); return err == nil && !s.GapPending })
+	eventually(t, func() bool { s, err := bus.NewPluginFeed(store).PluginStatus(); return err == nil && !s.GapPending })
 	if err := worker.Process.Kill(); err != nil {
 		t.Fatal(err)
 	}
@@ -281,15 +281,15 @@ func TestHostPendingGapSurvivesAnotherLossAndRestart(t *testing.T) {
 func pendingGapRestart(t *testing.T, reason string) {
 	t.Helper()
 	store, session := hostStore(t)
-	initial, err := store.NextPluginFeed()
+	initial, err := bus.NewPluginFeed(store).NextPluginFeed()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.AckPluginFeed(initial); err != nil {
+	if err := bus.NewPluginFeed(store).AckPluginFeed(initial); err != nil {
 		t.Fatal(err)
 	}
 	seedLaterHistory(t, store, session, "retention")
-	gap, err := store.NextPluginFeed()
+	gap, err := bus.NewPluginFeed(store).NextPluginFeed()
 	if err != nil || gap.Gap != "retention" {
 		t.Fatal(gap, err)
 	}
@@ -312,11 +312,14 @@ func pendingGapRestart(t *testing.T, reason string) {
 		t.Fatal(err)
 	}
 	eventually(t, func() bool { return laterGapSeen(store.Dir, gap.ID, reason) })
-	eventually(t, func() bool { s, err := store.PluginStatus(); return err == nil && s.LastGap == reason && !s.GapPending })
+	eventually(t, func() bool {
+		s, err := bus.NewPluginFeed(store).PluginStatus()
+		return err == nil && s.LastGap == reason && !s.GapPending
+	})
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, func() bool { d, err := store.NextPluginFeed(); return err == nil && d.ID == "" })
+	eventually(t, func() bool { d, err := bus.NewPluginFeed(store).NextPluginFeed(); return err == nil && d.ID == "" })
 }
 
 func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reason string) {
@@ -368,12 +371,12 @@ func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reas
 func TestHostConsumesOneOfferAndHonorsDisable(t *testing.T) {
 	store, session := hostStore(t)
 	_, done := startHost(t, store)
-	eventually(t, func() bool { s, err := store.PluginStatus(); return err == nil && !s.GapPending })
+	eventually(t, func() bool { s, err := bus.NewPluginFeed(store).PluginStatus(); return err == nil && !s.GapPending })
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, func() bool { d, err := store.NextPluginFeed(); return err == nil && d.ID == "" })
-	if err := store.EnablePluginFeed(false); err != nil {
+	eventually(t, func() bool { d, err := bus.NewPluginFeed(store).NextPluginFeed(); return err == nil && d.ID == "" })
+	if err := bus.NewPluginFeed(store).EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -392,7 +395,7 @@ func TestHostRequiresEnableAndRefusesSecondChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.EnablePluginFeed(false); err != nil {
+	if err := bus.NewPluginFeed(store).EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
 	if err := Run(t.Context(), store, binary, io.Discard); err == nil {
@@ -401,11 +404,11 @@ func TestHostRequiresEnableAndRefusesSecondChild(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(store.Dir, ".child-env")); !os.IsNotExist(err) {
 		t.Fatal("disabled host executed child", err)
 	}
-	if err := store.EnablePluginFeed(true); err != nil {
+	if err := bus.NewPluginFeed(store).EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
 	startHost(t, store)
-	eventually(t, func() bool { s, err := store.PluginStatus(); return err == nil && !s.GapPending })
+	eventually(t, func() bool { s, err := bus.NewPluginFeed(store).PluginStatus(); return err == nil && !s.GapPending })
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 	if err := Run(ctx, store, binary, io.Discard); err == nil {
@@ -519,7 +522,7 @@ func TestHostPreservesProtocolFailureDuringCancellation(t *testing.T) {
 func TestHostCancellationReapsCleanly(t *testing.T) {
 	store, _ := hostStore(t)
 	cancel, done := startHost(t, store)
-	eventually(t, func() bool { s, err := store.PluginStatus(); return err == nil && !s.GapPending })
+	eventually(t, func() bool { s, err := bus.NewPluginFeed(store).PluginStatus(); return err == nil && !s.GapPending })
 	cancel()
 	select {
 	case err := <-done:

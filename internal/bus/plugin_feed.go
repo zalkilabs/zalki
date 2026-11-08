@@ -9,6 +9,12 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
+// PluginFeed provides the local plugin feed using its Store's journal lock.
+type PluginFeed struct{ store Store }
+
+// NewPluginFeed returns the plugin feed associated with store.
+func NewPluginFeed(store Store) PluginFeed { return PluginFeed{store: store} }
+
 // PluginDelivery contains metadata only. Its private receipt stays with the host;
 // the child returns just ID, never a position supplied by executable code.
 type PluginDelivery struct {
@@ -20,8 +26,8 @@ type PluginDelivery struct {
 	offer string
 }
 
-func (s Store) pluginHead() (eventMetadata, error) {
-	head, raw, err := (commitWriter{dir: s.Dir}).readMetadata()
+func (s PluginFeed) pluginHead() (eventMetadata, error) {
+	head, raw, err := (commitWriter{dir: s.store.Dir}).readMetadata()
 	if raw == nil {
 		head.Epoch = "" // No event stream exists yet; do not invent an epoch.
 	}
@@ -50,9 +56,9 @@ func pluginOffer(id, gap string, event *model.Event, raw []byte, after pluginPos
 
 // NextPluginFeed offers one event or a durable gap. At most 64 records (256KiB)
 // are examined per call. No plugin work or callbacks execute under this lock.
-func (s Store) NextPluginFeed() (PluginDelivery, error) {
+func (s PluginFeed) NextPluginFeed() (PluginDelivery, error) {
 	var delivery PluginDelivery
-	err := s.locked(func() error {
+	err := s.store.locked(func() error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err
@@ -74,7 +80,7 @@ func (s Store) NextPluginFeed() (PluginDelivery, error) {
 		}
 		if p.GapID != "" {
 			// A previous rename may be visible after its directory sync failed.
-			if err := journal.SyncDir(s.Dir); err != nil {
+			if err := journal.SyncDir(s.store.Dir); err != nil {
 				return err
 			}
 			delivery = pluginOffer(p.GapID, p.GapReason, nil, raw, p.Position)
@@ -86,11 +92,11 @@ func (s Store) NextPluginFeed() (PluginDelivery, error) {
 	return delivery, err
 }
 
-func (s Store) scanPlugin(p pluginRecord, raw []byte, head eventMetadata) (PluginDelivery, error) {
+func (s PluginFeed) scanPlugin(p pluginRecord, raw []byte, head eventMetadata) (PluginDelivery, error) {
 	position := p.Position.Sequence
 	for scanned := 0; position < head.Last && scanned < 64; scanned++ {
 		position++
-		data, err := journal.ReadBytes(filepath.Join(s.Dir, eventRecordPath(position)), maxEventBytes)
+		data, err := journal.ReadBytes(filepath.Join(s.store.Dir, eventRecordPath(position)), maxEventBytes)
 		if err != nil {
 			return PluginDelivery{}, err
 		}
@@ -119,8 +125,8 @@ func (s Store) scanPlugin(p pluginRecord, raw []byte, head eventMetadata) (Plugi
 
 // AckPluginFeed persists only a receipt actually offered by this core API.
 // Restart before ACK replays; an old receipt cannot cross disable/reconfigure.
-func (s Store) AckPluginFeed(delivery PluginDelivery) error {
-	return s.locked(func() error {
+func (s PluginFeed) AckPluginFeed(delivery PluginDelivery) error {
+	return s.store.locked(func() error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err

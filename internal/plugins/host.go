@@ -20,7 +20,8 @@ func Run(ctx context.Context, store bus.Store, binary string, output io.Writer) 
 	if !filepath.IsAbs(binary) || !filepath.IsAbs(store.Dir) {
 		return errors.New("plugin requires the absolute path of this binary")
 	}
-	status, err := store.PluginStatus()
+	feed := bus.NewPluginFeed(store)
+	status, err := feed.PluginStatus()
 	if err != nil {
 		return err
 	}
@@ -54,16 +55,16 @@ func Run(ctx context.Context, store bus.Store, binary string, output io.Writer) 
 	if !header.validHello() {
 		return errors.New("plugin requires hello.version=v0")
 	}
-	return hostLoop(ctx, store, c, output, outbox)
+	return hostLoop(ctx, feed, c, output, outbox)
 }
 
-func hostLoop(ctx context.Context, store bus.Store, c *child, output io.Writer, outbox string) error {
+func hostLoop(ctx context.Context, feed bus.PluginFeed, c *child, output io.Writer, outbox string) error {
 	ready := false
 	for ctx.Err() == nil {
 		if err := c.idle(); err != nil {
 			return err
 		}
-		d, err := store.NextPluginFeed()
+		d, err := feed.NextPluginFeed()
 		if err != nil {
 			var domain *model.Error
 			if errors.As(err, &domain) && domain.Code == model.CodeUnauthorized {
@@ -72,7 +73,7 @@ func hostLoop(ctx context.Context, store bus.Store, c *child, output io.Writer, 
 			return err
 		}
 		if d.ID != "" {
-			if err := deliver(store, c, d); err != nil {
+			if err := deliver(feed, c, d); err != nil {
 				return err
 			}
 		}
@@ -86,13 +87,13 @@ func hostLoop(ctx context.Context, store bus.Store, c *child, output io.Writer, 
 	return nil
 }
 
-func deliver(store bus.Store, c *child, d bus.PluginDelivery) error {
+func deliver(feed bus.PluginFeed, c *child, d bus.PluginDelivery) error {
 	if err := c.exchange(frame{ID: d.ID, Gap: d.Gap, Event: d.Event}); err != nil {
 		return fmt.Errorf("plugin delivery failed: %w", err)
 	}
-	err := store.AckPluginFeed(d)
+	err := feed.AckPluginFeed(d)
 	if err != nil {
-		status, check := store.PluginStatus()
+		status, check := feed.PluginStatus()
 		if check == nil && !status.Enabled {
 			return nil
 		}
