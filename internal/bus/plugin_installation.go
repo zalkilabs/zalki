@@ -58,7 +58,24 @@ func (s PluginFeed) AcquirePluginLease() (*os.File, error) {
 
 // AddPlugin creates a disabled installation and its persistent private data dir.
 // An existing record is never replaced and abandoned data is never adopted.
-func (s PluginFeed) AddPlugin() error {
+func (s PluginFeed) AddPlugin() error { return s.addPlugin(nil) }
+
+// AddExternalPlugin pins an owner-supplied launch specification before installation.
+func (s PluginFeed) AddExternalPlugin(executable string, args []string) error {
+	if err := s.checkName(); err != nil {
+		return err
+	}
+	if s.name == "fake-notifier" {
+		return model.NewError(model.CodeInvalidInput, "fake-notifier is reserved for the built-in plugin")
+	}
+	launch := &PluginLaunch{Executable: executable, Args: args}
+	if err := launch.pin(); err != nil {
+		return err
+	}
+	return s.addPlugin(launch)
+}
+
+func (s PluginFeed) addPlugin(launch *PluginLaunch) error {
 	if err := s.locked(func() error {
 		if err := pluginDirectory(s.pluginDir(), true); err != nil {
 			return err
@@ -98,7 +115,7 @@ func (s PluginFeed) AddPlugin() error {
 		if len(entries) != 0 {
 			return model.NewError(model.CodeConflict, "remove abandoned plugin data before adding")
 		}
-		_, err = s.savePlugin(pluginRecord{ID: newID(), Name: s.name})
+		_, err = s.savePlugin(pluginRecord{ID: newID(), Name: s.name, Launch: launch})
 		return err
 	})
 }

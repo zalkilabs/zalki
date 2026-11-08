@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"crypto/sha256"
 	"errors"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ type pluginPosition struct {
 type pluginRecord struct {
 	ID        string         `json:"id"`
 	Name      string         `json:"name"`
+	Launch    *PluginLaunch  `json:"launch,omitempty"`
 	Enabled   bool           `json:"enabled"`
 	Sessions  []string       `json:"sessions"`
 	Position  pluginPosition `json:"position"`
@@ -29,13 +31,14 @@ type pluginRecord struct {
 
 // PluginFeedStatus describes a named installation, without claiming a live child.
 type PluginFeedStatus struct {
-	ID         string   `json:"id,omitempty"`
-	Name       string   `json:"plugin"`
-	DataDir    string   `json:"data_dir"`
-	Enabled    bool     `json:"enabled"`
-	Sessions   []string `json:"sessions"`
-	GapPending bool     `json:"gap_pending"`
-	LastGap    string   `json:"last_gap,omitempty"`
+	Launch     *PluginLaunch `json:"launch,omitempty"`
+	ID         string        `json:"id,omitempty"`
+	Name       string        `json:"plugin"`
+	DataDir    string        `json:"data_dir"`
+	Enabled    bool          `json:"enabled"`
+	Sessions   []string      `json:"sessions"`
+	GapPending bool          `json:"gap_pending"`
+	LastGap    string        `json:"last_gap,omitempty"`
 }
 
 func (s PluginFeed) pluginPath() string { return filepath.Join(s.pluginDir(), s.name+".json") }
@@ -76,7 +79,7 @@ func (s PluginFeed) loadPlugin() (pluginRecord, []byte, error) {
 	if err := decodeEventJSON(raw, &p); err != nil {
 		return p, nil, err
 	}
-	if !canonicalEventID(p.ID) || p.Name != s.name {
+	if !p.validIdentityAndLaunch(s.name) {
 		return p, nil, journal.ErrInvalidBatch
 	}
 	if err := s.checkPluginGrants(p.Sessions); err != nil {
@@ -128,13 +131,29 @@ func (s PluginFeed) ConfigurePluginFeed(ids []string) error {
 		if p.Enabled {
 			return model.NewError(model.CodeConflict, "disable the plugin before changing its grants")
 		}
-		_, err = s.savePlugin(pluginRecord{ID: p.ID, Name: p.Name, Sessions: ids})
+		_, err = s.savePlugin(pluginRecord{ID: p.ID, Name: p.Name, Sessions: ids, Launch: p.Launch})
 		return err
 	})
 }
 
 // EnablePluginFeed starts at the current end; it never launches executable code.
 func (s PluginFeed) EnablePluginFeed(enabled bool) error {
+	if err := s.checkName(); err != nil {
+		return err
+	}
+	var launch *PluginLaunch
+	var prior [32]byte
+	if enabled {
+		var err error
+		launch, prior, err = s.preparePluginPin()
+		if err != nil {
+			return err
+		}
+	}
+	return s.enablePluginFeed(enabled, launch, prior)
+}
+
+func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [32]byte) error {
 	return s.locked(func() error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
@@ -144,12 +163,12 @@ func (s PluginFeed) EnablePluginFeed(enabled bool) error {
 			return model.NewError(model.CodeNotFound, "add the plugin first")
 		}
 		if p.Enabled == enabled {
-			if raw != nil {
-				return journal.SyncDir(s.pluginDir())
-			}
-			return nil
+			return journal.SyncDir(s.pluginDir())
 		}
 		if enabled {
+			if err := p.applyLaunchPin(launch, prior, raw); err != nil {
+				return err
+			}
 			if len(p.Sessions) == 0 {
 				return model.NewError(model.CodeInvalidInput, "configure explicit session grants first")
 			}
@@ -173,8 +192,29 @@ func (s PluginFeed) PluginStatus() (PluginFeedStatus, error) {
 	var status PluginFeedStatus
 	err := s.store.readLocked(func() error {
 		p, _, err := s.loadPlugin()
-		status = PluginFeedStatus{ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Sessions: slices.Clone(p.Sessions), GapPending: p.GapID != "", LastGap: p.GapReason}
+		status = PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Sessions: slices.Clone(p.Sessions), GapPending: p.GapID != "", LastGap: p.GapReason}
 		return err
 	})
 	return status, err
+}
+
+func (p pluginRecord) validIdentityAndLaunch(name string) bool {
+	if !canonicalEventID(p.ID) || p.Name != name {
+		return false
+	}
+	if p.Launch == nil {
+		return true
+	}
+	return name != "fake-notifier" && p.Launch.validate() == nil && validPluginSHA(p.Launch.SHA256) && validPluginSHA(p.Launch.PinSHA256)
+}
+
+func (p *pluginRecord) applyLaunchPin(launch *PluginLaunch, prior [32]byte, raw []byte) error {
+	if p.Launch == nil {
+		return nil
+	}
+	if launch == nil || sha256.Sum256(raw) != prior {
+		return model.NewError(model.CodeConflict, "plugin changed while pinning; retry enable")
+	}
+	p.Launch = launch
+	return nil
 }

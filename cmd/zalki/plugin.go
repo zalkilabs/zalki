@@ -11,16 +11,13 @@ import (
 )
 
 func newPluginCommand(opts *commandOptions) *cobra.Command {
-	group := &cobra.Command{Use: "plugins", Short: "Run the explicitly enabled local reference plugin"}
+	group := &cobra.Command{Use: "plugins", Short: "Manage explicitly enabled local plugins"}
 	for _, name := range []string{"add", "remove", "configure", "enable", "disable", "status"} {
 		group.AddCommand(newPluginOwnerCommand(opts, name))
 	}
 	group.AddCommand(&cobra.Command{
-		Use: "run fake-notifier", Short: "Run one foreground local notifier host", Args: cobra.ExactArgs(1),
+		Use: "run NAME", Short: "Run one foreground local notifier host", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if args[0] != "fake-notifier" {
-				return errors.New("only fake-notifier is supported")
-			}
 			service, err := opts.service()
 			if err != nil {
 				return err
@@ -29,7 +26,7 @@ func newPluginCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return plugins.Run(cmd.Context(), service.Store, binary, cmd.OutOrStdout())
+			return plugins.Run(cmd.Context(), service.Store, binary, args[0], cmd.OutOrStdout())
 		},
 	})
 	return group

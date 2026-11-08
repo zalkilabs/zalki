@@ -40,6 +40,10 @@ func (c *child) Write(p []byte) (int, error) {
 }
 
 func startChild(ctx context.Context, binary, outbox string, lease *os.File) (*child, error) {
+	return launchChild(ctx, binary, []string{ChildCommand, "--outbox", outbox}, filepath.Dir(outbox), lease)
+}
+
+func launchChild(ctx context.Context, binary string, args []string, cwd string, lease *os.File) (*child, error) {
 	parent := ctx
 	ctx, cancel := context.WithCancel(ctx)
 	c := &child{done: make(chan struct{}), cancel: cancel, parent: parent}
@@ -60,13 +64,13 @@ func startChild(ctx context.Context, binary, outbox string, lease *os.File) (*ch
 	c.output, c.reader = parentOutput, bufio.NewReaderSize(parentOutput, maxFrame+1)
 	home, err := os.UserHomeDir()
 	if err == nil {
-		c.cmd = exec.CommandContext(ctx, binary, ChildCommand, "--outbox", outbox)
+		c.cmd = exec.CommandContext(ctx, binary, args...)
 		c.cmd.Cancel = func() error {
 			err := c.cmd.Process.Kill()
 			c.killedForCancel = err == nil
 			return err
 		}
-		c.cmd.Dir = filepath.Dir(outbox)
+		c.cmd.Dir = cwd
 		c.cmd.Env = []string{"HOME=" + home}
 		c.cmd.Stdin, c.cmd.Stdout, c.cmd.Stderr = input, output, c
 		c.cmd.ExtraFiles = []*os.File{lease}
