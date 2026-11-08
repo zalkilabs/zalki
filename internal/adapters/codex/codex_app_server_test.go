@@ -194,6 +194,7 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 
 type fakeCodex struct {
 	Home, Thread, Mode string
+	BeforeResponse     func(string)
 }
 
 type observedCodex struct {
@@ -337,6 +338,9 @@ type codexFakeReply struct {
 }
 
 func fakeCodexResult(spec fakeCodex, method, home, version string, page *int) codexFakeReply {
+	if spec.BeforeResponse != nil {
+		spec.BeforeResponse(method)
+	}
 	switch method {
 	case "initialize":
 		return codexFakeReply{result: map[string]any{"codexHome": home, "platformFamily": "unix", "platformOs": "macos", "userAgent": "codex/" + version}}
@@ -364,6 +368,8 @@ func fakeCodexResult(spec fakeCodex, method, home, version string, page *int) co
 		return codexFakeReply{result: map[string]any{"thread": map[string]any{"id": id, "status": status}}}
 	case "turn/start":
 		switch spec.Mode {
+		case "empty-turn":
+			return codexFakeReply{result: map[string]any{"turn": map[string]any{"id": ""}}}
 		case "method-missing":
 			return codexFakeReply{failure: map[string]any{"code": -32601, "message": "method not found"}}
 		case "invalid-params":
