@@ -105,47 +105,18 @@ func (s Store) reserveNewMessage(sender model.Session, request SendRequest, pers
 	if err != nil {
 		return message, target, false, err
 	}
-	if target.Retired {
-		return message, target, false, model.NewError(model.CodeUnavailable, "destination has retired")
-	}
-	if s.sessionLiveness(target) == model.LivenessExited {
-		return message, target, false, model.NewError(model.CodeUnavailable, "destination owner process has exited")
-	}
-	to := target.ID
-	if actor == to {
-		return message, target, false, model.NewError(model.CodeInvalidInput, "self messages are not supported")
-	}
-	if replyTo != "" {
-		parent, err := s.message(replyTo)
-		if err != nil {
-			return message, target, false, err
-		}
-		if parent.To != actor || parent.From != to {
-			return message, target, false, model.NewError(model.CodeUnauthorized, "reply must return to the original sender")
-		}
+	if err := validateReservationTarget(s, target, actor, replyTo); err != nil {
+		return message, target, false, err
 	}
 	message, err = s.outgoingMessage(sender, target, id, body, replyTo)
 	if err != nil {
 		return message, target, false, err
 	}
-	if requestedTo != to {
+	if requestedTo != target.ID {
 		message.RequestedTo = requestedTo
 	}
-	if target.State == model.StateApproval {
-		if err := s.approvalCapacity(message.To); err != nil {
-			return message, target, false, err
-		}
-	}
-	if err := s.consumeFloodQuota(message, time.Now()); err != nil {
-		if moveErr := message.SettleNotSent(model.ErrorCodeOf(err), err.Error()); moveErr != nil {
-			return message, target, false, moveErr
-		}
+	if err := prepareReservation(s, &message, target); err != nil {
 		return message, target, false, err
-	}
-	if target.State == model.StateApproval {
-		if err := message.Hold(); err != nil {
-			return message, target, false, err
-		}
 	}
 	fresh = target.State != model.StateApproval
 	if persist {
@@ -155,6 +126,49 @@ func (s Store) reserveNewMessage(sender model.Session, request SendRequest, pers
 		s.logReservation(message)
 	}
 	return message, target, fresh, nil
+}
+
+func validateReservationTarget(s Store, target model.Session, actor, replyTo string) error {
+	if target.Retired {
+		return model.NewError(model.CodeUnavailable, "destination has retired")
+	}
+	if s.sessionLiveness(target) == model.LivenessExited {
+		return model.NewError(model.CodeUnavailable, "destination owner process has exited")
+	}
+	to := target.ID
+	if actor == to {
+		return model.NewError(model.CodeInvalidInput, "self messages are not supported")
+	}
+	if replyTo != "" {
+		parent, err := s.message(replyTo)
+		if err != nil {
+			return err
+		}
+		if parent.To != actor || parent.From != to {
+			return model.NewError(model.CodeUnauthorized, "reply must return to the original sender")
+		}
+	}
+	return nil
+}
+
+func prepareReservation(s Store, message *model.Message, target model.Session) error {
+	if target.State == model.StateApproval {
+		if err := s.approvalCapacity(message.To); err != nil {
+			return err
+		}
+	}
+	if err := s.consumeFloodQuota(*message, time.Now()); err != nil {
+		if moveErr := message.SettleNotSent(model.ErrorCodeOf(err), err.Error()); moveErr != nil {
+			return moveErr
+		}
+		return err
+	}
+	if target.State == model.StateApproval {
+		if err := message.Hold(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s Store) outgoingMessage(sender, target model.Session, id, body, replyTo string) (model.Message, error) {
