@@ -19,40 +19,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// The wrapper execs this test binary, so cancellation has one process to stop.
-func TestVersionProbeChild(t *testing.T) {
-	root := os.Getenv("ZALKI_TEST_VERSION_CHILD")
-	if root == "" {
-		return
-	}
-	if err := os.WriteFile(filepath.Join(root, "launched"), []byte("yes"), 0600); err != nil {
-		os.Exit(2)
-	}
-	if gate := os.Getenv("ZALKI_TEST_VERSION_GATE"); gate != "" {
-		ready, err := os.OpenFile(gate+"-ready", os.O_WRONLY, 0)
-		if err != nil {
-			os.Exit(3)
-		}
-		_, err = ready.Write([]byte{1})
-		_ = ready.Close()
-		if err != nil {
-			os.Exit(4)
-		}
-		release, err := os.Open(gate + "-release")
-		if err != nil {
-			os.Exit(5)
-		}
-		var signal [1]byte
-		_, err = io.ReadFull(release, signal[:])
-		_ = release.Close()
-		if err != nil {
-			os.Exit(6)
-		}
-	}
-	fmt.Println("client 0.163.0")
-	os.Exit(0)
-}
-
 type advisoryFixture struct {
 	store                Store
 	path, root, captures string
@@ -61,13 +27,17 @@ type advisoryFixture struct {
 func newAdvisoryFixture(t *testing.T) advisoryFixture {
 	t.Helper()
 	root := t.TempDir()
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
 	path := filepath.Join(root, "codex")
-	quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
-	script := "#!/bin/sh\nexec " + quote(executable) + " -test.run=^TestVersionProbeChild$ -- \"$@\"\n"
+	// Built-ins keep the blocked client in one process without starting the
+	// race-instrumented test binary inside the readiness deadline.
+	script := `#!/bin/sh
+printf yes > "$ZALKI_TEST_VERSION_CHILD/launched" || exit 2
+if [ -n "$ZALKI_TEST_VERSION_GATE" ]; then
+    printf 1 > "$ZALKI_TEST_VERSION_GATE-ready" || exit 3
+    IFS= read -r signal < "$ZALKI_TEST_VERSION_GATE-release" || exit 4
+fi
+printf 'client 0.163.0\n'
+`
 	if err := os.WriteFile(path, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
