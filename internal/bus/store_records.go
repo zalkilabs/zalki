@@ -22,13 +22,12 @@ const recordSchema = 1
 // recordSchema and remain readable by older builds.
 const leaseSessionSchema = 2
 
-// Legacy records have schema zero. Reads migrate in memory; writes persist the
-// current schema. An older binary must never overwrite a future record format.
+// Versioned journal reads require a current schema header.
 func readRecord(path string, value any, schema *int) error {
 	if err := readJSON(path, value); err != nil {
 		return err
 	}
-	if *schema < 0 || *schema > recordSchema {
+	if *schema != recordSchema {
 		return model.NewError(model.CodeUnsupportedSchema, "unsupported journal schema %d", *schema)
 	}
 	return nil
@@ -43,14 +42,11 @@ func (s Store) readSession(path string) (model.Session, error) {
 	if err := json.Unmarshal(raw, &v); err != nil {
 		return v, err
 	}
-	if v.Schema < 0 || v.Schema > leaseSessionSchema {
+	if v.Schema < recordSchema || v.Schema > leaseSessionSchema {
 		return v, model.NewError(model.CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
 	}
 	if v.Listener != nil && v.Schema != leaseSessionSchema {
 		return v, model.NewError(model.CodeUnsupportedSchema, "a listener lease requires session schema %d", leaseSessionSchema)
-	}
-	if v.NativeID == "" {
-		v.NativeID = model.NativeID(v)
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return v, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")

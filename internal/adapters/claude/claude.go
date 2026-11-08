@@ -63,7 +63,7 @@ func (a Adapter) LookupName(v model.Session, indexes map[string]map[string]strin
 	if _, ok := indexes[index]; !ok {
 		indexes[index] = claudeNames(root)
 	}
-	return indexes[index][model.NativeID(v)], "claude_session_metadata"
+	return indexes[index][v.NativeID], "claude_session_metadata"
 }
 
 func (Adapter) RegisterHook(event agent.HookInput) (agent.HookRegistration, error) {

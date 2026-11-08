@@ -117,7 +117,7 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 		preserved := false
 		current, err := s.session(full)
 		exists := err == nil
-		if exists && model.NativeID(current) != native {
+		if exists && current.NativeID != native {
 			return model.NewError(model.CodeConflict, "native session identity collision")
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err

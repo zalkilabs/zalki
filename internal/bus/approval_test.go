@@ -93,7 +93,7 @@ func TestFreshRegistrationSettlesHeldMessages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := store.register(target.Kind, model.NativeID(target), target.CWD, nil, false); err != nil {
+	if _, _, err := store.register(target.Kind, target.NativeID, target.CWD, nil, false); err != nil {
 		t.Fatal(err)
 	}
 	saved, err := store.message(msg.ID)
@@ -121,7 +121,7 @@ func TestCompactRegistrationKeepsHeldMessages(t *testing.T) {
 	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "kept"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := store.register(target.Kind, model.NativeID(target), target.CWD, nil, true); err != nil {
+	if _, _, err := store.register(target.Kind, target.NativeID, target.CWD, nil, true); err != nil {
 		t.Fatal(err)
 	}
 	current, err := store.session(target.ID)

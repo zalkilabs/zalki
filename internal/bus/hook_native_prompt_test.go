@@ -63,7 +63,7 @@ func TestCompletedNativePromptGenerationFenceIsReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := store.Register(to.Kind, model.NativeID(to), to.CWD, nil); err != nil {
+	if _, _, err := store.Register(to.Kind, to.NativeID, to.CWD, nil); err != nil {
 		t.Fatal(err)
 	}
 	if reason, err := store.completedNativePrompt(to.ID, model.Envelope(msg)); err != nil || !strings.Contains(reason, "previous registration") {

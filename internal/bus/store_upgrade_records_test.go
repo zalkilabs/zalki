@@ -124,11 +124,11 @@ func TestSessionExtensionsSurviveLifecycleTaskApprovalLeaseAndRegistration(t *te
 	if _, exists := requireRecordExtension(t, path)["listener"]; exists {
 		t.Fatal("released listener resurrected")
 	}
-	if _, _, err := store.register(target.Kind, model.NativeID(target), target.CWD, nil, true); err != nil {
+	if _, _, err := store.register(target.Kind, target.NativeID, target.CWD, nil, true); err != nil {
 		t.Fatal(err)
 	}
 	requireRecordExtension(t, path)
-	if _, _, err := store.Register(target.Kind, model.NativeID(target), target.CWD, nil); err != nil {
+	if _, _, err := store.Register(target.Kind, target.NativeID, target.CWD, nil); err != nil {
 		t.Fatal(err)
 	}
 	requireRecordExtension(t, path)

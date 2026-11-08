@@ -225,7 +225,7 @@ func TestPluginFeedGrantChangesAndDisable(t *testing.T) {
 		t.Fatal("foreign session escaped filtering", d)
 	}
 	feedAck(t, s, d)
-	next, _, err := s.Register("codex", model.NativeID(b), b.CWD, nil)
+	next, _, err := s.Register("codex", b.NativeID, b.CWD, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

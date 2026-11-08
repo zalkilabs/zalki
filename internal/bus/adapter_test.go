@@ -78,7 +78,7 @@ func (a fixtureAdapter) Deliver(_ context.Context, _ model.Message, _ model.Sess
 
 func (a fixtureAdapter) ConfigDir() string { return "/fixture" }
 func (a fixtureAdapter) LookupName(v model.Session, _ map[string]map[string]string) (string, string) {
-	return a.kind + " " + model.NativeID(v), "fixture_metadata"
+	return a.kind + " " + v.NativeID, "fixture_metadata"
 }
 func (a fixtureAdapter) Configuration(binary string, args []string) []model.ConfigDeclaration {
 	path := a.path

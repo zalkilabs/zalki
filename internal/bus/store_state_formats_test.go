@@ -147,7 +147,7 @@ func TestStateFormatFenceKeepsReadsAndRefusesEveryWriteWithoutChanges(t *testing
 	store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
 	service.Store = store
 	for _, event := range []string{"SessionStart", "PostToolUse", "Stop"} {
-		input, _ := json.Marshal(agent.HookInput{SessionID: model.NativeID(target), CWD: "/workspace", Event: event})
+		input, _ := json.Marshal(agent.HookInput{SessionID: target.NativeID, CWD: "/workspace", Event: event})
 		if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), &output); err != nil {
 			t.Fatal("hook broke client", err)
 		}

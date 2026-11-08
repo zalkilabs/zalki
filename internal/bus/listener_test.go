@@ -200,7 +200,7 @@ func TestArmRejectsAReplacementRegistration(t *testing.T) {
 	store := fixtureStore(t)
 	to, key := register(t, store, "cursor")
 	lease := acquire(t, store, to.ID, key)
-	replacement, _, err := store.Register("cursor", model.NativeID(to), to.CWD, nil)
+	replacement, _, err := store.Register("cursor", to.NativeID, to.CWD, nil)
 	if err != nil || replacement.Generation == to.Generation {
 		t.Fatal("re-registration kept the generation", err)
 	}
