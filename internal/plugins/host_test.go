@@ -22,6 +22,13 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if len(os.Args) >= 3 && os.Args[1] == "external-test-child" {
+		if err := externalTestChild(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 	if len(os.Args) == 4 && os.Args[1] == ChildCommand && os.Args[2] == "--outbox" {
 		if err := referenceOrFakeChild(os.Args[3]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -32,7 +39,7 @@ func TestMain(m *testing.M) {
 	if len(os.Args) == 3 && os.Args[1] == "host-test-worker" {
 		store, err := bus.NewStore(os.Args[2], adapters.Builtin(), nil)
 		if err == nil {
-			err = Run(context.Background(), store, os.Args[0], io.Discard)
+			err = Run(context.Background(), store, os.Args[0], "fake-notifier", io.Discard)
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -169,7 +176,7 @@ func startHost(t *testing.T, store bus.Store) (context.CancelFunc, <-chan error)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, store, binary, io.Discard); close(done) }()
+	go func() { done <- Run(ctx, store, binary, "fake-notifier", io.Discard); close(done) }()
 	t.Cleanup(func() {
 		cancel()
 		select {
@@ -423,7 +430,7 @@ func TestHostRequiresEnableAndRefusesSecondChild(t *testing.T) {
 	if err := bus.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := Run(t.Context(), store, binary, io.Discard); err == nil {
+	if err := Run(t.Context(), store, binary, "fake-notifier", io.Discard); err == nil {
 		t.Fatal("disabled plugin launched")
 	}
 	if _, err := os.Stat(filepath.Join(hostData(store), ".child-env")); !os.IsNotExist(err) {
@@ -439,7 +446,7 @@ func TestHostRequiresEnableAndRefusesSecondChild(t *testing.T) {
 	})
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
-	if err := Run(ctx, store, binary, io.Discard); err == nil {
+	if err := Run(ctx, store, binary, "fake-notifier", io.Discard); err == nil {
 		t.Fatal("second host was permitted")
 	}
 }
@@ -522,7 +529,7 @@ func TestHostPreservesWriterFailureDuringCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	want := errors.New("owner output failed")
-	err = Run(ctx, store, binary, cancelErrorWriter{cancel, want})
+	err = Run(ctx, store, binary, "fake-notifier", cancelErrorWriter{cancel, want})
 	if !errors.Is(err, want) {
 		t.Fatal("shutdown hid the observed owner output failure", err)
 	}

@@ -13,31 +13,35 @@ import (
 )
 
 // Run owns one foreground child; only the bounded feed API enters Store flock.
-func Run(ctx context.Context, store bus.Store, binary string, output io.Writer) (resultErr error) {
+func Run(ctx context.Context, store bus.Store, binary, name string, output io.Writer) (resultErr error) {
 	if ctx.Err() != nil {
 		return nil
 	}
 	if !filepath.IsAbs(binary) || !filepath.IsAbs(store.Dir) {
 		return errors.New("plugin requires the absolute path of this binary")
 	}
-	feed := bus.NewPluginFeed(store, "fake-notifier")
+	feed := bus.NewPluginFeed(store, name)
 	status, err := feed.PluginStatus()
 	if err != nil {
 		return err
 	}
 	if !status.Enabled {
-		return errors.New("fake-notifier is disabled")
+		return fmt.Errorf("%s is disabled", name)
 	}
 	lease, err := feed.AcquirePluginLease()
 	if err != nil {
 		return err
 	}
 	defer lease.Close() //nolint:errcheck // Close only after the child is reaped; never explicitly unlock.
-	if err := checkInstallation(feed, status.ID); err != nil {
+	status, err = checkInstallation(feed, status.ID)
+	if err != nil {
 		return err
 	}
-	outbox := filepath.Join(status.DataDir, "outbox")
-	c, err := startChild(ctx, binary, outbox, lease)
+	launch, ready, err := prepareLaunch(status, binary)
+	if err != nil {
+		return err
+	}
+	c, err := launchChild(ctx, launch.Executable, launch.Args, status.DataDir, lease)
 	if err != nil {
 		if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
 			return nil
@@ -58,10 +62,10 @@ func Run(ctx context.Context, store bus.Store, binary string, output io.Writer) 
 	if !header.validHello() {
 		return errors.New("plugin requires hello.version=v0")
 	}
-	return hostLoop(ctx, feed, c, output, outbox)
+	return hostLoop(ctx, feed, c, output, ready)
 }
 
-func hostLoop(ctx context.Context, feed bus.PluginFeed, c *child, output io.Writer, outbox string) error {
+func hostLoop(ctx context.Context, feed bus.PluginFeed, c *child, output io.Writer, readyMessage string) error {
 	ready := false
 	for ctx.Err() == nil {
 		if err := c.idle(); err != nil {
@@ -81,7 +85,7 @@ func hostLoop(ctx context.Context, feed bus.PluginFeed, c *child, output io.Writ
 			}
 		}
 		if !ready {
-			if _, err := fmt.Fprintln(output, "fake-notifier ready; local outbox:", outbox); err != nil {
+			if _, err := fmt.Fprintln(output, readyMessage); err != nil {
 				return err
 			}
 			ready = true
@@ -104,13 +108,25 @@ func deliver(feed bus.PluginFeed, c *child, d bus.PluginDelivery) error {
 	return err
 }
 
-func checkInstallation(feed bus.PluginFeed, id string) error {
+func checkInstallation(feed bus.PluginFeed, id string) (bus.PluginFeedStatus, error) {
 	current, err := feed.PluginStatus()
 	if err != nil {
-		return err
+		return current, err
 	}
 	if !current.Enabled || current.ID != id {
-		return errors.New("plugin installation changed before launch")
+		return current, errors.New("plugin installation changed before launch")
 	}
-	return nil
+	return current, nil
+}
+
+func prepareLaunch(status bus.PluginFeedStatus, binary string) (bus.PluginLaunch, string, error) {
+	ready := status.Name + " ready"
+	if status.Name == "fake-notifier" {
+		outbox := filepath.Join(status.DataDir, "outbox")
+		return bus.PluginLaunch{Executable: binary, Args: []string{ChildCommand, "--outbox", outbox}}, ready + "; local outbox: " + outbox, nil
+	}
+	if status.Launch == nil {
+		return bus.PluginLaunch{}, "", errors.New("plugin has no external executable")
+	}
+	return *status.Launch, ready, status.Launch.Verify()
 }
