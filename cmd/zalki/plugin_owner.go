@@ -21,11 +21,16 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			feed := bus.NewPluginFeed(service.Store, "fake-notifier")
 			switch action {
+			case "add":
+				return feed.AddPlugin()
+			case "remove":
+				return feed.RemovePlugin()
 			case "configure":
-				return bus.NewPluginFeed(service.Store).ConfigurePluginFeed(sessions)
+				return feed.ConfigurePluginFeed(sessions)
 			case "enable", "disable":
-				return bus.NewPluginFeed(service.Store).EnablePluginFeed(action == "enable")
+				return feed.EnablePluginFeed(action == "enable")
 			default:
 				return printPluginStatus(cmd, service.Store)
 			}
@@ -38,14 +43,13 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 }
 
 func printPluginStatus(cmd *cobra.Command, store bus.Store) error {
-	status, err := bus.NewPluginFeed(store).PluginStatus()
+	status, err := bus.NewPluginFeed(store, "fake-notifier").PluginStatus()
 	if err != nil {
 		return err
 	}
 	return json.NewEncoder(cmd.OutOrStdout()).Encode(struct {
 		bus.PluginFeedStatus
-		Plugin    string `json:"plugin"`
 		Outbox    string `json:"outbox"`
 		MaxEvents int    `json:"max_events"`
-	}{status, "fake-notifier", filepath.Join(store.Dir, "plugin-outbox"), 256})
+	}{status, filepath.Join(status.DataDir, "outbox"), 256})
 }

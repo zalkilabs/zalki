@@ -12,7 +12,7 @@ import (
 
 func newPluginCommand(opts *commandOptions) *cobra.Command {
 	group := &cobra.Command{Use: "plugins", Short: "Run the explicitly enabled local reference plugin"}
-	for _, name := range []string{"configure", "enable", "disable", "status"} {
+	for _, name := range []string{"add", "remove", "configure", "enable", "disable", "status"} {
 		group.AddCommand(newPluginOwnerCommand(opts, name))
 	}
 	group.AddCommand(&cobra.Command{

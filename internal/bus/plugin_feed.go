@@ -10,10 +10,13 @@ import (
 )
 
 // PluginFeed provides the local plugin feed using its Store's journal lock.
-type PluginFeed struct{ store Store }
+type PluginFeed struct {
+	store Store
+	name  string
+}
 
-// NewPluginFeed returns the plugin feed associated with store.
-func NewPluginFeed(store Store) PluginFeed { return PluginFeed{store: store} }
+// NewPluginFeed returns the named installation feed; operations reject invalid names.
+func NewPluginFeed(store Store, name string) PluginFeed { return PluginFeed{store: store, name: name} }
 
 // PluginDelivery contains metadata only. Its private receipt stays with the host;
 // the child returns just ID, never a position supplied by executable code.
@@ -58,7 +61,7 @@ func pluginOffer(id, gap string, event *model.Event, raw []byte, after pluginPos
 // are examined per call. No plugin work or callbacks execute under this lock.
 func (s PluginFeed) NextPluginFeed() (PluginDelivery, error) {
 	var delivery PluginDelivery
-	err := s.store.locked(func() error {
+	err := s.locked(func() error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err
@@ -80,7 +83,7 @@ func (s PluginFeed) NextPluginFeed() (PluginDelivery, error) {
 		}
 		if p.GapID != "" {
 			// A previous rename may be visible after its directory sync failed.
-			if err := journal.SyncDir(s.store.Dir); err != nil {
+			if err := journal.SyncDir(s.pluginDir()); err != nil {
 				return err
 			}
 			delivery = pluginOffer(p.GapID, p.GapReason, nil, raw, p.Position)
@@ -126,7 +129,7 @@ func (s PluginFeed) scanPlugin(p pluginRecord, raw []byte, head eventMetadata) (
 // AckPluginFeed persists only a receipt actually offered by this core API.
 // Restart before ACK replays; an old receipt cannot cross disable/reconfigure.
 func (s PluginFeed) AckPluginFeed(delivery PluginDelivery) error {
-	return s.store.locked(func() error {
+	return s.locked(func() error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err

@@ -45,12 +45,12 @@ func TestMain(m *testing.M) {
 
 func fakeChild(outbox string) error {
 	// Raw FD3 remains open until process exit, including runtime exit handlers.
-	if err := checkPrivateFD(3); err != nil {
+	if err := journal.CheckPluginLeaseFD(3); err != nil {
 		return err
 	}
 	state := filepath.Dir(outbox)
 	mode, _ := os.ReadFile(filepath.Join(state, ".child-mode"))
-	if err := os.WriteFile(filepath.Join(state, ".child-env"), []byte(strings.Join(os.Environ(), "\n")), 0600); err != nil {
+	if err := recordFakeChildEnvironment(state); err != nil {
 		return err
 	}
 	if string(mode) == "no-hello" {
@@ -145,13 +145,20 @@ func hostStore(t *testing.T) (bus.Store, model.Session) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := bus.NewPluginFeed(store).ConfigurePluginFeed([]string{session.ID}); err != nil {
+	if err := bus.NewPluginFeed(store, "fake-notifier").AddPlugin(); err != nil {
 		t.Fatal(err)
 	}
-	if err := bus.NewPluginFeed(store).EnablePluginFeed(true); err != nil {
+	if err := bus.NewPluginFeed(store, "fake-notifier").ConfigurePluginFeed([]string{session.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := bus.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
 	return store, session
+}
+
+func hostData(store bus.Store) string {
+	return filepath.Join(store.Dir, "plugins", "fake-notifier.data")
 }
 
 func startHost(t *testing.T, store bus.Store) (context.CancelFunc, <-chan error) {
@@ -189,7 +196,7 @@ func eventually(t *testing.T, condition func() bool) {
 func TestHostReapsChildOnEOFAndDoesNotInheritSecrets(t *testing.T) {
 	store, _ := hostStore(t)
 	t.Setenv("ZALKI_CAPABILITY", "DO_NOT_INHERIT")
-	lease, err := hostLease(filepath.Join(store.Dir, "plugin-host.lock"))
+	lease, err := journal.OpenPluginLease(filepath.Join(store.Dir, "plugins", "fake-notifier.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +205,7 @@ func TestHostReapsChildOnEOFAndDoesNotInheritSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := startChild(t.Context(), binary, filepath.Join(store.Dir, "plugin-outbox"), lease)
+	c, err := startChild(t.Context(), binary, filepath.Join(hostData(store), "outbox"), lease)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,17 +216,23 @@ func TestHostReapsChildOnEOFAndDoesNotInheritSecrets(t *testing.T) {
 	if err := c.stop(nil); err != nil || c.waitErr != nil {
 		t.Fatal("EOF did not stop child cleanly", err, c.waitErr)
 	}
-	raw, err := os.ReadFile(filepath.Join(store.Dir, ".child-env"))
+	raw, err := os.ReadFile(filepath.Join(hostData(store), ".child-env"))
 	if err != nil || strings.Contains(string(raw), "DO_NOT_INHERIT") {
 		t.Fatal("child inherited credentials", string(raw), err)
 	}
+	actual, err := os.ReadFile(filepath.Join(hostData(store), ".child-cwd"))
+	expected, resolveErr := filepath.EvalSymlinks(hostData(store))
+	if err != nil || resolveErr != nil || string(actual) != expected {
+		t.Fatal("child cwd is not its persistent data directory", string(actual), expected, err, resolveErr)
+	}
+
 }
 
 func TestHostStopsOnChildFailures(t *testing.T) {
 	for _, mode := range []string{"bad-hello", "unsolicited", "oversize", "bad-ack", "stderr", "no-hello", "no-ack"} {
 		t.Run(mode, func(t *testing.T) {
 			store, _ := hostStore(t)
-			if err := os.WriteFile(filepath.Join(store.Dir, ".child-mode"), []byte(mode), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte(mode), 0600); err != nil {
 				t.Fatal(err)
 			}
 			_, done := startHost(t, store)
@@ -237,7 +250,7 @@ func TestHostStopsOnChildFailures(t *testing.T) {
 
 func TestHostCrashRetainsLeaseUntilChildExits(t *testing.T) {
 	store, _ := hostStore(t)
-	if err := os.WriteFile(filepath.Join(store.Dir, ".child-mode"), []byte("hold-eof"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("hold-eof"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	binary, err := os.Executable()
@@ -249,21 +262,24 @@ func TestHostCrashRetainsLeaseUntilChildExits(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = worker.Process.Kill(); _, _ = worker.Process.Wait() })
-	eventually(t, func() bool { s, err := bus.NewPluginFeed(store).PluginStatus(); return err == nil && !s.GapPending })
+	eventually(t, func() bool {
+		s, err := bus.NewPluginFeed(store, "fake-notifier").PluginStatus()
+		return err == nil && !s.GapPending
+	})
 	if err := worker.Process.Kill(); err != nil {
 		t.Fatal(err)
 	}
 	_ = worker.Wait()
-	eventually(t, func() bool { _, err := os.Stat(filepath.Join(store.Dir, ".eof-seen")); return err == nil })
-	if lease, err := hostLease(filepath.Join(store.Dir, "plugin-host.lock")); err == nil {
+	eventually(t, func() bool { _, err := os.Stat(filepath.Join(hostData(store), ".eof-seen")); return err == nil })
+	if lease, err := journal.OpenPluginLease(filepath.Join(store.Dir, "plugins", "fake-notifier.lock")); err == nil {
 		_ = lease.Close()
 		t.Fatal("parent death allowed a second child while the first held FD3")
 	}
-	if err := os.WriteFile(filepath.Join(store.Dir, ".release-eof"), []byte("yes"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(hostData(store), ".release-eof"), []byte("yes"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	eventually(t, func() bool {
-		lease, err := hostLease(filepath.Join(store.Dir, "plugin-host.lock"))
+		lease, err := journal.OpenPluginLease(filepath.Join(store.Dir, "plugins", "fake-notifier.lock"))
 		if err != nil {
 			return false
 		}
@@ -281,23 +297,23 @@ func TestHostPendingGapSurvivesAnotherLossAndRestart(t *testing.T) {
 func pendingGapRestart(t *testing.T, reason string) {
 	t.Helper()
 	store, session := hostStore(t)
-	initial, err := bus.NewPluginFeed(store).NextPluginFeed()
+	initial, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := bus.NewPluginFeed(store).AckPluginFeed(initial); err != nil {
+	if err := bus.NewPluginFeed(store, "fake-notifier").AckPluginFeed(initial); err != nil {
 		t.Fatal(err)
 	}
 	seedLaterHistory(t, store, session, "retention")
-	gap, err := bus.NewPluginFeed(store).NextPluginFeed()
+	gap, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
 	if err != nil || gap.Gap != "retention" {
 		t.Fatal(gap, err)
 	}
-	if err := os.WriteFile(filepath.Join(store.Dir, ".child-mode"), []byte("hold"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("hold"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	stop, done := startHost(t, store)
-	seen := filepath.Join(store.Dir, ".seen-"+gap.ID)
+	seen := filepath.Join(hostData(store), ".seen-"+gap.ID)
 	eventually(t, func() bool { _, err := os.Stat(seen); return err == nil })
 	seedLaterHistory(t, store, session, reason)
 	stop()
@@ -308,18 +324,21 @@ func pendingGapRestart(t *testing.T, reason string) {
 	startHost(t, store)
 	eventually(t, func() bool { _, err := os.Stat(seen); return err == nil })
 	assertSeenGap(t, seen, "retention")
-	if err := os.WriteFile(filepath.Join(store.Dir, ".allow-ack"), []byte("yes"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(hostData(store), ".allow-ack"), []byte("yes"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, func() bool { return laterGapSeen(store.Dir, gap.ID, reason) })
+	eventually(t, func() bool { return laterGapSeen(hostData(store), gap.ID, reason) })
 	eventually(t, func() bool {
-		s, err := bus.NewPluginFeed(store).PluginStatus()
+		s, err := bus.NewPluginFeed(store, "fake-notifier").PluginStatus()
 		return err == nil && s.LastGap == reason && !s.GapPending
 	})
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, func() bool { d, err := bus.NewPluginFeed(store).NextPluginFeed(); return err == nil && d.ID == "" })
+	eventually(t, func() bool {
+		d, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+		return err == nil && d.ID == ""
+	})
 }
 
 func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reason string) {
@@ -371,12 +390,18 @@ func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reas
 func TestHostConsumesOneOfferAndHonorsDisable(t *testing.T) {
 	store, session := hostStore(t)
 	_, done := startHost(t, store)
-	eventually(t, func() bool { s, err := bus.NewPluginFeed(store).PluginStatus(); return err == nil && !s.GapPending })
+	eventually(t, func() bool {
+		s, err := bus.NewPluginFeed(store, "fake-notifier").PluginStatus()
+		return err == nil && !s.GapPending
+	})
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, func() bool { d, err := bus.NewPluginFeed(store).NextPluginFeed(); return err == nil && d.ID == "" })
-	if err := bus.NewPluginFeed(store).EnablePluginFeed(false); err != nil {
+	eventually(t, func() bool {
+		d, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+		return err == nil && d.ID == ""
+	})
+	if err := bus.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -395,20 +420,23 @@ func TestHostRequiresEnableAndRefusesSecondChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := bus.NewPluginFeed(store).EnablePluginFeed(false); err != nil {
+	if err := bus.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
 	if err := Run(t.Context(), store, binary, io.Discard); err == nil {
 		t.Fatal("disabled plugin launched")
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, ".child-env")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(hostData(store), ".child-env")); !os.IsNotExist(err) {
 		t.Fatal("disabled host executed child", err)
 	}
-	if err := bus.NewPluginFeed(store).EnablePluginFeed(true); err != nil {
+	if err := bus.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
 	startHost(t, store)
-	eventually(t, func() bool { s, err := bus.NewPluginFeed(store).PluginStatus(); return err == nil && !s.GapPending })
+	eventually(t, func() bool {
+		s, err := bus.NewPluginFeed(store, "fake-notifier").PluginStatus()
+		return err == nil && !s.GapPending
+	})
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 	if err := Run(ctx, store, binary, io.Discard); err == nil {
@@ -421,13 +449,13 @@ func TestLeaseVisibleAfterFailureDoesNotPermitHandoff(t *testing.T) {
 		t.Skip("permission cut requires ordinary user")
 	}
 	directory := t.TempDir()
-	path := filepath.Join(directory, "plugin-host.lock")
+	path := filepath.Join(directory, "child.lock")
 	t.Cleanup(func() { _ = os.Chmod(directory, 0700) })
 	if err := os.Chmod(directory, 0300); err != nil {
 		t.Fatal(err)
 	}
 	for range 2 {
-		file, err := hostLease(path)
+		file, err := journal.OpenPluginLease(path)
 		if file != nil || !errors.Is(err, os.ErrPermission) {
 			t.Fatal("unconfirmed lease allowed handoff", file, err)
 		}
@@ -438,7 +466,7 @@ func TestLeaseVisibleAfterFailureDoesNotPermitHandoff(t *testing.T) {
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
-	file, err := hostLease(path)
+	file, err := journal.OpenPluginLease(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,11 +530,11 @@ func TestHostPreservesWriterFailureDuringCancellation(t *testing.T) {
 
 func TestHostPreservesProtocolFailureDuringCancellation(t *testing.T) {
 	store, _ := hostStore(t)
-	if err := os.WriteFile(filepath.Join(store.Dir, ".child-mode"), []byte("bad-ack-hold-eof"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("bad-ack-hold-eof"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	cancel, done := startHost(t, store)
-	eventually(t, func() bool { _, err := os.Stat(filepath.Join(store.Dir, ".eof-seen")); return err == nil })
+	eventually(t, func() bool { _, err := os.Stat(filepath.Join(hostData(store), ".eof-seen")); return err == nil })
 	// EOF proves the host already rejected the ACK and entered child.stop.
 	cancel()
 	select {
@@ -522,7 +550,10 @@ func TestHostPreservesProtocolFailureDuringCancellation(t *testing.T) {
 func TestHostCancellationReapsCleanly(t *testing.T) {
 	store, _ := hostStore(t)
 	cancel, done := startHost(t, store)
-	eventually(t, func() bool { s, err := bus.NewPluginFeed(store).PluginStatus(); return err == nil && !s.GapPending })
+	eventually(t, func() bool {
+		s, err := bus.NewPluginFeed(store, "fake-notifier").PluginStatus()
+		return err == nil && !s.GapPending
+	})
 	cancel()
 	select {
 	case err := <-done:
@@ -532,7 +563,7 @@ func TestHostCancellationReapsCleanly(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("cancelled host did not reap")
 	}
-	lease, err := hostLease(filepath.Join(store.Dir, "plugin-host.lock"))
+	lease, err := journal.OpenPluginLease(filepath.Join(store.Dir, "plugins", "fake-notifier.lock"))
 	if err != nil {
 		t.Fatal("cancelled host retained its lease", err)
 	}
@@ -541,11 +572,11 @@ func TestHostCancellationReapsCleanly(t *testing.T) {
 
 func TestHostPreservesObservedEOFDuringCancellation(t *testing.T) {
 	store, _ := hostStore(t)
-	if err := os.WriteFile(filepath.Join(store.Dir, ".child-mode"), []byte("close-stdout-hold-eof"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("close-stdout-hold-eof"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	cancel, done := startHost(t, store)
-	eventually(t, func() bool { _, err := os.Stat(filepath.Join(store.Dir, ".eof-seen")); return err == nil })
+	eventually(t, func() bool { _, err := os.Stat(filepath.Join(hostData(store), ".eof-seen")); return err == nil })
 	// The host saw unsolicited EOF before closing stdin and reaching this fence.
 	cancel()
 	select {
@@ -556,4 +587,53 @@ func TestHostPreservesObservedEOFDuringCancellation(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("host did not reap after unsolicited EOF")
 	}
+}
+
+func TestNamedPluginRemoveWaitsForReapedChild(t *testing.T) {
+	store, _ := hostStore(t)
+	feed := bus.NewPluginFeed(store, "fake-notifier")
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("hold-eof"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, done := startHost(t, store)
+	eventually(t, func() bool { status, err := feed.PluginStatus(); return err == nil && !status.GapPending })
+	if err := feed.EnablePluginFeed(false); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, func() bool { _, err := os.Stat(filepath.Join(hostData(store), ".eof-seen")); return err == nil })
+	if err := feed.RemovePlugin(); err == nil {
+		t.Fatal("removed installation while child still held FD3")
+	}
+	status, err := feed.PluginStatus()
+	if err != nil || status.ID == "" {
+		t.Fatal("failed remove changed record", status, err)
+	}
+	if err := os.WriteFile(filepath.Join(hostData(store), ".release-eof"), []byte("yes"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("child did not reap")
+	}
+	if err := feed.RemovePlugin(); err != nil {
+		t.Fatal("remove refused reaped child", err)
+	}
+	if _, err := os.Lstat(hostData(store)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("remove retained child data", err)
+	}
+}
+
+func recordFakeChildEnvironment(state string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(state, ".child-cwd"), []byte(cwd), 0600); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(state, ".child-env"), []byte(strings.Join(os.Environ(), "\n")), 0600)
 }

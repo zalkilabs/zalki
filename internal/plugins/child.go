@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"time"
 )
@@ -65,6 +66,7 @@ func startChild(ctx context.Context, binary, outbox string, lease *os.File) (*ch
 			c.killedForCancel = err == nil
 			return err
 		}
+		c.cmd.Dir = filepath.Dir(outbox)
 		c.cmd.Env = []string{"HOME=" + home}
 		c.cmd.Stdin, c.cmd.Stdout, c.cmd.Stderr = input, output, c
 		c.cmd.ExtraFiles = []*os.File{lease}

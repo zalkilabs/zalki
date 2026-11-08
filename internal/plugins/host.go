@@ -20,7 +20,7 @@ func Run(ctx context.Context, store bus.Store, binary string, output io.Writer) 
 	if !filepath.IsAbs(binary) || !filepath.IsAbs(store.Dir) {
 		return errors.New("plugin requires the absolute path of this binary")
 	}
-	feed := bus.NewPluginFeed(store)
+	feed := bus.NewPluginFeed(store, "fake-notifier")
 	status, err := feed.PluginStatus()
 	if err != nil {
 		return err
@@ -28,12 +28,15 @@ func Run(ctx context.Context, store bus.Store, binary string, output io.Writer) 
 	if !status.Enabled {
 		return errors.New("fake-notifier is disabled")
 	}
-	lease, err := hostLease(filepath.Join(store.Dir, "plugin-host.lock"))
+	lease, err := feed.AcquirePluginLease()
 	if err != nil {
 		return err
 	}
 	defer lease.Close() //nolint:errcheck // Close only after the child is reaped; never explicitly unlock.
-	outbox := filepath.Join(store.Dir, "plugin-outbox")
+	if err := checkInstallation(feed, status.ID); err != nil {
+		return err
+	}
+	outbox := filepath.Join(status.DataDir, "outbox")
 	c, err := startChild(ctx, binary, outbox, lease)
 	if err != nil {
 		if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
@@ -99,4 +102,15 @@ func deliver(feed bus.PluginFeed, c *child, d bus.PluginDelivery) error {
 		}
 	}
 	return err
+}
+
+func checkInstallation(feed bus.PluginFeed, id string) error {
+	current, err := feed.PluginStatus()
+	if err != nil {
+		return err
+	}
+	if !current.Enabled || current.ID != id {
+		return errors.New("plugin installation changed before launch")
+	}
+	return nil
 }

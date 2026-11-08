@@ -1,4 +1,4 @@
-package plugins
+package journal
 
 import (
 	"errors"
@@ -6,26 +6,25 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
-
-	"github.com/zalkilabs/zalki/internal/journal"
 )
 
-func hostLease(path string) (*os.File, error) {
-	fd, err := journal.OpenLockFile(path, true)
+// OpenPluginLease acquires an empty private lease; close it only after the child exits.
+func OpenPluginLease(path string) (*os.File, error) {
+	fd, err := OpenLockFile(path, true)
 	if err != nil {
 		return nil, err
 	}
 	syscall.CloseOnExec(fd)
 	file := os.NewFile(uintptr(fd), path)
-	if err := checkPrivateFD(fd); err != nil {
+	if err := CheckPluginLeaseFD(fd); err != nil {
 		_ = file.Close()
 		return nil, err
 	}
-	if err := journal.LockExclusive(fd, true); err != nil {
+	if err := LockExclusive(fd, true); err != nil {
 		_ = file.Close()
 		return nil, fmt.Errorf("plugin host or child lease unavailable: %w", err)
 	}
-	if err := errors.Join(file.Sync(), journal.SyncDir(filepath.Dir(path))); err != nil {
+	if err := errors.Join(file.Sync(), SyncDir(filepath.Dir(path))); err != nil {
 		_ = file.Close()
 		return nil, err
 	}
@@ -33,7 +32,8 @@ func hostLease(path string) (*os.File, error) {
 	return file, nil
 }
 
-func checkPrivateFD(fd int) error {
+// CheckPluginLeaseFD validates a plugin lease descriptor without releasing it.
+func CheckPluginLeaseFD(fd int) error {
 	var info syscall.Stat_t
 	if err := syscall.Fstat(fd, &info); err != nil {
 		return err

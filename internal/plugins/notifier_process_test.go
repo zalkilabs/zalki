@@ -29,7 +29,7 @@ func referenceChildMode(t *testing.T, state, mode string) (*child, func()) {
 	if err := os.WriteFile(filepath.Join(state, ".child-mode"), []byte(mode), 0600); err != nil {
 		t.Fatal(err)
 	}
-	lease, err := hostLease(filepath.Join(state, "plugin-host.lock"))
+	lease, err := journal.OpenPluginLease(filepath.Join(state, "child.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func referenceChildMode(t *testing.T, state, mode string) (*child, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := startChild(t.Context(), binary, filepath.Join(state, "plugin-outbox"), lease)
+	c, err := startChild(t.Context(), binary, filepath.Join(state, "outbox"), lease)
 	if err != nil {
 		_ = lease.Close()
 		t.Fatal(err)
@@ -64,7 +64,7 @@ func TestReferenceChildReplaysWithoutDuplicateAppend(t *testing.T) {
 	if err := second.exchange(value); err != nil {
 		t.Fatal(err)
 	}
-	names, err := os.ReadDir(filepath.Join(state, "plugin-outbox"))
+	names, err := os.ReadDir(filepath.Join(state, "outbox"))
 	if err != nil || len(names) != 1 || names[0].Name() != event.ID+".json" {
 		t.Fatal("outbox replay duplicated output", names, err)
 	}
@@ -75,7 +75,7 @@ func TestReferenceChildWithholdsACKAfterUnknownRenameOutcome(t *testing.T) {
 		t.Skip("permission cut requires ordinary user")
 	}
 	state := notifierTemp(t)
-	outbox := filepath.Join(state, "plugin-outbox")
+	outbox := filepath.Join(state, "outbox")
 	if err := prepareOutbox(outbox); err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestOutboxParentLinkMustBeConfirmedOnRetry(t *testing.T) {
 		t.Skip("permission cut requires ordinary user")
 	}
 	state := notifierTemp(t)
-	outbox := filepath.Join(state, "plugin-outbox")
+	outbox := filepath.Join(state, "outbox")
 	t.Cleanup(func() { _ = os.Chmod(state, 0700) })
 	if err := os.Chmod(state, 0300); err != nil {
 		t.Fatal(err)
@@ -146,7 +146,7 @@ func TestOutboxParentLinkMustBeConfirmedOnRetry(t *testing.T) {
 }
 
 func cutReference(outbox, mode string) error {
-	if err := checkPrivateFD(3); err != nil {
+	if err := journal.CheckPluginLeaseFD(3); err != nil {
 		return err
 	}
 	if err := prepareOutbox(outbox); err != nil {
@@ -209,7 +209,7 @@ func referenceKillReplay(t *testing.T, phase string) {
 	if err := replay.exchange(value); err != nil {
 		t.Fatal(err)
 	}
-	files, err := os.ReadDir(filepath.Join(state, "plugin-outbox"))
+	files, err := os.ReadDir(filepath.Join(state, "outbox"))
 	if err != nil || len(files) != 1 || files[0].Name() != event.ID+".json" {
 		t.Fatal("kill replay lost or duplicated event", files, err)
 	}
@@ -220,7 +220,7 @@ func TestReferenceReadOnlyOutboxWithholdsACK(t *testing.T) {
 		t.Skip("permission cut requires ordinary user")
 	}
 	state := notifierTemp(t)
-	outbox := filepath.Join(state, "plugin-outbox")
+	outbox := filepath.Join(state, "outbox")
 	if err := prepareOutbox(outbox); err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +262,7 @@ func TestReferenceReadOnlyReplayWithholdsACK(t *testing.T) {
 		t.Skip("permission cut requires ordinary user")
 	}
 	state := notifierTemp(t)
-	outbox := filepath.Join(state, "plugin-outbox")
+	outbox := filepath.Join(state, "outbox")
 	if err := prepareOutbox(outbox); err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +296,7 @@ func TestReferenceStagingCleanupFailureWithholdsACK(t *testing.T) {
 		t.Skip("permission cut requires ordinary user")
 	}
 	state := notifierTemp(t)
-	outbox := filepath.Join(state, "plugin-outbox")
+	outbox := filepath.Join(state, "outbox")
 	if err := prepareOutbox(outbox); err != nil {
 		t.Fatal(err)
 	}
@@ -378,21 +378,21 @@ func seedFullOutbox(t *testing.T, path string) {
 
 func TestPluginCommandBinaryFullOutboxRecovery(t *testing.T) {
 	store, session := hostStore(t)
-	gap, err := bus.NewPluginFeed(store).NextPluginFeed()
+	gap, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
 	if err != nil || gap.Gap != "enabled" {
 		t.Fatal("initial gap", gap, err)
 	}
-	if err := bus.NewPluginFeed(store).AckPluginFeed(gap); err != nil {
+	if err := bus.NewPluginFeed(store, "fake-notifier").AckPluginFeed(gap); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	pending, err := bus.NewPluginFeed(store).NextPluginFeed()
+	pending, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
 	if err != nil || pending.Event == nil {
 		t.Fatal("missing pending state change", pending, err)
 	}
-	outbox := filepath.Join(store.Dir, "plugin-outbox")
+	outbox := filepath.Join(hostData(store), "outbox")
 	seedFullOutbox(t, outbox)
 	binary := referenceBinary(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -401,7 +401,7 @@ func TestPluginCommandBinaryFullOutboxRecovery(t *testing.T) {
 	if raw, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(raw), "outbox is full") {
 		t.Fatal("full outbox did not fail explicitly", string(raw), err)
 	}
-	again, err := bus.NewPluginFeed(store).NextPluginFeed()
+	again, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
 	if err != nil || again.ID != pending.ID {
 		t.Fatal("failed notification advanced core cursor", again, err)
 	}
@@ -443,8 +443,11 @@ func runReferenceUntilConsumed(t *testing.T, store bus.Store, binary string) {
 			t.Error("reference command did not exit")
 		}
 	})
-	eventually(t, func() bool { d, err := bus.NewPluginFeed(store).NextPluginFeed(); return err == nil && d.ID == "" })
-	if err := bus.NewPluginFeed(store).EnablePluginFeed(false); err != nil {
+	eventually(t, func() bool {
+		d, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+		return err == nil && d.ID == ""
+	})
+	if err := bus.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
 	select {
