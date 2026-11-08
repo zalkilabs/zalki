@@ -134,30 +134,40 @@ func (s Store) consumeWatchesLocked(target string, asOf time.Time) ([]Watch, err
 			continue
 		}
 		path := filepath.Join(dir, entry.Name())
-		var watch Watch
-		if err := readRecord(path, &watch, &watch.Schema); err != nil {
+		watch, consumed, err := consumeWatchFile(path, target, asOf, now)
+		if err != nil {
 			return nil, err
 		}
-
-		expires, err := time.Parse(time.RFC3339Nano, watch.ExpiresAt)
-		if err != nil || !expires.After(now) || watch.Target != target {
-			if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
-				return nil, removeErr
-			}
-			continue
+		if consumed {
+			due = append(due, watch)
 		}
-		if watch.CreatedAt != "" {
-			created, createdErr := time.Parse(time.RFC3339Nano, watch.CreatedAt)
-			if createdErr == nil && created.After(asOf) {
-				continue
-			}
-		}
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return nil, err
-		}
-		due = append(due, watch)
 	}
 	return due, nil
+}
+
+func consumeWatchFile(path, target string, asOf, now time.Time) (Watch, bool, error) {
+	var watch Watch
+	if err := readRecord(path, &watch, &watch.Schema); err != nil {
+		return Watch{}, false, err
+	}
+
+	expires, err := time.Parse(time.RFC3339Nano, watch.ExpiresAt)
+	if err != nil || !expires.After(now) || watch.Target != target {
+		if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			return Watch{}, false, removeErr
+		}
+		return Watch{}, false, nil
+	}
+	if watch.CreatedAt != "" {
+		created, createdErr := time.Parse(time.RFC3339Nano, watch.CreatedAt)
+		if createdErr == nil && created.After(asOf) {
+			return Watch{}, false, nil
+		}
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return Watch{}, false, err
+	}
+	return watch, true, nil
 }
 
 func completionKind(event agent.HookInput) (string, bool) {
