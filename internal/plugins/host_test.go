@@ -23,7 +23,7 @@ import (
 
 func TestMain(m *testing.M) {
 	if len(os.Args) == 4 && os.Args[1] == ChildCommand && os.Args[2] == "--outbox" {
-		if err := fakeChild(os.Args[3]); err != nil {
+		if err := referenceOrFakeChild(os.Args[3]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
