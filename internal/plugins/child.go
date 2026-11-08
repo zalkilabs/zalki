@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -27,6 +28,7 @@ type child struct {
 	cancel          context.CancelFunc
 	parent          context.Context
 	killedForCancel bool
+	stopOnce        sync.Once
 }
 
 func (c *child) Write(p []byte) (int, error) {
@@ -44,6 +46,9 @@ func startChild(ctx context.Context, binary, outbox string, lease *os.File) (*ch
 }
 
 func launchChild(ctx context.Context, binary string, args []string, cwd, home string, lease *os.File) (*child, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	parent := ctx
 	ctx, cancel := context.WithCancel(ctx)
 	c := &child{done: make(chan struct{}), cancel: cancel, parent: parent}
@@ -66,13 +71,10 @@ func launchChild(ctx context.Context, binary string, args []string, cwd, home st
 		home, err = os.UserHomeDir()
 	}
 	if err == nil {
-		c.cmd = exec.CommandContext(ctx, binary, args...)
-		c.cmd.Cancel = func() error {
-			err := c.cmd.Process.Kill()
-			c.killedForCancel = err == nil
-			return err
-		}
+		// stop owns cancellation; the exec watcher must not preempt EOF grace.
+		c.cmd = exec.CommandContext(context.WithoutCancel(ctx), binary, args...)
 		c.cmd.Dir = cwd
+		c.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		c.cmd.Env = []string{"HOME=" + home}
 		c.cmd.Stdin, c.cmd.Stdout, c.cmd.Stderr = input, output, c
 		c.cmd.ExtraFiles = []*os.File{lease}
@@ -89,12 +91,13 @@ func launchChild(ctx context.Context, binary string, args []string, cwd, home st
 		c.waitErr = c.cmd.Wait()
 		close(c.done)
 	}()
+	context.AfterFunc(ctx, func() { _ = c.stop(nil) })
 	return c, nil
 }
 
 func (c *child) receive(timeout time.Duration) (frame, error) {
 	if err := c.output.SetReadDeadline(time.Now().Add(timeout)); err != nil {
-		return frame{}, c.pipeError(err)
+		return frame{}, c.deadlineError(c.output, err)
 	}
 	value, err := readFrame(c.reader)
 	return value, c.pipeError(err)
@@ -113,7 +116,7 @@ func (c *child) idle() error {
 
 func (c *child) exchange(value frame) error {
 	if err := c.input.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
-		return c.pipeError(err)
+		return c.deadlineError(c.input, err)
 	}
 	if err := writeFrame(c.input, value); err != nil {
 		return c.pipeError(err)
@@ -129,15 +132,19 @@ func (c *child) exchange(value frame) error {
 }
 
 func (c *child) stop(cause error) error {
-	_ = c.input.Close()
-	select {
-	case <-c.done:
-	case <-time.After(2 * time.Second):
-		_ = c.cmd.Process.Kill()
-		<-c.done
-	}
-	c.cancel()
-	_ = c.output.Close()
+	c.stopOnce.Do(func() {
+		_ = c.input.Close()
+		select {
+		case <-c.done:
+		case <-time.After(2 * time.Second):
+			if err := c.cmd.Process.Kill(); err == nil {
+				c.killedForCancel = c.parent.Err() != nil
+			}
+			<-c.done
+		}
+		c.cancel()
+		_ = c.output.Close()
+	})
 	if c.overflow {
 		return errors.New("plugin stderr exceeded 8KiB")
 	}
@@ -148,8 +155,17 @@ func (c *child) stop(cause error) error {
 	return fmt.Errorf("%w; child stderr: %s", cause, c.stderr)
 }
 
+func (c *child) deadlineError(file *os.File, err error) error {
+	if c.parent.Err() != nil {
+		if _, statErr := file.Stat(); errors.Is(statErr, os.ErrClosed) {
+			return errors.Join(errChildCanceled, err)
+		}
+	}
+	return c.pipeError(err)
+}
+
 func (c *child) pipeError(err error) error {
-	if c.parent.Err() != nil && (errors.Is(err, io.EOF) || errors.Is(err, os.ErrClosed) || errors.Is(err, syscall.EPIPE)) {
+	if c.parent.Err() != nil && (errors.Is(err, io.EOF) || errors.Is(err, os.ErrClosed) || errors.Is(err, syscall.EPIPE) || errors.Is(err, os.ErrDeadlineExceeded)) {
 		return errors.Join(errChildCanceled, err)
 	}
 	return err
