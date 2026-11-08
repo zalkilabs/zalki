@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func nameFixture(t *testing.T) string {
@@ -21,7 +22,7 @@ func nameFixture(t *testing.T) string {
 	return root
 }
 
-func nativeNameFixture(t *testing.T, root string, session bus.Session, name string) {
+func nativeNameFixture(t *testing.T, root string, session model.Session, name string) {
 	t.Helper()
 	id := strings.TrimPrefix(session.ID, session.Kind+":")
 	var path string
@@ -100,14 +101,14 @@ func TestNameResolutionAmbiguityAndRetirement(t *testing.T) {
 	sender, key := registerAdapterSession(t, store, "cursor")
 	a, _ := registerAdapterSession(t, store, "codex")
 	b, _ := registerAdapterSession(t, store, "cursor")
-	for _, v := range []bus.Session{a, b} {
+	for _, v := range []model.Session{a, b} {
 		nativeNameFixture(t, root, v, "reviewer")
 	}
-	service := bus.Service{Store: store, Deliver: func(_ context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+	service := bus.Service{Store: store, Deliver: func(_ context.Context, msg model.Message, target model.Session) model.Receipt {
 		if msg.To != a.ID || target.ID != a.ID {
 			t.Fatal("transport received a name instead of the resolved UUID")
 		}
-		return bus.Receipt{Status: "submitted"}
+		return model.Receipt{Status: "submitted"}
 	}}
 	for _, name := range []string{"reviewer", "Reviewer", "missing"} {
 		_, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: name, MessageID: newTestID(), Body: "hello"})
@@ -152,9 +153,9 @@ func TestNameRetryRemainsBoundAfterRenameAndReassignment(t *testing.T) {
 	b, _ := registerAdapterSession(t, store, "codex")
 	nativeNameFixture(t, root, a, "reviewer")
 	calls := 0
-	service := bus.Service{Store: store, Deliver: func(context.Context, bus.Message, bus.Session) bus.Receipt {
+	service := bus.Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 		calls++
-		return bus.Receipt{Status: "unknown_after_timeout"}
+		return model.Receipt{Status: "unknown_after_timeout"}
 	}}
 	id := newTestID()
 	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "reviewer", MessageID: id, Body: "hello"}); err != nil {
@@ -183,7 +184,7 @@ func TestNamesPreserveReplyAndCapabilityScope(t *testing.T) {
 	b, bKey := registerAdapterSession(t, store, "cursor")
 	c, _ := registerAdapterSession(t, store, "cursor")
 	for _, pair := range []struct {
-		v    bus.Session
+		v    model.Session
 		name string
 	}{{a, "sender"}, {b, "receiver"}, {c, "other"}} {
 		nativeNameFixture(t, root, pair.v, pair.name)
@@ -234,7 +235,7 @@ func TestConflictingOrUnsupportedMetadataHasNoName(t *testing.T) {
 	cursor, _ := registerAdapterSession(t, store, "cursor")
 	claude, _ := registerAdapterSession(t, store, "claude")
 	codex, _ := registerAdapterSession(t, store, "codex")
-	for _, v := range []bus.Session{cursor, claude, codex} {
+	for _, v := range []model.Session{cursor, claude, codex} {
 		nativeNameFixture(t, root, v, "reviewer")
 	}
 	cursorID := strings.TrimPrefix(cursor.ID, "cursor:")
@@ -289,7 +290,7 @@ func TestConflictingOrUnsupportedMetadataHasNoName(t *testing.T) {
 func TestNamesUseOwningSessionConfigDirectory(t *testing.T) {
 	root := nameFixture(t)
 	store := adapterTestStore(t)
-	sessions := map[string]bus.Session{}
+	sessions := map[string]model.Session{}
 	var actor, key string
 	for _, kind := range []string{"codex", "claude", "cursor"} {
 		v, capability := registerAdapterSession(t, store, kind)

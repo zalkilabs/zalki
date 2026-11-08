@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -39,8 +38,8 @@ func TestCodexTransportPinsUUIDAndNeverUsesShell(t *testing.T) {
 	t.Setenv("PATH", dir)
 	t.Setenv("ZALKI_TEST_ARGS", output)
 	id := newTestID()
-	msg := bus.Message{ID: newTestID(), From: "cursor:" + newTestID(), FromLabel: "Cursor", To: "codex:" + id, Body: "literal $(not-a-command) `also-literal`"}
-	receipt := queueCodex(context.Background(), msg, bus.Session{ID: msg.To, Kind: "codex"})
+	msg := model.Message{ID: newTestID(), From: "cursor:" + newTestID(), FromLabel: "Cursor", To: "codex:" + id, Body: "literal $(not-a-command) `also-literal`"}
+	receipt := queueCodex(context.Background(), msg, model.Session{ID: msg.To, Kind: "codex"})
 	if receipt.Status != "submitted" {
 		t.Fatalf("%+v", receipt)
 	}
@@ -64,7 +63,7 @@ func TestCodexQueueUsesRecipientProfile(t *testing.T) {
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("CODEX_HOME", filepath.Join(bin, "sender-profile"))
-	receipt := queueCodex(context.Background(), bus.Message{ID: newTestID(), Body: "profile test"}, bus.Session{Kind: "codex", ID: "codex:" + newTestID(), NativeConfigDir: recipient})
+	receipt := queueCodex(context.Background(), model.Message{ID: newTestID(), Body: "profile test"}, model.Session{Kind: "codex", ID: "codex:" + newTestID(), NativeConfigDir: recipient})
 	data, err := os.ReadFile(output)
 	if err != nil || string(data) != recipient || receipt.Status != model.StatusSubmitted {
 		t.Fatal("queue inherited sender profile", string(data), receipt, err)

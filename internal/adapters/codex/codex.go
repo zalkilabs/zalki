@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -45,7 +44,7 @@ func (Adapter) Descriptor() agent.AdapterDescriptor {
 	}}
 }
 
-func (Adapter) ReceiveCapabilities(v bus.Session) model.ReceiveCapabilities {
+func (Adapter) ReceiveCapabilities(v model.Session) model.ReceiveCapabilities {
 	c := model.ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: true}
 	root := codexConfigRoot(v)
 	endpoint, err := inspectCodexControl(root)
@@ -64,7 +63,7 @@ func (Adapter) ReceiveCapabilities(v bus.Session) model.ReceiveCapabilities {
 	return c
 }
 
-func (Adapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+func (Adapter) Deliver(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
 	return deliverCodex(ctx, msg, target)
 }
 
@@ -73,7 +72,7 @@ func (Adapter) ConfigDir() string {
 	return configDir("CODEX_HOME", filepath.Join(home, ".codex"))
 }
 
-func (a Adapter) LookupName(v bus.Session, indexes map[string]map[string]string) (string, string) {
+func (a Adapter) LookupName(v model.Session, indexes map[string]map[string]string) (string, string) {
 	root := v.NativeConfigDir
 	if !filepath.IsAbs(root) {
 		root = a.ConfigDir()
@@ -100,7 +99,7 @@ func (Adapter) HandleHook(s agent.HookHost, event agent.HookInput, id string, ou
 	return true, json.NewEncoder(output).Encode(map[string]bool{"continue": false})
 }
 
-func (Adapter) Health(_ agent.HealthHost, v bus.Session) (string, string) {
+func (Adapter) Health(_ agent.HealthHost, v model.Session) (string, string) {
 	root := codexConfigRoot(v)
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {
@@ -116,7 +115,7 @@ func (Adapter) Health(_ agent.HealthHost, v bus.Session) (string, string) {
 	}
 }
 
-func queueCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+func queueCodex(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	id := model.NativeID(target)
@@ -190,7 +189,7 @@ func configDir(variable, fallback string) string {
 	return fallback
 }
 
-func failedReceipt(status model.DeliveryStatus, err error) bus.Receipt {
+func failedReceipt(status model.DeliveryStatus, err error) model.Receipt {
 	receipt := model.NewReceipt(status)
 	receipt.Error = err.Error()
 	return receipt.WithCause(err)

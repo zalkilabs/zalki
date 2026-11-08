@@ -31,11 +31,11 @@ func (fourthAdapter) Descriptor() agent.AdapterDescriptor {
 // on Cursor's state format, credential operations or private journal helpers.
 type fourthJournalAdapter struct{ fourthAdapter }
 
-func (fourthJournalAdapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities {
+func (fourthJournalAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
 	return model.ReceiveCapabilities{Delivery: "fixture_hooks", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true}
 }
 
-func (fourthJournalAdapter) Deliver(context.Context, bus.Message, bus.Session) bus.Receipt {
+func (fourthJournalAdapter) Deliver(context.Context, model.Message, model.Session) model.Receipt {
 	return model.NewReceipt(model.StatusPendingActivity)
 }
 
@@ -106,13 +106,13 @@ func TestExternalAdapterUsesTrustedLifecycleHost(t *testing.T) {
 	}
 }
 
-func (fourthAdapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities {
+func (fourthAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
 	return model.ReceiveCapabilities{
 		Delivery: "external_log", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: true,
 	}
 }
 
-func (fourthAdapter) Deliver(context.Context, bus.Message, bus.Session) bus.Receipt {
+func (fourthAdapter) Deliver(context.Context, model.Message, model.Session) model.Receipt {
 	receipt := model.NewReceipt(model.StatusSubmitted)
 	receipt.Output = "external-fourth"
 	return receipt

@@ -39,7 +39,7 @@ func (a contextHookAdapter) HandleHook(host agent.HookHost, _ agent.HookInput, i
 
 type hookContextFixture struct {
 	service *Service
-	subject Session
+	subject model.Session
 	input   []byte
 }
 
@@ -81,7 +81,7 @@ func (f hookContextFixture) invoke(ctx context.Context) error {
 	return f.service.Hook(ctx, f.subject.Kind, bytes.NewReader(f.input), &bytes.Buffer{})
 }
 
-func contextFixtureReceipt(ctx context.Context) Receipt {
+func contextFixtureReceipt(ctx context.Context) model.Receipt {
 	if err := ctx.Err(); err != nil {
 		receipt := model.NewReceipt(model.StatusNotSent)
 		receipt.Error = err.Error()
@@ -127,7 +127,7 @@ func TestHookDeliveryInheritsCanceledParentBeforeDelivery(t *testing.T) {
 			cancel()
 			var seen context.Context
 			var ids []string
-			fixture.service.Deliver = func(ctx context.Context, msg Message, _ Session) Receipt {
+			fixture.service.Deliver = func(ctx context.Context, msg model.Message, _ model.Session) model.Receipt {
 				seen = ctx
 				ids = append(ids, msg.ID)
 				return contextFixtureReceipt(ctx)
@@ -200,7 +200,7 @@ func TestHookDeliveryInheritsParentCancellationDuringDelivery(t *testing.T) {
 			defer cancel()
 			ready, release := make(chan context.Context, 1), make(chan struct{})
 			var ids []string
-			fixture.service.Deliver = func(ctx context.Context, msg Message, _ Session) Receipt {
+			fixture.service.Deliver = func(ctx context.Context, msg model.Message, _ model.Session) model.Receipt {
 				ids = append(ids, msg.ID)
 				ready <- ctx
 				select {
@@ -226,7 +226,7 @@ func TestHookDeliveryBackgroundControl(t *testing.T) {
 		t.Run(branch, func(t *testing.T) {
 			fixture := newHookContextFixture(t, branch, 1)
 			var ids []string
-			fixture.service.Deliver = func(ctx context.Context, msg Message, _ Session) Receipt {
+			fixture.service.Deliver = func(ctx context.Context, msg model.Message, _ model.Session) model.Receipt {
 				ids = append(ids, msg.ID)
 				if ctx.Err() != nil || ctx.Done() != nil {
 					t.Error("Background control was canceled")
@@ -249,7 +249,7 @@ func TestHookContextCancellationSettlesEveryReleasedJob(t *testing.T) {
 			defer cancel()
 			ready, release := make(chan context.Context, 1), make(chan struct{})
 			var ids []string
-			fixture.service.Deliver = func(ctx context.Context, msg Message, _ Session) Receipt {
+			fixture.service.Deliver = func(ctx context.Context, msg model.Message, _ model.Session) model.Receipt {
 				ids = append(ids, msg.ID)
 				if len(ids) == 1 {
 					ready <- ctx
@@ -281,7 +281,7 @@ func TestHookContextCancellationKeepsUncertainReceipt(t *testing.T) {
 	defer cancel()
 	ready, release := make(chan context.Context, 1), make(chan struct{})
 	var ids []string
-	fixture.service.Deliver = func(ctx context.Context, msg Message, _ Session) Receipt {
+	fixture.service.Deliver = func(ctx context.Context, msg model.Message, _ model.Session) model.Receipt {
 		ids = append(ids, msg.ID)
 		// The fixture's native acceptance boundary precedes this signal.
 		ready <- ctx
@@ -310,7 +310,7 @@ func TestHookContextCancellationKeepsCompatibilityFence(t *testing.T) {
 	fixture := newHookContextFixture(t, "watch", 1)
 	futureStateMarker(t, fixture.service.Store)
 	before := journalSnapshot(t, fixture.service.Store)
-	fixture.service.Deliver = func(context.Context, Message, Session) Receipt {
+	fixture.service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		t.Error("unsupported state reached transport")
 		return model.NewReceipt(model.StatusSubmitted)
 	}
@@ -349,7 +349,7 @@ func TestHookContextCancellationKeepsHandlerError(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := journalSnapshot(t, fixture.service.Store)
-	fixture.service.Deliver = func(context.Context, Message, Session) Receipt {
+	fixture.service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		t.Error("failed handler reached transport")
 		return model.NewReceipt(model.StatusSubmitted)
 	}

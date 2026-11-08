@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type clientContract struct {
@@ -99,7 +99,7 @@ func TestRecordedCursorHookAndMetadataContract(t *testing.T) {
 		if err := os.WriteFile(file, append(record.Bytes(), '\n'), 0600); err != nil {
 			t.Fatal(err)
 		}
-		name, _ := adapter.LookupName(bus.Session{ID: fixture.Kind + ":" + hook.SessionID, Kind: fixture.Kind, NativeID: hook.SessionID, NativeConfigDir: root}, map[string]map[string]string{})
+		name, _ := adapter.LookupName(model.Session{ID: fixture.Kind + ":" + hook.SessionID, Kind: fixture.Kind, NativeID: hook.SessionID, NativeConfigDir: root}, map[string]map[string]string{})
 		if name != "Contract review" {
 			t.Fatalf("native metadata contract changed: got %q", name)
 		}

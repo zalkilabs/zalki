@@ -25,10 +25,10 @@ type Service struct {
 	Store   Store
 	Runtime *RuntimeLease
 	// Deliver overrides native-inbox transports in isolated tests.
-	Deliver func(context.Context, Message, Session) Receipt
+	Deliver func(context.Context, model.Message, model.Session) model.Receipt
 }
 
-func (s *Service) Send(ctx context.Context, request SendRequest) (result Message, err error) {
+func (s *Service) Send(ctx context.Context, request SendRequest) (result model.Message, err error) {
 	if request.MessageID == "" {
 		request.MessageID = newID()
 	}
@@ -39,7 +39,7 @@ func (s *Service) Send(ctx context.Context, request SendRequest) (result Message
 		}
 	}()
 	if err := validateMessageBody(body, key); err != nil {
-		return Message{}, err
+		return model.Message{}, err
 	}
 	msg, target, fresh, err := s.Store.ReserveMessage(request)
 	if err != nil || !fresh {
@@ -48,22 +48,22 @@ func (s *Service) Send(ctx context.Context, request SendRequest) (result Message
 	return s.deliverReserved(ctx, msg, target)
 }
 
-func (s *Service) deliverReserved(ctx context.Context, msg Message, target Session) (Message, error) {
+func (s *Service) deliverReserved(ctx context.Context, msg model.Message, target model.Session) (model.Message, error) {
 	id := msg.ID
 	adapter, err := s.Store.registry().Lookup(target.Kind)
 	if err != nil {
-		return Message{}, err
+		return model.Message{}, err
 	}
 	current, held, err := s.revalidateTarget(id, target)
 	if held.ID != "" {
 		return held, nil
 	}
 	if err != nil {
-		return s.Store.Finish(id, Receipt{At: model.Timestamp(), Status: model.StatusNotSent, Error: err.Error()}.WithCause(err))
+		return s.Store.Finish(id, model.Receipt{At: model.Timestamp(), Status: model.StatusNotSent, Error: err.Error()}.WithCause(err))
 	}
 	target = current
 	if target.Receive.HookDelivery {
-		msg, err = s.Store.Finish(id, Receipt{At: model.Timestamp(), Status: model.StatusPendingActivity})
+		msg, err = s.Store.Finish(id, model.Receipt{At: model.Timestamp(), Status: model.StatusPendingActivity})
 		if err != nil {
 			return msg, err
 		}
@@ -84,7 +84,7 @@ func (s *Service) deliverReserved(ctx context.Context, msg Message, target Sessi
 // revalidateTarget rechecks the destination under the journal lock, since the
 // registration may have changed after reservation. A target in approval state
 // is not delivered to: the message is held and returned instead.
-func (s *Service) revalidateTarget(id string, target Session) (current Session, held Message, err error) {
+func (s *Service) revalidateTarget(id string, target model.Session) (current model.Session, held model.Message, err error) {
 	err = s.Store.locked(func() error {
 		var err error
 		current, err = s.Store.session(target.ID)
@@ -117,7 +117,7 @@ func (s *Service) revalidateTarget(id string, target Session) (current Session, 
 }
 
 // runTransport calls the adapter and records the outcome without message content.
-func (s *Service) runTransport(ctx context.Context, deliver func(context.Context, Message, Session) Receipt, msg Message, target Session) Receipt {
+func (s *Service) runTransport(ctx context.Context, deliver func(context.Context, model.Message, model.Session) model.Receipt, msg model.Message, target model.Session) model.Receipt {
 	s.Store.logEvent(slog.LevelDebug, "transport.started", messageEvent(msg))
 	started := time.Now()
 	receipt := deliver(ctx, s.Store.withLabel(msg), target)
@@ -135,7 +135,7 @@ func (s *Service) runTransport(ctx context.Context, deliver func(context.Context
 }
 
 // receiptLogLevel warns for outcomes where delivery failed or is uncertain.
-func receiptLogLevel(receipt Receipt) slog.Level {
+func receiptLogLevel(receipt model.Receipt) slog.Level {
 	switch receipt.Status {
 	case model.StatusNotSent, model.StatusCommandFailed, model.StatusUnknownTimeout, model.StatusUnknownWrite, model.StatusWakeUncertain:
 		return slog.LevelWarn
@@ -164,7 +164,7 @@ func validateMessageBody(body, key string) error {
 
 // Reply uses the journal's exact sender, never the displayed label. Repeating
 // the same incoming ID and body reuses the outgoing ID without resubmission.
-func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result Message, err error) {
+func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result model.Message, err error) {
 	actor, key, id, body := request.Actor, request.Capability, request.MessageID, request.Body
 	defer func() {
 		if err != nil {
@@ -172,7 +172,7 @@ func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result Messa
 		}
 	}()
 	if err := validateMessageBody(body, key); err != nil {
-		return Message{}, err
+		return model.Message{}, err
 	}
 	msg, target, fresh, err := s.Store.prepareReply(request)
 	if err != nil || !fresh {

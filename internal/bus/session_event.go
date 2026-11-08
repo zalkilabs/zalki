@@ -9,7 +9,7 @@ import (
 )
 
 // sessionEvent projects only registration, generation and lifecycle facts.
-func sessionEvent(previous []byte, next Session) (model.Event, error) {
+func sessionEvent(previous []byte, next model.Session) (model.Event, error) {
 	kind, projection, err := sessionProjection(previous, next)
 	if err != nil || kind == "" {
 		return model.Event{}, err
@@ -18,8 +18,8 @@ func sessionEvent(previous []byte, next Session) (model.Event, error) {
 	return event, event.Validate()
 }
 
-func sessionProjection(previous []byte, next Session) (string, model.EventSession, error) {
-	var before Session
+func sessionProjection(previous []byte, next model.Session) (string, model.EventSession, error) {
+	var before model.Session
 	if previous != nil {
 		if err := json.Unmarshal(previous, &before); err != nil {
 			return "", model.EventSession{}, err
@@ -41,7 +41,7 @@ func sessionProjection(previous []byte, next Session) (string, model.EventSessio
 		PreviousRetired: before.Retired, Retired: next.Retired}, nil
 }
 
-func validatePreparedSession(previous []byte, next Session, event model.Event) error {
+func validatePreparedSession(previous []byte, next model.Session, event model.Event) error {
 	kind, projection, err := sessionProjection(previous, next)
 	if err != nil {
 		return err

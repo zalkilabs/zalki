@@ -8,7 +8,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func (s Store) nativeNames(sessions []Session) {
+func (s Store) nativeNames(sessions []model.Session) {
 	indexes := map[string]map[string]string{}
 	for i := range sessions {
 		v := &sessions[i]
@@ -58,7 +58,7 @@ func (s Store) rememberNativeConfigDir(id, kind string) error {
 
 // resolve runs under the journal lock so ambiguity detection and reservation
 // share a registry snapshot. Only registered sessions can be addressed by name.
-func (s Store) resolve(destination string) (Session, error) {
+func (s Store) resolve(destination string) (model.Session, error) {
 	if _, err := s.sessionRecordPath(destination); err == nil {
 		return s.session(destination) // Exact IDs always win over names.
 	}
@@ -69,13 +69,13 @@ func (s Store) resolve(destination string) (Session, error) {
 		}
 	}
 	if !model.ValidName(name) {
-		return Session{}, model.NewError(model.CodeInvalidInput, "destination must be a complete kind:UUID or an exact native session name")
+		return model.Session{}, model.NewError(model.CodeInvalidInput, "destination must be a complete kind:UUID or an exact native session name")
 	}
 	sessions, err := s.sessions()
 	if err != nil {
-		return Session{}, err
+		return model.Session{}, err
 	}
-	var matches []Session
+	var matches []model.Session
 	var ids []string
 	for _, session := range sessions {
 		if session.Name == name && (kind == "" || session.Kind == kind) {
@@ -86,9 +86,9 @@ func (s Store) resolve(destination string) (Session, error) {
 		return matches[0], nil
 	}
 	if len(matches) > 1 {
-		return Session{}, model.NewError(model.CodeConflict, "ambiguous session name %q; use an exact ID: %s", destination, strings.Join(ids, ", "))
+		return model.Session{}, model.NewError(model.CodeConflict, "ambiguous session name %q; use an exact ID: %s", destination, strings.Join(ids, ", "))
 	}
-	return Session{}, model.NewError(model.CodeUnavailable, "no registered session named %q; use list_agents for names and exact IDs", destination)
+	return model.Session{}, model.NewError(model.CodeUnavailable, "no registered session named %q; use list_agents for names and exact IDs", destination)
 }
 
 func (s Store) hookName(id, name string) error {

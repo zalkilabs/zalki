@@ -12,7 +12,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func signalCursor(ctx context.Context, message bus.Message, target bus.Session) bus.Receipt {
+func signalCursor(ctx context.Context, message model.Message, target model.Session) model.Receipt {
 	receipt := model.NewReceipt(model.StatusPendingActivity)
 	endpoint := &target.Listener.Endpoint
 	if err := bus.CheckEndpoint(endpoint); err != nil {

@@ -25,7 +25,7 @@ func TestPrunePreservesQuietAndUnknownOwnersAndMessageJournal(t *testing.T) {
 	dead.Owner = &model.ProcessRef{PID: p.PID, Start: "previous-process-at-this-pid", Role: "client"}
 	quiet.Owner = &model.ProcessRef{PID: p.PID, Start: p.Start, Role: "backend"}
 	quiet.UpdatedAt = "2000-01-01T00:00:00.000000000Z"
-	for _, v := range []Session{dead, quiet} {
+	for _, v := range []model.Session{dead, quiet} {
 		if err := store.locked(func() error { return store.saveSession(v) }); err != nil {
 			t.Fatal(err)
 		}

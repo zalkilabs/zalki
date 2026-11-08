@@ -19,7 +19,7 @@ import (
 
 type sessionLatencySubject struct {
 	store      Store
-	session    Session
+	session    model.Session
 	key        string
 	lease      *Lease
 	activation int64
@@ -204,7 +204,7 @@ func prepareSessionLatencySeed(t *testing.T, scenario string) {
 		t.Fatal("invalid seed case")
 	}
 	store := Store{Dir: filepath.Join(root, scenario)}
-	session := Session{ID: "codex:00000000-0000-4000-8000-000000000003", Generation: "00000000-0000-4000-8000-000000000004"}
+	session := model.Session{ID: "codex:00000000-0000-4000-8000-000000000003", Generation: "00000000-0000-4000-8000-000000000004"}
 	seedLatencyRecords(t, store, session, count)
 	for _, relative := range []string{"events/records", "events", "commits", "."} {
 		if err := journal.SyncDir(filepath.Join(store.Dir, relative)); err != nil {

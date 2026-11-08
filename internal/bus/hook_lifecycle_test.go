@@ -30,7 +30,7 @@ func sessionBytes(t *testing.T, store Store, id string) []byte {
 }
 
 func encodedCursorState(state CursorListenerState) json.RawMessage {
-	v := Session{}
+	v := model.Session{}
 	setCursorState(&v, state)
 	return v.AdapterState
 }

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type claudeContract struct {
@@ -54,7 +54,7 @@ func TestRecordedClaudeHookAndMetadataContract(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "sessions", hook.SessionID+".json"), fixture.NameRecord, 0600); err != nil {
 		t.Fatal(err)
 	}
-	name, source := adapter.LookupName(bus.Session{Kind: "claude", NativeID: hook.SessionID, NativeConfigDir: root}, map[string]map[string]string{})
+	name, source := adapter.LookupName(model.Session{Kind: "claude", NativeID: hook.SessionID, NativeConfigDir: root}, map[string]map[string]string{})
 	if name != "Contract review" || source != "claude_session_metadata" {
 		t.Fatalf("native metadata contract changed: %q %q", name, source)
 	}

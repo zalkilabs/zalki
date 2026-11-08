@@ -15,7 +15,7 @@ import (
 
 // forwardingHost returns a real bound host, a supplied target and the session
 // that must stay unchanged. Both same-actor and cross-actor calls use this setup.
-func forwardingHost(t *testing.T, kind string, crossActor bool) (hookRuntime, Session, Session, string) {
+func forwardingHost(t *testing.T, kind string, crossActor bool) (hookRuntime, model.Session, model.Session, string) {
 	t.Helper()
 	store := fixtureStore(t)
 	actor, actorKey := register(t, store, kind)
@@ -27,7 +27,7 @@ func forwardingHost(t *testing.T, kind string, crossActor bool) (hookRuntime, Se
 	return host, actor, other, actorKey
 }
 
-func forwardingMessage(t *testing.T, store Store, target Session, status model.DeliveryStatus) Message {
+func forwardingMessage(t *testing.T, store Store, target model.Session, status model.DeliveryStatus) model.Message {
 	t.Helper()
 	sender, key := register(t, store, "codex")
 	msg, _, fresh, err := store.ReserveMessage(SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "context for " + target.ID})
@@ -376,7 +376,7 @@ func TestUnboundHookRuntimeStillSupportsHealth(t *testing.T) {
 	assertForwardingChanges(t, store, before)
 }
 
-func seedBindingLease(t *testing.T, store Store, target Session) {
+func seedBindingLease(t *testing.T, store Store, target model.Session) {
 	t.Helper()
 	target.Listener = &model.ListenerLease{ID: newID(), Generation: target.Generation, Endpoint: model.Endpoint{Path: filepath.Join(store.Dir, "missing.sock")}}
 	if err := store.locked(func() error { return store.saveSession(target) }); err != nil {

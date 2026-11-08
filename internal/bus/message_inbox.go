@@ -12,7 +12,7 @@ import (
 )
 
 // Messages returns full history for local diagnostics and integrations.
-func (s Store) Messages(actor, key string) ([]Message, error) {
+func (s Store) Messages(actor, key string) ([]model.Message, error) {
 	return s.QueryMessages(MessageQuery{Actor: actor, Capability: key, History: true, Limit: 100, IncludeBody: true})
 }
 
@@ -29,13 +29,13 @@ type MessageQuery struct {
 }
 
 type MessageBatch struct {
-	Messages []Message
+	Messages []model.Message
 	More     bool
 }
 
 // QueryMessages filters before applying the limit so read history cannot hide
 // older unread work. Inbox order is oldest first; history is newest first.
-func (s Store) QueryMessages(query MessageQuery) ([]Message, error) {
+func (s Store) QueryMessages(query MessageQuery) ([]model.Message, error) {
 	batch, err := s.ReadMessages(query)
 	return batch.Messages, err
 }
@@ -53,7 +53,7 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 	if !query.Sent && (query.To != "" || query.Preview) {
 		return MessageBatch{}, model.NewError(model.CodeInvalidInput, "to and preview require sent:true")
 	}
-	batch := MessageBatch{Messages: []Message{}}
+	batch := MessageBatch{Messages: []model.Message{}}
 	err := s.readLocked(func() error {
 		current, err := s.authenticate(query.Actor, query.Capability)
 		if err != nil {
@@ -66,7 +66,7 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 		if query.MessageID != "" {
 			message, err := s.readExactMessage(read)
 			if err == nil {
-				batch.Messages = []Message{message}
+				batch.Messages = []model.Message{message}
 			}
 			return err
 		}
@@ -80,12 +80,12 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 // the journal lock so exact lookup and scanning apply the same filters.
 type messageRead struct {
 	query     MessageQuery
-	current   Session
+	current   model.Session
 	recipient string // canonical ID of the Sent filter, or empty
 	history   bool
 }
 
-func (r messageRead) view(message Message, omitBody bool) Message {
+func (r messageRead) view(message model.Message, omitBody bool) model.Message {
 	result := inboxView(message, r.current, omitBody)
 	if r.query.Preview && !result.BodyDeferred {
 		result.BodyPreview = bodyPreview(message.Body)
@@ -109,20 +109,20 @@ func (s Store) canonicalRecipient(to string) (string, error) {
 	return target.ID, nil
 }
 
-func (s Store) readExactMessage(r messageRead) (Message, error) {
+func (s Store) readExactMessage(r messageRead) (model.Message, error) {
 	actor := r.query.Actor
 	message, err := s.message(r.query.MessageID)
 	if err != nil {
-		return Message{}, err
+		return model.Message{}, err
 	}
 	if message.From != actor && message.To != actor {
-		return Message{}, model.NewError(model.CodeUnauthorized, "message belongs to another session")
+		return model.Message{}, model.NewError(model.CodeUnauthorized, "message belongs to another session")
 	}
 	if r.query.Sent && message.From != actor {
-		return Message{}, model.NewError(model.CodeNotFound, "message was not sent by this session")
+		return model.Message{}, model.NewError(model.CodeNotFound, "message was not sent by this session")
 	}
 	if r.recipient != "" && message.To != r.recipient {
-		return Message{}, model.NewError(model.CodeNotFound, "message was not sent to this recipient")
+		return model.Message{}, model.NewError(model.CodeNotFound, "message was not sent to this recipient")
 	}
 	return r.view(message, false), nil
 }
@@ -131,13 +131,13 @@ func (s Store) readExactMessage(r messageRead) (Message, error) {
 // whether more remain. On failure it retains the views collected before the
 // error, in scan order, and the view is never nil. The cursor is checked before
 // anything is scanned; a record that cannot be read stops the scan.
-func (s Store) scanMessages(r messageRead, limit int) (items []Message, more bool, err error) {
-	items = []Message{}
+func (s Store) scanMessages(r messageRead, limit int) (items []model.Message, more bool, err error) {
+	items = []model.Message{}
 	cursor, err := s.scanCursor(r.query)
 	if err != nil {
 		return items, false, err
 	}
-	if err := s.eachMessage(func(_ string, item Message, readErr error) error {
+	if err := s.eachMessage(func(_ string, item model.Message, readErr error) error {
 		if readErr != nil {
 			return readErr
 		}
@@ -157,7 +157,7 @@ func (s Store) scanMessages(r messageRead, limit int) (items []Message, more boo
 
 // scanCursor loads the message a page starts after, or nil when there is no
 // cursor. The cursor must be a message the caller sent or received.
-func (s Store) scanCursor(query MessageQuery) (*Message, error) {
+func (s Store) scanCursor(query MessageQuery) (*model.Message, error) {
 	if query.Cursor == "" {
 		return nil, nil
 	}
@@ -174,7 +174,7 @@ func (s Store) scanCursor(query MessageQuery) (*Message, error) {
 // matches reports whether a record belongs in this read. It checks, in order,
 // that the caller is concerned, that inbox mode only gets open work, and that
 // the record comes after the cursor.
-func (r messageRead) matches(item Message, cursor *Message) bool {
+func (r messageRead) matches(item model.Message, cursor *model.Message) bool {
 	if !r.concernsCaller(item) {
 		return false
 	}
@@ -187,7 +187,7 @@ func (r messageRead) matches(item Message, cursor *Message) bool {
 // concernsCaller applies the caller filters: the record is from or to the
 // caller, with Sent it was sent by the caller, and with To it went to that
 // recipient.
-func (r messageRead) concernsCaller(item Message) bool {
+func (r messageRead) concernsCaller(item model.Message) bool {
 	actor := r.query.Actor
 	if item.From != actor && item.To != actor {
 		return false
@@ -200,7 +200,7 @@ func (r messageRead) concernsCaller(item Message) bool {
 
 // isOpenInboxWork is true for a message to the caller, for the caller's
 // current registration, not yet acknowledged and still acknowledgeable.
-func (r messageRead) isOpenInboxWork(item Message) bool {
+func (r messageRead) isOpenInboxWork(item model.Message) bool {
 	return item.To == r.query.Actor && item.TargetGeneration == r.current.Generation && item.AcknowledgedAt == "" && item.Status.CanAcknowledge()
 }
 
@@ -223,7 +223,7 @@ func bodyPreview(body string) string {
 	return line
 }
 
-func messageComesBefore(a, b Message, history bool) bool {
+func messageComesBefore(a, b model.Message, history bool) bool {
 	if a.CreatedAt == b.CreatedAt {
 		return a.ID < b.ID
 	}
@@ -233,7 +233,7 @@ func messageComesBefore(a, b Message, history bool) bool {
 	return a.CreatedAt < b.CreatedAt
 }
 
-func inboxView(message Message, current Session, omitBody bool) Message {
+func inboxView(message model.Message, current model.Session, omitBody bool) model.Message {
 	if message.To == current.ID && current.Receive.Inbox == model.InboxNative && message.AcknowledgedAt == "" {
 		message.Body, message.BodyDeferred = "", true
 	} else if omitBody && message.Body != "" {
@@ -283,9 +283,9 @@ func (s Store) emitPendingLocked(actor string, out *strings.Builder) error {
 
 // pendingForHook returns the unacknowledged hook-pending messages sent to actor
 // for the current registration, oldest first. An unreadable record is an error.
-func (s Store) pendingForHook(actor string, current Session) ([]Message, error) {
-	pending := []Message{}
-	if err := s.eachMessage(func(_ string, msg Message, readErr error) error {
+func (s Store) pendingForHook(actor string, current model.Session) ([]model.Message, error) {
+	pending := []model.Message{}
+	if err := s.eachMessage(func(_ string, msg model.Message, readErr error) error {
 		if readErr != nil {
 			return readErr
 		}
@@ -304,7 +304,7 @@ func (s Store) pendingForHook(actor string, current Session) ([]Message, error) 
 // envelopes to out. It stops, leaving the rest pending, at the first message
 // that is over the count cap or would push out over the byte cap; a smaller
 // later message is not skipped ahead.
-func (s Store) emitPendingContext(pending []Message, out *strings.Builder) error {
+func (s Store) emitPendingContext(pending []model.Message, out *strings.Builder) error {
 	for i, msg := range pending {
 		body := model.Envelope(s.withLabel(msg)) + "\n\n"
 		if i >= hookContextMessages || out.Len()+len(body) > hookContextBytes {

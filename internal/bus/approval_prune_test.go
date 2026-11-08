@@ -11,7 +11,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func queueThenDropCount(t *testing.T, store Store) (Session, Message, Message) {
+func queueThenDropCount(t *testing.T, store Store) (model.Session, model.Message, model.Message) {
 	t.Helper()
 	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
@@ -31,7 +31,7 @@ func queueThenDropCount(t *testing.T, store Store) (Session, Message, Message) {
 	if err := store.locked(func() error { return store.saveSession(current) }); err != nil {
 		t.Fatal(err)
 	}
-	legacy := Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusApprovalBlocked}
+	legacy := model.Message{Schema: recordSchema, ID: newID(), From: sender.ID, To: target.ID, Body: "old refusal", TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusApprovalBlocked}
 	if err := store.saveMessage(legacy); err != nil {
 		t.Fatal(err)
 	}

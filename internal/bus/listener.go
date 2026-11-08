@@ -66,7 +66,7 @@ func (s Store) removeFreeListenerLock(kind, actor string, remove bool) (bool, er
 
 // lockHeld reports whether some process holds the registration's lifetime lock.
 // A missing or unlocked lock file is not evidence of a live listener.
-func (s Store) lockHeld(v Session) bool {
+func (s Store) lockHeld(v model.Session) bool {
 	fd, err := journal.OpenLockFile(s.listenerLockPath(v.Kind, v.ID), false)
 	if err != nil {
 		return false
@@ -82,7 +82,7 @@ func (s Store) lockHeld(v Session) bool {
 
 // listenerStatus checks the lease against its bound endpoint and the lifetime
 // lock. A socket left behind by a crash is insufficient evidence of a listener.
-func (s Store) listenerStatus(v Session) model.ListenerStatus {
+func (s Store) listenerStatus(v model.Session) model.ListenerStatus {
 	held := s.lockHeld(v)
 	switch {
 	case v.Listener != nil && held && v.Listener.Generation == v.Generation && CheckEndpoint(&v.Listener.Endpoint) == nil:
@@ -103,7 +103,7 @@ func (s Store) AcquireListenerLease(actor, key string) (lease *Lease, err error)
 			s.logEvent(slog.LevelWarn, "listener.start_failed", eventData{Actor: actor, Err: err})
 		}
 	}()
-	var v Session
+	var v model.Session
 	err = s.locked(func() error {
 		var err error
 		if v, err = s.authenticate(actor, key); err != nil {
@@ -164,7 +164,7 @@ func lockFileStillLinked(fd int, path string) (bool, error) {
 // Generation is the registration generation this lease was acquired for.
 func (l *Lease) Generation() string { return l.gen }
 
-func (l *Lease) owns(v Session) bool {
+func (l *Lease) owns(v model.Session) bool {
 	return l.endpoint != nil && v.Generation == l.gen && v.Listener != nil &&
 		v.Listener.ID == l.id && v.Listener.Generation == l.gen && v.Listener.Endpoint == *l.endpoint
 }
@@ -266,7 +266,7 @@ func (l *Lease) WakeEmitted(messageID string) {
 // writes recordSchema, which older builds can read. A process that still holds
 // the lifetime lock is fenced: owns requires the record to name its lease, so
 // that process cannot confirm, validate, or clear the record.
-func releaseListenerLease(v *Session) {
+func releaseListenerLease(v *model.Session) {
 	v.Listener = nil
 }
 

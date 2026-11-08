@@ -16,7 +16,6 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -41,7 +40,7 @@ func TestCodexVersionGate(t *testing.T) {
 func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	root, listener := listenCodexControl(t)
 	defer listener.Close()
-	target := bus.Session{Kind: "codex", NativeConfigDir: root}
+	target := model.Session{Kind: "codex", NativeConfigDir: root}
 	capabilities := (Adapter{}).ReceiveCapabilities(target)
 	if capabilities.Delivery != "app_server_unverified_or_queue" || capabilities.BusyDelivery != model.DeliveryNextTurn || !capabilities.IdleWake {
 		t.Fatalf("socket was not advertised: %+v", capabilities)
@@ -90,8 +89,8 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			msg := bus.Message{ID: newTestID(), From: "cursor:" + newTestID(), FromLabel: "Cursor", FromName: "Review", To: "codex:" + thread, Body: body, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
-			receipt := deliverCodex(ctx, msg, bus.Session{Kind: "codex", ID: msg.To, NativeID: thread, NativeConfigDir: root})
+			msg := model.Message{ID: newTestID(), From: "cursor:" + newTestID(), FromLabel: "Cursor", FromName: "Review", To: "codex:" + thread, Body: body, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+			receipt := deliverCodex(ctx, msg, model.Session{Kind: "codex", ID: msg.To, NativeID: thread, NativeConfigDir: root})
 			if strings.Contains(receipt.Output+receipt.Error, body) {
 				t.Fatal("receipt exposed the message body")
 			}
@@ -128,12 +127,12 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			}
 			switch mode {
 			case "idle", "paged", "busy":
-				verified := (Adapter{}).ReceiveCapabilities(bus.Session{Kind: "codex", NativeConfigDir: root})
+				verified := (Adapter{}).ReceiveCapabilities(model.Session{Kind: "codex", NativeConfigDir: root})
 				if verified.Delivery != "app_server_tool_output" || verified.BusyDelivery != model.DeliveryBetweenTools {
 					t.Fatalf("verified server was not advertised: %+v", verified)
 				}
 			case "old", "home", "method-missing", "invalid-params":
-				unsupported := (Adapter{}).ReceiveCapabilities(bus.Session{Kind: "codex", NativeConfigDir: root})
+				unsupported := (Adapter{}).ReceiveCapabilities(model.Session{Kind: "codex", NativeConfigDir: root})
 				if unsupported.Delivery != "native_queue_next_turn" || unsupported.BusyDelivery != model.DeliveryNextTurn {
 					t.Fatalf("unusable server was advertised as direct delivery: %+v", unsupported)
 				}

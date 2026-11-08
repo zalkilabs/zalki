@@ -33,7 +33,7 @@ type MessageReceipt struct {
 	Code         model.ErrorCode      `json:"code,omitempty"`
 }
 
-func messageReceipt(message bus.Message, err error) (MessageReceipt, error) {
+func messageReceipt(message model.Message, err error) (MessageReceipt, error) {
 	receipt := MessageReceipt{ID: message.ID, Status: message.Status, Acknowledged: message.AcknowledgedAt != ""}
 	if message.Receipt != nil {
 		receipt.Error = message.Receipt.Error
@@ -98,7 +98,7 @@ type MessageView struct {
 	Code           model.ErrorCode      `json:"code,omitempty"`
 }
 
-func messageViews(messages []bus.Message) []MessageView {
+func messageViews(messages []model.Message) []MessageView {
 	views := make([]MessageView, 0, len(messages))
 	for _, msg := range messages {
 		view := MessageView{ID: msg.ID, From: msg.From, FromName: msg.FromName, FromLabel: msg.FromLabel, Kind: msg.Kind,

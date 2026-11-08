@@ -32,16 +32,16 @@ type fakeAdapter struct {
 
 	mu      sync.Mutex
 	calls   int
-	deliver func(context.Context, bus.Message, bus.Session) bus.Receipt
+	deliver func(context.Context, model.Message, model.Session) model.Receipt
 }
 
 func (a *fakeAdapter) Descriptor() agentapi.AdapterDescriptor {
 	return agentapi.AdapterDescriptor{Kind: a.kind, Label: a.kind, ProcessNames: []string{a.kind}, OwnerRole: "client", Executable: a.kind}
 }
 
-func (a *fakeAdapter) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities { return a.caps }
+func (a *fakeAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities { return a.caps }
 
-func (a *fakeAdapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+func (a *fakeAdapter) Deliver(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
 	a.mu.Lock()
 	a.calls++
 	deliver := a.deliver
@@ -58,7 +58,7 @@ func (a *fakeAdapter) transportCalls() int {
 	return a.calls
 }
 
-func (a *fakeAdapter) script(deliver func(context.Context, bus.Message, bus.Session) bus.Receipt) {
+func (a *fakeAdapter) script(deliver func(context.Context, model.Message, model.Session) model.Receipt) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.deliver = deliver
@@ -115,7 +115,7 @@ func newUUID(t *testing.T) string {
 
 // agent is a registered session and the capability that proves it.
 type agent struct {
-	bus.Session
+	model.Session
 	Key string
 }
 

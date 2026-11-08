@@ -19,15 +19,15 @@ func (stubCodexAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex"}
 }
 
-func (stubCodexAdapter) ReceiveCapabilities(Session) model.ReceiveCapabilities {
+func (stubCodexAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
 	return model.ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: true}
 }
 
-func (stubCodexAdapter) Deliver(context.Context, Message, Session) Receipt {
+func (stubCodexAdapter) Deliver(context.Context, model.Message, model.Session) model.Receipt {
 	return model.NewReceipt(model.StatusSubmitted)
 }
 
-func (stubCodexAdapter) Health(agent.HealthHost, Session) (string, string) {
+func (stubCodexAdapter) Health(agent.HealthHost, model.Session) (string, string) {
 	return "native_queue_only", ""
 }
 
@@ -39,11 +39,11 @@ func (stubClaudeAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
 }
 
-func (stubClaudeAdapter) ReceiveCapabilities(Session) model.ReceiveCapabilities {
+func (stubClaudeAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
 	return model.ReceiveCapabilities{IdleWake: true, Delivery: "experimental_socket", Inbox: model.InboxNative, BusyDelivery: model.DeliveryBetweenTools, LifecycleHooks: true, Experimental: true, RequiresEndpoint: true}
 }
 
-func (stubClaudeAdapter) Deliver(context.Context, Message, Session) Receipt {
+func (stubClaudeAdapter) Deliver(context.Context, model.Message, model.Session) model.Receipt {
 	panic("core Claude stub requires an explicit test transport")
 }
 
@@ -54,14 +54,14 @@ type stubCursorAdapter struct{ agent.StandardHooks }
 func (stubCursorAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Hooks: map[string]string{"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop"}}
 }
-func (stubCursorAdapter) ReceiveCapabilities(v Session) model.ReceiveCapabilities {
+func (stubCursorAdapter) ReceiveCapabilities(v model.Session) model.ReceiveCapabilities {
 	c := model.ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}
 	if v.Listener != nil {
 		c.IdleWake, c.Delivery, c.BusyDelivery = true, "native_background_shell_output", model.DeliveryNotification
 	}
 	return c
 }
-func (stubCursorAdapter) Deliver(_ context.Context, _ Message, v Session) Receipt {
+func (stubCursorAdapter) Deliver(_ context.Context, _ model.Message, v model.Session) model.Receipt {
 	if v.Listener != nil {
 		panic("core Cursor stub cannot simulate native wake acceptance")
 	}
@@ -93,31 +93,31 @@ func (stubCursorAdapter) HandleHook(host agent.HookHost, v agent.HookInput, id s
 // The stub Cursor policies mirror the real adapter's so core transaction tests
 // exercise realistic state; the adapter's own policy is tested in adapters.
 func stubResumeOnPrompt(v model.SessionView) (agent.LifecycleChange, error) {
-	state := cursorState(Session{AdapterState: v.AdapterState})
+	state := cursorState(model.Session{AdapterState: v.AdapterState})
 	if state.RecoverySuppressed {
 		state.RecoveryAttempted = false
 	}
 	state.RecoverySuppressed = false
-	next := Session{}
+	next := model.Session{}
 	setCursorState(&next, state)
 	return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate, AdapterState: next.AdapterState}, nil
 }
 
 func stubSuppressRecovery(v model.SessionView) (agent.LifecycleChange, error) {
-	state := cursorState(Session{AdapterState: v.AdapterState})
+	state := cursorState(model.Session{AdapterState: v.AdapterState})
 	state.RecoverySuppressed = true
-	next := Session{}
+	next := model.Session{}
 	setCursorState(&next, state)
 	return agent.LifecycleChange{Transition: agent.TransitionReady, AdapterState: next.AdapterState}, nil
 }
 
 func stubClaimRecovery(v model.SessionView) (agent.RecoveryDecision, error) {
-	state := cursorState(Session{AdapterState: v.AdapterState})
+	state := cursorState(model.Session{AdapterState: v.AdapterState})
 	if state.RecoverySuppressed || state.RecoveryAttempted {
 		return agent.RecoveryDecision{}, nil
 	}
 	state.RecoveryAttempted = true
-	next := Session{}
+	next := model.Session{}
 	setCursorState(&next, state)
 	return agent.RecoveryDecision{Recover: true, AdapterState: next.AdapterState}, nil
 }
@@ -138,13 +138,13 @@ type CursorListenerState struct {
 	RecoverySuppressed bool `json:"recovery_suppressed,omitempty"`
 }
 
-func cursorState(v Session) CursorListenerState {
+func cursorState(v model.Session) CursorListenerState {
 	var state CursorListenerState
 	_ = json.Unmarshal(v.AdapterState, &state)
 	return state
 }
 
-func setCursorState(v *Session, state CursorListenerState) {
+func setCursorState(v *model.Session, state CursorListenerState) {
 	state.Schema = 1
 	v.AdapterState, _ = json.Marshal(state)
 }
@@ -159,7 +159,7 @@ func (stubCursorAdapter) DecodeState(in agent.StateInput) (json.RawMessage, erro
 		if err := json.Unmarshal(fields, &legacy); err != nil {
 			return nil, err
 		}
-		v := Session{}
+		v := model.Session{}
 		setCursorState(&v, CursorListenerState{RecoveryAttempted: legacy.Attempted, RecoverySuppressed: legacy.Suppressed})
 		return v.AdapterState, nil
 	}
@@ -170,7 +170,7 @@ func (stubCursorAdapter) DecodeState(in agent.StateInput) (json.RawMessage, erro
 	if state.Schema != 1 {
 		return nil, model.NewError(model.CodeUnsupportedSchema, "unsupported Cursor state schema %d", state.Schema)
 	}
-	v := Session{}
+	v := model.Session{}
 	setCursorState(&v, state)
 	return v.AdapterState, nil
 }

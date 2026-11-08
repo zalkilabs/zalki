@@ -316,7 +316,7 @@ func waitUntilListening(t *testing.T, endpoint string) {
 func markOwnerExited(t *testing.T, store bus.Store, id string) {
 	t.Helper()
 	path := filepath.Join(store.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json")
-	var session bus.Session
+	var session model.Session
 	data, err := os.ReadFile(path)
 	if err != nil || json.Unmarshal(data, &session) != nil {
 		t.Fatal("unreadable session record", err)

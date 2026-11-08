@@ -21,13 +21,13 @@ func TestModelLateWakeReceiptKeepsItsOwnStatus(t *testing.T) {
 	if _, _, _, err := store.ReserveMessage(bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, MessageID: id, Body: "body"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Finish(id, bus.Receipt{At: "pending", Status: model.StatusPendingActivity}); err != nil {
+	if _, err := store.Finish(id, model.Receipt{At: "pending", Status: model.StatusPendingActivity}); err != nil {
 		t.Fatal(err)
 	}
 	if output, err := store.EmitPending(to.ID); err != nil || output == "" {
 		t.Fatalf("hook did not emit pending context: %q, %v", output, err)
 	}
-	late := bus.Receipt{At: "late", Status: model.StatusWakeWritten, Error: "wake detail", Output: "native output"}
+	late := model.Receipt{At: "late", Status: model.StatusWakeWritten, Error: "wake detail", Output: "native output"}
 	msg, err := store.Finish(id, late)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func (a modelReleaseAdapter) Descriptor() agentapi.AdapterDescriptor {
 	return d
 }
 
-func newModelHeldFixture(t *testing.T, hookDelivery bool) (bus.Service, *fakeAdapter, agent, bus.Message) {
+func newModelHeldFixture(t *testing.T, hookDelivery bool) (bus.Service, *fakeAdapter, agent, model.Message) {
 	t.Helper()
 	target := nativeAdapter("beta")
 	if hookDelivery {
@@ -92,7 +92,7 @@ func releaseModelHeld(t *testing.T, service bus.Service, to agent) {
 func TestModelNativeReleaseClearsReceiptBeforeTransport(t *testing.T) {
 	service, target, to, held := newModelHeldFixture(t, false)
 	observedCleared := false
-	target.script(func(_ context.Context, msg bus.Message, _ bus.Session) bus.Receipt {
+	target.script(func(_ context.Context, msg model.Message, _ model.Session) model.Receipt {
 		if msg.Held || msg.Status != "attempting" || msg.Receipt != nil {
 			t.Fatalf("native transport received the held receipt: %+v", msg)
 		}

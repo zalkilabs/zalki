@@ -12,8 +12,8 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func (s Store) message(id string) (Message, error) {
-	var msg Message
+func (s Store) message(id string) (model.Message, error) {
+	var msg model.Message
 	id, err := model.UUID(id)
 	if err == nil {
 		err = readRecord(filepath.Join(s.Dir, "messages", id+".json"), &msg, &msg.Schema)
@@ -27,7 +27,7 @@ func (s Store) message(id string) (Message, error) {
 // eachMessage visits journal files in the same lexical order as filepath.Glob.
 // The caller holds the journal lock and chooses whether a read error is fatal,
 // ignored, or reported. Exact-ID reads do not use this scan.
-func (s Store) eachMessage(visit func(id string, message Message, readErr error) error) error {
+func (s Store) eachMessage(visit func(id string, message model.Message, readErr error) error) error {
 	files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
 	if err != nil {
 		return err
@@ -42,11 +42,11 @@ func (s Store) eachMessage(visit func(id string, message Message, readErr error)
 	return nil
 }
 
-func (s Store) saveMessage(v Message) error {
+func (s Store) saveMessage(v model.Message) error {
 	return s.saveMessageRecord(v, nil)
 }
 
-func (s Store) saveMessageRecord(v Message, previous json.RawMessage) error {
+func (s Store) saveMessageRecord(v model.Message, previous json.RawMessage) error {
 	if v.Schema < 0 || v.Schema > recordSchema {
 		return model.NewError(model.CodeUnsupportedSchema, "unsupported message schema %d", v.Schema)
 	}
@@ -57,7 +57,7 @@ func (s Store) saveMessageRecord(v Message, previous json.RawMessage) error {
 	return s.writeRecord(filepath.Join(s.Dir, "messages", v.ID+".json"), v, recordSchema, recordUpdate{previous: previous})
 }
 
-func (s Store) ReserveMessage(request SendRequest) (message Message, target Session, fresh bool, err error) {
+func (s Store) ReserveMessage(request SendRequest) (message model.Message, target model.Session, fresh bool, err error) {
 	err = s.locked(func() error {
 		var e error
 		message, target, fresh, e = s.prepareMessage(request, true)
@@ -68,7 +68,7 @@ func (s Store) ReserveMessage(request SendRequest) (message Message, target Sess
 
 // prepareMessage is called with the journal lock held. Reply transactions stage
 // the reservation without writing it until the durable intent is committed.
-func (s Store) prepareMessage(request SendRequest, persist bool) (message Message, target Session, fresh bool, err error) {
+func (s Store) prepareMessage(request SendRequest, persist bool) (message model.Message, target model.Session, fresh bool, err error) {
 	id, err := model.UUID(request.MessageID)
 	if err != nil {
 		return message, target, false, err
@@ -98,7 +98,7 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (message Messag
 // reserveNewMessage validates the destination and sender limits for an unused
 // message ID, then stages the message, held if the destination awaits approval.
 // fresh reports that the message is ready for delivery now.
-func (s Store) reserveNewMessage(sender Session, request SendRequest, persist bool) (message Message, target Session, fresh bool, err error) {
+func (s Store) reserveNewMessage(sender model.Session, request SendRequest, persist bool) (message model.Message, target model.Session, fresh bool, err error) {
 	actor, id, body, replyTo := request.Actor, request.MessageID, request.Body, request.ReplyTo
 	requestedTo := request.To
 	target, err = s.resolve(requestedTo)
@@ -157,18 +157,18 @@ func (s Store) reserveNewMessage(sender Session, request SendRequest, persist bo
 	return message, target, fresh, nil
 }
 
-func (s Store) outgoingMessage(sender, target Session, id, body, replyTo string) (Message, error) {
-	senders := []Session{sender}
+func (s Store) outgoingMessage(sender, target model.Session, id, body, replyTo string) (model.Message, error) {
+	senders := []model.Session{sender}
 	s.nativeNames(senders)
 	adapter, err := s.registry().Lookup(sender.Kind)
 	if err != nil {
-		return Message{}, err
+		return model.Message{}, err
 	}
-	return Message{Schema: recordSchema, ID: id, From: sender.ID, FromName: senders[0].Name, FromLabel: adapter.Descriptor().Label, To: target.ID, Body: body, ReplyTo: replyTo, TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusAttempting}, nil
+	return model.Message{Schema: recordSchema, ID: id, From: sender.ID, FromName: senders[0].Name, FromLabel: adapter.Descriptor().Label, To: target.ID, Body: body, ReplyTo: replyTo, TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusAttempting}, nil
 }
 
-func (s Store) Finish(id string, receipt Receipt) (Message, error) {
-	var msg Message
+func (s Store) Finish(id string, receipt model.Receipt) (model.Message, error) {
+	var msg model.Message
 	err := s.locked(func() error {
 		var err error
 		msg, err = s.message(id)
@@ -200,13 +200,13 @@ func (s Store) Finish(id string, receipt Receipt) (Message, error) {
 	return msg, err
 }
 
-func (s Store) Ack(actor, key, id string) (result Message, resultErr error) {
+func (s Store) Ack(actor, key, id string) (result model.Message, resultErr error) {
 	defer func() {
 		if resultErr != nil {
 			s.logEvent(slog.LevelWarn, "message.ack_failed", eventData{Actor: actor, MessageID: id, Err: resultErr})
 		}
 	}()
-	var msg Message
+	var msg model.Message
 	err := s.locked(func() error {
 		if _, err := s.authenticate(actor, key); err != nil {
 			return err

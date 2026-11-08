@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -34,7 +33,7 @@ func TestClaudeWriteHonorsContext(t *testing.T) {
 				}
 				return
 			}
-			result := make(chan bus.Receipt, 1)
+			result := make(chan model.Receipt, 1)
 			go func() { result <- writeClaudeFrame(ctx, client, []byte("partially written frame\n")) }()
 			if err := server.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
 				t.Fatal(err)
@@ -61,7 +60,7 @@ func TestClaudeCanceledBeforeDialDoesNotSend(t *testing.T) {
 	listener, endpoint := listenClaudeSocket(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	receipt := (Adapter{}).Deliver(ctx, bus.Message{ID: newTestID(), Body: "unsent"}, bus.Session{Endpoint: endpoint})
+	receipt := (Adapter{}).Deliver(ctx, model.Message{ID: newTestID(), Body: "unsent"}, model.Session{Endpoint: endpoint})
 	if receipt.Status != model.StatusNotSent {
 		t.Fatalf("cancellation before connection was not safely unsent: %+v", receipt)
 	}

@@ -134,11 +134,11 @@ func appendDurationAndReuseAttrs(attrs []slog.Attr, data eventData) []slog.Attr 
 	return attrs
 }
 
-func messageEvent(msg Message) eventData {
+func messageEvent(msg model.Message) eventData {
 	return eventData{Actor: msg.From, Recipient: msg.To, MessageID: msg.ID, ReplyTo: msg.ReplyTo, Generation: msg.TargetGeneration, Status: msg.Status}
 }
 
-func (s Store) logReservation(msg Message) {
+func (s Store) logReservation(msg model.Message) {
 	level := slog.LevelInfo
 	data := messageEvent(msg)
 	if msg.Status == model.StatusApprovalBlocked || msg.Status == model.StatusNotSent {

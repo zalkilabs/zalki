@@ -51,25 +51,25 @@ func TestSessionRegistrationProjection(t *testing.T) {
 func TestSessionLifecycleProducerEvents(t *testing.T) {
 	cases := []struct {
 		name    string
-		run     func(Store, Session) error
+		run     func(Store, model.Session) error
 		state   model.SessionState
 		retired bool
 	}{
-		{"Update approval", func(s Store, v Session) error { return s.Update(v.ID, model.StateApproval, false) }, model.StateApproval, false},
-		{"Update busy", func(s Store, v Session) error { return s.Update(v.ID, model.StateBusy, false) }, model.StateBusy, false},
-		{"hook permission", func(s Store, v Session) error {
+		{"Update approval", func(s Store, v model.Session) error { return s.Update(v.ID, model.StateApproval, false) }, model.StateApproval, false},
+		{"Update busy", func(s Store, v model.Session) error { return s.Update(v.ID, model.StateBusy, false) }, model.StateBusy, false},
+		{"hook permission", func(s Store, v model.Session) error {
 			return (&Service{Store: s}).applyLifecycleState(v.ID, "PermissionRequest")
 		}, model.StateApproval, false},
-		{"host update", func(s Store, v Session) error {
+		{"host update", func(s Store, v model.Session) error {
 			return (hookRuntime{store: s, actor: v.ID}).UpdateSession(v.ID, model.StateBusy, false)
 		}, model.StateBusy, false},
-		{"adapter prompt", func(s Store, v Session) error {
+		{"adapter prompt", func(s Store, v model.Session) error {
 			return cursorHost(s, v.ID, "UserPromptSubmit").ApplyLifecycle(func(model.SessionView) (agent.LifecycleChange, error) {
 				return agent.LifecycleChange{Transition: agent.TransitionPromptReactivate}, nil
 			})
 		}, model.StateBusy, false},
-		{"retirement", func(s Store, v Session) error { return s.Update(v.ID, model.StateRetired, true) }, model.StateRetired, true},
-		{"prune retirement", func(s Store, v Session) error { _, err := s.PruneRetired(false, []string{v.ID}, 0); return err }, model.StateRetired, true},
+		{"retirement", func(s Store, v model.Session) error { return s.Update(v.ID, model.StateRetired, true) }, model.StateRetired, true},
+		{"prune retirement", func(s Store, v model.Session) error { _, err := s.PruneRetired(false, []string{v.ID}, 0); return err }, model.StateRetired, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -137,7 +137,7 @@ func TestSessionRecoveryRefusesRetiredProjectionMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	prior := readCommitFile(t, path)
-	var next Session
+	var next model.Session
 	if err := json.Unmarshal(batch.Puts[0].Data, &next); err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func assertInitialSessionCut(t *testing.T, applied int) {
 	t.Helper()
 	store := fixtureStore(t)
 	native := newID()
-	next := Session{Schema: recordSchema, ID: "cursor:" + native, NativeID: native, Kind: "cursor", Generation: newID(), State: model.StateReady, CWD: "/workspace", KeyHash: "private test key", UpdatedAt: model.Timestamp()}
+	next := model.Session{Schema: recordSchema, ID: "cursor:" + native, NativeID: native, Kind: "cursor", Generation: newID(), State: model.StateReady, CWD: "/workspace", KeyHash: "private test key", UpdatedAt: model.Timestamp()}
 	batch := stageInitialSessionCut(t, store, next, applied)
 	sessions, err := store.List()
 	if err != nil || len(sessions) != 1 || sessions[0].ID != next.ID {
@@ -266,7 +266,7 @@ func assertInitialSessionCut(t *testing.T, applied int) {
 	}
 }
 
-func stageInitialSessionCut(t *testing.T, store Store, next Session, applied int) journal.Batch {
+func stageInitialSessionCut(t *testing.T, store Store, next model.Session, applied int) journal.Batch {
 	t.Helper()
 	var batch journal.Batch
 	if err := store.locked(func() error {

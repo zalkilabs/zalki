@@ -22,7 +22,7 @@ func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 	body := "  Review\n\tשלום\r\n" + strings.Repeat("🙂", 30) + "\x00tail"
 	var expected []string
 	for i := range 9 {
-		msg := Message{ID: newID(), From: actor.ID, To: peer.ID, Body: body, CreatedAt: fmt.Sprintf("2026-11-01T00:00:%02dZ", i), Status: model.StatusSubmitted}
+		msg := model.Message{ID: newID(), From: actor.ID, To: peer.ID, Body: body, CreatedAt: fmt.Sprintf("2026-11-01T00:00:%02dZ", i), Status: model.StatusSubmitted}
 		switch i % 3 {
 		case 1:
 			msg.To = other.ID
@@ -100,7 +100,7 @@ func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 func TestSentPreviewCannotExposeNativeInbox(t *testing.T) {
 	store := fixtureStore(t)
 	actor, key, peer, peerKey := registerPair(t, store, "codex", "cursor")
-	msg := Message{ID: newID(), From: peer.ID, To: actor.ID, TargetGeneration: actor.Generation, Body: "native secret", CreatedAt: model.Timestamp(), Status: model.StatusSubmitted}
+	msg := model.Message{ID: newID(), From: peer.ID, To: actor.ID, TargetGeneration: actor.Generation, Body: "native secret", CreatedAt: model.Timestamp(), Status: model.StatusSubmitted}
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}

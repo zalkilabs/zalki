@@ -41,7 +41,7 @@ func TestPruneDeletesOnlyOldRetiredSessions(t *testing.T) {
 	from.Retired, from.State, from.RetiredReason, from.UpdatedAt = true, model.StateRetired, "session_end", old
 	live.UpdatedAt = old
 	young.Retired, young.State, young.RetiredReason = true, model.StateRetired, "session_end"
-	for _, v := range []Session{from, live, young} {
+	for _, v := range []model.Session{from, live, young} {
 		if err := store.locked(func() error { return store.saveSession(v) }); err != nil {
 			t.Fatal(err)
 		}

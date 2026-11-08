@@ -17,8 +17,8 @@ func TestPruneDeletesOrphanFloodWithMatchingDryRun(t *testing.T) {
 	orphan, _ := register(t, store, "cursor")
 	paths := map[string]string{}
 	before := map[string]string{}
-	for _, v := range []Session{live, young, old, orphan} {
-		if err := spendFlood(store, Message{ID: newID(), From: sender.ID, To: v.ID}, time.Now()); err != nil {
+	for _, v := range []model.Session{live, young, old, orphan} {
+		if err := spendFlood(store, model.Message{ID: newID(), From: sender.ID, To: v.ID}, time.Now()); err != nil {
 			t.Fatal(err)
 		}
 		path, _ := store.floodPath(v.ID)
@@ -28,7 +28,7 @@ func TestPruneDeletesOrphanFloodWithMatchingDryRun(t *testing.T) {
 	young.Retired, young.State = true, model.StateRetired
 	old.Retired, old.State = true, model.StateRetired
 	old.UpdatedAt = time.Now().Add(-8 * 24 * time.Hour).UTC().Format(time.RFC3339Nano)
-	for _, v := range []Session{young, old} {
+	for _, v := range []model.Session{young, old} {
 		if err := store.saveSession(v); err != nil {
 			t.Fatal(err)
 		}
@@ -38,7 +38,7 @@ func TestPruneDeletesOrphanFloodWithMatchingDryRun(t *testing.T) {
 	}
 	// Orphan cleanup uses validated file names, not quota JSON. Corrupt quota
 	// for an existing target must be preserved rather than reset by deletion.
-	for _, v := range []Session{orphan, live} {
+	for _, v := range []model.Session{orphan, live} {
 		if err := os.WriteFile(paths[v.ID], []byte("invalid quota"), 0600); err != nil {
 			t.Fatal(err)
 		}
@@ -49,7 +49,7 @@ func TestPruneDeletesOrphanFloodWithMatchingDryRun(t *testing.T) {
 	if err := os.WriteFile(formerPath, []byte("old quota"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	history := Message{ID: newID(), From: sender.ID, To: old.ID, Body: "keep history", Status: model.StatusSubmitted}
+	history := model.Message{ID: newID(), From: sender.ID, To: old.ID, Body: "keep history", Status: model.StatusSubmitted}
 	if err := store.saveMessage(history); err != nil {
 		t.Fatal(err)
 	}

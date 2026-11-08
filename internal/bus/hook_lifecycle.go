@@ -22,7 +22,7 @@ var allowedTransitions = map[string][]agent.LifecycleTransition{
 // Recovery reissues credentials, so only hooks that observed activity may claim it.
 var recoveryEvents = map[string]bool{"PostToolUse": true, "Stop": true}
 
-func viewOf(v Session) model.SessionView {
+func viewOf(v model.Session) model.SessionView {
 	return model.SessionView{Actor: v.ID, Kind: v.Kind, Generation: v.Generation, State: v.State, Retired: v.Retired,
 		AdapterState: append(json.RawMessage(nil), v.AdapterState...)}
 }
@@ -39,7 +39,7 @@ func transitionAllowed(event string, transition agent.LifecycleTransition) bool 
 // applyAdapterState validates a policy's next state before it replaces the
 // session's. The adapter's codec must accept it as a current-schema record,
 // and whatever the codec returns is bounded and detached again before use.
-func (s Store) applyAdapterState(v *Session, next json.RawMessage) error {
+func (s Store) applyAdapterState(v *model.Session, next json.RawMessage) error {
 	if next == nil {
 		return nil
 	}
@@ -57,7 +57,7 @@ func (s Store) applyAdapterState(v *Session, next json.RawMessage) error {
 
 // lifecycleSession loads the hook's session for a transaction. An unknown
 // session is not an error: startup must supply the initial identity.
-func (s Store) lifecycleSession(actor, kind string) (Session, bool, error) {
+func (s Store) lifecycleSession(actor, kind string) (model.Session, bool, error) {
 	v, err := s.session(actor)
 	if errors.Is(err, os.ErrNotExist) {
 		return v, false, nil

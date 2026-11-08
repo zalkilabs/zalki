@@ -71,10 +71,10 @@ func ageArrivals(t *testing.T, store Store, target string, by time.Duration) {
 type refusedReplyFixture struct {
 	t       *testing.T
 	service Service
-	from    Session
-	to      Session
+	from    model.Session
+	to      model.Session
 	key     string
-	parent  Message
+	parent  model.Message
 }
 
 func newRefusedReplyFixture(t *testing.T, missing bool) refusedReplyFixture {
@@ -82,7 +82,7 @@ func newRefusedReplyFixture(t *testing.T, missing bool) refusedReplyFixture {
 	service := newTestService(t)
 	store := service.Store
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
+	parent := model.Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func newRefusedReplyFixture(t *testing.T, missing bool) refusedReplyFixture {
 	return refusedReplyFixture{t: t, service: service, from: from, to: to, key: key, parent: parent}
 }
 
-func (f refusedReplyFixture) reply(body string) (Message, error) {
+func (f refusedReplyFixture) reply(body string) (model.Message, error) {
 	return f.service.Reply(context.Background(), ReplyRequest{Actor: f.to.ID, Capability: f.key, MessageID: f.parent.ID, Body: body})
 }
 
@@ -105,7 +105,7 @@ func (f refusedReplyFixture) flood() []byte { return floodBytes(f.t, f.service.S
 
 // requireRetryTakesNothing sends the same reply again and checks that it finds
 // the recorded refusal and leaves the flood state as it was.
-func (f refusedReplyFixture) requireRetryTakesNothing(first Message, when, change string) {
+func (f refusedReplyFixture) requireRetryTakesNothing(first model.Message, when, change string) {
 	f.t.Helper()
 	before := f.flood()
 	again, err := f.reply("pong")
@@ -118,7 +118,7 @@ func (f refusedReplyFixture) requireRetryTakesNothing(first Message, when, chang
 }
 
 // requireOneArrivalForTheFirstReply checks the quota after the first refusal.
-func (f refusedReplyFixture) requireOneArrivalForTheFirstReply(first Message) {
+func (f refusedReplyFixture) requireOneArrivalForTheFirstReply(first model.Message) {
 	f.t.Helper()
 	sender := derivedID("zalki/flood/sender/v1", f.to.ID)
 	state := floodRecordOf(f.t, f.service.Store, f.from.ID)
@@ -176,7 +176,7 @@ func TestRefusedReplyWithANewBodySpendsOneMoreArrival(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
-	parent := Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
+	parent := model.Message{ID: newID(), From: from.ID, To: to.ID, Body: "ping", Status: model.StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}

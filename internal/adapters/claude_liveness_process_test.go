@@ -72,7 +72,7 @@ func TestClaudeLivenessAfterKillAndCleanExit(t *testing.T) {
 				t.Fatal("bound session socket did not establish alive liveness")
 			}
 			delivered := 0
-			service := &bus.Service{Store: store, Deliver: func(context.Context, bus.Message, bus.Session) bus.Receipt {
+			service := &bus.Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 				delivered++
 				return model.NewReceipt(model.StatusSubmitted)
 			}}

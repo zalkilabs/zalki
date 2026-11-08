@@ -23,7 +23,7 @@ func TestEventRecoveryRunsBeforeLegacyReplyChangesSession(t *testing.T) {
 	}
 }
 
-func seedLegacyHeldReply(t *testing.T, store Store, target Session) {
+func seedLegacyHeldReply(t *testing.T, store Store, target model.Session) {
 	t.Helper()
 	// Registering would recover first; seed the unrelated sender in a separate
 	// store, then copy only its record to arrange simultaneous recovery inputs.
@@ -34,12 +34,12 @@ func seedLegacyHeldReply(t *testing.T, store Store, target Session) {
 	if err := os.WriteFile(destination, readCommitFile(t, source), 0600); err != nil {
 		t.Fatal(err)
 	}
-	parent := Message{Schema: 1, ID: newID(), From: target.ID, To: sender.ID, Body: "question",
+	parent := model.Message{Schema: 1, ID: newID(), From: target.ID, To: sender.ID, Body: "question",
 		TargetGeneration: sender.Generation, Status: model.StatusSubmitted, CreatedAt: model.Timestamp()}
 	if err := store.saveMessage(parent); err != nil {
 		t.Fatal(err)
 	}
-	reply := Message{Schema: 1, ID: replyID(sender.ID, parent.ID, "answer"), From: sender.ID, To: target.ID,
+	reply := model.Message{Schema: 1, ID: replyID(sender.ID, parent.ID, "answer"), From: sender.ID, To: target.ID,
 		Body: "answer", ReplyTo: parent.ID, TargetGeneration: target.Generation,
 		Status: model.StatusAttempting, CreatedAt: model.Timestamp()}
 	if err := reply.Hold(); err != nil {

@@ -339,8 +339,8 @@ func (o *exitObserver) notice(ctx context.Context, id string) {
 // lock, so a session that re-registered since the scan is not reported as ended,
 // and then consumes its due watches. locked rechecks the format fence before
 // recovery or consumption, even if it changed since the observer's preflight.
-func (s *Service) consumeIfExited(id string) (Session, []Watch, error) {
-	var subject Session
+func (s *Service) consumeIfExited(id string) (model.Session, []Watch, error) {
+	var subject model.Session
 	var watches []Watch
 	err := s.Store.locked(func() error {
 		v, err := s.Store.session(id)

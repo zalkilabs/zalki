@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestMessagePageBoundsResponsesWithoutTruncatingBodies(t *testing.T) {
-	messages := []bus.Message{
+	messages := []model.Message{
 		{ID: "00000000-0000-4000-8000-000000000001", Body: strings.Repeat("a", 16000)},
 		{ID: "00000000-0000-4000-8000-000000000002", Body: strings.Repeat("b", 16000)},
 	}

@@ -25,9 +25,9 @@ func TestConcurrentIdempotencyAcrossStoreInstances(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			service := Service{Store: Store{Dir: store.Dir, Registry: testRegistry()}, Deliver: func(context.Context, Message, Session) Receipt {
+			service := Service{Store: Store{Dir: store.Dir, Registry: testRegistry()}, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 				calls.Add(1)
-				return Receipt{Status: "submitted"}
+				return model.Receipt{Status: "submitted"}
 			}}
 			_, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: id, Body: "same body"})
 			errors <- err
@@ -50,9 +50,9 @@ func TestCapabilityScopeReplayAndCrashUncertainty(t *testing.T) {
 	store := service.Store
 	sender, key, target, _ := registerPair(t, store, "cursor", "codex")
 	calls := 0
-	service.Deliver = func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		calls++
-		return Receipt{Status: "unknown_after_timeout"}
+		return model.Receipt{Status: "unknown_after_timeout"}
 	}
 	id := newID()
 	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: "wrong", To: target.ID, MessageID: id, Body: "test"}); err == nil {
@@ -87,14 +87,14 @@ func TestRecipientAckRaceAndReplyScope(t *testing.T) {
 	sender, key, target, targetKey := registerPair(t, store, "cursor", "codex")
 	third, thirdKey := register(t, store, "codex")
 	id := newID()
-	service.Deliver = func(_ context.Context, msg Message, _ Session) Receipt {
+	service.Deliver = func(_ context.Context, msg model.Message, _ model.Session) model.Receipt {
 		if _, err := store.Ack(third.ID, thirdKey, msg.ID); err == nil {
 			t.Error("third-party ACK accepted")
 		}
 		if _, err := store.Ack(target.ID, targetKey, msg.ID); err != nil {
 			t.Error(err)
 		}
-		return Receipt{Status: "submitted"}
+		return model.Receipt{Status: "submitted"}
 	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: id, Body: "hello"})
 	if err != nil || msg.AcknowledgedAt == "" {
@@ -112,9 +112,9 @@ func TestApprovalAndRetirementPreventTransport(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	sender, key, target, targetKey := registerPair(t, store, "cursor", "codex")
-	service.Deliver = func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		t.Fatal("transport used while blocked")
-		return Receipt{}
+		return model.Receipt{}
 	}
 	if err := store.Update(target.ID, "approval", false); err != nil {
 		t.Fatal(err)
@@ -153,9 +153,9 @@ func TestClaudeTransportEnabledByDefault(t *testing.T) {
 	store := service.Store
 	sender, key, target, _ := registerPair(t, store, "codex", "claude")
 	delivered := false
-	service.Deliver = func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		delivered = true
-		return Receipt{Status: model.StatusTransportWritten}
+		return model.Receipt{Status: model.StatusTransportWritten}
 	}
 	msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "test"})
 	if err != nil || msg.Status != model.StatusTransportWritten || !delivered {

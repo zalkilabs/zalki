@@ -15,11 +15,11 @@ const approvalQueueCap = 8
 
 // saveReservation writes the count before a held reservation so a crash cannot
 // leave a durable held message with a zero count. The caller holds the lock.
-func (s Store) saveReservation(msg Message) error {
+func (s Store) saveReservation(msg model.Message) error {
 	return s.saveReservationRecord(msg, nil)
 }
 
-func (s Store) saveReservationRecord(msg Message, previous json.RawMessage) error {
+func (s Store) saveReservationRecord(msg model.Message, previous json.RawMessage) error {
 	held := msg.IsQueuedForApproval()
 	if held {
 		if err := s.rememberApprovalHold(msg.To, 1); err != nil {
@@ -38,7 +38,7 @@ func (s Store) saveReservationRecord(msg Message, previous json.RawMessage) erro
 // holdForApproval marks msg as waiting on the target's permission prompt.
 // The caller holds the journal lock, then uses saveReservation to persist the
 // matching held count and message.
-func (s Store) holdForApproval(msg *Message) error {
+func (s Store) holdForApproval(msg *model.Message) error {
 	if err := s.approvalCapacity(msg.To); err != nil {
 		return err
 	}
@@ -89,13 +89,13 @@ func (s Store) clearApprovalHeld(targetID string) error {
 
 // queuedApprovals returns approval-blocked messages for target in send order.
 // The caller holds the journal lock.
-func (s Store) queuedApprovals(target string) ([]Message, error) {
+func (s Store) queuedApprovals(target string) ([]model.Message, error) {
 	return s.queuedApprovalsRead(target, false)
 }
 
-func (s Store) queuedApprovalsRead(target string, skipUnreadable bool) ([]Message, error) {
-	queued := []Message{}
-	if err := s.eachMessage(func(_ string, msg Message, readErr error) error {
+func (s Store) queuedApprovalsRead(target string, skipUnreadable bool) ([]model.Message, error) {
+	queued := []model.Message{}
+	if err := s.eachMessage(func(_ string, msg model.Message, readErr error) error {
 		if readErr != nil {
 			if skipUnreadable {
 				return nil
@@ -118,7 +118,7 @@ func (s Store) queuedApprovalsRead(target string, skipUnreadable bool) ([]Messag
 	return queued, nil
 }
 
-func (s Store) settleQueued(msg Message, reason string) error {
+func (s Store) settleQueued(msg model.Message, reason string) error {
 	current, err := s.message(msg.ID)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func (s Store) settleQueued(msg Message, reason string) error {
 func (s Store) approvalHolds() (map[string]int, []string, error) {
 	counts := map[string]int{}
 	unreadable := []string{}
-	if err := s.eachMessage(func(id string, msg Message, readErr error) error {
+	if err := s.eachMessage(func(id string, msg model.Message, readErr error) error {
 		if readErr != nil {
 			unreadable = append(unreadable, id)
 			return nil
@@ -186,7 +186,7 @@ func (s Store) reconcileApprovalHolds(dryRun bool, report *PruneReport, retiring
 
 // reconcileSessionHold applies a pure count decision under the caller's lock.
 // Report before a dry-run return; settle before reloading and clearing the count.
-func (s Store) reconcileSessionHold(v Session, count int, retired, dryRun bool, report *PruneReport) error {
+func (s Store) reconcileSessionHold(v model.Session, count int, retired, dryRun bool, report *PruneReport) error {
 	decision := model.DecideApprovalHold(v.ApprovalHeld, count, retired)
 	if decision.Reason == "" {
 		return nil
@@ -253,14 +253,14 @@ func (s Store) settleApprovalQueueRead(actor, reason string, skipUnreadable bool
 }
 
 type approvalResolution struct {
-	jobs        []Message
+	jobs        []model.Message
 	unreachable bool
 }
 
 // resolveApprovalQueue owns settlement/adoption under the journal lock.
 // A hook poll preserves an outstanding approval count until the prompt resolves;
 // lifecycle release also repairs an empty count while approval is still open.
-func (s Store) resolveApprovalQueue(current Session, hookPoll bool) (approvalResolution, error) {
+func (s Store) resolveApprovalQueue(current model.Session, hookPoll bool) (approvalResolution, error) {
 	reason := ""
 	if current.Retired {
 		reason = "destination has retired"
@@ -296,8 +296,8 @@ func (s Store) resolveApprovalQueue(current Session, hookPoll bool) (approvalRes
 	return result, s.clearApprovalHeld(current.ID)
 }
 
-func (s Store) releaseReadyApprovals(current Session, queued []Message) ([]Message, error) {
-	var jobs []Message
+func (s Store) releaseReadyApprovals(current model.Session, queued []model.Message) ([]model.Message, error) {
+	var jobs []model.Message
 	next := model.StatusAttempting
 	if current.Receive.HookDelivery {
 		next = model.StatusPendingActivity
@@ -326,8 +326,8 @@ func (s Store) releaseReadyApprovals(current Session, queued []Message) ([]Messa
 // permission prompt. It runs after the hook has recorded the new session
 // state. Retired and exited sessions end those messages as not sent.
 func (s *Service) releaseApprovalQueue(ctx context.Context, actor string) error {
-	var jobs []Message
-	var target Session
+	var jobs []model.Message
+	var target model.Session
 	err := s.Store.locked(func() error {
 		current, err := s.Store.session(actor)
 		if errors.Is(err, os.ErrNotExist) {

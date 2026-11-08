@@ -9,6 +9,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func newTestStore(t *testing.T) bus.Store {
@@ -22,7 +23,7 @@ func newTestService(t *testing.T) *bus.Service {
 }
 
 // MCP fixtures use fixed native IDs so request sizes and correlation stay stable.
-func registerPair(t *testing.T, store bus.Store, senderKind, senderID, targetKind, targetID string) (bus.Session, string, bus.Session, string) {
+func registerPair(t *testing.T, store bus.Store, senderKind, senderID, targetKind, targetID string) (model.Session, string, model.Session, string) {
 	t.Helper()
 	sender, senderKey, err := store.Register(senderKind, senderID, "/fixture", nil)
 	if err != nil {

@@ -12,7 +12,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -42,7 +41,7 @@ func (Adapter) Descriptor() agent.AdapterDescriptor {
 	}}
 }
 
-func (Adapter) ReceiveCapabilities(v bus.Session) model.ReceiveCapabilities {
+func (Adapter) ReceiveCapabilities(v model.Session) model.ReceiveCapabilities {
 	c := model.ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}
 	if v.Listener != nil {
 		c.IdleWake, c.Delivery = true, "native_background_shell_output"
@@ -51,7 +50,7 @@ func (Adapter) ReceiveCapabilities(v bus.Session) model.ReceiveCapabilities {
 	return c
 }
 
-func (Adapter) Deliver(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
+func (Adapter) Deliver(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
 	if target.Listener == nil {
 		return model.NewReceipt(model.StatusPendingActivity)
 	}
@@ -67,7 +66,7 @@ func (Adapter) ConfigDir() string {
 	return configDir("CURSOR_CONFIG_DIR", root)
 }
 
-func (a Adapter) LookupName(v bus.Session, _ map[string]map[string]string) (string, string) {
+func (a Adapter) LookupName(v model.Session, _ map[string]map[string]string) (string, string) {
 	root := v.NativeConfigDir
 	if !filepath.IsAbs(root) {
 		root = a.ConfigDir()
@@ -144,7 +143,7 @@ func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string,
 	return true, json.NewEncoder(output).Encode(map[string]string{field: text})
 }
 
-func (Adapter) Health(s agent.HealthHost, v bus.Session) (string, string) {
+func (Adapter) Health(s agent.HealthHost, v model.Session) (string, string) {
 	switch s.Listener(v) {
 	case model.ListenerRunning:
 		return "native_background_shell_output", "running"

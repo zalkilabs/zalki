@@ -73,7 +73,7 @@ func ownerStore(t *testing.T, adapter agent.Adapter) Store {
 }
 
 // ownedSession registers a cursor session and gives it the given record state.
-func ownedSession(t *testing.T, store Store, change func(v *Session)) Session {
+func ownedSession(t *testing.T, store Store, change func(v *model.Session)) model.Session {
 	t.Helper()
 	v, _, err := store.Register("cursor", newID(), "/workspace", nil)
 	if err != nil {
@@ -86,7 +86,7 @@ func ownedSession(t *testing.T, store Store, change func(v *Session)) Session {
 	return v
 }
 
-func remembered(t *testing.T, store Store, v Session, refresh bool) Session {
+func remembered(t *testing.T, store Store, v model.Session, refresh bool) model.Session {
 	t.Helper()
 	if err := store.rememberOwner(v.ID, "cursor", refresh); err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func sameOwner(a, b *model.ProcessRef) bool {
 func TestRememberOwnerOnARetiredSessionWithoutRefresh(t *testing.T) {
 	// Two faults at once: it is not refreshed, and its stale hook build is still updated.
 	store := ownerStore(t, ownerAdapter{names: []string{"no-such-process-name"}})
-	v := ownedSession(t, store, func(v *Session) { v.Retired, v.State, v.HookBuild = true, model.StateRetired, staleBuild() })
+	v := ownedSession(t, store, func(v *model.Session) { v.Retired, v.State, v.HookBuild = true, model.StateRetired, staleBuild() })
 	current := remembered(t, store, v, false)
 	if current.Owner != nil || current.HookBuild != currentExecutable.loadedBuild {
 		t.Fatalf("owner = %+v, build = %q; want no owner and the running build", current.Owner, current.HookBuild)
@@ -119,15 +119,15 @@ func TestRememberOwnerForAnAdapterThatSharesItsProcess(t *testing.T) {
 	store := ownerStore(t, sharedAdapter{ownerAdapter{names: []string{"no-such-process-name"}}})
 	// A live process, so that only the adapter's policy can explain a drop.
 	recorded := *selfOwner(t)
-	build := func(v *Session) { v.HookBuild = currentExecutable.loadedBuild }
+	build := func(v *model.Session) { v.HookBuild = currentExecutable.loadedBuild }
 	t.Run("a recorded owner is kept without refresh", func(t *testing.T) {
-		v := ownedSession(t, store, func(v *Session) { build(v); v.Owner = &recorded })
+		v := ownedSession(t, store, func(v *model.Session) { build(v); v.Owner = &recorded })
 		if current := remembered(t, store, v, false); !sameOwner(current.Owner, &recorded) {
 			t.Fatalf("owner = %+v, want it kept", current.Owner)
 		}
 	})
 	t.Run("a recorded owner is dropped on refresh", func(t *testing.T) {
-		v := ownedSession(t, store, func(v *Session) { build(v); v.Owner = &recorded })
+		v := ownedSession(t, store, func(v *model.Session) { build(v); v.Owner = &recorded })
 		if current := remembered(t, store, v, true); current.Owner != nil {
 			t.Fatalf("owner = %+v, want it dropped", current.Owner)
 		}
@@ -142,7 +142,7 @@ func TestRememberOwnerForAnAdapterThatSharesItsProcess(t *testing.T) {
 
 func TestRememberOwnerWithoutANativeOwner(t *testing.T) {
 	store := ownerStore(t, ownerAdapter{names: []string{"no-such-process-name"}})
-	build := func(v *Session) { v.HookBuild = currentExecutable.loadedBuild }
+	build := func(v *model.Session) { v.HookBuild = currentExecutable.loadedBuild }
 	alive := selfOwner(t)
 	tests := []struct {
 		name      string
@@ -158,7 +158,7 @@ func TestRememberOwnerWithoutANativeOwner(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			v := ownedSession(t, store, func(v *Session) { build(v); v.Owner = test.owner })
+			v := ownedSession(t, store, func(v *model.Session) { build(v); v.Owner = test.owner })
 			if current := remembered(t, store, v, test.refresh); !sameOwner(current.Owner, test.wantOwner) {
 				t.Fatalf("owner = %+v, want %+v", current.Owner, test.wantOwner)
 			}
@@ -169,7 +169,7 @@ func TestRememberOwnerWithoutANativeOwner(t *testing.T) {
 func TestRememberOwnerSavesOnlyWhenSomethingChanged(t *testing.T) {
 	store := ownerStore(t, ownerAdapter{names: []string{"no-such-process-name"}})
 	t.Run("nothing to change: the record is not written", func(t *testing.T) {
-		v := ownedSession(t, store, func(v *Session) { v.HookBuild = currentExecutable.loadedBuild })
+		v := ownedSession(t, store, func(v *model.Session) { v.HookBuild = currentExecutable.loadedBuild })
 		stat := func() time.Time {
 			info, err := os.Stat(mustSessionPath(t, store, v.ID))
 			if err != nil {
@@ -189,7 +189,7 @@ func TestRememberOwnerSavesOnlyWhenSomethingChanged(t *testing.T) {
 		}
 	})
 	t.Run("a stale hook build alone is saved", func(t *testing.T) {
-		v := ownedSession(t, store, func(v *Session) { v.HookBuild = staleBuild() })
+		v := ownedSession(t, store, func(v *model.Session) { v.HookBuild = staleBuild() })
 		if current := remembered(t, store, v, false); current.HookBuild != currentExecutable.loadedBuild {
 			t.Fatalf("hook build = %q", current.HookBuild)
 		}
@@ -265,14 +265,14 @@ func checkNativeOwnerPath(t *testing.T, parentName string, want model.ProcessRef
 	t.Run("an existing owner is kept without refresh and replaced on refresh", func(t *testing.T) { childReplacesOnRefresh(t, store, want) })
 	t.Run("a retired session records its parent only on refresh", func(t *testing.T) { childRetiredRecordsOnRefresh(t, store, want) })
 	t.Run("a new owner alone is saved", func(t *testing.T) {
-		v := ownedSession(t, store, func(v *Session) { v.HookBuild = currentExecutable.loadedBuild })
+		v := ownedSession(t, store, func(v *model.Session) { v.HookBuild = currentExecutable.loadedBuild })
 		if current := remembered(t, store, v, false); !sameOwner(current.Owner, &want) {
 			t.Fatalf("owner = %+v, want the parent", current.Owner)
 		}
 	})
 	t.Run("an adapter that shares its process never records the parent", func(t *testing.T) {
 		shared := ownerStore(t, sharedAdapter{ownerAdapter{names: []string{parentName}}})
-		v := ownedSession(t, shared, func(v *Session) { v.HookBuild = currentExecutable.loadedBuild })
+		v := ownedSession(t, shared, func(v *model.Session) { v.HookBuild = currentExecutable.loadedBuild })
 		if current := remembered(t, shared, v, true); current.Owner != nil {
 			t.Fatalf("owner = %+v, want none for a shared process", current.Owner)
 		}
@@ -281,7 +281,7 @@ func checkNativeOwnerPath(t *testing.T, parentName string, want model.ProcessRef
 
 func childRecordsParent(t *testing.T, store Store, want model.ProcessRef) {
 	t.Helper()
-	v := ownedSession(t, store, func(v *Session) { v.HookBuild = staleBuild() })
+	v := ownedSession(t, store, func(v *model.Session) { v.HookBuild = staleBuild() })
 	current := remembered(t, store, v, false)
 	if !sameOwner(current.Owner, &want) {
 		t.Fatalf("owner = %+v, want the parent process %+v", current.Owner, want)
@@ -295,7 +295,7 @@ func childReplacesOnRefresh(t *testing.T, store Store, want model.ProcessRef) {
 	t.Helper()
 	previous := model.ProcessRef{PID: 4242, Start: "an earlier start", Role: "client"}
 	for _, refresh := range []bool{false, true} {
-		v := ownedSession(t, store, func(v *Session) { v.Owner = &previous; v.HookBuild = currentExecutable.loadedBuild })
+		v := ownedSession(t, store, func(v *model.Session) { v.Owner = &previous; v.HookBuild = currentExecutable.loadedBuild })
 		expected := &previous
 		if refresh {
 			expected = &want
@@ -308,7 +308,7 @@ func childReplacesOnRefresh(t *testing.T, store Store, want model.ProcessRef) {
 
 func childRetiredRecordsOnRefresh(t *testing.T, store Store, want model.ProcessRef) {
 	t.Helper()
-	retire := func(v *Session) { v.Retired, v.State, v.HookBuild = true, model.StateRetired, staleBuild() }
+	retire := func(v *model.Session) { v.Retired, v.State, v.HookBuild = true, model.StateRetired, staleBuild() }
 	v := ownedSession(t, store, retire)
 	if current := remembered(t, store, v, false); current.Owner != nil {
 		t.Fatalf("without refresh: owner = %+v, want none", current.Owner)

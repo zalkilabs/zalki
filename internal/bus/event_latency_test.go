@@ -51,7 +51,7 @@ func TestEventUpdateLatency(t *testing.T) {
 	t.Logf("LATENCY_JSON %s", raw)
 }
 
-func latencyFixture(t *testing.T, mode, scenario string) (Store, Session, string) {
+func latencyFixture(t *testing.T, mode, scenario string) (Store, model.Session, string) {
 	t.Helper()
 	store := fixtureStore(t)
 	if root := os.Getenv("ZALKI_EVENT_LATENCY_SHARED"); root != "" {
@@ -114,7 +114,7 @@ func measureUpdateLatency(t *testing.T, store Store, id, key, mode string, count
 	return samples
 }
 
-func seedLatencyRecords(t *testing.T, store Store, session Session, count uint64) {
+func seedLatencyRecords(t *testing.T, store Store, session model.Session, count uint64) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(store.Dir, "commits"), 0700); err != nil {
 		t.Fatal(err)

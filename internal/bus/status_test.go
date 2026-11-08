@@ -16,12 +16,12 @@ func TestDeliveryTransitionsPreserveCompletedAndUncertainAttempts(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Finish(msg.ID, Receipt{Status: model.StatusUnknownTimeout}); err != nil {
+	if _, err := store.Finish(msg.ID, model.Receipt{Status: model.StatusUnknownTimeout}); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
 	before, _ := os.ReadFile(path)
-	if _, err := store.Finish(msg.ID, Receipt{Status: model.StatusSubmitted}); model.ErrorCodeOf(err) != model.CodeInvalidTransition {
+	if _, err := store.Finish(msg.ID, model.Receipt{Status: model.StatusSubmitted}); model.ErrorCodeOf(err) != model.CodeInvalidTransition {
 		t.Fatal("uncertain submission became a success", err)
 	}
 	after, _ := os.ReadFile(path)

@@ -42,8 +42,8 @@ const (
 // emitFixture is a cursor target (it delivers through hooks) and a sender.
 type emitFixture struct {
 	store  Store
-	target Session
-	sender Session
+	target model.Session
+	sender model.Session
 	key    string
 }
 
@@ -56,20 +56,20 @@ func newEmitFixture(t *testing.T) emitFixture {
 
 // queue stores a hook-pending message with the given body, created at the
 // given time, and returns it.
-func (f emitFixture) queue(t *testing.T, body string, created time.Time) Message {
+func (f emitFixture) queue(t *testing.T, body string, created time.Time) model.Message {
 	t.Helper()
 	msg, _, _, err := f.store.ReserveMessage(SendRequest{Actor: f.sender.ID, Capability: f.key, To: f.target.ID, MessageID: newID(), Body: body})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.store.Finish(msg.ID, Receipt{Status: emitHookPending}); err != nil {
+	if _, err := f.store.Finish(msg.ID, model.Receipt{Status: emitHookPending}); err != nil {
 		t.Fatal(err)
 	}
-	f.rewrite(t, msg.ID, func(m *Message) { m.CreatedAt = created.UTC().Format(time.RFC3339Nano) })
+	f.rewrite(t, msg.ID, func(m *model.Message) { m.CreatedAt = created.UTC().Format(time.RFC3339Nano) })
 	return f.read(t, msg.ID)
 }
 
-func (f emitFixture) read(t *testing.T, id string) Message {
+func (f emitFixture) read(t *testing.T, id string) model.Message {
 	t.Helper()
 	msg, err := f.store.message(id)
 	if err != nil {
@@ -78,7 +78,7 @@ func (f emitFixture) read(t *testing.T, id string) Message {
 	return msg
 }
 
-func (f emitFixture) rewrite(t *testing.T, id string, change func(*Message)) {
+func (f emitFixture) rewrite(t *testing.T, id string, change func(*model.Message)) {
 	t.Helper()
 	msg := f.read(t, id)
 	change(&msg)
@@ -88,7 +88,7 @@ func (f emitFixture) rewrite(t *testing.T, id string, change func(*Message)) {
 }
 
 // emitted lists which messages appear in the context, in order of appearance.
-func emitted(t *testing.T, context string, all []Message) []string {
+func emitted(t *testing.T, context string, all []model.Message) []string {
 	t.Helper()
 	type hit struct {
 		at int
@@ -108,7 +108,7 @@ func emitted(t *testing.T, context string, all []Message) []string {
 	return ids
 }
 
-func ids(messages []Message) []string {
+func ids(messages []model.Message) []string {
 	out := make([]string, len(messages))
 	for i, msg := range messages {
 		out[i] = msg.ID
@@ -120,11 +120,11 @@ func TestEmitPendingStopsAtFiveMessagesInCreationOrder(t *testing.T) {
 	f := newEmitFixture(t)
 	base := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 	// Reserved in one order, created in the reverse order: CreatedAt decides.
-	all := make([]Message, 0, 7)
+	all := make([]model.Message, 0, 7)
 	for i := range 7 {
 		all = append(all, f.queue(t, "body "+string(rune('a'+i)), base.Add(time.Duration(6-i)*time.Second)))
 	}
-	byCreated := make([]Message, len(all))
+	byCreated := make([]model.Message, len(all))
 	for i, msg := range all {
 		byCreated[len(all)-1-i] = msg
 	}
@@ -172,7 +172,7 @@ func TestEmitPendingStopsBeforeTheMessageThatWouldOverflow(t *testing.T) {
 	second := f.queue(t, big, base.Add(time.Second))
 	third := f.queue(t, big, base.Add(2*time.Second))
 	small := f.queue(t, "small", base.Add(3*time.Second))
-	all := []Message{first, second, third, small}
+	all := []model.Message{first, second, third, small}
 
 	text, err := f.store.EmitPending(f.target.ID)
 	if err != nil {
@@ -185,7 +185,7 @@ func TestEmitPendingStopsBeforeTheMessageThatWouldOverflow(t *testing.T) {
 		t.Fatalf("context is %d bytes, over the %d cap", len(text), emitContextCap)
 	}
 	// The third did not fit, and the small one behind it is not skipped ahead.
-	for _, msg := range []Message{third, small} {
+	for _, msg := range []model.Message{third, small} {
 		if current := f.read(t, msg.ID); current.Status != emitHookPending {
 			t.Fatalf("%s is %q, want it still pending", msg.ID, current.Status)
 		}
@@ -212,7 +212,7 @@ func TestEmitPendingCapIsExactlyTwentyFourKiB(t *testing.T) {
 			second := f.queue(t, strings.Repeat("y", 12000), base.Add(time.Second))
 			// Envelopes grow one byte per body byte, so resize the second body.
 			delta := emitContextCap + extra.over - f.contextBytes(t, first.ID) - f.contextBytes(t, second.ID)
-			f.rewrite(t, second.ID, func(m *Message) { m.Body = strings.Repeat("y", 12000+delta) })
+			f.rewrite(t, second.ID, func(m *model.Message) { m.Body = strings.Repeat("y", 12000+delta) })
 			if total := f.contextBytes(t, first.ID) + f.contextBytes(t, second.ID); total != emitContextCap+extra.over {
 				t.Fatalf("test setup: the two messages add up to %d bytes, want %d", total, emitContextCap+extra.over)
 			}
@@ -220,7 +220,7 @@ func TestEmitPendingCapIsExactlyTwentyFourKiB(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := emitted(t, text, []Message{first, second})
+			got := emitted(t, text, []model.Message{first, second})
 			want := []string{first.ID}
 			if extra.wantSecondIn {
 				want = append(want, second.ID)
@@ -237,19 +237,19 @@ func TestEmitPendingTakesOnlyThisSessionsUnacknowledgedHookMessages(t *testing.T
 	base := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 	wanted := f.queue(t, "wanted", base)
 	acknowledged := f.queue(t, "already acknowledged", base.Add(time.Second))
-	f.rewrite(t, acknowledged.ID, func(m *Message) { m.AcknowledgedAt = model.Timestamp() })
+	f.rewrite(t, acknowledged.ID, func(m *model.Message) { m.AcknowledgedAt = model.Timestamp() })
 	submitted := f.queue(t, "already delivered", base.Add(2*time.Second))
-	f.rewrite(t, submitted.ID, func(m *Message) { m.Status = model.StatusSubmitted })
+	f.rewrite(t, submitted.ID, func(m *model.Message) { m.Status = model.StatusSubmitted })
 	otherGeneration := f.queue(t, "for an older registration", base.Add(3*time.Second))
-	f.rewrite(t, otherGeneration.ID, func(m *Message) { m.TargetGeneration = newID() })
+	f.rewrite(t, otherGeneration.ID, func(m *model.Message) { m.TargetGeneration = newID() })
 	otherTarget := f.queue(t, "for another agent", base.Add(4*time.Second))
-	f.rewrite(t, otherTarget.ID, func(m *Message) { m.To = f.sender.ID })
+	f.rewrite(t, otherTarget.ID, func(m *model.Message) { m.To = f.sender.ID })
 
 	text, err := f.store.EmitPending(f.target.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	all := []Message{wanted, acknowledged, submitted, otherGeneration, otherTarget}
+	all := []model.Message{wanted, acknowledged, submitted, otherGeneration, otherTarget}
 	if got := emitted(t, text, all); !slices.Equal(got, []string{wanted.ID}) {
 		t.Fatalf("emitted %v, want only %s", got, wanted.ID)
 	}
@@ -343,7 +343,7 @@ func TestEmitPendingForAnUnreachableTargetSettlesQueuedApprovals(t *testing.T) {
 	}
 }
 
-func storedMessage(t *testing.T, store Store, id string) Message {
+func storedMessage(t *testing.T, store Store, id string) model.Message {
 	t.Helper()
 	msg, err := store.message(id)
 	if err != nil {

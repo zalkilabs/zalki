@@ -11,7 +11,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func retainedEventFixture(t *testing.T) (Store, Session, commitWriter) {
+func retainedEventFixture(t *testing.T) (Store, model.Session, commitWriter) {
 	t.Helper()
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")
@@ -23,7 +23,7 @@ func retainedEventFixture(t *testing.T) (Store, Session, commitWriter) {
 	return store, session, writer
 }
 
-func prepareRetainedCommit(t *testing.T, store Store, session Session, writer commitWriter) journal.Batch {
+func prepareRetainedCommit(t *testing.T, store Store, session model.Session, writer commitWriter) journal.Batch {
 	t.Helper()
 	path, err := store.sessionPath(session.ID)
 	if err != nil {

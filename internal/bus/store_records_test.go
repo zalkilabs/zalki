@@ -45,11 +45,11 @@ func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := Service{Store: store, Deliver: func(_ context.Context, _ Message, target Session) Receipt {
+	service := Service{Store: store, Deliver: func(_ context.Context, _ model.Message, target model.Session) model.Receipt {
 		if model.NativeID(target) != native || target.ID != first.ID || target.KeyHash != "" {
 			t.Error("adapter did not receive the original native identity with credentials removed")
 		}
-		return Receipt{Status: model.StatusSubmitted}
+		return model.Receipt{Status: model.StatusSubmitted}
 	}}
 	if _, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: fromKey, To: first.ID, MessageID: newID(), Body: "ping"}); err != nil {
 		t.Fatal(err)
@@ -158,7 +158,7 @@ func TestLegacyRecordsMigrateOnWrite(t *testing.T) {
 		t.Fatal("adapter state was not migrated", upgraded)
 	}
 	from, _ := register(t, store, "codex")
-	msg := Message{ID: newID(), From: from.ID, To: v.ID, Body: "ping", Status: model.StatusSubmitted}
+	msg := model.Message{ID: newID(), From: from.ID, To: v.ID, Body: "ping", Status: model.StatusSubmitted}
 	messagePath := filepath.Join(store.Dir, "messages", msg.ID+".json")
 	if err := writeJSON(messagePath, msg); err != nil {
 		t.Fatal(err)
@@ -166,7 +166,7 @@ func TestLegacyRecordsMigrateOnWrite(t *testing.T) {
 	if _, err := store.Ack(v.ID, key, msg.ID); err != nil {
 		t.Fatal(err)
 	}
-	var migrated Message
+	var migrated model.Message
 	if err := readJSON(messagePath, &migrated); err != nil || migrated.Schema != recordSchema || migrated.AcknowledgedAt == "" {
 		t.Fatal("message migration lost ACK", err)
 	}
@@ -178,7 +178,7 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 			store := fixtureStore(t)
 			v, key := register(t, store, "cursor")
 			path, _ := store.sessionPath(v.ID)
-			msg := Message{ID: newID(), From: "codex:" + newID(), To: v.ID, Body: "ping", Status: model.StatusSubmitted}
+			msg := model.Message{ID: newID(), From: "codex:" + newID(), To: v.ID, Body: "ping", Status: model.StatusSubmitted}
 			if kind == "message" {
 				path = filepath.Join(store.Dir, "messages", msg.ID+".json")
 				msg.Schema = 99

@@ -13,12 +13,12 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func spendFlood(store Store, msg Message, now time.Time) error {
+func spendFlood(store Store, msg model.Message, now time.Time) error {
 	return store.locked(func() error { return store.consumeFloodQuota(msg, now) })
 }
 
-func floodMessage() Message {
-	return Message{ID: newID(), From: "codex:" + newID(), To: "cursor:" + newID()}
+func floodMessage() model.Message {
+	return model.Message{ID: newID(), From: "codex:" + newID(), To: "cursor:" + newID()}
 }
 
 func floodBytes(t *testing.T, store Store, target string) []byte {
@@ -192,7 +192,7 @@ func TestFloodDenialDoesNotReserveOrAcknowledgeReplies(t *testing.T) {
 		service := newTestService(t)
 		store := service.Store
 		actor, key, target, _ := registerPair(t, store, "cursor", "codex")
-		parent := Message{ID: newID(), From: target.ID, To: actor.ID, Body: "review", Status: model.StatusSubmitted}
+		parent := model.Message{ID: newID(), From: target.ID, To: actor.ID, Body: "review", Status: model.StatusSubmitted}
 		if err := store.saveMessage(parent); err != nil {
 			t.Fatal(err)
 		}
@@ -204,7 +204,7 @@ func TestFloodDenialDoesNotReserveOrAcknowledgeReplies(t *testing.T) {
 		// Freeze exhausted quota ahead of the wall clock, avoiding sleeps and
 		// flaky boundary assertions when the race suite runs under load.
 		for range 12 {
-			if err := spendFlood(store, Message{ID: newID(), From: actor.ID, To: target.ID}, time.Now().Add(time.Hour)); err != nil {
+			if err := spendFlood(store, model.Message{ID: newID(), From: actor.ID, To: target.ID}, time.Now().Add(time.Hour)); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -251,7 +251,7 @@ func TestFloodWatchNoticesAreExempt(t *testing.T) {
 	store := service.Store
 	watcher, key, subject, _ := registerPair(t, store, "cursor", "codex")
 	for range 12 {
-		if err := spendFlood(store, Message{ID: newID(), From: subject.ID, To: watcher.ID}, time.Now().Add(time.Hour)); err != nil {
+		if err := spendFlood(store, model.Message{ID: newID(), From: subject.ID, To: watcher.ID}, time.Now().Add(time.Hour)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -276,7 +276,7 @@ func TestFloodSendRefusalNeverCreatesAnApprovalHold(t *testing.T) {
 	}
 	now := time.Now().Add(time.Hour)
 	for range 12 {
-		if err := spendFlood(store, Message{ID: newID(), From: actor.ID, To: target.ID}, now); err != nil {
+		if err := spendFlood(store, model.Message{ID: newID(), From: actor.ID, To: target.ID}, now); err != nil {
 			t.Fatal(err)
 		}
 	}

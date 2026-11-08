@@ -38,7 +38,7 @@ func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error)
 	if (actor == "") != (key == "") {
 		return nil, 0, model.NewError(model.CodeInvalidInput, "actor and capability must be provided together")
 	}
-	var sessions []Session
+	var sessions []model.Session
 	var skipped int
 	err := s.readLocked(func() error {
 		if actor != "" {

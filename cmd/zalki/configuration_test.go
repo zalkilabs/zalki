@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -16,10 +15,10 @@ type declarationFixture struct{ files []model.ConfigDeclaration }
 func (declarationFixture) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "fixture", Label: "Fixture"}
 }
-func (declarationFixture) ReceiveCapabilities(bus.Session) model.ReceiveCapabilities {
+func (declarationFixture) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
 	return model.ReceiveCapabilities{Delivery: "fixture", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn}
 }
-func (declarationFixture) Deliver(context.Context, bus.Message, bus.Session) bus.Receipt {
+func (declarationFixture) Deliver(context.Context, model.Message, model.Session) model.Receipt {
 	panic("configuration conversion must not deliver messages")
 }
 func (a declarationFixture) Configuration(string, []string) []model.ConfigDeclaration { return a.files }

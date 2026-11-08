@@ -23,8 +23,8 @@ func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
 	if err := store.hookName(target.ID, "reviewer"); err != nil {
 		t.Fatal(err)
 	}
-	var delivered []Message
-	service.Deliver = func(_ context.Context, msg Message, _ Session) Receipt {
+	var delivered []model.Message
+	service.Deliver = func(_ context.Context, msg model.Message, _ model.Session) model.Receipt {
 		delivered = append(delivered, msg)
 		return model.NewReceipt(model.StatusSubmitted)
 	}
@@ -97,7 +97,7 @@ func TestWatchSkipsAnUnfinishedStopAndExpires(t *testing.T) {
 	store := service.Store
 	watcher, key, target, _ := registerPair(t, store, "codex", "cursor")
 	var delivered int
-	service.Deliver = func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		delivered++
 		return model.NewReceipt(model.StatusSubmitted)
 	}
@@ -161,7 +161,7 @@ func TestWatchWaitsForTheNextStopWhenArmedMidTurn(t *testing.T) {
 	store := service.Store
 	watcher, key, target, _ := registerPair(t, store, "codex", "claude")
 	var delivered int
-	service.Deliver = func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		delivered++
 		return model.NewReceipt(model.StatusSubmitted)
 	}
@@ -204,8 +204,8 @@ func TestWatchEndsWhenExitIsObservedWithoutSessionEnd(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	watcher, key, target, _ := registerPair(t, store, "codex", "cursor")
-	var delivered []Message
-	service.Deliver = func(_ context.Context, msg Message, _ Session) Receipt {
+	var delivered []model.Message
+	service.Deliver = func(_ context.Context, msg model.Message, _ model.Session) model.Receipt {
 		delivered = append(delivered, msg)
 		return model.NewReceipt(model.StatusSubmitted)
 	}
@@ -336,7 +336,7 @@ func TestWatchSubscribedDuringStopSurvivesThatCompletion(t *testing.T) {
 	store.Registry = registry
 	watcher, key, target, _ := registerPair(t, store, "codex", "claude")
 	var delivered int
-	service := &Service{Store: store, Deliver: func(context.Context, Message, Session) Receipt {
+	service := &Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 		delivered++
 		return model.NewReceipt(model.StatusSubmitted)
 	}}

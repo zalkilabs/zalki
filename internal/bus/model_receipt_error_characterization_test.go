@@ -39,10 +39,10 @@ func TestModelNewReceiptBaseline(t *testing.T) {
 	requireModelJSON(t, receipt, `{"at":"TIME","status":"unknown_after_write"}`)
 }
 
-func transportCauseKind(t *testing.T, receipt bus.Receipt) string {
+func transportCauseKind(t *testing.T, receipt model.Receipt) string {
 	t.Helper()
 	target := nativeAdapter("beta")
-	target.script(func(context.Context, bus.Message, bus.Session) bus.Receipt { return receipt })
+	target.script(func(context.Context, model.Message, model.Session) model.Receipt { return receipt })
 	store := newStore(t, nativeAdapter("alpha"), target)
 	from, to := register(t, store, "alpha"), register(t, store, "beta")
 	var logs bytes.Buffer
@@ -66,7 +66,7 @@ func transportCauseKind(t *testing.T, receipt bus.Receipt) string {
 }
 
 func TestModelReceiptCauseIsCopiedAndNotEncoded(t *testing.T) {
-	original := bus.Receipt{At: "at", Status: model.StatusSubmitted, Error: "public error", Output: "output"}
+	original := model.Receipt{At: "at", Status: model.StatusSubmitted, Error: "public error", Output: "output"}
 	withCause := original.WithCause(fmt.Errorf("private diagnostic: %w", syscall.ECONNREFUSED))
 	const want = `{"at":"at","status":"submitted","error":"public error","output":"output"}`
 	requireModelJSON(t, original, want)

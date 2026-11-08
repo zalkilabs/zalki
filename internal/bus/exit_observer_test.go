@@ -26,7 +26,7 @@ type noticeCounter struct {
 	bodies []string
 }
 
-func (c *noticeCounter) hook(_ context.Context, msg Message, _ Session) Receipt {
+func (c *noticeCounter) hook(_ context.Context, msg model.Message, _ model.Session) model.Receipt {
 	c.mu.Lock()
 	c.bodies = append(c.bodies, msg.Body)
 	c.mu.Unlock()
@@ -156,7 +156,7 @@ func setOwner(t *testing.T, store Store, id string, owner *model.ProcessRef) {
 }
 
 // watchedTarget arms a watch on a new cursor target owned by owner.
-func watchedTarget(t *testing.T, service Service, owner *model.ProcessRef) (watcher Session, key string, target Session) {
+func watchedTarget(t *testing.T, service Service, owner *model.ProcessRef) (watcher model.Session, key string, target model.Session) {
 	t.Helper()
 	watcher, key, target, _ = registerPair(t, service.Store, "codex", "cursor")
 	setOwner(t, service.Store, target.ID, owner)
@@ -169,7 +169,7 @@ func watchedTarget(t *testing.T, service Service, owner *model.ProcessRef) (watc
 // exitedWatchedTarget arms a watch on a target and then gives it a dead owner, as
 // after a kill: watch_agent answers an already-exited target immediately, so a
 // watch can only exist for one that was alive when it was armed.
-func exitedWatchedTarget(t *testing.T, service Service) (watcher Session, key string, target Session) {
+func exitedWatchedTarget(t *testing.T, service Service) (watcher model.Session, key string, target model.Session) {
 	t.Helper()
 	watcher, key, target = watchedTarget(t, service, selfOwner(t))
 	setOwner(t, service.Store, target.ID, &deadOwner)
@@ -526,7 +526,7 @@ func TestObserverStopsPromptlyWhenCancelledMidDelivery(t *testing.T) {
 	service := newTestService(t)
 	entered := make(chan struct{})
 	var once sync.Once
-	service.Deliver = func(ctx context.Context, _ Message, _ Session) Receipt {
+	service.Deliver = func(ctx context.Context, _ model.Message, _ model.Session) model.Receipt {
 		once.Do(func() { close(entered) })
 		<-ctx.Done()
 		return model.NewReceipt(model.StatusSubmitted)
@@ -549,7 +549,7 @@ func TestObserverPanicStopsOnlyTheObserver(t *testing.T) {
 	service := newTestService(t)
 	attempted := make(chan struct{})
 	var once sync.Once
-	service.Deliver = func(context.Context, Message, Session) Receipt {
+	service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
 		once.Do(func() { close(attempted) })
 		panic("transport bug")
 	}

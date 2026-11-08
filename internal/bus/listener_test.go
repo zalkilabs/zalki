@@ -72,14 +72,14 @@ func recordSchemaOf(t *testing.T, store Store, id string) int {
 	return record.Schema
 }
 
-func pendingMessage(t *testing.T, store Store, to Session) Message {
+func pendingMessage(t *testing.T, store Store, to model.Session) model.Message {
 	t.Helper()
 	from, key := register(t, store, "codex")
 	msg, _, _, err := store.ReserveMessage(SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "body"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Finish(msg.ID, Receipt{Status: model.StatusPendingActivity}); err != nil {
+	if _, err := store.Finish(msg.ID, model.Receipt{Status: model.StatusPendingActivity}); err != nil {
 		t.Fatal(err)
 	}
 	return msg
@@ -341,12 +341,12 @@ func TestCursorPendingDoesNotReplayPreviousGeneration(t *testing.T) {
 // record that differs from the lease in only one of them is left unchanged,
 // and Close still releases the lease's own lifetime lock.
 func TestLeaseOwnershipRequiresEveryRecordedField(t *testing.T) {
-	for name, tamper := range map[string]func(*Session){
-		"lease ID":                func(v *Session) { v.Listener.ID = newID() },
-		"endpoint":                func(v *Session) { v.Listener.Endpoint.Inode++ },
-		"lease generation":        func(v *Session) { v.Listener.Generation = newID() },
-		"registration generation": func(v *Session) { v.Generation = newID() },
-		"registration and lease generation": func(v *Session) {
+	for name, tamper := range map[string]func(*model.Session){
+		"lease ID":                func(v *model.Session) { v.Listener.ID = newID() },
+		"endpoint":                func(v *model.Session) { v.Listener.Endpoint.Inode++ },
+		"lease generation":        func(v *model.Session) { v.Listener.Generation = newID() },
+		"registration generation": func(v *model.Session) { v.Generation = newID() },
+		"registration and lease generation": func(v *model.Session) {
 			v.Generation = newID()
 			v.Listener.Generation = v.Generation
 		},

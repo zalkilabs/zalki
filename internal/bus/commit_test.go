@@ -16,7 +16,7 @@ import (
 type commitFixture struct {
 	writer   commitWriter
 	previous json.RawMessage
-	next     Session
+	next     model.Session
 	event    model.Event
 }
 
@@ -28,7 +28,7 @@ func newCommitFixture(t *testing.T) commitFixture {
 			t.Fatal(err)
 		}
 	}
-	session := Session{Schema: 1, ID: "codex:00000000-0000-4000-8000-000000000003",
+	session := model.Session{Schema: 1, ID: "codex:00000000-0000-4000-8000-000000000003",
 		Kind: "codex", NativeID: "00000000-0000-4000-8000-000000000003",
 		Generation: "00000000-0000-4000-8000-000000000004", State: model.StateReady,
 		CWD: "/private/workspace", KeyHash: "private-key-hash", Task: "private task"}
