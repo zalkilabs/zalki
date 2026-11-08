@@ -67,7 +67,7 @@ func TestMessageLogsCorrelateWithoutExposingPrivateContent(t *testing.T) {
 	}
 	service.ObserveTool("send_message", from.ID, msg.ID, 1, fmt.Errorf("%s %s", key, private))
 	service.Deliver = func(context.Context, Message, Session) Receipt {
-		return Receipt{Status: model.StatusNotSent, Error: private + key, Code: ErrorCode(key), Output: private + key}.WithCause(fmt.Errorf("%s: %w", private, syscall.ECONNREFUSED))
+		return Receipt{Status: model.StatusNotSent, Error: private + key, Code: model.ErrorCode(key), Output: private + key}.WithCause(fmt.Errorf("%s: %w", private, syscall.ECONNREFUSED))
 	}
 	if _, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: private}); err != nil {
 		t.Fatal(err)

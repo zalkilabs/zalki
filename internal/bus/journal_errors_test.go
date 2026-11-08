@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type failingJournalMarshaler struct{ cause error }
@@ -19,7 +20,7 @@ func TestJournalEncodingPreservesWrappedEncoderError(t *testing.T) {
 	cause := &journal.SizeError{Size: 7, Limit: 5}
 	_, err := encodeStateJSON(failingJournalMarshaler{cause: cause})
 	var encoder *json.MarshalerError
-	if !errors.As(err, &encoder) || !errors.Is(err, cause) || ErrorCodeOf(err) != "internal" {
-		t.Fatalf("encoder failure changed: %T %v (code %q)", err, err, ErrorCodeOf(err))
+	if !errors.As(err, &encoder) || !errors.Is(err, cause) || model.ErrorCodeOf(err) != "internal" {
+		t.Fatalf("encoder failure changed: %T %v (code %q)", err, err, model.ErrorCodeOf(err))
 	}
 }

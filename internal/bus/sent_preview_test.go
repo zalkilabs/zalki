@@ -74,7 +74,7 @@ func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 		t.Fatal("exact opt-in preview lost the full body", err)
 	}
 	query.To = other.ID
-	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeNotFound {
+	if _, err := store.ReadMessages(query); model.ErrorCodeOf(err) != model.CodeNotFound {
 		t.Fatal("exact lookup ignored recipient filter", err)
 	}
 	query.MessageID, query.IncludeBody = "", false
@@ -92,7 +92,7 @@ func TestSentRecipientFilterPreviewAndPaging(t *testing.T) {
 		t.Fatal("deleted recipient could not be filtered by canonical ID", err)
 	}
 	query.To = "reviewer"
-	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeUnavailable {
+	if _, err := store.ReadMessages(query); model.ErrorCodeOf(err) != model.CodeUnavailable {
 		t.Fatal("historical names unexpectedly resolved after deletion", err)
 	}
 }
@@ -109,7 +109,7 @@ func TestSentPreviewCannotExposeNativeInbox(t *testing.T) {
 		{Actor: actor.ID, Capability: key, History: true, Preview: true, MessageID: msg.ID},
 		{Actor: actor.ID, Capability: key, To: peer.ID},
 	} {
-		if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeInvalidInput {
+		if _, err := store.ReadMessages(query); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 			t.Fatal("sent-only options accepted for an inbox", err)
 		}
 	}
@@ -117,7 +117,7 @@ func TestSentPreviewCannotExposeNativeInbox(t *testing.T) {
 	if err != nil || len(page.Messages) != 0 {
 		t.Fatal("sent preview exposed incoming native body", err)
 	}
-	if _, err := store.ReadMessages(MessageQuery{Actor: actor.ID, Capability: key, Sent: true, Preview: true, MessageID: msg.ID}); ErrorCodeOf(err) != model.CodeNotFound {
+	if _, err := store.ReadMessages(MessageQuery{Actor: actor.ID, Capability: key, Sent: true, Preview: true, MessageID: msg.ID}); model.ErrorCodeOf(err) != model.CodeNotFound {
 		t.Fatal("sent preview exposed exact incoming native body", err)
 	}
 	page, err = store.ReadMessages(MessageQuery{Actor: peer.ID, Capability: peerKey, Sent: true, Preview: true, MessageID: msg.ID})

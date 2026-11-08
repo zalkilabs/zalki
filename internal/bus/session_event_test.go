@@ -32,7 +32,7 @@ func TestSessionRegistrationProjection(t *testing.T) {
 	if event.Type != "session.registered" || event.Session.ID != session.ID || event.Session.Generation != session.Generation || event.Session.Previous != "" {
 		t.Fatalf("initial registration = %+v", event)
 	}
-	next, _, err := store.Register("cursor", NativeID(session), session.CWD, nil)
+	next, _, err := store.Register("cursor", model.NativeID(session), session.CWD, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestSessionRegistrationProjection(t *testing.T) {
 	if event.Type != "session.registered" || event.Session.Generation != next.Generation || next.Generation == session.Generation || eventState(t, store).Last != 2 {
 		t.Fatalf("replacement = %+v", event)
 	}
-	if _, _, err := store.register("cursor", NativeID(next), next.CWD, nil, true); err != nil {
+	if _, _, err := store.register("cursor", model.NativeID(next), next.CWD, nil, true); err != nil {
 		t.Fatal(err)
 	}
 	if eventState(t, store).Last != 2 {
@@ -52,7 +52,7 @@ func TestSessionLifecycleProducerEvents(t *testing.T) {
 	cases := []struct {
 		name    string
 		run     func(Store, Session) error
-		state   SessionState
+		state   model.SessionState
 		retired bool
 	}{
 		{"Update approval", func(s Store, v Session) error { return s.Update(v.ID, model.StateApproval, false) }, model.StateApproval, false},

@@ -12,6 +12,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/logging"
+	"github.com/zalkilabs/zalki/internal/model"
 
 	"github.com/spf13/cobra"
 )
@@ -113,7 +114,7 @@ func observeCommands(root *cobra.Command, opts *commandOptions) {
 			err := run(cmd, args)
 			attrs := []any{"duration_ms", time.Since(started).Milliseconds()}
 			if err != nil {
-				attrs = append(attrs, "error_code", bus.ErrorCodeOf(err), "error_kind", logging.ErrorKind(err))
+				attrs = append(attrs, "error_code", model.ErrorCodeOf(err), "error_kind", logging.ErrorKind(err))
 				opts.logger.ErrorContext(cmd.Context(), "command.failed", attrs...)
 			} else {
 				level := slog.LevelDebug

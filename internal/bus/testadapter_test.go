@@ -24,7 +24,7 @@ func (stubCodexAdapter) ReceiveCapabilities(Session) model.ReceiveCapabilities {
 }
 
 func (stubCodexAdapter) Deliver(context.Context, Message, Session) Receipt {
-	return NewReceipt(model.StatusSubmitted)
+	return model.NewReceipt(model.StatusSubmitted)
 }
 
 func (stubCodexAdapter) Health(agent.HealthHost, Session) (string, string) {
@@ -65,7 +65,7 @@ func (stubCursorAdapter) Deliver(_ context.Context, _ Message, v Session) Receip
 	if v.Listener != nil {
 		panic("core Cursor stub cannot simulate native wake acceptance")
 	}
-	return NewReceipt(model.StatusPendingActivity)
+	return model.NewReceipt(model.StatusPendingActivity)
 }
 func (stubCursorAdapter) NormalizeHook(v agent.HookInput) (agent.HookInput, error) {
 	if v.Event == "Stop" && v.Status != "" && v.Status != "completed" {

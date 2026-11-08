@@ -135,7 +135,7 @@ func TestStateFormatFenceKeepsReadsAndRefusesEveryWriteWithoutChanges(t *testing
 		{"runtime", func() error { _, err := store.TrackRuntime("mcp", ""); return err }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if err := test.write(); !IsUpgradeRequired(err) || ErrorCodeOf(err) != model.CodeUnsupportedSchema || !strings.Contains(err.Error(), "upgrade zalki") {
+			if err := test.write(); !IsUpgradeRequired(err) || model.ErrorCodeOf(err) != model.CodeUnsupportedSchema || !strings.Contains(err.Error(), "upgrade zalki") {
 				t.Fatal("missing clear format fence", err)
 			}
 			if after := journalSnapshot(t, store); !reflect.DeepEqual(before, after) {
@@ -147,7 +147,7 @@ func TestStateFormatFenceKeepsReadsAndRefusesEveryWriteWithoutChanges(t *testing
 	store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
 	service.Store = store
 	for _, event := range []string{"SessionStart", "PostToolUse", "Stop"} {
-		input, _ := json.Marshal(agent.HookInput{SessionID: NativeID(target), CWD: "/workspace", Event: event})
+		input, _ := json.Marshal(agent.HookInput{SessionID: model.NativeID(target), CWD: "/workspace", Event: event})
 		if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), &output); err != nil {
 			t.Fatal("hook broke client", err)
 		}

@@ -8,9 +8,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// NativeID returns the client's session ID, including the fallback for legacy records.
-func NativeID(v Session) string { return model.NativeID(v) }
-
 func (s Store) nativeNames(sessions []Session) {
 	indexes := map[string]map[string]string{}
 	for i := range sessions {

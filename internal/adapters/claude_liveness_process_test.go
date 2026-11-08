@@ -74,7 +74,7 @@ func TestClaudeLivenessAfterKillAndCleanExit(t *testing.T) {
 			delivered := 0
 			service := &bus.Service{Store: store, Deliver: func(context.Context, bus.Message, bus.Session) bus.Receipt {
 				delivered++
-				return bus.NewReceipt(model.StatusSubmitted)
+				return model.NewReceipt(model.StatusSubmitted)
 			}}
 			stop()
 			_, statErr := os.Stat(endpoint.Path)

@@ -80,7 +80,7 @@ type intentCase struct {
 	damage func(tx map[string]any)
 	extra  func(t *testing.T, f replyFixture)
 	want   string
-	code   bus.ErrorCode
+	code   model.ErrorCode
 }
 
 func intentCases() []intentCase {
@@ -115,8 +115,8 @@ func intentCases() []intentCase {
 func assertRecoveryError(t *testing.T, attempt int, err error, test intentCase) {
 	t.Helper()
 	switch {
-	case test.code != "" && bus.ErrorCodeOf(err) != test.code:
-		t.Fatalf("attempt %d: error code = %q (%v), want %q", attempt, bus.ErrorCodeOf(err), err, test.code)
+	case test.code != "" && model.ErrorCodeOf(err) != test.code:
+		t.Fatalf("attempt %d: error code = %q (%v), want %q", attempt, model.ErrorCodeOf(err), err, test.code)
 	case test.code == "" && (err == nil || err.Error() != test.want):
 		t.Fatalf("attempt %d: error = %v, want %q", attempt, err, test.want)
 	}
@@ -197,7 +197,7 @@ type requestCase struct {
 	parent      func(parent map[string]any)
 	parentID    string
 	want        string
-	code        bus.ErrorCode
+	code        model.ErrorCode
 }
 
 func requestCases() []requestCase {
@@ -252,8 +252,8 @@ func TestReplyRequestWithSeveralFaultsReportsTheFirstCheck(t *testing.T) {
 			err := replyAs(t, f, test)
 			want := strings.ReplaceAll(test.want, "PARENT_FROM", f.parent.From)
 			switch {
-			case test.code != "" && bus.ErrorCodeOf(err) != test.code:
-				t.Fatalf("error code = %q (%v), want %q", bus.ErrorCodeOf(err), err, test.code)
+			case test.code != "" && model.ErrorCodeOf(err) != test.code:
+				t.Fatalf("error code = %q (%v), want %q", model.ErrorCodeOf(err), err, test.code)
 			case test.code == "" && (err == nil || err.Error() != want):
 				t.Fatalf("error = %v, want %q", err, want)
 			}

@@ -18,7 +18,7 @@ import (
 func TestCursorSenderRequiresExactHintEcho(t *testing.T) {
 	for _, test := range []struct {
 		name   string
-		status bus.DeliveryStatus
+		status model.DeliveryStatus
 	}{
 		{"matching", model.StatusWakeWritten},
 		{"wrong generation", model.StatusWakeUncertain},

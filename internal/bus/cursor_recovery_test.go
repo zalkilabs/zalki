@@ -15,7 +15,7 @@ func TestCursorRecoverySkipsRetiredUnknownAndApprovalSessions(t *testing.T) {
 	store := fixtureStore(t)
 	to, _ := register(t, store, "cursor")
 	for _, state := range []string{"approval", "retired"} {
-		if err := store.Update(to.ID, SessionState(state), state == "retired"); err != nil {
+		if err := store.Update(to.ID, model.SessionState(state), state == "retired"); err != nil {
 			t.Fatal(err)
 		}
 		if text, err := claimCursorRecovery(store, to.ID); err != nil || text.Capability != "" {
@@ -120,7 +120,7 @@ func TestCursorRecoveryClaimPreservesRegistrationAndPendingMessages(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Finish(message.ID, NewReceipt(model.StatusPendingActivity)); err != nil {
+	if _, err := store.Finish(message.ID, model.NewReceipt(model.StatusPendingActivity)); err != nil {
 		t.Fatal(err)
 	}
 	claim, err := claimCursorRecovery(store, to.ID)
@@ -128,7 +128,7 @@ func TestCursorRecoveryClaimPreservesRegistrationAndPendingMessages(t *testing.T
 		t.Fatal("missing receiver-owned recovery claim", err)
 	}
 	current, err := store.authenticate(to.ID, claim.Capability)
-	if err != nil || current.Generation != to.Generation || NativeID(current) != NativeID(to) || !cursorState(current).RecoveryAttempted || current.Receive.IdleWake {
+	if err != nil || current.Generation != to.Generation || model.NativeID(current) != model.NativeID(to) || !cursorState(current).RecoveryAttempted || current.Receive.IdleWake {
 		t.Fatal("recovery changed registration or lost the atomic claim", err)
 	}
 	if _, err := store.authenticate(to.ID, oldKey); err == nil {

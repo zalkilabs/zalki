@@ -162,7 +162,7 @@ func TestRefusedReplyRetryDoesNotSpendFloodQuotaAgain(t *testing.T) {
 			// ... while a reply with a new body is a new record that needs quota.
 			used := f.flood()
 			other, err := f.reply("a different reply")
-			if ErrorCodeOf(err) != model.CodeRateLimited {
+			if model.ErrorCodeOf(err) != model.CodeRateLimited {
 				t.Fatalf("new reply with the quota used up = %+v, %v; want a rate limit", other, err)
 			}
 			if string(f.flood()) != string(used) {

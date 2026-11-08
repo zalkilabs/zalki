@@ -27,14 +27,14 @@ func forwardingHost(t *testing.T, kind string, crossActor bool) (hookRuntime, Se
 	return host, actor, other, actorKey
 }
 
-func forwardingMessage(t *testing.T, store Store, target Session, status DeliveryStatus) Message {
+func forwardingMessage(t *testing.T, store Store, target Session, status model.DeliveryStatus) Message {
 	t.Helper()
 	sender, key := register(t, store, "codex")
 	msg, _, fresh, err := store.ReserveMessage(SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "context for " + target.ID})
 	if err != nil || !fresh {
 		t.Fatal("could not reserve forwarding fixture", err)
 	}
-	msg, err = store.Finish(msg.ID, NewReceipt(status))
+	msg, err = store.Finish(msg.ID, model.NewReceipt(status))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestHookHostEmitPendingUsesBoundActor(t *testing.T) {
 				return
 			}
 			text, err := host.EmitPending(target.ID)
-			if err != nil || text != Envelope(msg)+"\n\n" {
+			if err != nil || text != model.Envelope(msg)+"\n\n" {
 				t.Fatalf("context=%q error=%v, want bound actor's envelope", text, err)
 			}
 			current, err := host.store.message(msg.ID)
@@ -214,7 +214,7 @@ func TestHookHostCompletedNativePromptUsesBoundActor(t *testing.T) {
 				t.Fatal(err)
 			}
 			before := journalSnapshot(t, host.store)
-			prompt := Envelope(msg)
+			prompt := model.Envelope(msg)
 			if crossActor {
 				assertPromptActorRefusal(t, host, target.ID, prompt)
 				assertPromptActorRefusal(t, host, target.ID, prompt+" changed")
@@ -252,8 +252,8 @@ func TestHookHostCompletedNativePromptErrorsFollowActorCheck(t *testing.T) {
 	before = journalSnapshot(t, host.store)
 	wrongHost := host
 	wrongHost.actor = other.ID
-	assertPromptActorRefusal(t, wrongHost, target.ID, Envelope(msg))
-	reason, err := host.CompletedNativePrompt(target.ID, Envelope(msg))
+	assertPromptActorRefusal(t, wrongHost, target.ID, model.Envelope(msg))
+	reason, err := host.CompletedNativePrompt(target.ID, model.Envelope(msg))
 	var syntax *json.SyntaxError
 	if reason != "" || !errors.As(err, &syntax) {
 		t.Fatalf("reason=%q error=%v, want bound actor's malformed record error", reason, err)

@@ -49,7 +49,7 @@ func TestEventUpdatePublishesOneCoveredTransition(t *testing.T) {
 	}
 }
 
-func setEventTestState(t *testing.T, store Store, id string, state SessionState, writer commitWriter) {
+func setEventTestState(t *testing.T, store Store, id string, state model.SessionState, writer commitWriter) {
 	t.Helper()
 	if err := store.locked(func() error {
 		next, err := store.session(id)
@@ -178,10 +178,10 @@ func TestEventPendingIntentUnderFormatFenceRefusesReadCallbacks(t *testing.T) {
 	before := journalSnapshot(t, store)
 	called := false
 	err := store.readLocked(func() error { called = true; return nil })
-	if ErrorCodeOf(err) != model.CodeUnsupportedSchema || called {
+	if model.ErrorCodeOf(err) != model.CodeUnsupportedSchema || called {
 		t.Fatalf("fenced pending intent permitted read callback: called=%v, err=%v", called, err)
 	}
-	if _, err := store.List(); ErrorCodeOf(err) != model.CodeUnsupportedSchema {
+	if _, err := store.List(); model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 		t.Fatalf("public read bypassed fenced pending intent: %v", err)
 	}
 	if after := journalSnapshot(t, store); !reflect.DeepEqual(before, after) {

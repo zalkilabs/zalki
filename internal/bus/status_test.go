@@ -21,14 +21,14 @@ func TestDeliveryTransitionsPreserveCompletedAndUncertainAttempts(t *testing.T) 
 	}
 	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
 	before, _ := os.ReadFile(path)
-	if _, err := store.Finish(msg.ID, Receipt{Status: model.StatusSubmitted}); ErrorCodeOf(err) != model.CodeInvalidTransition {
+	if _, err := store.Finish(msg.ID, Receipt{Status: model.StatusSubmitted}); model.ErrorCodeOf(err) != model.CodeInvalidTransition {
 		t.Fatal("uncertain submission became a success", err)
 	}
 	after, _ := os.ReadFile(path)
 	if !bytes.Equal(before, after) {
 		t.Fatal("invalid transition mutated journal")
 	}
-	if err := store.Update(to.ID, SessionState("invented"), false); ErrorCodeOf(err) != model.CodeInvalidTransition {
+	if err := store.Update(to.ID, model.SessionState("invented"), false); model.ErrorCodeOf(err) != model.CodeInvalidTransition {
 		t.Fatal("unknown session state accepted", err)
 	}
 }

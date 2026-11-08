@@ -88,7 +88,7 @@ func TestJournalFailureReleasesExclusiveLock(t *testing.T) {
 			if failure == "callback" && err != callbackError { //nolint:errorlint // Characterize exact callback error identity, including absence of wrapping.
 				t.Fatalf("callback error changed: %v", err)
 			}
-			if failure == "compatibility" && (ErrorCodeOf(err) != model.CodeUnsupportedSchema || err.Error() != "unsupported_schema: state formats are unsupported or unreadable; upgrade zalki before writing") {
+			if failure == "compatibility" && (model.ErrorCodeOf(err) != model.CodeUnsupportedSchema || err.Error() != "unsupported_schema: state formats are unsupported or unreadable; upgrade zalki before writing") {
 				t.Fatalf("compatibility error changed: %v", err)
 			}
 			assertRawLockState(t, filepath.Join(store.Dir, "lock"), false)

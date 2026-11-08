@@ -239,7 +239,7 @@ func (s Store) rawRuntimes() ([]RuntimeInfo, error) {
 		if err := readJSON(path, &v); err != nil {
 			return nil, err
 		}
-		if _, err := UUID(v.ID); err != nil || filepath.Base(path) != v.ID+".json" {
+		if _, err := model.UUID(v.ID); err != nil || filepath.Base(path) != v.ID+".json" {
 			return nil, errors.New("runtime file identity mismatch")
 		}
 		items = append(items, v)

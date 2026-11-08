@@ -41,14 +41,14 @@ func listenSmokeCursor(ctx context.Context, store bus.Store, actor, key string, 
 }
 
 type smokeObservation struct {
-	Client     string             `json:"client"`
-	Version    string             `json:"installed_version,omitempty"`
-	Scenario   string             `json:"scenario"`
-	Evidence   string             `json:"evidence"`
-	Status     string             `json:"status"`
-	Receipt    bus.DeliveryStatus `json:"receipt,omitempty"`
-	ReplyBytes int                `json:"reply_bytes,omitempty"`
-	LatencyMS  int64              `json:"latency_ms,omitempty"`
+	Client     string               `json:"client"`
+	Version    string               `json:"installed_version,omitempty"`
+	Scenario   string               `json:"scenario"`
+	Evidence   string               `json:"evidence"`
+	Status     string               `json:"status"`
+	Receipt    model.DeliveryStatus `json:"receipt,omitempty"`
+	ReplyBytes int                  `json:"reply_bytes,omitempty"`
+	LatencyMS  int64                `json:"latency_ms,omitempty"`
 }
 
 type liveSmokeReport struct {
@@ -88,7 +88,7 @@ func (s *smokeSignals) Write(p []byte) (int, error) {
 			}
 		}
 		if id, ok := strings.CutPrefix(line, "ZALKI_WAKE "); ok {
-			if _, err := bus.UUID(id); err != nil {
+			if _, err := model.UUID(id); err != nil {
 				return 0, err
 			}
 			select {
@@ -287,12 +287,14 @@ func smokeSession(t *testing.T, store bus.Store, id string) bus.Session {
 	return bus.Session{}
 }
 
-func smokeAccepted(status bus.DeliveryStatus) bool {
+func smokeAccepted(status model.DeliveryStatus) bool {
 	switch status {
 	case model.StatusAttempting, model.StatusSubmitted, model.StatusTransportWritten, model.StatusPendingActivity,
 		model.StatusWakeWritten, model.StatusWakeUncertain, model.StatusContextEmitted,
 		model.StatusUnknownTimeout, model.StatusUnknownWrite:
 		return true
+	case model.StatusNotSent, model.StatusApprovalBlocked, model.StatusQueuedForApproval, model.StatusCommandFailed:
+		return false
 	default:
 		return false
 	}

@@ -161,7 +161,7 @@ func TestEmitPendingStopsAtFiveMessagesInCreationOrder(t *testing.T) {
 // contextBytes is what one message adds to the context.
 func (f emitFixture) contextBytes(t *testing.T, id string) int {
 	t.Helper()
-	return len(Envelope(f.store.withLabel(f.read(t, id)))) + len("\n\n")
+	return len(model.Envelope(f.store.withLabel(f.read(t, id)))) + len("\n\n")
 }
 
 func TestEmitPendingStopsBeforeTheMessageThatWouldOverflow(t *testing.T) {
@@ -253,7 +253,7 @@ func TestEmitPendingTakesOnlyThisSessionsUnacknowledgedHookMessages(t *testing.T
 	if got := emitted(t, text, all); !slices.Equal(got, []string{wanted.ID}) {
 		t.Fatalf("emitted %v, want only %s", got, wanted.ID)
 	}
-	for msg, want := range map[string]DeliveryStatus{
+	for msg, want := range map[string]model.DeliveryStatus{
 		acknowledged.ID:    emitHookPending,
 		submitted.ID:       model.StatusSubmitted,
 		otherGeneration.ID: emitHookPending,

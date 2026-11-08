@@ -17,9 +17,9 @@ type eventData struct {
 	Actor, Recipient, MessageID, ReplyTo, Generation string
 	Agent, HookEvent                                 string
 	HookStage                                        string
-	Status, ReceiptStatus                            DeliveryStatus
-	State                                            SessionState
-	Code                                             ErrorCode
+	Status, ReceiptStatus                            model.DeliveryStatus
+	State                                            model.SessionState
+	Code                                             model.ErrorCode
 	Err                                              error
 	Duration                                         time.Duration
 	Reused                                           bool
@@ -49,7 +49,7 @@ func appendIDAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 	for _, field := range []struct{ key, value string }{
 		{"message_id", data.MessageID}, {"reply_to", data.ReplyTo}, {"generation", data.Generation},
 	} {
-		if id, err := UUID(field.value); err == nil {
+		if id, err := model.UUID(field.value); err == nil {
 			attrs = append(attrs, slog.String(field.key, id))
 		}
 	}
@@ -62,7 +62,7 @@ func (s Store) appendActorAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 	for _, field := range []struct{ key, value string }{{"actor", data.Actor}, {"recipient", data.Recipient}} {
 		kind, id, ok := strings.Cut(field.value, ":")
 		if _, err := s.registry().Lookup(kind); ok && err == nil {
-			if canonical, err := UUID(id); err == nil {
+			if canonical, err := model.UUID(id); err == nil {
 				attrs = append(attrs, slog.String(field.key, kind+":"+canonical))
 			}
 		}
@@ -107,7 +107,7 @@ func appendErrorAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 	code := data.Code
 	if data.Err != nil {
 		if code == "" {
-			code = ErrorCodeOf(data.Err)
+			code = model.ErrorCodeOf(data.Err)
 		}
 		attrs = append(attrs, slog.String("error_kind", logging.ErrorKind(data.Err)))
 	}

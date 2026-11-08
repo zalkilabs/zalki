@@ -20,7 +20,7 @@ func TestCallerVisibleErrorCodes(t *testing.T) {
 	tests := []struct {
 		name string
 		call func(t *testing.T, store bus.Store, from, to agent) error
-		want bus.ErrorCode
+		want model.ErrorCode
 	}{
 		{"send with another session's capability", func(_ *testing.T, store bus.Store, from, to agent) error {
 			return send(store, bus.SendRequest{Actor: from.ID, Capability: to.Key, To: to.ID, Body: "hi"})
@@ -108,7 +108,7 @@ func TestCallerVisibleErrorCodes(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error code %q, got success", test.want)
 			}
-			if got := bus.ErrorCodeOf(err); got != test.want {
+			if got := model.ErrorCodeOf(err); got != test.want {
 				t.Fatalf("error code = %q (%v), want %q", got, err, test.want)
 			}
 		})
@@ -151,8 +151,8 @@ func TestNewerStateFormatFencesWritesButNotReads(t *testing.T) {
 	}
 	for name, write := range writes {
 		err := write()
-		if bus.ErrorCodeOf(err) != "unsupported_schema" || !bus.IsUpgradeRequired(err) {
-			t.Fatalf("%s: code %q upgrade-required %v (%v), want %q and true", name, bus.ErrorCodeOf(err), bus.IsUpgradeRequired(err), err, "unsupported_schema")
+		if model.ErrorCodeOf(err) != "unsupported_schema" || !bus.IsUpgradeRequired(err) {
+			t.Fatalf("%s: code %q upgrade-required %v (%v), want %q and true", name, model.ErrorCodeOf(err), bus.IsUpgradeRequired(err), err, "unsupported_schema")
 		}
 	}
 	if err := store.CheckWriteCompatibility(); !bus.IsUpgradeRequired(err) {

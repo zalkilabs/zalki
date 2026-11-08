@@ -250,7 +250,7 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 		}
 		if current.State == model.StateApproval {
 			if err := s.Store.holdForApproval(&msg); err != nil {
-				if moveErr := msg.SettleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+				if moveErr := msg.SettleNotSent(model.ErrorCodeOf(err), err.Error()); moveErr != nil {
 					return moveErr
 				}
 			}

@@ -25,7 +25,7 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 	calls := 0
 	service.Deliver = func(context.Context, bus.Message, bus.Session) bus.Receipt {
 		calls++
-		return bus.NewReceipt(model.StatusSubmitted)
+		return model.NewReceipt(model.StatusSubmitted)
 	}
 	client, ctx := testClient(t, service)
 	send := func(id, body string) MessageReceipt {

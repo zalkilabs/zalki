@@ -82,7 +82,7 @@ func (a Adapter) LookupName(v bus.Session, indexes map[string]map[string]string)
 	if _, ok := indexes[index]; !ok {
 		indexes[index] = codexNames(root)
 	}
-	return indexes[index][bus.NativeID(v)], "codex_session_index"
+	return indexes[index][model.NativeID(v)], "codex_session_index"
 }
 
 func (Adapter) RegisterHook(event agent.HookInput) (agent.HookRegistration, error) {
@@ -119,17 +119,17 @@ func (Adapter) Health(_ agent.HealthHost, v bus.Session) (string, string) {
 func queueCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	id := bus.NativeID(target)
-	if _, err := bus.UUID(id); err != nil {
+	id := model.NativeID(target)
+	if _, err := model.UUID(id); err != nil {
 		return failedReceipt(model.StatusNotSent, err)
 	}
 	command := exec.CommandContext(ctx, "codex", //nolint:gosec // G204: fixed executable; thread id is a validated bus.UUID
-		"queue", "--thread", id, "--message", bus.Envelope(msg))
+		"queue", "--thread", id, "--message", model.Envelope(msg))
 	if filepath.IsAbs(target.NativeConfigDir) {
 		command.Env = append(os.Environ(), "CODEX_HOME="+target.NativeConfigDir)
 	}
 	output, err := command.CombinedOutput()
-	receipt := bus.NewReceipt(model.StatusSubmitted)
+	receipt := model.NewReceipt(model.StatusSubmitted)
 	receipt.Output = string(output)
 	if len(receipt.Output) > 8192 {
 		receipt.Output = receipt.Output[:8192] + " [truncated]"
@@ -190,8 +190,8 @@ func configDir(variable, fallback string) string {
 	return fallback
 }
 
-func failedReceipt(status bus.DeliveryStatus, err error) bus.Receipt {
-	receipt := bus.NewReceipt(status)
+func failedReceipt(status model.DeliveryStatus, err error) bus.Receipt {
+	receipt := model.NewReceipt(status)
 	receipt.Error = err.Error()
 	return receipt.WithCause(err)
 }

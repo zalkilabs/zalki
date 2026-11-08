@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // completedNativePrompt filters only an exact, journal-backed envelope addressed
@@ -20,7 +22,7 @@ func (s Store) completedNativePrompt(actor, prompt string) (string, error) {
 		return "", nil
 	}
 	id := strings.TrimSuffix(strings.TrimPrefix(firstLine, prefix), "]")
-	if _, err := UUID(id); err != nil {
+	if _, err := model.UUID(id); err != nil {
 		return "", nil
 	}
 	var reason string
@@ -32,7 +34,7 @@ func (s Store) completedNativePrompt(actor, prompt string) (string, error) {
 		if err != nil {
 			return err
 		}
-		expected := Envelope(s.withLabel(message))
+		expected := model.Envelope(s.withLabel(message))
 		if message.To != actor || prompt != expected {
 			return nil
 		}

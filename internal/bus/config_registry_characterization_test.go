@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	agentapi "github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -70,7 +69,7 @@ type refusalCase struct {
 	registry      func(t *testing.T) *agentapi.Registry
 	binary, state string
 	wantText      string
-	wantCode      bus.ErrorCode
+	wantCode      model.ErrorCode
 }
 
 func TestRegistryConfigurationRefusals(t *testing.T) {
@@ -145,7 +144,7 @@ func TestRegistryConfigurationRefusals(t *testing.T) {
 			if err == nil || err.Error() != test.wantText || files != nil {
 				t.Fatalf("got %v, %v; want no files and error %q", files, err, test.wantText)
 			}
-			if got := bus.ErrorCodeOf(err); got != test.wantCode {
+			if got := model.ErrorCodeOf(err); got != test.wantCode {
 				t.Fatalf("error code %q, want %q", got, test.wantCode)
 			}
 		})

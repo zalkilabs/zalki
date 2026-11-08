@@ -48,7 +48,7 @@ func TestFloodBurstRefillIsolationAndClockRollback(t *testing.T) {
 	for _, at := range []time.Time{now, now.Add(-time.Hour), now.Add(5*time.Second - time.Nanosecond)} {
 		msg.ID = newID()
 		err := spendFlood(store, msg, at)
-		if ErrorCodeOf(err) != model.CodeRateLimited || !strings.Contains(err.Error(), "pair short bucket") || !strings.Contains(err.Error(), "retry in") {
+		if model.ErrorCodeOf(err) != model.CodeRateLimited || !strings.Contains(err.Error(), "pair short bucket") || !strings.Contains(err.Error(), "retry in") {
 			t.Fatal("pair did not refuse with a retry time", err)
 		}
 		if string(before) != string(floodBytes(t, store, msg.To)) {
@@ -83,7 +83,7 @@ func TestFloodInboundCapDoesNotSpendRejectedSenderQuota(t *testing.T) {
 	}
 	msg.From, msg.ID = "codex:"+newID(), newID()
 	before := floodBytes(t, store, msg.To)
-	if err := spendFlood(store, msg, now); ErrorCodeOf(err) != model.CodeRateLimited || !strings.Contains(err.Error(), "inbound short bucket") {
+	if err := spendFlood(store, msg, now); model.ErrorCodeOf(err) != model.CodeRateLimited || !strings.Contains(err.Error(), "inbound short bucket") {
 		t.Fatal("inbound cap did not combine senders", err)
 	}
 	if string(before) != string(floodBytes(t, store, msg.To)) {
@@ -115,7 +115,7 @@ func TestFloodHourlyCapsAndExpiry(t *testing.T) {
 				}
 			}
 			msg.ID = newID()
-			if err := spendFlood(store, msg, now.Add(time.Duration(limit)*interval)); ErrorCodeOf(err) != model.CodeRateLimited || !strings.Contains(err.Error(), scope+" hourly cap") {
+			if err := spendFlood(store, msg, now.Add(time.Duration(limit)*interval)); model.ErrorCodeOf(err) != model.CodeRateLimited || !strings.Contains(err.Error(), scope+" hourly cap") {
 				t.Fatal("slow traffic bypassed hourly cap", err)
 			}
 			if len(floodBytes(t, store, msg.To)) > 128*1024 {
@@ -152,7 +152,7 @@ func TestFloodCrossStoreConcurrency(t *testing.T) {
 	wg.Wait()
 	close(errors)
 	for err := range errors {
-		if ErrorCodeOf(err) != model.CodeRateLimited {
+		if model.ErrorCodeOf(err) != model.CodeRateLimited {
 			t.Fatal(err)
 		}
 	}
@@ -173,7 +173,7 @@ func TestFloodRetryReservationsAndIdleSenderExpiry(t *testing.T) {
 		t.Fatal("retry before message/intent commit spent quota twice", err)
 	}
 	msg.From = "codex:" + newID()
-	if err := spendFlood(store, msg, now); ErrorCodeOf(err) != model.CodeConflict {
+	if err := spendFlood(store, msg, now); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("another sender reused a reserved ID", err)
 	}
 	msg.ID = newID()
@@ -210,7 +210,7 @@ func TestFloodDenialDoesNotReserveOrAcknowledgeReplies(t *testing.T) {
 		}
 
 		refused, err := service.Reply(context.Background(), ReplyRequest{Actor: actor.ID, Capability: key, MessageID: parent.ID, Body: "reply"})
-		if ErrorCodeOf(err) != model.CodeRateLimited || refused.Receipt == nil || refused.Receipt.Code != model.CodeRateLimited {
+		if model.ErrorCodeOf(err) != model.CodeRateLimited || refused.Receipt == nil || refused.Receipt.Code != model.CodeRateLimited {
 			t.Fatal("reply bypassed quota", err)
 		}
 		stored, err := store.message(parent.ID)
@@ -283,7 +283,7 @@ func TestFloodSendRefusalNeverCreatesAnApprovalHold(t *testing.T) {
 	before := floodBytes(t, store, target.ID)
 
 	msg, err := service.Send(context.Background(), SendRequest{Actor: actor.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "limited"})
-	if ErrorCodeOf(err) != model.CodeRateLimited || msg.Held || msg.Status != model.StatusNotSent || msg.Receipt == nil || msg.Receipt.Code != model.CodeRateLimited {
+	if model.ErrorCodeOf(err) != model.CodeRateLimited || msg.Held || msg.Status != model.StatusNotSent || msg.Receipt == nil || msg.Receipt.Code != model.CodeRateLimited {
 		t.Fatalf("rate refusal looked like a queued message: %+v %v", msg, err)
 	}
 	if _, err := store.message(msg.ID); !os.IsNotExist(err) {

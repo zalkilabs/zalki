@@ -18,7 +18,7 @@ func approvalService(t *testing.T, store Store, delivered *[]string) Service {
 	t.Helper()
 	return Service{Store: store, Deliver: func(_ context.Context, msg Message, _ Session) Receipt {
 		*delivered = append(*delivered, msg.Body)
-		return NewReceipt(model.StatusSubmitted)
+		return model.NewReceipt(model.StatusSubmitted)
 	}}
 }
 
@@ -93,7 +93,7 @@ func TestFreshRegistrationSettlesHeldMessages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := store.register(target.Kind, NativeID(target), target.CWD, nil, false); err != nil {
+	if _, _, err := store.register(target.Kind, model.NativeID(target), target.CWD, nil, false); err != nil {
 		t.Fatal(err)
 	}
 	saved, err := store.message(msg.ID)
@@ -121,7 +121,7 @@ func TestCompactRegistrationKeepsHeldMessages(t *testing.T) {
 	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "kept"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := store.register(target.Kind, NativeID(target), target.CWD, nil, true); err != nil {
+	if _, _, err := store.register(target.Kind, model.NativeID(target), target.CWD, nil, true); err != nil {
 		t.Fatal(err)
 	}
 	current, err := store.session(target.ID)
@@ -191,7 +191,7 @@ func TestApprovalQueueCapsAndDropsOnRetirement(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "overflow"}); ErrorCodeOf(err) != model.CodeUnavailable {
+	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "overflow"}); model.ErrorCodeOf(err) != model.CodeUnavailable {
 		t.Fatal("cap accepted another message", err)
 	}
 	input, _ := json.Marshal(map[string]any{
@@ -303,7 +303,7 @@ func TestApprovalQueueDeliversOnceUnderConcurrentHooks(t *testing.T) {
 	var n atomic.Int32
 	service.Deliver = func(context.Context, Message, Session) Receipt {
 		n.Add(1)
-		return NewReceipt(model.StatusSubmitted)
+		return model.NewReceipt(model.StatusSubmitted)
 	}
 	if _, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "once"}); err != nil {
 		t.Fatal(err)

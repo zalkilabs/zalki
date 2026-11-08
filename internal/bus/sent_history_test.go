@@ -21,7 +21,7 @@ func TestSentHistoryFiltersPaginatesAndKeepsReceipts(t *testing.T) {
 			incoming = msg.ID
 		} else {
 			if i == 3 || i == 5 || i == 7 {
-				msg.Status = map[int]DeliveryStatus{3: model.StatusPendingActivity, 5: model.StatusApprovalBlocked, 7: model.StatusNotSent}[i]
+				msg.Status = map[int]model.DeliveryStatus{3: model.StatusPendingActivity, 5: model.StatusApprovalBlocked, 7: model.StatusNotSent}[i]
 				msg.AcknowledgedAt = ""
 			}
 			want[msg.ID] = msg
@@ -59,19 +59,19 @@ func TestSentHistoryFiltersPaginatesAndKeepsReceipts(t *testing.T) {
 		t.Fatal("sent bodies were not opt-in", err)
 	}
 	query.MessageID = incoming
-	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeNotFound {
+	if _, err := store.ReadMessages(query); model.ErrorCodeOf(err) != model.CodeNotFound {
 		t.Fatal("sent-only exact lookup returned an incoming message", err)
 	}
 	for id := range want {
 		query.Actor, query.Capability, query.MessageID = other.ID, otherKey, id
-		if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeUnauthorized {
+		if _, err := store.ReadMessages(query); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 			t.Fatal("another session could read sent receipts", err)
 		}
 		break
 	}
 	query = MessageQuery{Actor: actor.ID, Capability: key, Sent: true}
 	query.Capability = "invalid"
-	if _, err := store.ReadMessages(query); ErrorCodeOf(err) != model.CodeUnauthorized {
+	if _, err := store.ReadMessages(query); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("sent listing bypassed authentication", err)
 	}
 }

@@ -14,7 +14,7 @@ import (
 
 func (s Store) message(id string) (Message, error) {
 	var msg Message
-	id, err := UUID(id)
+	id, err := model.UUID(id)
 	if err == nil {
 		err = readRecord(filepath.Join(s.Dir, "messages", id+".json"), &msg, &msg.Schema)
 	}
@@ -50,7 +50,7 @@ func (s Store) saveMessageRecord(v Message, previous json.RawMessage) error {
 	if v.Schema < 0 || v.Schema > recordSchema {
 		return model.NewError(model.CodeUnsupportedSchema, "unsupported message schema %d", v.Schema)
 	}
-	if _, err := UUID(v.ID); err != nil {
+	if _, err := model.UUID(v.ID); err != nil {
 		return err
 	}
 	v.Schema = recordSchema
@@ -69,7 +69,7 @@ func (s Store) ReserveMessage(request SendRequest) (message Message, target Sess
 // prepareMessage is called with the journal lock held. Reply transactions stage
 // the reservation without writing it until the durable intent is committed.
 func (s Store) prepareMessage(request SendRequest, persist bool) (message Message, target Session, fresh bool, err error) {
-	id, err := UUID(request.MessageID)
+	id, err := model.UUID(request.MessageID)
 	if err != nil {
 		return message, target, false, err
 	}
@@ -137,7 +137,7 @@ func (s Store) reserveNewMessage(sender Session, request SendRequest, persist bo
 		}
 	}
 	if err := s.consumeFloodQuota(message, time.Now()); err != nil {
-		if moveErr := message.SettleNotSent(ErrorCodeOf(err), err.Error()); moveErr != nil {
+		if moveErr := message.SettleNotSent(model.ErrorCodeOf(err), err.Error()); moveErr != nil {
 			return message, target, false, moveErr
 		}
 		return message, target, false, err

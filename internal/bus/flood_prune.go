@@ -75,7 +75,7 @@ func floodRecordTarget(base string) (string, bool) {
 		return "", false
 	}
 	kind, native, ok := strings.Cut(strings.TrimSuffix(base, ".json"), "_")
-	canonical, err := UUID(native)
+	canonical, err := model.UUID(native)
 	if !ok || !model.ValidKind(kind) || err != nil || canonical != native {
 		return "", false
 	}

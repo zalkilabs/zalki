@@ -52,7 +52,7 @@ func (r *pruneRun) deleteStaleWatches() error {
 // Only the canonical form written by watchPath is accepted.
 func watchNameID(name string) (string, bool) {
 	kind, native, ok := strings.Cut(name, "_")
-	canonical, err := UUID(native)
+	canonical, err := model.UUID(native)
 	if !ok || !model.ValidKind(kind) || err != nil || canonical != native {
 		return "", false
 	}
@@ -113,7 +113,7 @@ func (r *pruneRun) pruneTargetWatches(root, dirName, target string) error {
 func watchIsStale(path, target string, now time.Time) bool {
 	var watch Watch
 	if err := readRecord(path, &watch, &watch.Schema); err != nil {
-		return ErrorCodeOf(err) != model.CodeUnsupportedSchema
+		return model.ErrorCodeOf(err) != model.CodeUnsupportedSchema
 	}
 	expires, err := time.Parse(time.RFC3339Nano, watch.ExpiresAt)
 	return err != nil || !expires.After(now) || watch.Target != target

@@ -306,7 +306,7 @@ func (s Store) pendingForHook(actor string, current Session) ([]Message, error) 
 // later message is not skipped ahead.
 func (s Store) emitPendingContext(pending []Message, out *strings.Builder) error {
 	for i, msg := range pending {
-		body := Envelope(s.withLabel(msg)) + "\n\n"
+		body := model.Envelope(s.withLabel(msg)) + "\n\n"
 		if i >= hookContextMessages || out.Len()+len(body) > hookContextBytes {
 			break
 		}

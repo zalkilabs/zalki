@@ -47,20 +47,20 @@ func TestCodexPromptFiltersOnlyCompletedExactEnvelopes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkCodexPrompt(t, &service, to.ID, bus.Envelope(msg), false)
+	checkCodexPrompt(t, &service, to.ID, model.Envelope(msg), false)
 	if _, err := store.Ack(to.ID, toKey, msg.ID); err != nil {
 		t.Fatal(err)
 	}
-	checkCodexPrompt(t, &service, to.ID, bus.Envelope(msg), true)
-	checkCodexPrompt(t, &service, to.ID, "Please explain this message:\n"+bus.Envelope(msg), false)
-	checkCodexPrompt(t, &service, to.ID, bus.Envelope(msg)+"\nPlease do the work again.", false)
-	checkCodexPrompt(t, &service, to.ID, strings.Replace(bus.Envelope(msg), "\nhello\n", "\nchanged\n", 1), false)
-	checkCodexPrompt(t, &service, to.ID, strings.Replace(bus.Envelope(msg), `"unnamed"`, `"Different label"`, 1), false)
-	checkCodexPrompt(t, &service, other.ID, bus.Envelope(msg), false)
+	checkCodexPrompt(t, &service, to.ID, model.Envelope(msg), true)
+	checkCodexPrompt(t, &service, to.ID, "Please explain this message:\n"+model.Envelope(msg), false)
+	checkCodexPrompt(t, &service, to.ID, model.Envelope(msg)+"\nPlease do the work again.", false)
+	checkCodexPrompt(t, &service, to.ID, strings.Replace(model.Envelope(msg), "\nhello\n", "\nchanged\n", 1), false)
+	checkCodexPrompt(t, &service, to.ID, strings.Replace(model.Envelope(msg), `"unnamed"`, `"Different label"`, 1), false)
+	checkCodexPrompt(t, &service, other.ID, model.Envelope(msg), false)
 	checkCodexPrompt(t, &service, to.ID, "[zalki peer message invalid]\nordinary text", false)
 	unknown := msg
 	unknown.ID = newTestID()
-	checkCodexPrompt(t, &service, to.ID, bus.Envelope(unknown), false)
+	checkCodexPrompt(t, &service, to.ID, model.Envelope(unknown), false)
 }
 
 func TestCodexPromptDoesNotReplayPreviousRegistration(t *testing.T) {
@@ -79,7 +79,7 @@ func TestCodexPromptDoesNotReplayPreviousRegistration(t *testing.T) {
 	}
 
 	for range 7 {
-		input, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(to.ID, "codex:"), Event: "UserPromptSubmit", Prompt: bus.Envelope(msg)})
+		input, _ := json.Marshal(agent.HookInput{SessionID: strings.TrimPrefix(to.ID, "codex:"), Event: "UserPromptSubmit", Prompt: model.Envelope(msg)})
 		var out bytes.Buffer
 		if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), &out); err != nil {
 			t.Fatal(err)
@@ -144,7 +144,7 @@ func TestCodexCompactionPreservesQueuedMessageRegistration(t *testing.T) {
 		if _, err := store.Messages(to.ID, previousKey); err == nil {
 			t.Fatal("previous compaction capability remained valid")
 		}
-		checkCodexPrompt(t, &service, to.ID, bus.Envelope(msg), false)
+		checkCodexPrompt(t, &service, to.ID, model.Envelope(msg), false)
 		stored := adapterTestMessage(t, store, msg.ID)
 		if stored.TargetGeneration != to.Generation || stored.Status != model.StatusSubmitted || stored.AcknowledgedAt != "" {
 			t.Fatal("compaction changed the pending native delivery")

@@ -43,14 +43,14 @@ func floodErrorCases(now time.Time, sender, id string) []struct {
 	name string
 	edit func(*floodRecord)
 	at   time.Time
-	code ErrorCode
+	code model.ErrorCode
 	want string
 } {
 	return []struct {
 		name string
 		edit func(*floodRecord)
 		at   time.Time
-		code ErrorCode
+		code model.ErrorCode
 		want string
 	}{
 		{"pair short fractional", func(s *floodRecord) { s.Senders[sender] = model.FloodBucket{Tokens: 0.5, At: now} }, now, model.CodeRateLimited, "rate limited: pair short bucket (12 burst, 12/minute refill) to %s; retry in 3s (at 2026-11-01T10:00:02.623456789Z); wait or reply less often"},
@@ -90,7 +90,7 @@ func TestFloodAdmissionHostErrorsKeepExactTextAndRetryTimes(t *testing.T) {
 			if test.code == model.CodeRateLimited {
 				want = fmt.Sprintf(want, msg.To)
 			}
-			if err == nil || ErrorCodeOf(err) != test.code || err.Error() != want {
+			if err == nil || model.ErrorCodeOf(err) != test.code || err.Error() != want {
 				t.Fatalf("error=%v, want%s", err, want)
 			}
 			if !bytes.Equal(before, floodBytes(t, store, msg.To)) {

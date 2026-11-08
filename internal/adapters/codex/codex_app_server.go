@@ -134,7 +134,7 @@ func (s codexSocket) unchanged() error {
 }
 
 func deliverCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.Receipt {
-	id, err := bus.UUID(bus.NativeID(target))
+	id, err := model.UUID(model.NativeID(target))
 	if err != nil {
 		return failedReceipt(model.StatusNotSent, err)
 	}
@@ -143,7 +143,7 @@ func deliverCodex(ctx context.Context, msg bus.Message, target bus.Session) bus.
 		return receipt
 	}
 	if ctx.Err() != nil {
-		receipt := bus.NewReceipt(model.StatusNotSent)
+		receipt := model.NewReceipt(model.StatusNotSent)
 		receipt.Error = errCodexUnavailable.Error()
 		return receipt.WithCause(ctx.Err())
 	}
@@ -158,13 +158,13 @@ func deliverCodexAppServer(ctx context.Context, msg bus.Message, target bus.Sess
 	}
 	attempt, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
-	joined, err := submitCodexToolOutput(attempt, endpoint, root, threadID, bus.Envelope(msg))
+	joined, err := submitCodexToolOutput(attempt, endpoint, root, threadID, model.Envelope(msg))
 	if err == nil {
 		output := "started_idle_turn"
 		if joined {
 			output = "joined_active_turn"
 		}
-		receipt := bus.NewReceipt(model.StatusSubmitted)
+		receipt := model.NewReceipt(model.StatusSubmitted)
 		receipt.Output = output
 		return receipt, false
 	}

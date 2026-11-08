@@ -41,7 +41,7 @@ func TestWatchCompletionIsDecidedFromCanonicalEventsForEveryAdapter(t *testing.T
 			var bodies []string
 			service := bus.Service{Store: store, Deliver: func(_ context.Context, msg bus.Message, _ bus.Session) bus.Receipt {
 				bodies = append(bodies, msg.Body)
-				return bus.NewReceipt(model.StatusSubmitted)
+				return model.NewReceipt(model.StatusSubmitted)
 			}}
 			if result, err := service.Watch(watcher.ID, key, target.ID); err != nil || result.Status != "watching" {
 				t.Fatal(result, err)

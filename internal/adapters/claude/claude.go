@@ -63,7 +63,7 @@ func (a Adapter) LookupName(v bus.Session, indexes map[string]map[string]string)
 	if _, ok := indexes[index]; !ok {
 		indexes[index] = claudeNames(root)
 	}
-	return indexes[index][bus.NativeID(v)], "claude_session_metadata"
+	return indexes[index][model.NativeID(v)], "claude_session_metadata"
 }
 
 func (Adapter) RegisterHook(event agent.HookInput) (agent.HookRegistration, error) {
@@ -94,14 +94,14 @@ func writeClaude(ctx context.Context, msg bus.Message, target bus.Session) bus.R
 	}
 	// This undocumented wire format may change between client versions.
 	frame := map[string]any{"msgV": 1, "msg_id": msg.ID, "type": "user",
-		"message": map[string]string{"role": "user", "content": bus.Envelope(msg)}, "priority": "next"}
+		"message": map[string]string{"role": "user", "content": model.Envelope(msg)}, "priority": "next"}
 	encoded, err := json.Marshal(frame)
 	if err != nil {
 		return failedReceipt(model.StatusNotSent, err)
 	}
 	encoded = append(encoded, '\n')
 	if len(encoded) > 65536 {
-		receipt := bus.NewReceipt(model.StatusNotSent)
+		receipt := model.NewReceipt(model.StatusNotSent)
 		receipt.Error = "Claude frame too large"
 		return receipt
 	}
@@ -141,7 +141,7 @@ func writeClaudeFrame(ctx context.Context, conn net.Conn, encoded []byte) bus.Re
 	}
 	// Claude 2.1.316 sends no inline ACK, even for silently ignored frames.
 	// EOF is not acceptance; see docs/design/claude-delivery-ack.md.
-	return bus.NewReceipt(model.StatusTransportWritten)
+	return model.NewReceipt(model.StatusTransportWritten)
 }
 
 func claudeNames(root string) map[string]string {
@@ -209,8 +209,8 @@ func configDir(variable, fallback string) string {
 	return fallback
 }
 
-func failedReceipt(status bus.DeliveryStatus, err error) bus.Receipt {
-	receipt := bus.NewReceipt(status)
+func failedReceipt(status model.DeliveryStatus, err error) bus.Receipt {
+	receipt := model.NewReceipt(status)
 	receipt.Error = err.Error()
 	return receipt.WithCause(err)
 }

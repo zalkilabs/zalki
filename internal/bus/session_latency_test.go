@@ -106,7 +106,7 @@ func (s *sessionLatencySubject) reset(mode string) error {
 	case "ready", "adapter-ready", "hook-stop":
 		return s.store.Update(s.session.ID, model.StateBusy, false)
 	case "retire", "hook-end":
-		next, key, err := s.store.Register(s.session.Kind, NativeID(s.session), s.session.CWD, nil)
+		next, key, err := s.store.Register(s.session.Kind, model.NativeID(s.session), s.session.CWD, nil)
 		if err == nil {
 			s.session, s.key = next, key
 		}
@@ -124,7 +124,7 @@ func (s *sessionLatencySubject) run(t *testing.T, mode string) error {
 	t.Helper()
 	switch mode {
 	case "register-new", "register-replace":
-		native := NativeID(s.session)
+		native := model.NativeID(s.session)
 		if mode == "register-new" {
 			native = newID()
 		}
@@ -142,7 +142,7 @@ func (s *sessionLatencySubject) run(t *testing.T, mode string) error {
 }
 
 func (s *sessionLatencySubject) runState(mode string) error {
-	state := map[string]SessionState{"busy": model.StateBusy, "same-state": model.StateBusy, "ready": model.StateReady, "approval": model.StateApproval, "retire": model.StateRetired}[mode]
+	state := map[string]model.SessionState{"busy": model.StateBusy, "same-state": model.StateBusy, "ready": model.StateReady, "approval": model.StateApproval, "retire": model.StateRetired}[mode]
 	return s.store.Update(s.session.ID, state, mode == "retire")
 }
 
@@ -181,7 +181,7 @@ func (s *sessionLatencySubject) runAdapter(mode string) error {
 func (s *sessionLatencySubject) runHook(t *testing.T, mode string) error {
 	t.Helper()
 	event := map[string]string{"hook-start": "SessionStart", "hook-permission": "PermissionRequest", "hook-stop": "Stop", "hook-end": "SessionEnd"}[mode]
-	input, err := json.Marshal(map[string]any{"hook_event_name": event, "session_id": NativeID(s.session), "cwd": s.session.CWD, "session_title": "latency-title", "status": "completed"})
+	input, err := json.Marshal(map[string]any{"hook_event_name": event, "session_id": model.NativeID(s.session), "cwd": s.session.CWD, "session_title": "latency-title", "status": "completed"})
 	if err != nil {
 		return err
 	}
