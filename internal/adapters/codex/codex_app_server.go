@@ -134,7 +134,7 @@ func (s codexSocket) unchanged() error {
 }
 
 func deliverCodex(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
-	id, err := model.UUID(model.NativeID(target))
+	id, err := model.UUID(target.NativeID)
 	if err != nil {
 		return failedReceipt(model.StatusNotSent, err)
 	}

@@ -128,7 +128,7 @@ func TestCursorRecoveryClaimPreservesRegistrationAndPendingMessages(t *testing.T
 		t.Fatal("missing receiver-owned recovery claim", err)
 	}
 	current, err := store.authenticate(to.ID, claim.Capability)
-	if err != nil || current.Generation != to.Generation || model.NativeID(current) != model.NativeID(to) || !cursorState(current).RecoveryAttempted || current.Receive.IdleWake {
+	if err != nil || current.Generation != to.Generation || current.NativeID != to.NativeID || !cursorState(current).RecoveryAttempted || current.Receive.IdleWake {
 		t.Fatal("recovery changed registration or lost the atomic claim", err)
 	}
 	if _, err := store.authenticate(to.ID, oldKey); err == nil {

@@ -20,15 +20,6 @@ func UUID(s string) (string, error) {
 	return s, nil
 }
 
-// NativeID returns a client's explicit session ID, or removes a matching legacy
-// kind prefix. It does not validate or alter the session value.
-func NativeID(v Session) string {
-	if v.NativeID != "" {
-		return v.NativeID
-	}
-	return strings.TrimPrefix(v.ID, v.Kind+":")
-}
-
 // ValidKind reports whether kind is a lower-case agent identifier. It performs
 // syntax validation only, without requiring an adapter registration.
 func ValidKind(kind string) bool { return kindPattern.MatchString(kind) }

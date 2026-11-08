@@ -46,7 +46,7 @@ func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := Service{Store: store, Deliver: func(_ context.Context, _ model.Message, target model.Session) model.Receipt {
-		if model.NativeID(target) != native || target.ID != first.ID || target.KeyHash != "" {
+		if target.NativeID != native || target.ID != first.ID || target.KeyHash != "" {
 			t.Error("adapter did not receive the original native identity with credentials removed")
 		}
 		return model.Receipt{Status: model.StatusSubmitted}
@@ -114,61 +114,6 @@ func TestOpaqueAdapterStateSurvivesCompaction(t *testing.T) {
 	replacement, _, err := store.register(v.Kind, v.NativeID, v.CWD, nil, true)
 	if err != nil || replacement.Generation == next.Generation || replacement.Retired {
 		t.Fatal("compaction reused a retired generation", err)
-	}
-}
-
-func TestLegacyRecordsMigrateOnWrite(t *testing.T) {
-	store := fixtureStore(t)
-	v, key := register(t, store, "cursor")
-	path, _ := store.sessionPath(v.ID)
-	var legacy map[string]any
-	if err := readJSON(path, &legacy); err != nil {
-		t.Fatal(err)
-	}
-	delete(legacy, "schema")
-	delete(legacy, "native_id")
-	delete(legacy, "adapter_state")
-	legacy["cursor_wake"] = model.Endpoint{Path: "/fixture/wake"}
-	legacy["cursor_recovery_attempted"], legacy["cursor_recovery_suppressed"] = true, true
-	if err := writeJSON(path, legacy); err != nil {
-		t.Fatal(err)
-	}
-	before, _ := os.ReadFile(path)
-	loaded, err := store.session(v.ID)
-	state := cursorState(loaded)
-	// A pre-lease wake endpoint is dropped, never adopted as a lease.
-	if err != nil || model.NativeID(loaded) != model.NativeID(v) || !state.RecoveryAttempted || !state.RecoverySuppressed || loaded.Listener != nil || loaded.Receive.IdleWake {
-		t.Fatal("legacy Cursor recovery state lost or legacy wake adopted", err)
-	}
-	if _, err := store.List(); err != nil {
-		t.Fatal(err)
-	}
-	after, _ := os.ReadFile(path)
-	if !bytes.Equal(before, after) {
-		t.Fatal("discovery rewrote a legacy record")
-	}
-	if err := store.Update(v.ID, model.StateBusy, false); err != nil {
-		t.Fatal(err)
-	}
-	var upgraded map[string]any
-	if err := readJSON(path, &upgraded); err != nil {
-		t.Fatal(err)
-	}
-	if upgraded["schema"] != float64(recordSchema) || upgraded["native_id"] != model.NativeID(v) || upgraded["adapter_state"] == nil || upgraded["cursor_wake"] != nil || upgraded["cursor_recovery_attempted"] != nil || upgraded["listener"] != nil {
-		t.Fatal("adapter state was not migrated", upgraded)
-	}
-	from, _ := register(t, store, "codex")
-	msg := model.Message{ID: newID(), From: from.ID, To: v.ID, Body: "ping", Status: model.StatusSubmitted}
-	messagePath := filepath.Join(store.Dir, "messages", msg.ID+".json")
-	if err := writeJSON(messagePath, msg); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.Ack(v.ID, key, msg.ID); err != nil {
-		t.Fatal(err)
-	}
-	var migrated model.Message
-	if err := readJSON(messagePath, &migrated); err != nil || migrated.Schema != recordSchema || migrated.AcknowledgedAt == "" {
-		t.Fatal("message migration lost ACK", err)
 	}
 }
 

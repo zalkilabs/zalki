@@ -28,9 +28,6 @@ func prepareSessionRecord(s Store, v model.Session) (sessionRecord, error) {
 	if v.Listener != nil {
 		v.Schema = leaseSessionSchema
 	}
-	if v.NativeID == "" {
-		v.NativeID = model.NativeID(v)
-	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return sessionRecord{}, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")
 	}

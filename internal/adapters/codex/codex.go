@@ -81,7 +81,7 @@ func (a Adapter) LookupName(v model.Session, indexes map[string]map[string]strin
 	if _, ok := indexes[index]; !ok {
 		indexes[index] = codexNames(root)
 	}
-	return indexes[index][model.NativeID(v)], "codex_session_index"
+	return indexes[index][v.NativeID], "codex_session_index"
 }
 
 func (Adapter) RegisterHook(event agent.HookInput) (agent.HookRegistration, error) {
@@ -118,7 +118,7 @@ func (Adapter) Health(_ agent.HealthHost, v model.Session) (string, string) {
 func queueCodex(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	id := model.NativeID(target)
+	id := target.NativeID
 	if _, err := model.UUID(id); err != nil {
 		return failedReceipt(model.StatusNotSent, err)
 	}

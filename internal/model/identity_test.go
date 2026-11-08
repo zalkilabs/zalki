@@ -37,30 +37,6 @@ func TestUUID(t *testing.T) {
 	}
 }
 
-func TestNativeID(t *testing.T) {
-	for _, test := range []struct {
-		name  string
-		value Session
-		want  string
-	}{
-		{"explicit", Session{NativeID: "explicit", ID: "alpha:legacy", Kind: "alpha"}, "explicit"},
-		{"explicit without identity", Session{NativeID: "native"}, "native"},
-		{"legacy", Session{ID: "alpha:native", Kind: "alpha"}, "native"},
-		{"prefix once", Session{ID: "alpha:alpha:native", Kind: "alpha"}, "alpha:native"},
-		{"wrong kind", Session{ID: "beta:native", Kind: "alpha"}, "beta:native"},
-		{"case sensitive", Session{ID: "Alpha:native", Kind: "alpha"}, "Alpha:native"},
-		{"no prefix", Session{ID: "native", Kind: "alpha"}, "native"},
-		{"empty kind prefix", Session{ID: ":native"}, "native"},
-		{"zero", Session{}, ""},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if got := NativeID(test.value); got != test.want {
-				t.Fatalf("NativeID(%+v)=%q, want %q", test.value, got, test.want)
-			}
-		})
-	}
-}
-
 func TestValidKind(t *testing.T) {
 	for _, test := range []struct {
 		kind string

@@ -77,7 +77,7 @@ func (a Adapter) LookupName(v model.Session, _ map[string]map[string]string) (st
 			roots = append(roots, filepath.Join(home, ".cursor"), filepath.Join(home, ".config", "cursor"))
 		}
 	}
-	return cursorNameInRoots(roots, model.NativeID(v)), "cursor_session_metadata"
+	return cursorNameInRoots(roots, v.NativeID), "cursor_session_metadata"
 }
 
 func (Adapter) NormalizeHook(event agent.HookInput) (agent.HookInput, error) {
