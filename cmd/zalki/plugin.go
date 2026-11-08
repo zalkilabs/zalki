@@ -12,6 +12,9 @@ import (
 
 func newPluginCommand(opts *commandOptions) *cobra.Command {
 	group := &cobra.Command{Use: "plugins", Short: "Run the explicitly enabled local reference plugin"}
+	for _, name := range []string{"configure", "enable", "disable", "status"} {
+		group.AddCommand(newPluginOwnerCommand(opts, name))
+	}
 	group.AddCommand(&cobra.Command{
 		Use: "run fake-notifier", Short: "Run one foreground local notifier host", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

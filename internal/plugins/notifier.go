@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -167,7 +168,7 @@ func writeOutbox(path string, event model.Event) error {
 		return err
 	}
 	if count == 256 {
-		return errors.New("notifier outbox is full (256 events / 1MiB)")
+		return fmt.Errorf("notifier outbox is full (256 events / 1MiB): %s; move or remove reviewed event files, then rerun zalki plugins run fake-notifier", path)
 	}
 	return fsutil.WriteAtomic(target, raw)
 }

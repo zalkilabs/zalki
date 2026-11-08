@@ -150,8 +150,8 @@ func TestNotifierOutboxCapsAndRecovery(t *testing.T) {
 		}
 	}
 	event := testEvent(257)
-	if err := notify(path, frame{ID: event.ID, Event: &event}); err == nil {
-		t.Fatal("outbox accepted a 257th event")
+	if err := notify(path, frame{ID: event.ID, Event: &event}); err == nil || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "rerun zalki plugins run fake-notifier") {
+		t.Fatal("full outbox omitted its path or recovery command", err)
 	}
 	event = testEvent(1)
 	if err := notify(path, frame{ID: event.ID, Event: &event}); err != nil {
