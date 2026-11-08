@@ -77,7 +77,7 @@ type upgradePreview struct {
 }
 
 type upgradeFlags struct {
-	dryRun, configOnly, finish, deprecatedApply bool
+	dryRun, configOnly, finish bool
 }
 
 func newUpgradeCommand(opts *commandOptions) *cobra.Command {
@@ -96,16 +96,11 @@ func newUpgradeCommand(opts *commandOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "preview configuration changes without upgrading the binary or editing settings")
 	cmd.Flags().BoolVar(&f.configOnly, "config-only", false, "refresh configuration for the installed binary without upgrading it")
 	cmd.Flags().BoolVar(&f.finish, "finish-upgrade", false, "internal: refresh configuration after the binary upgrade")
-	cmd.Flags().BoolVar(&f.deprecatedApply, "apply", false, "deprecated; upgrade applies by default")
 	_ = cmd.Flags().MarkHidden("finish-upgrade")
-	_ = cmd.Flags().MarkHidden("apply")
 	return cmd
 }
 
 func runUpgrade(cmd *cobra.Command, opts *commandOptions, f upgradeFlags) error {
-	if f.dryRun && f.deprecatedApply {
-		return errors.New("--dry-run and --apply cannot be combined")
-	}
 	configOnly := f.configOnly || f.finish
 	where, err := locateInstallation()
 	if err != nil {

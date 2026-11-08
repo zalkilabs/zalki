@@ -86,23 +86,18 @@ func (f upgradeFixture) logged(t *testing.T, path string) string {
 func TestUpgradeUpgradesBinaryThenHandsOffToNewBuild(t *testing.T) {
 	f := newUpgradeFixture(t, "echo noisy brew progress\n", "echo 'Upgrade successful'\n")
 	before := f.manifestBytes(t)
-	for _, args := range [][]string{{"upgrade", "--state", f.state}, {"upgrade", "--apply", "--state", f.state}} {
-		for _, log := range []string{f.brewLog, f.childLog} {
-			_ = os.Remove(log)
-		}
-		out, diagnostic, err := execute(t, f.home, "", args...)
-		if err != nil || out != "Upgrade successful\n" || diagnostic != "" {
-			t.Fatalf("normal output must be exactly the success line: out=%q stderr=%q err=%v", out, diagnostic, err)
-		}
-		if got := f.logged(t, f.brewLog); got != "upgrade --cask zalkilabs/tap/zalki" {
-			t.Fatal("brew invocation", got)
-		}
-		if got := f.logged(t, f.childLog); got != "upgrade --finish-upgrade --state="+f.state {
-			t.Fatal("new binary handoff", got)
-		}
-		if f.manifestBytes(t) != before {
-			t.Fatal("old build edited configuration instead of the new binary")
-		}
+	out, diagnostic, err := execute(t, f.home, "", "upgrade", "--state", f.state)
+	if err != nil || out != "Upgrade successful\n" || diagnostic != "" {
+		t.Fatalf("normal output must be exactly the success line: out=%q stderr=%q err=%v", out, diagnostic, err)
+	}
+	if got := f.logged(t, f.brewLog); got != "upgrade --cask zalkilabs/tap/zalki" {
+		t.Fatal("brew invocation", got)
+	}
+	if got := f.logged(t, f.childLog); got != "upgrade --finish-upgrade --state="+f.state {
+		t.Fatal("new binary handoff", got)
+	}
+	if f.manifestBytes(t) != before {
+		t.Fatal("old build edited configuration instead of the new binary")
 	}
 }
 
@@ -175,9 +170,6 @@ func TestUpgradeDryRunNeverUpgradesOrEdits(t *testing.T) {
 	}
 	if f.logged(t, f.brewLog) != "" || f.logged(t, f.childLog) != "" || f.manifestBytes(t) != before {
 		t.Fatal("dry-run upgraded or edited configuration")
-	}
-	if _, _, err := execute(t, f.home, "", "upgrade", "--dry-run", "--apply", "--state", f.state); err == nil {
-		t.Fatal("accepted contradictory --dry-run --apply")
 	}
 }
 

@@ -38,18 +38,9 @@ func newRootCommand(home string) *cobra.Command {
 	}
 	root.SetVersionTemplate("{{.Version}}\n")
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-		if cmd.Flags().Changed("experimental-claude") {
-			enabled, _ := cmd.Flags().GetBool("experimental-claude")
-			if !enabled {
-				return fmt.Errorf("Claude is enabled by default; remove the obsolete --experimental-claude flag")
-			}
-		}
 		return opts.initLogger(cmd)
 	}
 	root.PersistentFlags().StringVar(&opts.state, "state", filepath.Join(home, ".local", "state", "zalki"), "shared private registry directory")
-	// Keep installed preview hooks working until upgrade rewrites their arguments.
-	root.PersistentFlags().Bool("experimental-claude", false, "deprecated; Claude is enabled by default")
-	_ = root.PersistentFlags().MarkHidden("experimental-claude")
 	level := os.Getenv("ZALKI_LOG_LEVEL")
 	if level == "" {
 		level = "info"

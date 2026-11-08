@@ -71,7 +71,6 @@ func TestGlobalFlagPositionsAndJSONOutput(t *testing.T) {
 func TestRejectedArgumentsNeverWriteProtocolOutputOrState(t *testing.T) {
 	for _, args := range [][]string{
 		{"unknown-command"}, {"--unknown-flag"}, {"list", "--unknown-flag"},
-		{"doctor", "--experimental-claude=false"},
 		{"hook"}, {"hook", "--agent", "unknown"},
 		{"setup", "--apply"},
 		{"prune", "--dry-run=maybe"},
@@ -172,12 +171,12 @@ func TestGeneratedSetupRetainsInstalledCommandSyntax(t *testing.T) {
 	}
 }
 
-func TestPreviewFlagIsAcceptedWithoutPropagatingIt(t *testing.T) {
+func TestSetupAndHelpOmitExperimentalClaudeFlag(t *testing.T) {
 	home := t.TempDir()
 	outDir := filepath.Join(home, "drafts")
-	_, _, err := execute(t, home, "", "--experimental-claude", "setup", "--out", outDir)
+	_, _, err := execute(t, home, "", "setup", "--out", outDir)
 	if err != nil {
-		t.Fatal("installed preview invocation stopped working", err)
+		t.Fatal("setup failed", err)
 	}
 	entries, err := os.ReadDir(outDir)
 	if err != nil {
@@ -192,6 +191,32 @@ func TestPreviewFlagIsAcceptedWithoutPropagatingIt(t *testing.T) {
 	help, _, err := execute(t, home, "", "--help")
 	if err != nil || strings.Contains(help, "--experimental-claude") {
 		t.Fatal("obsolete flag remains in help", err)
+	}
+}
+
+func TestDeprecatedFlagsAreUnknownAndDoNotTouchState(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		flag string
+	}{
+		{[]string{"upgrade", "--apply"}, "apply"},
+		{[]string{"upgrade", "--apply=false"}, "apply"},
+		{[]string{"upgrade", "--dry-run", "--apply"}, "apply"},
+		{[]string{"--experimental-claude", "doctor"}, "experimental-claude"},
+		{[]string{"doctor", "--experimental-claude"}, "experimental-claude"},
+		{[]string{"doctor", "--experimental-claude=false"}, "experimental-claude"},
+	} {
+		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
+			home := t.TempDir()
+			out, diagnostic, err := execute(t, home, "", test.args...)
+			if err == nil || err.Error() != "unknown flag: --"+test.flag || out != "" || diagnostic != "" {
+				t.Fatalf("removed flag was not rejected silently: error=%v stdout=%q stderr=%q", err, out, diagnostic)
+			}
+			entries, err := os.ReadDir(home)
+			if err != nil || len(entries) != 0 {
+				t.Fatal("removed flag touched state", err)
+			}
+		})
 	}
 }
 
