@@ -23,26 +23,33 @@ func NewRegistry(adapters ...Adapter) (*Registry, error) {
 		if _, exists := r.adapters[d.Kind]; exists {
 			return nil, fmt.Errorf("duplicate agent adapter %q", d.Kind)
 		}
-		capabilities := adapter.ReceiveCapabilities(model.Session{})
-		if err := capabilities.Validate(); err != nil {
-			return nil, fmt.Errorf("%s capabilities: %w", d.Kind, err)
-		}
-		if capabilities.LifecycleHooks != (len(d.Hooks) > 0) {
-			return nil, fmt.Errorf("%s hook capabilities do not match its descriptor", d.Kind)
-		}
-		for native, common := range d.Hooks {
-			if !model.ValidName(native) || StandardEvents(true)[common] == "" {
-				return nil, fmt.Errorf("%s declares an unsupported lifecycle event", d.Kind)
-			}
-		}
-		if len(d.Hooks) > 0 {
-			if _, ok := adapter.(HookAdapter); !ok {
-				return nil, fmt.Errorf("%s has no lifecycle adapter", d.Kind)
-			}
+		if err := validateAdapterCapabilities(adapter, d); err != nil {
+			return nil, err
 		}
 		r.adapters[d.Kind] = adapter
 	}
 	return r, nil
+}
+
+func validateAdapterCapabilities(adapter Adapter, d AdapterDescriptor) error {
+	capabilities := adapter.ReceiveCapabilities(model.Session{})
+	if err := capabilities.Validate(); err != nil {
+		return fmt.Errorf("%s capabilities: %w", d.Kind, err)
+	}
+	if capabilities.LifecycleHooks != (len(d.Hooks) > 0) {
+		return fmt.Errorf("%s hook capabilities do not match its descriptor", d.Kind)
+	}
+	for native, common := range d.Hooks {
+		if !model.ValidName(native) || StandardEvents(true)[common] == "" {
+			return fmt.Errorf("%s declares an unsupported lifecycle event", d.Kind)
+		}
+	}
+	if len(d.Hooks) > 0 {
+		if _, ok := adapter.(HookAdapter); !ok {
+			return fmt.Errorf("%s has no lifecycle adapter", d.Kind)
+		}
+	}
+	return nil
 }
 
 var errNoRegistry = model.NewError(model.CodeInternal, "agent registry is not configured")
