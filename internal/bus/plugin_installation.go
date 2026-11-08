@@ -68,11 +68,11 @@ func (s PluginFeed) AddExternalPlugin(executable string, args []string) error {
 	if s.name == "fake-notifier" {
 		return model.NewError(model.CodeInvalidInput, "fake-notifier is reserved for the built-in plugin")
 	}
-	launch := &PluginLaunch{Executable: executable, Args: args}
-	if err := launch.pin(); err != nil {
+	launch, err := NewPluginLaunch(executable, args)
+	if err != nil {
 		return err
 	}
-	return s.addPlugin(launch)
+	return s.addPlugin(&launch)
 }
 
 func (s PluginFeed) addPlugin(launch *PluginLaunch) error {

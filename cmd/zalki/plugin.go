@@ -15,6 +15,7 @@ func newPluginCommand(opts *commandOptions) *cobra.Command {
 	for _, name := range []string{"add", "remove", "configure", "enable", "disable", "status"} {
 		group.AddCommand(newPluginOwnerCommand(opts, name))
 	}
+	group.AddCommand(newPluginCheckCommand(opts))
 	group.AddCommand(&cobra.Command{
 		Use: "run NAME", Short: "Run one foreground local notifier host", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -1,0 +1,10 @@
+{"id":"enable_gap_first","target":"core_feed","setup":{"enabled_now":true,"retained_history_present":true},"expect":{"first_delivery_gap":"enabled","replay_pre_enable_history":false}}
+{"id":"pending_gap_stable_on_restart","target":"core_feed","setup":{"pending_gap":"enabled","restart_host":true},"expect":{"same_gap_delivery_id":true,"advance_before_ack":false}}
+{"id":"pending_gap_survives_new_retention_loss","target":"core_feed","setup":{"pending_gap":"enabled","retention_loss_before_ack":true},"expect":{"first_gap_unchanged":true,"later_loss_still_reported":true}}
+{"id":"retention_gap_before_new_live_event","target":"core_feed","setup":{"cursor_older_than_retention":true},"expect":{"next_gap":"retention","silent_skip":false}}
+{"id":"epoch_gap_before_new_live_event","target":"core_feed","setup":{"cursor_epoch_differs":true},"expect":{"next_gap":"epoch","silent_skip":false}}
+{"id":"ungranted_session_hidden","target":"core_feed","setup":{"grants":["codex:00000000-0000-4000-8000-000000000003"],"event_session":"codex:00000000-0000-4000-8000-000000000009"},"expect":{"child_receives_event":false,"unauthorized_record_scanned_once":true}}
+{"id":"no_private_metadata_projection","target":"core_feed","setup":{"granted_session_has_private_fields":["key_hash","cwd","task","name","adapter_state","native_config_dir"]},"expect":{"projected_event_fields_exact":["id","type","occurred_at","transaction_id","session"],"projected_session_fields_subset":["id","generation","previous","state","previous_retired","retired"]}}
+{"id":"stale_ack_after_reconfigure","target":"core_feed","setup":{"offer_before_disable_and_reconfigure":true},"expect":{"old_offer_advances_new_cursor":false}}
+{"id":"disable_during_inflight_frame","target":"core_feed","setup":{"disable_after_dispatch_before_ack":true},"expect":{"no_subsequent_delivery":true,"already_delivered_event_may_have_side_effect":true}}
+{"id":"forged_cursor_from_child","target":"host","child_stdout_utf8":"{\"ack\":\"00000000-0000-4000-8000-000000000001\",\"cursor\":999}\n","expect":{"result":"unknown_field_error","ack_commit_count":0}}

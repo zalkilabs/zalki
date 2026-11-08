@@ -41,7 +41,7 @@ func Run(ctx context.Context, store bus.Store, binary, name string, output io.Wr
 	if err != nil {
 		return err
 	}
-	c, err := launchChild(ctx, launch.Executable, launch.Args, status.DataDir, lease)
+	c, err := launchChild(ctx, launch.Executable, launch.Args, status.DataDir, "", lease)
 	if err != nil {
 		if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
 			return nil

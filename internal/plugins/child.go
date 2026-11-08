@@ -40,10 +40,10 @@ func (c *child) Write(p []byte) (int, error) {
 }
 
 func startChild(ctx context.Context, binary, outbox string, lease *os.File) (*child, error) {
-	return launchChild(ctx, binary, []string{ChildCommand, "--outbox", outbox}, filepath.Dir(outbox), lease)
+	return launchChild(ctx, binary, []string{ChildCommand, "--outbox", outbox}, filepath.Dir(outbox), "", lease)
 }
 
-func launchChild(ctx context.Context, binary string, args []string, cwd string, lease *os.File) (*child, error) {
+func launchChild(ctx context.Context, binary string, args []string, cwd, home string, lease *os.File) (*child, error) {
 	parent := ctx
 	ctx, cancel := context.WithCancel(ctx)
 	c := &child{done: make(chan struct{}), cancel: cancel, parent: parent}
@@ -62,7 +62,9 @@ func launchChild(ctx context.Context, binary string, args []string, cwd string, 
 	}
 	defer output.Close() //nolint:errcheck // Parent closes its copy after Start duplicates the descriptor.
 	c.output, c.reader = parentOutput, bufio.NewReaderSize(parentOutput, maxFrame+1)
-	home, err := os.UserHomeDir()
+	if home == "" {
+		home, err = os.UserHomeDir()
+	}
 	if err == nil {
 		c.cmd = exec.CommandContext(ctx, binary, args...)
 		c.cmd.Cancel = func() error {
