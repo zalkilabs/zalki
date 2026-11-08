@@ -151,16 +151,8 @@ func setCursorState(v *model.Session, state CursorListenerState) {
 
 func (stubCursorAdapter) DecodeState(in agent.StateInput) (json.RawMessage, error) {
 	if len(in.State) == 0 {
-		var legacy struct {
-			Attempted  bool `json:"cursor_recovery_attempted"`
-			Suppressed bool `json:"cursor_recovery_suppressed"`
-		}
-		fields, _ := json.Marshal(in.Extensions)
-		if err := json.Unmarshal(fields, &legacy); err != nil {
-			return nil, err
-		}
 		v := model.Session{}
-		setCursorState(&v, CursorListenerState{RecoveryAttempted: legacy.Attempted, RecoverySuppressed: legacy.Suppressed})
+		setCursorState(&v, CursorListenerState{})
 		return v.AdapterState, nil
 	}
 	var state CursorListenerState
@@ -185,8 +177,4 @@ func testRegistry() *agent.Registry {
 		panic(err)
 	}
 	return r
-}
-
-func (stubCursorAdapter) LegacyStateFields() []string {
-	return []string{"cursor_wake", "cursor_recovery_attempted", "cursor_recovery_suppressed"}
 }

@@ -37,7 +37,7 @@ func prepareRetainedCommit(t *testing.T, store Store, session model.Session, wri
 	next.State, next.UpdatedAt = model.StateBusy, model.Timestamp()
 	event := model.Event{ID: newID(), Type: "session.state_changed", OccurredAt: next.UpdatedAt, TransactionID: newID(),
 		Session: model.EventSession{ID: next.ID, Generation: next.Generation, Previous: model.StateReady, State: model.StateBusy}}
-	batch, err := writer.prepare(prior, next, event, nil)
+	batch, err := writer.prepare(prior, next, event)
 	if err != nil {
 		t.Fatal(err)
 	}

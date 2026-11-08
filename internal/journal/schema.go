@@ -3,7 +3,6 @@ package journal
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 // SchemaError reports a record whose schema version is outside what the
@@ -30,23 +29,4 @@ func CheckSchema(raw json.RawMessage, supported int) (int, error) {
 		return 0, &SchemaError{Version: header.Schema, Supported: supported}
 	}
 	return header.Schema, nil
-}
-
-// DropFields removes the named fields from the JSON object record. Names are
-// matched case-insensitively, as encoding/json matches them, so a field written
-// by an older build under another capitalization is removed too.
-func DropFields(record json.RawMessage, names []string) (json.RawMessage, error) {
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(record, &fields); err != nil {
-		return nil, err
-	}
-	for key := range fields {
-		for _, name := range names {
-			if strings.EqualFold(key, name) {
-				delete(fields, key)
-				break
-			}
-		}
-	}
-	return json.Marshal(fields)
 }

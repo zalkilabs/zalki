@@ -224,7 +224,7 @@ func TestPrivateSessionAtomicSaveRefusesStalePrior(t *testing.T) {
 	}
 	intervening := session
 	intervening.Task = "intervening"
-	data, err := prepareSessionBytes(prior, intervening, nil)
+	data, err := prepareSessionBytes(prior, intervening)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func stageInitialSessionCut(t *testing.T, store Store, next model.Session, appli
 		if err != nil {
 			return err
 		}
-		batch, err = (commitWriter{dir: store.Dir}).prepare(nil, record.value, event, record.removed)
+		batch, err = (commitWriter{dir: store.Dir}).prepare(nil, record.value, event)
 		if err != nil {
 			return err
 		}
@@ -304,7 +304,7 @@ func TestOnePutSessionIntentRefusesCallbacks(t *testing.T) {
 	path, _ := store.sessionPath(session.ID)
 	previous := readCommitFile(t, path)
 	session.Task = "private"
-	data, err := prepareSessionBytes(previous, session, nil)
+	data, err := prepareSessionBytes(previous, session)
 	if err != nil {
 		t.Fatal(err)
 	}

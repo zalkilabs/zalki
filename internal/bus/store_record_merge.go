@@ -18,7 +18,7 @@ func mergeRecordJSON(previous json.RawMessage, value any) (json.RawMessage, erro
 }
 
 // recordUpdate carries preservation data only for an exceptional first write
-// from a durable reply intent. Session migration is prepared by commitWriter.
+// from a durable reply intent. Session writes are prepared by commitWriter.
 type recordUpdate struct {
 	previous json.RawMessage
 }
@@ -88,11 +88,6 @@ func checkSchema(raw json.RawMessage, supported int) (int, error) {
 		return 0, model.NewError(model.CodeUnsupportedSchema, "unsupported journal schema %d; upgrade zalki", schema.Version)
 	}
 	return version, err
-}
-
-// dropFields removes obsolete fields, matched case-insensitively, from a record.
-func dropFields(record json.RawMessage, removed []string) (json.RawMessage, error) {
-	return journal.DropFields(record, removed)
 }
 
 // futureRecord is used only to protect cleanup candidates. Corrupt old records

@@ -102,33 +102,3 @@ func TestStateExtensionsAreBounded(t *testing.T) {
 		t.Fatal("a record at the extension limit was rejected", err)
 	}
 }
-
-type overbroadMigrationAdapter struct{ stubCursorAdapter }
-
-func (overbroadMigrationAdapter) LegacyStateFields() []string {
-	return []string{"KEY_HASH", "generation", "obsolete_extension"}
-}
-
-func TestStateMigrationCannotRemoveCoreFields(t *testing.T) {
-	store := fixtureStore(t)
-	target, key := register(t, store, "cursor")
-	registry, err := agent.NewRegistry(overbroadMigrationAdapter{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	store.Registry = registry
-	rewriteRecord(t, store, target.ID, func(record map[string]any) { record["obsolete_extension"] = true; record["future_extension"] = true })
-	if err := store.Update(target.ID, model.StateBusy, false); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.authenticate(target.ID, key); err != nil {
-		t.Fatal("migration removed credential or generation", err)
-	}
-	var record map[string]any
-	if err := readJSON(store.sessionPathMust(t, target.ID), &record); err != nil {
-		t.Fatal(err)
-	}
-	if record["obsolete_extension"] != nil || record["future_extension"] != true || record["generation"] != target.Generation {
-		t.Fatal("migration crossed field ownership", record)
-	}
-}

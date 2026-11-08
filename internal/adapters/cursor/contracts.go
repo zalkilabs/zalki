@@ -14,5 +14,3 @@ var (
 	_ agent.RecoveryHintAdapter  = Adapter{}
 	_ agent.SessionStateAdapter  = Adapter{}
 )
-
-var _ agent.SessionStateMigrationAdapter = (*Adapter)(nil)

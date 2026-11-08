@@ -305,31 +305,3 @@ func TestListenerLeaseUnderOlderSchemaIsRejected(t *testing.T) {
 		t.Fatal("accepted a lease stored under a schema older builds would rewrite", err)
 	}
 }
-
-// A wake endpoint stored in Cursor state by a pre-lease build must not survive
-// a rewrite: older builds would read it back as a live listener.
-func TestPreLeaseWakeIsNotCarriedIntoRewrittenRecords(t *testing.T) {
-	store := fixtureStore(t)
-	to, _ := register(t, store, "cursor")
-	path, _ := store.sessionPath(to.ID)
-	var record map[string]any
-	if err := readJSON(path, &record); err != nil {
-		t.Fatal(err)
-	}
-	record["adapter_state"] = map[string]any{"schema": 1, "recovery_attempted": true, "wake": model.Endpoint{Path: "/tmp/zalki-old/inbox.sock"}}
-	if err := writeJSON(path, record); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Update(to.ID, model.StateBusy, false); err != nil {
-		t.Fatal(err)
-	}
-	var written struct {
-		AdapterState map[string]any `json:"adapter_state"`
-	}
-	if err := json.Unmarshal(sessionBytes(t, store, to.ID), &written); err != nil || written.AdapterState["wake"] != nil {
-		t.Fatal("a pre-lease wake endpoint was written back for older builds", err)
-	}
-	if current, err := store.session(to.ID); err != nil || !cursorState(current).RecoveryAttempted || current.Receive.IdleWake {
-		t.Fatal("normalizing legacy state lost recovery state or advertised a listener", err)
-	}
-}
