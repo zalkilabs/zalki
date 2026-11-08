@@ -45,7 +45,7 @@ func runNotifierLoop(ctx context.Context, input io.ReadCloser, output io.Writer,
 			return nil
 		}
 		if err != nil {
-			if ctx.Err() != nil && (errors.Is(err, os.ErrClosed) || errors.Is(err, io.ErrClosedPipe)) {
+			if ctx.Err() != nil && !errors.Is(err, io.ErrUnexpectedEOF) && (errors.Is(err, os.ErrClosed) || errors.Is(err, io.ErrClosedPipe)) {
 				return nil
 			}
 			return err
