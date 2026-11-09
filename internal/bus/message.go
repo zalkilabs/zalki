@@ -230,6 +230,10 @@ func (s Store) Ack(actor, key, id string) (result model.Message, resultErr error
 		if err != nil {
 			return err
 		}
+		if isPluginInboxAddress(msg.To) {
+			msg = model.Message{}
+			return model.NewError(model.CodeUnauthorized, "only the bound recipient can acknowledge")
+		}
 		if msg.To != actor {
 			return model.NewError(model.CodeUnauthorized, "only the bound recipient can acknowledge")
 		}

@@ -18,6 +18,31 @@ func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Only the explicit plugin destination documentation changes. Restore that
+	// one value, then compare the FULL typed catalog to the released digest.
+	descriptions := 0
+	for _, tool := range result.Tools {
+		if tool.Name != "send_message" {
+			continue
+		}
+		schema, ok := tool.InputSchema.(map[string]any)
+		if !ok {
+			t.Fatal("send input schema changed")
+		}
+		properties, ok := schema["properties"].(map[string]any)
+		if !ok {
+			t.Fatal("send properties changed")
+		}
+		to, ok := properties["to"].(map[string]any)
+		if !ok || to["description"] != "ID/name; plugin:UUID stores, no delivery" {
+			t.Fatal("plugin storage description missing")
+		}
+		to["description"] = "ID or unique name; optionally kind:name."
+		descriptions++
+	}
+	if descriptions != 1 {
+		t.Fatal("send tool missing or duplicated")
+	}
 	encoded, err := json.Marshal(result.Tools)
 	if err != nil {
 		t.Fatal(err)

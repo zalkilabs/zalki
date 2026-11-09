@@ -41,6 +41,9 @@ func (s *Service) Send(ctx context.Context, request SendRequest) (result model.M
 	if err := validateMessageBody(body, key); err != nil {
 		return model.Message{}, err
 	}
+	if isPluginInboxAddress(to) {
+		return submitPluginInbox(s.Store, request)
+	}
 	msg, target, fresh, err := s.Store.ReserveMessage(request)
 	if err != nil || !fresh {
 		return msg, err

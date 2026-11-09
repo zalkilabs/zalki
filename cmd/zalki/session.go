@@ -138,7 +138,7 @@ type sendArgs struct {
 func newSendCommand(opts *commandOptions) *cobra.Command {
 	return &cobra.Command{
 		Use: "send", Short: "Send a diagnostic agent message from JSON stdin", Args: cobra.NoArgs,
-		Long: "Send through the same authenticated service as MCP. Read the message JSON from stdin\nand your private SessionStart capability from ZALKI_CAPABILITY.",
+		Long: "Send through the same authenticated service as MCP. Read the message JSON from stdin\nand your private SessionStart capability from ZALKI_CAPABILITY. The JSON to field accepts explicit plugin:UUID. Stored, not delivered; owner reading is a later command. Not acknowledged.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Keep message text out of shell arguments and credentials out of receipts.
 			var args sendArgs

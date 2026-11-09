@@ -167,6 +167,10 @@ func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [
 		if p.ID == "" {
 			return model.NewError(model.CodeNotFound, "add the plugin first")
 		}
+		// This also backfills the UUID hint for existing enabled installations.
+		if err := syncPluginIdentity(s, p.ID, enabled); err != nil {
+			return err
+		}
 		if p.Enabled == enabled {
 			return journal.SyncDir(s.pluginDir())
 		}

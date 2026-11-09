@@ -9,7 +9,7 @@ func newPluginCapabilityCommand(opts *commandOptions, action string) *cobra.Comm
 	var grants bus.PluginCapabilityGrants
 	cmd := &cobra.Command{
 		Use: action + " NAME", Short: "Manage recorded plugin body/message permissions", Args: cobra.ExactArgs(1),
-		Long: "Grant replaces all recorded permissions while disabled; omitted selectors deny. Revoke clears them and disables the installation. The owner read proxy checks explicit read grants; opt-in v1-read children use the same read grants after metadata ACK. Sends remain unavailable.",
+		Long: "Grant replaces all recorded permissions while disabled; omitted selectors deny. Revoke clears them and disables the installation. The owner read proxy checks explicit read grants; opt-in v1-read children use the same read grants after metadata ACK. Plugin-origin sends remain unavailable. Native peers allowed by accept-from may store messages at plugin:UUID. Stored, not delivered; owner reading is a later command. Not acknowledged. Re-run plugins enable NAME once to initialize an existing installation address.",
 		RunE: func(_ *cobra.Command, args []string) error {
 			service, err := opts.service()
 			if err != nil {
