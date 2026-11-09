@@ -113,6 +113,11 @@ func (s PluginFeed) readPluginMessageAt(before *PluginFeedStatus, session, id, r
 		}
 		result.Message, result.Code = s.pluginInboxMessage(session, id)
 	}
+	return finishPluginReadResult(before, session, id, result, rows, now, s.savePluginReadAudit)
+}
+
+// finishPluginReadResult audits the bounded result before returning any bytes.
+func finishPluginReadResult(before *PluginFeedStatus, session, id string, result pluginReadResult, rows []pluginReadAuditRow, now time.Time, save func([]pluginReadAuditRow, time.Time) error) ([]byte, string, error) {
 	raw, err := json.Marshal(result)
 	if err != nil {
 		return nil, "unavailable", pluginReadFailure("unavailable")
@@ -127,7 +132,7 @@ func (s PluginFeed) readPluginMessageAt(before *PluginFeedStatus, session, id, r
 		responseBytes = len(raw)
 	}
 	row := pluginReadAuditRow{At: now, Plugin: before.ID, Request: result.Request, Session: session, Message: id, Revision: before.Capabilities.Revision, Outcome: result.Code, Bytes: responseBytes}
-	if err := s.savePluginReadAudit(append(rows, row), now); err != nil {
+	if err := save(append(rows, row), now); err != nil {
 		return nil, "audit_unavailable", pluginReadFailure("audit_unavailable")
 	}
 	if result.Code != "ok" && result.Code != "native_deferred" {
