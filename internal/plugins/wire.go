@@ -45,19 +45,24 @@ func readFrame(reader *bufio.Reader) (frame, error) {
 		}
 		return value, errors.Join(io.ErrUnexpectedEOF, err)
 	}
+	err = decodeFrame(raw, &value)
+	return value, err
+}
+
+func decodeFrame(raw []byte, target any) error {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&value); err != nil {
+	if err := decoder.Decode(target); err != nil {
 		if errors.Is(err, io.EOF) {
-			return value, io.ErrUnexpectedEOF
+			return io.ErrUnexpectedEOF
 		}
-		return value, err
+		return err
 	}
 	var extra any
 	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		return value, errors.New("plugin frame must contain one JSON value")
+		return errors.New("plugin frame must contain one JSON value")
 	}
-	return value, nil
+	return nil
 }
 
 func writeFrame(output io.Writer, value frame) error {

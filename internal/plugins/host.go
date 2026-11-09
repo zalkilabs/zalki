@@ -59,8 +59,9 @@ func Run(ctx context.Context, store bus.Store, binary, name string, output io.Wr
 	if err != nil {
 		return fmt.Errorf("plugin hello failed: %w", err)
 	}
+
 	if !header.validHello() {
-		return errors.New("plugin requires hello.version=v0")
+		return runReadHost(ctx, feed, &status, c, output, ready, header)
 	}
 	return hostLoop(ctx, feed, c, output, ready)
 }
