@@ -65,10 +65,11 @@ func printPluginStatus(cmd *cobra.Command, store bus.Store, name string) error {
 	}
 	value := struct {
 		bus.PluginFeedStatus
-		Outbox     string `json:"outbox,omitempty"`
-		MaxEvents  int    `json:"max_events,omitempty"`
-		PinMatches *bool  `json:"pin_matches,omitempty"`
-		PinError   string `json:"pin_error,omitempty"`
+		Outbox            string `json:"outbox,omitempty"`
+		MaxEvents         int    `json:"max_events,omitempty"`
+		PinMatches        *bool  `json:"pin_matches,omitempty"`
+		PinError          string `json:"pin_error,omitempty"`
+		CapabilitiesBound *bool  `json:"capabilities_bound,omitempty"`
 	}{PluginFeedStatus: status}
 	if name == "fake-notifier" {
 		value.Outbox = filepath.Join(status.DataDir, "outbox")
@@ -81,6 +82,10 @@ func printPluginStatus(cmd *cobra.Command, store bus.Store, name string) error {
 		if err != nil {
 			value.PinError = err.Error()
 		}
+	}
+	if c := status.Capabilities; c != nil {
+		bound := c.Installation == status.ID && status.Launch != nil && c.PinSHA256 == status.Launch.PinSHA256
+		value.CapabilitiesBound = &bound
 	}
 	return json.NewEncoder(cmd.OutOrStdout()).Encode(value)
 }

@@ -17,6 +17,7 @@ func newPluginCommand(opts *commandOptions) *cobra.Command {
 	for _, name := range []string{"add", "remove", "configure", "enable", "disable", "status"} {
 		group.AddCommand(newPluginOwnerCommand(opts, name))
 	}
+	group.AddCommand(newPluginCapabilityCommand(opts, "grant"), newPluginCapabilityCommand(opts, "revoke"))
 	group.AddCommand(newPluginCheckCommand(opts))
 	group.AddCommand(&cobra.Command{
 		Use: "run NAME", Short: "Run one foreground local notifier host", Long: pluginTrustNotice + "\n\nPlugins MUST exit on stdin EOF within the 2-second grace period and must not daemonize. Helpers must exit with the plugin or not inherit FD 3. Interactive terminal input is unsupported.", Args: cobra.ExactArgs(1),
