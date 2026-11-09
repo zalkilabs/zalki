@@ -23,7 +23,7 @@ func OpenPluginLease(path string) (*os.File, error) {
 	}
 	if err := LockExclusive(fd, true); err != nil {
 		_ = file.Close()
-		return nil, fmt.Errorf("plugin host or child lease unavailable: %w", err)
+		return nil, fmt.Errorf("plugin host or child lease unavailable for %q: %w; use lsof on that exact file, confirm the plugin/helper, stop it, retry; never delete or truncate a live lease", path, err)
 	}
 	if err := errors.Join(file.Sync(), SyncDir(filepath.Dir(path))); err != nil {
 		_ = file.Close()

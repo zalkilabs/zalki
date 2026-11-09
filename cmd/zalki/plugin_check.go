@@ -15,6 +15,7 @@ func newPluginCheckCommand(opts *commandOptions) *cobra.Command {
 	var executable string
 	cmd := &cobra.Command{
 		Use: "check [NAME] [--exec ABS -- ARGS...]", Short: "Check observed plugin transport in temporary HOME and cwd",
+		Long: pluginTrustNotice + "\n\nThe checker uses temporary HOME and cwd paths. These paths do not sandbox the executable or restrict access to real files.",
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			opts.logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 			return nil

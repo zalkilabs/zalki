@@ -10,14 +10,16 @@ import (
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
+const pluginTrustNotice = "External plugins run with your OS user permissions. Session grants filter the Zalki feed; they do not restrict filesystem access. A plugin can read and change all of your Zalki state. Run only code you trust."
+
 func newPluginCommand(opts *commandOptions) *cobra.Command {
-	group := &cobra.Command{Use: "plugins", Short: "Manage explicitly enabled local plugins"}
+	group := &cobra.Command{Use: "plugins", Short: "Manage explicitly enabled local plugins", Long: pluginTrustNotice}
 	for _, name := range []string{"add", "remove", "configure", "enable", "disable", "status"} {
 		group.AddCommand(newPluginOwnerCommand(opts, name))
 	}
 	group.AddCommand(newPluginCheckCommand(opts))
 	group.AddCommand(&cobra.Command{
-		Use: "run NAME", Short: "Run one foreground local notifier host", Args: cobra.ExactArgs(1),
+		Use: "run NAME", Short: "Run one foreground local notifier host", Long: pluginTrustNotice + "\n\nPlugins MUST exit on stdin EOF within the 2-second grace period and must not daemonize. Helpers must exit with the plugin or not inherit FD 3. Interactive terminal input is unsupported.", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			service, err := opts.service()
 			if err != nil {
