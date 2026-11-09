@@ -115,14 +115,14 @@ func (s PluginFeed) addPlugin(launch *PluginLaunch) error {
 		if len(entries) != 0 {
 			return model.NewError(model.CodeConflict, "remove abandoned plugin data before adding")
 		}
-		_, err = s.savePlugin(pluginRecord{ID: newID(), Name: s.name, Launch: launch})
-		return err
+		return createPluginInstallation(s, launch)
 	})
 }
 
 // RemovePlugin deletes a disabled, stopped installation and its private data.
 // Data cleanup runs outside the journal lock, while retaining the name lease.
 func (s PluginFeed) RemovePlugin() error {
+	var installation string
 	lease, err := s.AcquirePluginLease()
 	if err != nil {
 		return err
@@ -133,6 +133,7 @@ func (s PluginFeed) RemovePlugin() error {
 		if err != nil {
 			return err
 		}
+		installation = p.ID
 		if p.Enabled {
 			return model.NewError(model.CodeConflict, "disable the plugin before removing it")
 		}
@@ -143,8 +144,22 @@ func (s PluginFeed) RemovePlugin() error {
 	}); err != nil {
 		return err
 	}
+	if installation != "" {
+		if err := os.Remove(filepath.Join(s.pluginDir(), "id-"+installation+".json")); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
 	if err := os.RemoveAll(s.pluginDataPath()); err != nil {
 		return err
 	}
 	return journal.SyncDir(s.pluginDir())
+}
+
+func createPluginInstallation(s PluginFeed, launch *PluginLaunch) error {
+	p := pluginRecord{ID: newID(), Name: s.name, Launch: launch}
+	if err := s.savePluginIdentity(p.ID); err != nil {
+		return err
+	}
+	_, err := s.savePlugin(p)
+	return err
 }

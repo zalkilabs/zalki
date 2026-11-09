@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -40,6 +41,10 @@ func messageReceipt(message model.Message, err error) (MessageReceipt, error) {
 		receipt.Code = message.Receipt.Code
 	}
 	if err != nil || receipt.Acknowledged {
+		return receipt, err
+	}
+	if strings.HasPrefix(message.To, "plugin:") && message.Status == model.StatusSubmitted {
+		receipt.Note = "Stored, not delivered; owner reading is a later command. Not acknowledged."
 		return receipt, err
 	}
 	if message.IsQueuedForApproval() {

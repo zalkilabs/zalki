@@ -89,7 +89,7 @@ func toolTable() []toolSpec {
 		}
 	}
 	send := identity()
-	send["to"] = stringField("ID or unique name; optionally kind:name.")
+	send["to"] = stringField("ID/name; plugin:UUID stores, no delivery")
 	send["message_id"] = stringField("Optional UUID; supply before sending for retry safety.")
 	send["body"] = stringField("Message text, 1..16384 UTF-8 bytes.")
 	ack := identity()
