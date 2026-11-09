@@ -42,14 +42,7 @@ func pluginReadFailure(outcome string) error {
 // ReadPluginMessage is an owner proxy: it verifies a fresh installation snapshot,
 // not process liveness. The returned JSON is audited before any bytes escape.
 func (s PluginFeed) ReadPluginMessage(session, id string) ([]byte, error) {
-	if err := s.checkName(); err != nil {
-		return nil, pluginReadFailure("invalid_input")
-	}
-	canonical, err := model.UUID(id)
-	if err != nil || canonical != id || len(session)+len(id) > 4096 {
-		return nil, pluginReadFailure("invalid_input")
-	}
-	if err := s.checkCapabilityGrants(PluginCapabilityGrants{Read: []string{session}}); err != nil {
+	if !validPluginReadInput(s, session, id) {
 		return nil, pluginReadFailure("invalid_input")
 	}
 	before, err := s.PluginStatus()
@@ -62,40 +55,67 @@ func (s PluginFeed) ReadPluginMessage(session, id string) ([]byte, error) {
 	if err := before.Launch.Verify(); err != nil {
 		return nil, pluginReadFailure("stale_binding")
 	}
-	var result []byte
-	var readErr error
-	if err := s.locked(func() error {
-		result, readErr = s.readPluginMessageAt(&before, session, id, time.Now().UTC())
-		return nil
-	}); err != nil {
-		return nil, pluginReadFailure("unavailable")
+	raw, _, err := s.ReadPluginMessageBound(&before, session, id)
+	if err != nil {
+		return nil, err
 	}
-	return result, readErr
+	return raw, nil
+}
+
+// ReadPluginMessageBound uses a caller-owned checked launch; errors are body-free.
+func (s PluginFeed) ReadPluginMessageBound(before *PluginFeedStatus, session, id string) ([]byte, string, error) {
+	request := newID()
+	var raw []byte
+	code := "invalid_input"
+	readErr := pluginReadFailure(code)
+	if validPluginReadInput(s, session, id) {
+		code = "denied"
+		readErr = pluginReadFailure(code)
+		if before != nil && before.ID != "" && before.Launch != nil && before.Capabilities != nil {
+			if err := s.locked(func() error {
+				raw, code, readErr = s.readPluginMessageAt(before, session, id, request, time.Now().UTC())
+				return nil
+			}); err != nil {
+				code = "unavailable"
+				readErr = pluginReadFailure(code)
+			}
+		}
+	}
+	if len(raw) == 0 {
+		raw, _ = json.Marshal(pluginReadResult{Request: request, Code: code})
+		raw = append(raw, '\n')
+	}
+	return raw, code, readErr
+}
+
+func validPluginReadInput(s PluginFeed, session, id string) bool {
+	canonical, err := model.UUID(id)
+	return err == nil && canonical == id && len(session)+len(id) <= 4096 && s.checkName() == nil && s.checkCapabilityGrants(PluginCapabilityGrants{Read: []string{session}}) == nil
 }
 
 // Caller holds Store flock. The clock parameter also makes race/retention
 // controls deterministic without changing the public operation or global time.
-func (s PluginFeed) readPluginMessageAt(before *PluginFeedStatus, session, id string, now time.Time) ([]byte, error) {
+func (s PluginFeed) readPluginMessageAt(before *PluginFeedStatus, session, id, request string, now time.Time) ([]byte, string, error) {
 	p, _, err := s.loadPlugin()
 	if err != nil {
-		return nil, pluginReadFailure("unavailable")
+		return nil, "unavailable", pluginReadFailure("unavailable")
 	}
 	rows, err := s.loadPluginReadAudit(now)
 	if err != nil {
-		return nil, pluginReadFailure("audit_unavailable")
+		return nil, "audit_unavailable", pluginReadFailure("audit_unavailable")
 	}
-	result := pluginReadResult{Request: newID(), Code: pluginReadAuthorization(p, before, session)}
+	result := pluginReadResult{Request: request, Code: pluginReadAuthorization(p, before, session)}
 	if result.Code == "ok" {
 		for i := range rows {
 			if rows[i].Plugin == before.ID && now.Sub(rows[i].At) < time.Second {
-				return nil, pluginReadFailure("rate_limited")
+				return nil, "rate_limited", pluginReadFailure("rate_limited")
 			}
 		}
 		result.Message, result.Code = s.pluginInboxMessage(session, id)
 	}
 	raw, err := json.Marshal(result)
 	if err != nil {
-		return nil, pluginReadFailure("unavailable")
+		return nil, "unavailable", pluginReadFailure("unavailable")
 	}
 	raw = append(raw, '\n')
 	if len(raw) > 32<<10 {
@@ -108,12 +128,12 @@ func (s PluginFeed) readPluginMessageAt(before *PluginFeedStatus, session, id st
 	}
 	row := pluginReadAuditRow{At: now, Plugin: before.ID, Request: result.Request, Session: session, Message: id, Revision: before.Capabilities.Revision, Outcome: result.Code, Bytes: responseBytes}
 	if err := s.savePluginReadAudit(append(rows, row), now); err != nil {
-		return nil, pluginReadFailure("audit_unavailable")
+		return nil, "audit_unavailable", pluginReadFailure("audit_unavailable")
 	}
 	if result.Code != "ok" && result.Code != "native_deferred" {
-		return nil, pluginReadFailure(result.Code)
+		return nil, result.Code, pluginReadFailure(result.Code)
 	}
-	return raw, nil
+	return raw, result.Code, nil
 }
 
 func (s PluginFeed) pluginInboxMessage(session, id string) (*pluginReadMessage, string) {

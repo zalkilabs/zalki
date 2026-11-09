@@ -47,7 +47,7 @@ func (x pluginReadFixture) read(t *testing.T, before *PluginFeedStatus, session,
 	t.Helper()
 	var raw []byte
 	var readErr error
-	if err := x.f.locked(func() error { raw, readErr = x.f.readPluginMessageAt(before, session, id, now); return nil }); err != nil {
+	if err := x.f.locked(func() error { raw, _, readErr = x.f.readPluginMessageAt(before, session, id, newID(), now); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	return raw, readErr
@@ -399,7 +399,7 @@ func pluginReadAuditSyncFailure(t *testing.T) {
 				t.Error(err)
 			}
 		}()
-		raw, readErr = x.f.readPluginMessageAt(&x.before, x.target.ID, x.message.ID, x.now)
+		raw, _, readErr = x.f.readPluginMessageAt(&x.before, x.target.ID, x.message.ID, newID(), x.now)
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -493,7 +493,7 @@ func TestPluginReadConcurrentRequestsHaveOneAuditedRelease(t *testing.T) {
 		go func() {
 			var r response
 			lockErr := x.f.locked(func() error {
-				r.raw, r.err = x.f.readPluginMessageAt(&x.before, x.target.ID, x.message.ID, x.now)
+				r.raw, _, r.err = x.f.readPluginMessageAt(&x.before, x.target.ID, x.message.ID, newID(), x.now)
 				return nil
 			})
 			if lockErr != nil {
@@ -588,4 +588,40 @@ func pluginReadFixedDenial(t *testing.T, x *pluginReadFixture, now time.Time) (s
 		t.Fatal("denial audit shape changed", row)
 	}
 	return err.Error(), row
+}
+
+func TestPluginReadBoundSnapshotCannotRefreshRegrant(t *testing.T) {
+	x := newPluginReadFixture(t, "cursor")
+	if err := x.f.RevokePluginCapabilities(); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Read: []string{x.target.ID}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.f.EnablePluginFeed(true); err != nil {
+		t.Fatal(err)
+	}
+	raw, code, err := x.f.ReadPluginMessageBound(&x.before, x.target.ID, x.message.ID)
+	var result pluginReadResult
+	if code != "stale_binding" || model.ErrorCodeOf(err) != model.CodeConflict || json.Unmarshal(raw, &result) != nil || result.Message != nil || result.Code != code || !canonicalEventID(result.Request) {
+		t.Fatal("latched host adopted fresh authority", code, err)
+	}
+	rows := x.audit(t, time.Now().UTC())
+	if len(rows) != 1 || rows[0].Request != result.Request || rows[0].Outcome != code || rows[0].Bytes != 0 {
+		t.Fatal("binding denial audit differs", rows)
+	}
+}
+
+func TestPluginReadBoundErrorRequestMatchesAudit(t *testing.T) {
+	x := newPluginReadFixture(t, "cursor")
+	missing := newID()
+	raw, code, err := x.f.ReadPluginMessageBound(&x.before, x.target.ID, missing)
+	var result pluginReadResult
+	if code != "denied" || model.ErrorCodeOf(err) != model.CodeUnauthorized || json.Unmarshal(raw, &result) != nil || result.Message != nil || result.Code != code || !canonicalEventID(result.Request) {
+		t.Fatal("bound error lost fixed result", code, err)
+	}
+	rows := x.audit(t, time.Now().UTC())
+	if len(rows) != 1 || rows[0].Request != result.Request || rows[0].Message != missing || rows[0].Outcome != code || rows[0].Bytes != 0 {
+		t.Fatal("bound error was not same audited request", rows)
+	}
 }

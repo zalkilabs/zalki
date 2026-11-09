@@ -22,6 +22,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	readChildTestMain()
 	if len(os.Args) == 4 && os.Args[1] == "check-test-child" {
 		if err := checkTestChild(os.Args[2], os.Args[3]); err != nil {
 			fmt.Fprintln(os.Stderr, err)

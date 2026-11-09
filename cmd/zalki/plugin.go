@@ -21,7 +21,7 @@ func newPluginCommand(opts *commandOptions) *cobra.Command {
 	group.AddCommand(newPluginReadCommand(opts))
 	group.AddCommand(newPluginCheckCommand(opts))
 	group.AddCommand(&cobra.Command{
-		Use: "run NAME", Short: "Run one foreground local notifier host", Long: pluginTrustNotice + "\n\nPlugins MUST exit on stdin EOF within the 2-second grace period and must not daemonize. Helpers must exit with the plugin or not inherit FD 3. Interactive terminal input is unsupported.", Args: cobra.ExactArgs(1),
+		Use: "run NAME", Short: "Run one foreground local notifier host", Long: pluginTrustNotice + "\n\nPlugins MUST exit on stdin EOF within the 2-second grace period and must not daemonize. Helpers must exit with the plugin or not inherit FD 3. Interactive terminal input is unsupported. Opt-in v1-read children may read exact granted inbox messages after a metadata ACK. The plugin runs as the owner; grants filter only what Zalki exposes.", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			service, err := opts.service()
 			if err != nil {

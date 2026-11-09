@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -29,6 +30,7 @@ type child struct {
 	parent          context.Context
 	killedForCancel bool
 	stopOnce        sync.Once
+	readMode        atomic.Bool
 }
 
 func (c *child) Write(p []byte) (int, error) {
@@ -151,6 +153,9 @@ func (c *child) stop(cause error) error {
 	cause = errors.Join(cause, c.waitErr)
 	if cause == nil {
 		return nil
+	}
+	if c.readMode.Load() {
+		return errors.New("plugin v1-read failed")
 	}
 	return fmt.Errorf("%w; child stderr: %s", cause, c.stderr)
 }
