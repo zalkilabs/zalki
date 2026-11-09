@@ -9,7 +9,7 @@ func newPluginCapabilityCommand(opts *commandOptions, action string) *cobra.Comm
 	var grants bus.PluginCapabilityGrants
 	cmd := &cobra.Command{
 		Use: action + " NAME", Short: "Manage recorded plugin body/message permissions", Args: cobra.ExactArgs(1),
-		Long: "Grant replaces all recorded permissions while disabled; omitted selectors deny. Revoke clears them and disables the installation. Body reads, sends and plugin message transport are unavailable.",
+		Long: "Grant replaces all recorded permissions while disabled; omitted selectors deny. Revoke clears them and disables the installation. The owner read proxy checks explicit read grants; sends and child message transport are unavailable.",
 		RunE: func(_ *cobra.Command, args []string) error {
 			service, err := opts.service()
 			if err != nil {

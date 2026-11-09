@@ -1,0 +1,84 @@
+package bus
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"slices"
+	"time"
+
+	"github.com/zalkilabs/zalki/internal/journal"
+)
+
+type pluginReadAuditRow struct {
+	At       time.Time `json:"at"`
+	Plugin   string    `json:"plugin"`
+	Request  string    `json:"request"`
+	Session  string    `json:"session"`
+	Message  string    `json:"message"`
+	Revision string    `json:"revision"`
+	Outcome  string    `json:"outcome"`
+	Bytes    int       `json:"response_bytes"`
+}
+
+type pluginReadAudit struct {
+	Version int                  `json:"version"`
+	Rows    []pluginReadAuditRow `json:"rows"`
+}
+
+func (s PluginFeed) loadPluginReadAudit(now time.Time) ([]pluginReadAuditRow, error) {
+	raw, err := journal.ReadBytes(filepath.Join(s.store.Dir, "plugin-read-audit.json"), 1<<20)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var log pluginReadAudit
+	if err := decodeEventJSON(raw, &log); err != nil {
+		return nil, err
+	}
+	if log.Version != 1 || len(log.Rows) > 1000 {
+		return nil, journal.ErrInvalidFile
+	}
+	rows := make([]pluginReadAuditRow, 0, len(log.Rows))
+	for i := range log.Rows {
+		row := &log.Rows[i]
+		if !validPluginReadAuditRow(row) {
+			return nil, journal.ErrInvalidFile
+		}
+		if err := s.checkCapabilityGrants(PluginCapabilityGrants{Read: []string{row.Session}}); err != nil {
+			return nil, err
+		}
+		if !row.At.Before(now.Add(-30 * 24 * time.Hour)) {
+			rows = append(rows, *row)
+		}
+	}
+	return rows, nil
+}
+
+func (s PluginFeed) savePluginReadAudit(rows []pluginReadAuditRow, now time.Time) error {
+	for {
+		if len(rows) > 1000 {
+			if now.Sub(rows[0].At) < time.Second {
+				return journal.ErrInvalidFile
+			}
+			rows = rows[1:]
+			continue
+		}
+		raw, err := journal.EncodeJSON(pluginReadAudit{Version: 1, Rows: rows}, 1<<20)
+		if err == nil {
+			return journal.WriteAtomic(filepath.Join(s.store.Dir, "plugin-read-audit.json"), raw)
+		}
+		var size *journal.SizeError
+		if !errors.As(err, &size) || len(rows) < 2 || now.Sub(rows[0].At) < time.Second {
+			return err
+		}
+		rows = rows[1:]
+	}
+}
+
+// Audit outcomes describe authorization, not proof that stdout was delivered.
+func validPluginReadAuditRow(row *pluginReadAuditRow) bool {
+	return !row.At.IsZero() && canonicalEventID(row.Plugin) && canonicalEventID(row.Request) && canonicalEventID(row.Message) && canonicalEventID(row.Revision) && row.Bytes >= 0 && row.Bytes <= 32<<10 && slices.Contains([]string{"ok", "native_deferred", "denied", "revoked", "stale_binding", "stale_target", "unavailable", "too_large"}, row.Outcome)
+}
