@@ -27,7 +27,13 @@ type pluginReadAudit struct {
 }
 
 func (s PluginFeed) loadPluginReadAudit(now time.Time) ([]pluginReadAuditRow, error) {
-	raw, err := journal.ReadBytes(filepath.Join(s.store.Dir, "plugin-read-audit.json"), 1<<20)
+	return s.loadPluginReadAuditFile("plugin-read-audit.json", now, func(row pluginReadAuditRow) error {
+		return s.checkCapabilityGrants(PluginCapabilityGrants{Read: []string{row.Session}})
+	})
+}
+
+func (s PluginFeed) loadPluginReadAuditFile(name string, now time.Time, validate func(pluginReadAuditRow) error) ([]pluginReadAuditRow, error) {
+	raw, err := journal.ReadBytes(filepath.Join(s.store.Dir, name), 1<<20)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
@@ -47,7 +53,7 @@ func (s PluginFeed) loadPluginReadAudit(now time.Time) ([]pluginReadAuditRow, er
 		if !validPluginReadAuditRow(row) {
 			return nil, journal.ErrInvalidFile
 		}
-		if err := s.checkCapabilityGrants(PluginCapabilityGrants{Read: []string{row.Session}}); err != nil {
+		if err := validate(*row); err != nil {
 			return nil, err
 		}
 		if !row.At.Before(now.Add(-30 * 24 * time.Hour)) {
@@ -58,6 +64,10 @@ func (s PluginFeed) loadPluginReadAudit(now time.Time) ([]pluginReadAuditRow, er
 }
 
 func (s PluginFeed) savePluginReadAudit(rows []pluginReadAuditRow, now time.Time) error {
+	return s.savePluginReadAuditFile("plugin-read-audit.json", rows, now)
+}
+
+func (s PluginFeed) savePluginReadAuditFile(name string, rows []pluginReadAuditRow, now time.Time) error {
 	for {
 		if len(rows) > 1000 {
 			if now.Sub(rows[0].At) < time.Second {
@@ -68,7 +78,7 @@ func (s PluginFeed) savePluginReadAudit(rows []pluginReadAuditRow, now time.Time
 		}
 		raw, err := journal.EncodeJSON(pluginReadAudit{Version: 1, Rows: rows}, 1<<20)
 		if err == nil {
-			return journal.WriteAtomic(filepath.Join(s.store.Dir, "plugin-read-audit.json"), raw)
+			return journal.WriteAtomic(filepath.Join(s.store.Dir, name), raw)
 		}
 		var size *journal.SizeError
 		if !errors.As(err, &size) || len(rows) < 2 || now.Sub(rows[0].At) < time.Second {
