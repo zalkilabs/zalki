@@ -13,7 +13,8 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 	var sessions []string
 	var executable string
 	cmd := &cobra.Command{
-		Use: action + " NAME", Short: "Manage a local plugin's grants and enabled state", Args: func(cmd *cobra.Command, args []string) error {
+		Long: pluginTrustNotice,
+		Use:  action + " NAME", Short: "Manage a local plugin's grants and enabled state", Args: func(cmd *cobra.Command, args []string) error {
 			if action == "add" {
 				if len(args) > 1 && cmd.ArgsLenAtDash() != 1 {
 					return errors.New("plugin arguments must follow --")

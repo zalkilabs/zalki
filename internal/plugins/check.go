@@ -22,7 +22,8 @@ type CheckTarget struct {
 }
 
 // Check observes v0 transport and direct-child shutdown in temporary HOME/cwd/state.
-// It does not grant access, advance real feeds, or prove arbitrary side effects durable.
+// Temporary paths do not sandbox the executable or restrict its OS permissions.
+// Check does not advance real feeds or prove arbitrary side effects durable.
 func Check(ctx context.Context, target CheckTarget, output io.Writer) (result error) {
 	root, err := os.MkdirTemp("", "zalki-plugin-check-")
 	if err != nil {
