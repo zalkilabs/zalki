@@ -29,10 +29,10 @@ type pluginReadAudit struct {
 func (s PluginFeed) loadPluginReadAudit(now time.Time) ([]pluginReadAuditRow, error) {
 	return s.loadPluginReadAuditFile("plugin-read-audit.json", now, func(row pluginReadAuditRow) error {
 		return s.checkCapabilityGrants(PluginCapabilityGrants{Read: []string{row.Session}})
-	}, false)
+	})
 }
 
-func (s PluginFeed) loadPluginReadAuditFile(name string, now time.Time, validate func(pluginReadAuditRow) error, requireRows bool) ([]pluginReadAuditRow, error) {
+func (s PluginFeed) loadPluginReadAuditFile(name string, now time.Time, validate func(pluginReadAuditRow) error) ([]pluginReadAuditRow, error) {
 	raw, err := journal.ReadBytes(filepath.Join(s.store.Dir, name), 1<<20)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -44,7 +44,7 @@ func (s PluginFeed) loadPluginReadAuditFile(name string, now time.Time, validate
 	if err := decodeEventJSON(raw, &log); err != nil {
 		return nil, err
 	}
-	if log.Version != 1 || len(log.Rows) > 1000 || (requireRows && log.Rows == nil) {
+	if log.Version != 1 || len(log.Rows) > 1000 || log.Rows == nil {
 		return nil, journal.ErrInvalidFile
 	}
 	rows := make([]pluginReadAuditRow, 0, len(log.Rows))
@@ -68,6 +68,9 @@ func (s PluginFeed) savePluginReadAudit(rows []pluginReadAuditRow, now time.Time
 }
 
 func (s PluginFeed) savePluginReadAuditFile(name string, rows []pluginReadAuditRow, now time.Time) error {
+	if rows == nil {
+		rows = []pluginReadAuditRow{}
+	}
 	for {
 		if len(rows) > 1000 {
 			if now.Sub(rows[0].At) < time.Second {

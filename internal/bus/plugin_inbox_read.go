@@ -46,7 +46,7 @@ func (s PluginFeed) readPluginInboxAt(before *PluginFeedStatus, id string, now t
 			return journal.ErrInvalidFile
 		}
 		return nil
-	}, true)
+	})
 	if err != nil {
 		return nil, pluginReadFailure("audit_unavailable")
 	}
