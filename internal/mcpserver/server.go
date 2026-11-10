@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -127,11 +128,16 @@ type MessagePage struct {
 	Messages   []MessageView `json:"messages"`
 	More       bool          `json:"more"`
 	NextCursor string        `json:"next_cursor,omitempty"`
+	// Unreadable counts message files skipped as unreadable or unsupported.
+	Unreadable int `json:"unreadable,omitempty"`
 }
 
 func messagePage(batch bus.MessageBatch, exact bool) MessagePage {
-	page := MessagePage{Messages: []MessageView{}, More: batch.More}
+	page := MessagePage{Messages: []MessageView{}, More: batch.More, Unreadable: batch.Unreadable}
 	used := len(`{"messages":[],"more":false,"next_cursor":"00000000-0000-4000-8000-000000000000"}`)
+	if page.Unreadable > 0 {
+		used += len(`,"unreadable":`) + len(strconv.Itoa(page.Unreadable))
+	}
 	for _, view := range messageViews(batch.Messages) {
 		encoded, _ := json.Marshal(view)
 		if !exact && used+len(encoded)+1 > messagePageBytes {

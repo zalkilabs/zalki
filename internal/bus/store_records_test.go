@@ -151,12 +151,9 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 				t.Fatal("future schema was accepted", err)
 			}
 			if kind == "message" {
-				_, err = store.Messages(v.ID, key)
+				requireFutureMessageSkipped(t, store, v.ID, key)
 			} else {
 				_, err = store.List()
-			}
-			if kind == "message" && model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
-				t.Fatal("exact message schema was accepted", err)
 			}
 			if kind != "message" && err != nil {
 				t.Fatal("session scan did not skip unsupported record", err)
@@ -166,6 +163,16 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 				t.Fatal("future record changed")
 			}
 		})
+	}
+}
+
+// requireFutureMessageSkipped checks that the list skips and counts a future
+// message record, like the session scan; exact reads (Ack) stay strict.
+func requireFutureMessageSkipped(t *testing.T, store Store, actor, key string) {
+	t.Helper()
+	batch, err := store.ReadMessages(MessageQuery{Actor: actor, Capability: key, History: true})
+	if err != nil || batch.Unreadable != 1 {
+		t.Fatal("future message record was not skipped and counted", batch.Unreadable, err)
 	}
 }
 

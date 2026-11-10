@@ -47,7 +47,9 @@ func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = "ab89c2a2e7a7486d2924e98e7f9adfc0e80090d3b413bd601e4a2ffd38883834"
+	// B3b: only list_messages' output schema gains the optional unreadable
+	// integer (+32 schema bytes, like skipped_sessions); no description changed.
+	const want = "43dcfa767e91a155e985b48fe4b9f731ba4f5a23e04c908f65ea9ae69a6962c8"
 	if got := fmt.Sprintf("%x", sha256.Sum256(encoded)); got != want {
 		t.Fatalf("advertised tool contract changed: sha256=%s bytes=%d; compare with the pre-refactor contract before updating", got, len(encoded))
 	}
