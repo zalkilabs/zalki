@@ -11,6 +11,7 @@ import (
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
+	ctx = context.WithValue(ctx, signalContextKey{}, ctx)
 	if err := run(ctx, os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "zalki:", err)
 		os.Exit(1)

@@ -59,7 +59,7 @@ func newMCPCommand(opts *commandOptions) *cobra.Command {
 				case <-time.After(2 * time.Second):
 				}
 			}()
-			return mcpserver.Run(cmd.Context(), service, input, output)
+			return mcpStopError(cmd.Context(), mcpserver.Run(cmd.Context(), service, input, output))
 		},
 	}
 }
