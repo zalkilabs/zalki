@@ -90,14 +90,19 @@ func (s Store) clearApprovalHeld(targetID string) error {
 // queuedApprovals returns approval-blocked messages for target in send order.
 // The caller holds the journal lock.
 func (s Store) queuedApprovals(target string) ([]model.Message, error) {
-	return s.queuedApprovalsRead(target, false)
+	queued, _, err := s.queuedApprovalsRead(target, false)
+	return queued, err
 }
 
-func (s Store) queuedApprovalsRead(target string, skipUnreadable bool) ([]model.Message, error) {
+// queuedApprovalsRead also returns the files it skipped when skipUnreadable is
+// true, so a caller can report them and keep its approval count.
+func (s Store) queuedApprovalsRead(target string, skipUnreadable bool) ([]model.Message, skippedMessages, error) {
 	queued := []model.Message{}
-	if err := s.eachMessage(func(_ string, msg model.Message, readErr error) error {
+	var skipped skippedMessages
+	if err := s.eachMessage(func(id string, msg model.Message, readErr error) error {
 		if readErr != nil {
 			if skipUnreadable {
+				skipped.add(id)
 				return nil
 			}
 			return readErr
@@ -107,7 +112,7 @@ func (s Store) queuedApprovalsRead(target string, skipUnreadable bool) ([]model.
 		}
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, skipped, err
 	}
 	sort.Slice(queued, func(i, j int) bool {
 		if queued[i].CreatedAt == queued[j].CreatedAt {
@@ -115,7 +120,7 @@ func (s Store) queuedApprovalsRead(target string, skipUnreadable bool) ([]model.
 		}
 		return queued[i].CreatedAt < queued[j].CreatedAt
 	})
-	return queued, nil
+	return queued, skipped, nil
 }
 
 func (s Store) settleQueued(msg model.Message, reason string) error {
@@ -229,27 +234,36 @@ func (s Store) settleMissingTargets(counts map[string]int, seen map[string]bool,
 	return nil
 }
 
-func (s Store) settleApprovalQueue(actor, reason string) error {
-	return s.settleApprovalQueueRead(actor, reason, false)
+// settleApprovalQueue ends actor's queued approvals for a new registration.
+// One unreadable file must not fail SessionStart, so it is skipped and
+// reported. It returns the count the new registration carries: holds that may
+// sit in unreadable files, which a later hook settles once they can be read.
+func (s Store) settleApprovalQueue(actor, reason string, held int) (int, error) {
+	settled, skipped, err := s.settleApprovalQueueRead(actor, reason)
+	skipped.report(s, actor)
+	return heldAfterScan(held, settled, skipped.count), err
 }
 
 // settleReadableApprovalQueue settles queued messages and ignores files prune
 // has already reported as unreadable, so one bad file cannot abort cleanup.
 func (s Store) settleReadableApprovalQueue(actor, reason string) error {
-	return s.settleApprovalQueueRead(actor, reason, true)
+	_, _, err := s.settleApprovalQueueRead(actor, reason)
+	return err
 }
 
-func (s Store) settleApprovalQueueRead(actor, reason string, skipUnreadable bool) error {
-	queued, err := s.queuedApprovalsRead(actor, skipUnreadable)
+// settleApprovalQueueRead settles every readable queued approval of actor and
+// returns how many it settled and the files it could not read.
+func (s Store) settleApprovalQueueRead(actor, reason string) (int, skippedMessages, error) {
+	queued, skipped, err := s.queuedApprovalsRead(actor, true)
 	if err != nil {
-		return err
+		return 0, skipped, err
 	}
-	for _, msg := range queued {
+	for i, msg := range queued {
 		if err := s.settleQueued(msg, reason); err != nil {
-			return err
+			return i, skipped, err
 		}
 	}
-	return nil
+	return len(queued), skipped, nil
 }
 
 type approvalResolution struct {
@@ -271,20 +285,20 @@ func (s Store) resolveApprovalQueue(current model.Session, hookPoll bool) (appro
 	if current.ApprovalHeld == 0 || (hookPoll && reason == "" && current.State == model.StateApproval) {
 		return result, nil
 	}
-	queued, err := s.queuedApprovals(current.ID)
+	// Every lifecycle hook reaches this scan while approvals are held. One
+	// unreadable file must not block it; see heldAfterScan for the count.
+	queued, skipped, err := s.queuedApprovalsRead(current.ID, true)
 	if err != nil {
 		return result, err
 	}
-	if len(queued) == 0 {
-		return result, s.clearApprovalHeld(current.ID)
-	}
+	skipped.report(s, current.ID)
 	if reason != "" {
 		for _, msg := range queued {
 			if err := s.settleQueued(msg, reason); err != nil {
 				return result, err
 			}
 		}
-	} else {
+	} else if len(queued) != 0 {
 		if current.State == model.StateApproval {
 			return result, nil
 		}
@@ -293,7 +307,25 @@ func (s Store) resolveApprovalQueue(current model.Session, hookPoll bool) (appro
 			return result, err
 		}
 	}
-	return result, s.clearApprovalHeld(current.ID)
+	return result, recountAfterScan(s, current, len(queued), skipped.count)
+}
+
+// heldAfterScan is the queued-approval count after a scan that resolved
+// processed readable holds (released or settled) and could not read skipped
+// files. Only unreadable files can still hold approvals, so the count never
+// exceeds skipped, and every resolved hold is subtracted, so it never grows.
+// With nothing skipped it is 0, the exact count.
+func heldAfterScan(prior, processed, skipped int) int {
+	return min(max(0, prior-processed), skipped)
+}
+
+// recountAfterScan stores heldAfterScan for current under the caller's lock. A
+// healthy scan clears the count as before; otherwise the count moves only down.
+func recountAfterScan(s Store, current model.Session, processed, skipped int) error {
+	if skipped == 0 {
+		return s.clearApprovalHeld(current.ID)
+	}
+	return s.rememberApprovalHold(current.ID, heldAfterScan(current.ApprovalHeld, processed, skipped)-current.ApprovalHeld)
 }
 
 func (s Store) releaseReadyApprovals(current model.Session, queued []model.Message) ([]model.Message, error) {

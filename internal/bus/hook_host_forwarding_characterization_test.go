@@ -188,8 +188,13 @@ func TestHookHostEmitPendingErrorsFollowActorCheck(t *testing.T) {
 		t.Fatalf("context=%q error=%v, want bound actor's missing record", text, err)
 	}
 	assertForwardingChanges(t, host.store, before)
-	msg := forwardingMessage(t, host.store, target, model.StatusPendingActivity)
-	corruptForwardingMessage(t, host.store, msg.ID)
+	// One malformed message file no longer fails hook delivery (it is skipped
+	// and reported), so the bound actor's own malformed session record is the
+	// error that must surface here.
+	forwardingMessage(t, host.store, target, model.StatusPendingActivity)
+	if err := os.WriteFile(host.store.sessionPathMust(t, target.ID), []byte("{"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	before = journalSnapshot(t, host.store)
 	wrongHost := host
 	wrongHost.actor = other.ID

@@ -23,6 +23,8 @@ type eventData struct {
 	Err                                              error
 	Duration                                         time.Duration
 	Reused                                           bool
+	// Skipped counts records a tolerant scan could not read.
+	Skipped int
 }
 
 // logEvent writes one log record made only of allowlisted attributes. The
@@ -126,14 +128,17 @@ func appendErrorAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 	return attrs
 }
 
-// appendDurationAndReuseAttrs adds duration_ms (only above zero) and reused
-// (only when true).
+// appendDurationAndReuseAttrs adds duration_ms (only above zero), reused
+// (only when true) and skipped (only above zero).
 func appendDurationAndReuseAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 	if data.Duration > 0 {
 		attrs = append(attrs, slog.Int64("duration_ms", data.Duration.Milliseconds()))
 	}
 	if data.Reused {
 		attrs = append(attrs, slog.Bool("reused", true))
+	}
+	if data.Skipped > 0 {
+		attrs = append(attrs, slog.Int("skipped", data.Skipped))
 	}
 	return attrs
 }
