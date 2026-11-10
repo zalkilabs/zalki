@@ -119,7 +119,7 @@ func loadInboxReadAuditForTest(f PluginFeed, now time.Time) ([]pluginReadAuditRo
 			return journal.ErrInvalidFile
 		}
 		return nil
-	}, true)
+	})
 }
 func checkInboxReadAuditLimits(t *testing.T, x inboxReadFixture, base pluginReadAuditRow) {
 	t.Helper()
