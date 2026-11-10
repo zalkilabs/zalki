@@ -251,20 +251,18 @@ func TestReadMessagesChecksTheCallerThenTheCursorBeforeScanning(t *testing.T) {
 			t.Fatalf("error = %v, want the capability refusal", err)
 		}
 	})
-	t.Run("without a cursor the unreadable record fails the read", func(t *testing.T) {
-		if _, err := f.read(as(f.a, bus.MessageQuery{})); err == nil {
-			t.Fatal("an unreadable record did not fail the read")
+	t.Run("without a cursor the unreadable record is skipped and counted", func(t *testing.T) {
+		if batch, err := f.read(as(f.a, bus.MessageQuery{})); err != nil || batch.Unreadable != 1 {
+			t.Fatalf("read = %d unreadable, %v; want the record skipped and counted", batch.Unreadable, err)
 		}
 	})
 }
 
-// Characterized, not endorsed: when a record cannot be read the error comes
-// with the views collected so far, in scan (ID) order and not sorted.
-func TestReadMessagesKeepsTheViewsCollectedBeforeAnUnreadableRecord(t *testing.T) {
+// An unreadable record is skipped and counted. The views before and after it
+// are returned in display order, as if the record were absent.
+func TestReadMessagesSkipsAnUnreadableRecordAndKeepsLaterViews(t *testing.T) {
 	f := newJournalFixture(t)
 	f.seedThirdParties(t)
-	// Scan order before the bad record is 9, 10, 11, which differs from both
-	// inbox creation order (11, 9, 10) and history order (10, 9, 11).
 	f.put(t, 9, f.b, f.a, "in-middle", 19)
 	f.put(t, 10, f.b, f.a, "in-newer", 20)
 	f.put(t, 11, f.b, f.a, "in-oldest", 18)
@@ -273,28 +271,25 @@ func TestReadMessagesKeepsTheViewsCollectedBeforeAnUnreadableRecord(t *testing.T
 	for _, test := range []struct {
 		name  string
 		query bus.MessageQuery
+		want  []int
 	}{
-		{"inbox", bus.MessageQuery{}},
-		{"history", bus.MessageQuery{History: true}},
-		{"sent", bus.MessageQuery{Sent: true}},
+		{"inbox", bus.MessageQuery{}, []int{11, 13, 9, 10}},
+		{"history", bus.MessageQuery{History: true}, []int{10, 9, 11, 13}},
+		{"sent", bus.MessageQuery{Sent: true}, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			batch, err := f.read(as(f.a, test.query))
-			if err == nil {
-				t.Fatal("an unreadable record did not fail the read")
+			if err != nil || batch.Unreadable != 1 || batch.More {
+				t.Fatalf("read = %+v, %v; want the record skipped and counted", batch, err)
 			}
-			want := []int{9, 10, 11}
-			if test.query.Sent {
-				want = nil // nothing sent by A comes before the unreadable record
+			var got []int
+			for _, n := range numbers(idsOf(batch)) {
+				if n >= 9 && n <= 13 {
+					got = append(got, n)
+				}
 			}
-			if got := numbers(idsOf(batch)); !slices.Equal(got, want) {
-				t.Fatalf("partial view = %v, want %v (scan order, before sorting)", got, want)
-			}
-			if batch.More {
-				t.Fatal("a failed read reported more")
-			}
-			if batch.Messages == nil {
-				t.Fatal("a failed read returned a nil view")
+			if !slices.Equal(got, test.want) {
+				t.Fatalf("views = %v, want %v (display order)", got, test.want)
 			}
 		})
 	}

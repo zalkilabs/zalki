@@ -8,7 +8,9 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func TestMessageScanErrorKeepsPartialView(t *testing.T) {
+// An unreadable record no longer fails the list: it is skipped and counted, and
+// the readable view keeps its authenticated content.
+func TestMessageScanSkipKeepsTheView(t *testing.T) {
 	store := fixtureStore(t)
 	from, key, to, _ := registerPair(t, store, "codex", "cursor")
 	const first = "00000000-0000-4000-8000-000000000001"
@@ -21,12 +23,12 @@ func TestMessageScanErrorKeepsPartialView(t *testing.T) {
 		t.Fatal(err)
 	}
 	batch, err := store.ReadMessages(MessageQuery{Actor: from.ID, Capability: key, Sent: true, IncludeBody: true, Preview: true})
-	if err == nil || batch.More || len(batch.Messages) != 1 {
-		t.Fatalf("scan failure lost the prior partial result: count=%d more=%v err=%v", len(batch.Messages), batch.More, err)
+	if err != nil || batch.More || len(batch.Messages) != 1 || batch.Unreadable != 1 {
+		t.Fatalf("skip lost the readable result: count=%d more=%v unreadable=%d err=%v", len(batch.Messages), batch.More, batch.Unreadable, err)
 	}
 	view := batch.Messages[0]
 	if view.ID != first || view.Body != msg.Body || view.BodyPreview != msg.Body {
-		t.Fatal("partial result lost its authenticated view")
+		t.Fatal("the readable result lost its authenticated view")
 	}
 }
 

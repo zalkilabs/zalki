@@ -31,6 +31,11 @@ type MessageQuery struct {
 type MessageBatch struct {
 	Messages []model.Message
 	More     bool
+	// Unreadable counts message files the scan skipped because they were
+	// unreadable or unsupported (for example written by a newer schema after a
+	// mixed-version upgrade). It covers the whole scan, not the page, and names
+	// no file.
+	Unreadable int
 }
 
 // QueryMessages filters before applying the limit so read history cannot hide
@@ -70,7 +75,10 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 			}
 			return err
 		}
-		batch.Messages, batch.More, err = s.scanMessages(read, limit)
+		var skipped skippedMessages
+		batch.Messages, batch.More, err = s.scanMessages(read, limit, &skipped)
+		skipped.report(s, query.Actor)
+		batch.Unreadable = skipped.count
 		return err
 	})
 	return batch, err
@@ -130,18 +138,18 @@ func (s Store) readExactMessage(r messageRead) (model.Message, error) {
 // scanMessages returns up to limit matching messages in display order and
 // whether more remain. On failure it retains the views collected before the
 // error, in scan order, and the view is never nil. The cursor is checked before
-// anything is scanned; a record that cannot be read stops the scan.
-func (s Store) scanMessages(r messageRead, limit int) (items []model.Message, more bool, err error) {
+// anything is scanned and stays strict; a record that is unreadable or
+// unsupported is added to skipped, so one such file cannot hide a whole inbox.
+func (s Store) scanMessages(r messageRead, limit int, skipped *skippedMessages) (items []model.Message, more bool, err error) {
 	items = []model.Message{}
 	cursor, err := s.scanCursor(r.query)
 	if err != nil {
 		return items, false, err
 	}
-	if err := s.eachMessage(func(_ string, item model.Message, readErr error) error {
+	if err := s.eachMessage(func(id string, item model.Message, readErr error) error {
 		if readErr != nil {
-			return readErr
-		}
-		if r.matches(item, cursor) {
+			skipped.add(id)
+		} else if r.matches(item, cursor) {
 			items = append(items, r.view(item, r.history && !r.query.IncludeBody))
 		}
 		return nil
@@ -281,8 +289,9 @@ func (s Store) emitPendingLocked(actor string, out *strings.Builder) error {
 	return s.emitPendingContext(pending, out)
 }
 
-// skippedMessages counts message files that a tolerant hook scan could not
-// read. It keeps only the first file ID, never content or error text.
+// skippedMessages counts message files that a tolerant scan skipped because
+// they were unreadable or unsupported (for example a newer schema). It keeps
+// only the first file ID, never content or error text.
 type skippedMessages struct {
 	count int
 	first string
@@ -295,8 +304,9 @@ func (k *skippedMessages) add(id string) {
 	k.count++
 }
 
-// report writes at most one diagnostic for one scan. The logger keeps
-// message_id only when it is a UUID, so another file name is never written.
+// report writes at most one diagnostic for one scan. Its event,
+// message.unreadable_skipped, covers unsupported (newer schema) files too. The
+// logger keeps message_id only when it is a UUID, so another name is never written.
 func (k skippedMessages) report(s Store, actor string) {
 	if k.count > 0 {
 		s.logEvent(slog.LevelWarn, "message.unreadable_skipped", eventData{Actor: actor, MessageID: k.first, Skipped: k.count})

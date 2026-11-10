@@ -122,7 +122,9 @@ func TestCollaborationCost(t *testing.T) {
 	// 10341 includes set_task; 10872 adds caller marking, sent filters/preview,
 	// and 73 bytes of alias guidance without alias schema properties.
 	// 10910 adds one optional discovery skip count (+38 bytes, no healthy payload bytes).
-	if metrics.SchemaBytes > 10910 {
+	// 10942 adds the optional list_messages unreadable count, like skipped_sessions
+	// (+32 bytes, no healthy payload bytes).
+	if metrics.SchemaBytes > 10942 {
 		t.Fatalf("tool schemas exceeded budget: %d bytes", metrics.SchemaBytes)
 	}
 	encoded, _ := json.Marshal(metrics)

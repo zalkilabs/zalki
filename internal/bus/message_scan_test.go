@@ -25,8 +25,9 @@ func TestMessageScanCallersKeepTheirUnreadableRecordPolicies(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(store.Dir, "messages", unreadable+".json"), []byte("{bad"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.ReadMessages(MessageQuery{Actor: to.ID, Capability: toKey}); err == nil {
-		t.Fatal("inbox silently skipped unreadable record")
+	// The inbox list skips and counts the record (message_unreadable_list_test.go).
+	if batch, err := store.ReadMessages(MessageQuery{Actor: to.ID, Capability: toKey}); err != nil || batch.Unreadable != 1 {
+		t.Fatal("inbox list failed on, or did not count, an unreadable record", err)
 	}
 	requireHookSkipsWhileHeld(t, store, to.ID, msg.ID)
 	if err := store.locked(func() error {
