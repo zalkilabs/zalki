@@ -16,7 +16,7 @@ import (
 type eventData struct {
 	Actor, Recipient, MessageID, ReplyTo, Generation string
 	Agent, HookEvent                                 string
-	HookStage                                        string
+	HookStage, HookPayloadClass                      string
 	Status, ReceiptStatus                            model.DeliveryStatus
 	State                                            model.SessionState
 	Code                                             model.ErrorCode
@@ -76,12 +76,16 @@ func (s Store) appendAgentAndHookAttrs(attrs []slog.Attr, data eventData) []slog
 	if _, err := s.registry().Lookup(data.Agent); err == nil {
 		attrs = append(attrs, slog.String("agent", data.Agent))
 	}
-	if agent.StandardEvents(true)[data.HookEvent] != "" {
+	if data.HookEvent == "unknown" || agent.StandardEvents(true)[data.HookEvent] != "" {
 		attrs = append(attrs, slog.String("hook_event", data.HookEvent))
 	}
 	switch data.HookStage {
 	case "adapter", "decode", "capture", "event", "normalize", "identity", "owner", "handler", "watch", "approval", "register", "name", "startup", "output", "state":
 		attrs = append(attrs, slog.String("hook_stage", data.HookStage))
+	}
+	switch data.HookPayloadClass {
+	case "le_128kib", "128kib_to_8mib", "gt_8mib":
+		attrs = append(attrs, slog.String("hook_payload_class", data.HookPayloadClass))
 	}
 	return attrs
 }

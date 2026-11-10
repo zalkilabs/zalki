@@ -180,11 +180,16 @@ func TestLogEventKeepsOnlyKnownAgentsEventsAndStages(t *testing.T) {
 	// Fifteen stages: "watch" and "approval" are set by Service.Hook and used to be
 	// dropped from the logs (fixed together with the rate_limited code).
 	stages := []string{"adapter", "decode", "capture", "event", "normalize", "identity", "owner", "handler", "watch", "approval", "register", "name", "startup", "output", "state"}
-	cases := make([]logCase, 0, 8+len(stages))
+	cases := make([]logCase, 0, 13+len(stages))
 	cases = append(cases, []logCase{
 		{"a registered agent is kept", eventData{Agent: "cursor"}, []string{"agent=cursor"}},
 		{"an unregistered agent is dropped", eventData{Agent: "secret-agent"}, nil},
 		{"a standard hook event is kept", eventData{HookEvent: "Stop"}, []string{"hook_event=Stop"}},
+		{"the fixed unknown event marker is kept", eventData{HookEvent: "unknown"}, []string{"hook_event=unknown"}},
+		{"a small hook payload class is kept", eventData{HookPayloadClass: "le_128kib"}, []string{"hook_payload_class=le_128kib"}},
+		{"a medium hook payload class is kept", eventData{HookPayloadClass: "128kib_to_8mib"}, []string{"hook_payload_class=128kib_to_8mib"}},
+		{"an oversized hook payload class is kept", eventData{HookPayloadClass: "gt_8mib"}, []string{"hook_payload_class=gt_8mib"}},
+		{"an arbitrary hook payload class is dropped", eventData{HookPayloadClass: "secret-payload-class"}, nil},
 		{"the interrupt event is kept", eventData{HookEvent: "Interrupt"}, []string{"hook_event=Interrupt"}},
 		{"a hook event in another case is dropped", eventData{HookEvent: "stop"}, nil},
 		{"an unknown hook event is dropped", eventData{HookEvent: "secret-event"}, nil},
