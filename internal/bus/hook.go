@@ -15,7 +15,7 @@ import (
 
 // hookTrace retains safe correlation and the exact failure stage across helpers.
 type hookTrace struct {
-	actor, lifecycle, stage string
+	actor, lifecycle, stage, payloadClass string
 }
 
 func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output io.Writer) (resultErr error) {
@@ -32,6 +32,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 		if resultErr != nil {
 			level, event = slog.LevelWarn, "hook.failed"
 			data.HookStage = trace.stage
+			data.HookPayloadClass = trace.payloadClass
 		}
 		s.Store.logEvent(level, event, data)
 	}()
@@ -93,10 +94,19 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, adapter agent.Adapter, hooks agent.HookAdapter, trace *hookTrace) (agent.HookInput, string, error) {
 	var event agent.HookInput
 	trace.stage = "decode"
-	if err := json.NewDecoder(io.LimitReader(input, 128*1024)).Decode(&event); err != nil {
+	size, header, err := decodeHookPayload(input, &event)
+	trace.payloadClass = hookPayloadSizeClass(size)
+	if err != nil {
 		// Type errors can leave valid identity fields decoded; retain correlation
 		// without accepting the malformed event or logging its contents.
-		trace.lifecycle = adapter.Descriptor().Hooks[event.Event]
+		nativeEvent := probeHookEvent(header)
+		if event.Event != "" {
+			nativeEvent = event.Event
+		}
+		trace.lifecycle = adapter.Descriptor().Hooks[nativeEvent]
+		if trace.lifecycle == "" {
+			trace.lifecycle = "unknown"
+		}
 		if id, identityErr := s.Store.sessionID(kind, event.SessionID); identityErr == nil {
 			trace.actor = id
 		}
@@ -113,7 +123,7 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 	}
 	event.Event, trace.lifecycle = mapped, mapped
 	trace.stage = "normalize"
-	event, err := hooks.NormalizeHook(event)
+	event, err = hooks.NormalizeHook(event)
 	if err != nil {
 		return event, "", err
 	}
