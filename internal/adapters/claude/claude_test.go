@@ -89,7 +89,7 @@ func TestClaudeFrameSizeAndMissingEndpoint(t *testing.T) {
 		body     string
 	}{
 		{"missing endpoint", nil, "hello"},
-		{"oversized escaped frame", endpoint, strings.Repeat("\x01", 16*1024)},
+		{"oversized unchanged HTML frame", endpoint, strings.Repeat("<", 16*1024)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			receipt := adapter.Deliver(context.Background(), model.Message{ID: newTestID(), Body: test.body}, model.Session{Endpoint: test.endpoint})

@@ -34,8 +34,7 @@ func (s Store) completedNativePrompt(actor, prompt string) (string, error) {
 		if err != nil {
 			return err
 		}
-		expected := model.Envelope(s.withLabel(message))
-		if message.To != actor || prompt != expected {
+		if message.To != actor || !sameNativePresentation(s.withLabel(message), prompt) {
 			return nil
 		}
 		current, err := s.session(actor)
@@ -56,4 +55,20 @@ func (s Store) completedNativePrompt(actor, prompt string) (string, error) {
 		return nil
 	})
 	return reason, err
+}
+
+// Compare with the stored message so work under the journal lock stays bounded.
+func sameNativePresentation(message model.Message, prompt string) bool {
+	expected := model.Envelope(message)
+	if prompt == expected {
+		return true
+	}
+	empty := message
+	empty.Body = ""
+	const footer = "\n[/zalki]"
+	prefix := strings.TrimSuffix(model.Envelope(empty), footer)
+	if len(prompt) < len(prefix)+len(footer) || !strings.HasPrefix(prompt, prefix) || !strings.HasSuffix(prompt, footer) {
+		return false
+	}
+	return prompt[len(prefix):len(prompt)-len(footer)] == message.Body
 }
