@@ -220,5 +220,7 @@ func New(service *bus.Service) *mcp.Server {
 }
 
 func Run(ctx context.Context, service *bus.Service, input io.ReadCloser, output io.WriteCloser) error {
-	return New(service).Run(ctx, &mcp.IOTransport{Reader: input, Writer: output, MaxLineLength: 128 * 1024})
+	writer := &stdioFrameWriter{output: output}
+	reader := newStdioFrameReader(input, writer)
+	return New(service).Run(ctx, &mcp.IOTransport{Reader: reader, Writer: writer, MaxLineLength: maxStdioFrameBytes})
 }
