@@ -74,10 +74,14 @@ func TestAFailedApprovalReleaseIsLoggedWithItsStage(t *testing.T) {
 	if msg, err := service.Send(context.Background(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "held"}); err != nil || !msg.Held {
 		t.Fatalf("setup: %+v %v", msg, err)
 	}
-	// The release scans the journal; an unreadable record makes it fail.
-	if err := os.WriteFile(filepath.Join(store.Dir, "messages", newID()+".json"), []byte("{"), 0600); err != nil {
+	// The release must save the held message. A read-only message directory
+	// makes that save fail. (An unreadable record no longer fails the release;
+	// see message_unreadable_hook_test.go.)
+	messages := filepath.Join(store.Dir, "messages")
+	if err := os.Chmod(messages, 0500); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = os.Chmod(messages, 0700) })
 	attrs := hookFailed(t, service, handler, "cursor", map[string]any{
 		"conversation_id": strings.TrimPrefix(target.ID, "cursor:"), "hook_event_name": "postToolUse",
 	})

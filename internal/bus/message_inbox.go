@@ -281,15 +281,40 @@ func (s Store) emitPendingLocked(actor string, out *strings.Builder) error {
 	return s.emitPendingContext(pending, out)
 }
 
+// skippedMessages counts message files that a tolerant hook scan could not
+// read. It keeps only the first file ID, never content or error text.
+type skippedMessages struct {
+	count int
+	first string
+}
+
+func (k *skippedMessages) add(id string) {
+	if k.count == 0 {
+		k.first = id
+	}
+	k.count++
+}
+
+// report writes at most one diagnostic for one scan. The logger keeps
+// message_id only when it is a UUID, so another file name is never written.
+func (k skippedMessages) report(s Store, actor string) {
+	if k.count > 0 {
+		s.logEvent(slog.LevelWarn, "message.unreadable_skipped", eventData{Actor: actor, MessageID: k.first, Skipped: k.count})
+	}
+}
+
 // pendingForHook returns the unacknowledged hook-pending messages sent to actor
-// for the current registration, oldest first. An unreadable record is an error.
+// for the current registration, oldest first. An unreadable record is skipped
+// and reported, so one bad file cannot block every hook. A skipped record is
+// not changed; it stays pending and is delivered once it can be read again.
 func (s Store) pendingForHook(actor string, current model.Session) ([]model.Message, error) {
 	pending := []model.Message{}
-	if err := s.eachMessage(func(_ string, msg model.Message, readErr error) error {
+	var skipped skippedMessages
+	defer func() { skipped.report(s, actor) }()
+	if err := s.eachMessage(func(id string, msg model.Message, readErr error) error {
 		if readErr != nil {
-			return readErr
-		}
-		if msg.To == actor && msg.TargetGeneration == current.Generation && model.HookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
+			skipped.add(id)
+		} else if msg.To == actor && msg.TargetGeneration == current.Generation && model.HookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
 			pending = append(pending, msg)
 		}
 		return nil

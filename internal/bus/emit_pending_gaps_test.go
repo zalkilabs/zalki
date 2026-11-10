@@ -23,9 +23,10 @@ import (
 //     unreachable (retired, or its owner has exited) this returns at once with
 //     an empty context and NO error. Queued approvals of an unreachable target
 //     are settled as not sent on the way.
-//  4. Read every message. An unreadable record is an error, and nothing has
-//     been emitted yet. A message is pending when it is for this session and
-//     generation, in a hook-pending status, and not acknowledged.
+//  4. Read every message. An unreadable record is skipped and reported once
+//     (message_unreadable_hook_test.go). A message is pending when it is for
+//     this session and generation, in a hook-pending status, and not
+//     acknowledged.
 //  5. Sort the pending messages by CreatedAt.
 //  6. For each message in that order: stop at the 6th message, or when adding
 //     it would push the context over 24 KiB (exactly 24 KiB still fits). The
@@ -300,7 +301,7 @@ func TestEmitPendingForAnUnreachableTargetReturnsNothingAndNoError(t *testing.T)
 	if err := f.store.Update(f.target.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
-	// An unreadable record would be an error for a live target (see below).
+	// An unreadable record is not even read for an unreachable target.
 	garbage := filepath.Join(f.store.Dir, "messages", newID()+".json")
 	if err := os.WriteFile(garbage, []byte("not json"), 0600); err != nil {
 		t.Fatal(err)
@@ -352,18 +353,18 @@ func storedMessage(t *testing.T, store Store, id string) model.Message {
 	return msg
 }
 
-func TestEmitPendingForALiveTargetFailsOnAnUnreadableRecordBeforeEmittingAnything(t *testing.T) {
+func TestEmitPendingForALiveTargetSkipsAnUnreadableRecord(t *testing.T) {
 	f := newEmitFixture(t)
-	pending := f.queue(t, "must stay pending", time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC))
+	pending := f.queue(t, "still delivered", time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC))
 	garbage := filepath.Join(f.store.Dir, "messages", newID()+".json")
 	if err := os.WriteFile(garbage, []byte("not json"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	text, err := f.store.EmitPending(f.target.ID)
-	if err == nil || text != "" {
-		t.Fatalf("EmitPending = %q, %v; want no context and an error", text, err)
+	if err != nil || !strings.Contains(text, pending.ID) {
+		t.Fatalf("EmitPending = %q, %v; want the readable message and no error", text, err)
 	}
-	if current := f.read(t, pending.ID); current.Status != emitHookPending {
-		t.Fatalf("a failed read still emitted: %q", current.Status)
+	if current := f.read(t, pending.ID); current.Status != model.StatusContextEmitted {
+		t.Fatalf("readable message status %q", current.Status)
 	}
 }

@@ -28,14 +28,12 @@ func TestMessageScanCallersKeepTheirUnreadableRecordPolicies(t *testing.T) {
 	if _, err := store.ReadMessages(MessageQuery{Actor: to.ID, Capability: toKey}); err == nil {
 		t.Fatal("inbox silently skipped unreadable record")
 	}
-	if _, err := store.EmitPending(to.ID); err == nil {
-		t.Fatal("hook silently skipped unreadable record")
-	}
+	requireHookSkipsWhileHeld(t, store, to.ID, msg.ID)
 	if err := store.locked(func() error {
-		if _, err := store.queuedApprovalsRead(to.ID, false); err == nil {
+		if _, _, err := store.queuedApprovalsRead(to.ID, false); err == nil {
 			t.Fatal("strict approval read silently skipped unreadable record")
 		}
-		queued, err := store.queuedApprovalsRead(to.ID, true)
+		queued, _, err := store.queuedApprovalsRead(to.ID, true)
 		if err != nil || len(queued) != 1 || queued[0].ID != msg.ID {
 			t.Fatal("prune lost readable held message", err)
 		}
@@ -46,5 +44,19 @@ func TestMessageScanCallersKeepTheirUnreadableRecordPolicies(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// requireHookSkipsWhileHeld checks that hook delivery skips and reports the
+// record (message_unreadable_hook_test.go) and that the held message stays held
+// while its prompt is open.
+func requireHookSkipsWhileHeld(t *testing.T, store Store, target, held string) {
+	t.Helper()
+	text, err := store.EmitPending(target)
+	if err != nil || text != "" {
+		t.Fatal("hook failed on an unreadable record", text, err)
+	}
+	if !storedMessage(t, store, held).Held {
+		t.Fatal("hook released a held message while its prompt is open")
 	}
 }
