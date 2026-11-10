@@ -11,11 +11,13 @@ import (
 )
 
 type pluginReadMessage struct {
-	ID   string  `json:"id"`
-	From string  `json:"from"`
-	To   string  `json:"to"`
-	Kind string  `json:"kind,omitempty"`
-	Body *string `json:"body,omitempty"`
+	ID                string  `json:"id"`
+	From              string  `json:"from"`
+	To                string  `json:"to"`
+	Kind              string  `json:"kind,omitempty"`
+	Body              *string `json:"body,omitempty"`
+	SenderGeneration  string  `json:"sender_generation,omitempty"`
+	AdmissionRevision string  `json:"admission_revision,omitempty"`
 }
 
 type pluginReadResult struct {
