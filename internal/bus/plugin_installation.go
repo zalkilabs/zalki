@@ -2,7 +2,6 @@ package bus
 
 import (
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -100,20 +99,8 @@ func (s PluginFeed) addPlugin(launch *PluginLaunch) error {
 		if err := pluginDirectory(s.pluginDataPath(), true); err != nil {
 			return err
 		}
-		data, err := os.Open(s.pluginDataPath())
-		if err != nil {
+		if err := s.checkEmptyPluginData(); err != nil {
 			return err
-		}
-		entries, err := data.Readdirnames(1)
-		closeErr := data.Close()
-		if err != nil && !errors.Is(err, io.EOF) {
-			return err
-		}
-		if closeErr != nil {
-			return closeErr
-		}
-		if len(entries) != 0 {
-			return model.NewError(model.CodeConflict, "remove abandoned plugin data before adding")
 		}
 		return createPluginInstallation(s, launch)
 	})
@@ -150,6 +137,9 @@ func (s PluginFeed) RemovePlugin() error {
 		}
 	}
 	if err := os.RemoveAll(s.pluginDataPath()); err != nil {
+		return err
+	}
+	if err := s.sweepPluginInstallFiles(); err != nil {
 		return err
 	}
 	return journal.SyncDir(s.pluginDir())

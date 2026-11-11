@@ -19,28 +19,30 @@ type pluginPosition struct {
 }
 
 type pluginRecord struct {
-	ID           string              `json:"id"`
-	Name         string              `json:"name"`
-	Launch       *PluginLaunch       `json:"launch,omitempty"`
-	Enabled      bool                `json:"enabled"`
-	Sessions     []string            `json:"sessions"`
-	Position     pluginPosition      `json:"position"`
-	GapID        string              `json:"gap_id,omitempty"`
-	GapReason    string              `json:"gap_reason,omitempty"`
-	Capabilities *PluginCapabilities `json:"capabilities,omitempty"`
+	ID           string                `json:"id"`
+	Name         string                `json:"name"`
+	Launch       *PluginLaunch         `json:"launch,omitempty"`
+	Enabled      bool                  `json:"enabled"`
+	Sessions     []string              `json:"sessions"`
+	Position     pluginPosition        `json:"position"`
+	GapID        string                `json:"gap_id,omitempty"`
+	GapReason    string                `json:"gap_reason,omitempty"`
+	Capabilities *PluginCapabilities   `json:"capabilities,omitempty"`
+	Install      *PluginInstallReceipt `json:"install,omitempty"`
 }
 
 // PluginFeedStatus describes a named installation, without claiming a live child.
 type PluginFeedStatus struct {
-	Launch       *PluginLaunch       `json:"launch,omitempty"`
-	ID           string              `json:"id,omitempty"`
-	Name         string              `json:"plugin"`
-	DataDir      string              `json:"data_dir"`
-	Enabled      bool                `json:"enabled"`
-	Sessions     []string            `json:"sessions"`
-	GapPending   bool                `json:"gap_pending"`
-	LastGap      string              `json:"last_gap,omitempty"`
-	Capabilities *PluginCapabilities `json:"capabilities,omitempty"`
+	Launch       *PluginLaunch         `json:"launch,omitempty"`
+	ID           string                `json:"id,omitempty"`
+	Name         string                `json:"plugin"`
+	DataDir      string                `json:"data_dir"`
+	Enabled      bool                  `json:"enabled"`
+	Sessions     []string              `json:"sessions"`
+	GapPending   bool                  `json:"gap_pending"`
+	LastGap      string                `json:"last_gap,omitempty"`
+	Capabilities *PluginCapabilities   `json:"capabilities,omitempty"`
+	Install      *PluginInstallReceipt `json:"install,omitempty"`
 }
 
 func (s PluginFeed) pluginPath() string { return filepath.Join(s.pluginDir(), s.name+".json") }
@@ -136,7 +138,7 @@ func (s PluginFeed) ConfigurePluginFeed(ids []string) error {
 		if p.Enabled {
 			return model.NewError(model.CodeConflict, "disable the plugin before changing its grants")
 		}
-		_, err = s.savePlugin(pluginRecord{ID: p.ID, Name: p.Name, Sessions: ids, Launch: p.Launch, Capabilities: p.Capabilities})
+		_, err = s.savePlugin(pluginRecord{ID: p.ID, Name: p.Name, Sessions: ids, Launch: p.Launch, Capabilities: p.Capabilities, Install: p.Install})
 		return err
 	})
 }
@@ -201,14 +203,14 @@ func (s PluginFeed) PluginStatus() (PluginFeedStatus, error) {
 	var status PluginFeedStatus
 	err := s.store.readLocked(func() error {
 		p, _, err := s.loadPlugin()
-		status = PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Sessions: slices.Clone(p.Sessions), GapPending: p.GapID != "", LastGap: p.GapReason, Capabilities: p.Capabilities.clone()}
+		status = PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Sessions: slices.Clone(p.Sessions), GapPending: p.GapID != "", LastGap: p.GapReason, Capabilities: p.Capabilities.clone(), Install: p.Install}
 		return err
 	})
 	return status, err
 }
 
 func (p pluginRecord) validIdentityAndLaunch(name string) bool {
-	if !canonicalEventID(p.ID) || p.Name != name {
+	if !canonicalEventID(p.ID) || p.Name != name || (p.Install != nil && (p.Launch == nil || !p.Install.valid())) {
 		return false
 	}
 	if p.Launch == nil {
