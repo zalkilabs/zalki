@@ -26,6 +26,9 @@ const helloTimeout = 10 * time.Second
 
 var errPartialFrameEOF = errors.New("plugin stream ended mid-frame")
 
+// errHelloVersion refuses any hello other than feed v1 or v1-read.
+var errHelloVersion = errors.New("plugin requires hello.version=v1 or v1-read; rebuild a v0 plugin against feed v1")
+
 type hello struct {
 	Version string `json:"version"`
 }
@@ -90,5 +93,5 @@ func writeFrame(output io.Writer, value frame) error {
 }
 
 func (f frame) validHello() bool {
-	return f.Hello != nil && f.Hello.Version == "v0" && f.ID == "" && f.Ack == "" && f.Gap == "" && f.Event == nil
+	return f.Hello != nil && f.Hello.Version == "v1" && f.ID == "" && f.Ack == "" && f.Gap == "" && f.Event == nil
 }

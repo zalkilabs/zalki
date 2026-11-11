@@ -19,7 +19,8 @@ func TestSessionWriterInventory(t *testing.T) {
 		"hook_lifecycle.go:ApplyLifecycle": 1, "hook_lifecycle.go:ClaimRecovery": 1,
 		"listener.go:Arm": 1, "listener.go:Confirm": 1, "listener.go:Close": 1,
 		"process.go:rememberOwner": 1, "prune.go:sweepRetired": 1, "prune.go:retireIfDue": 1,
-		"event_commit.go:saveSessionWith": 1, "session.go:register": 1, "session.go:Update": 1, "session.go:saveSession": 1,
+		"event_commit.go:saveSessionWith": 1, "event_commit.go:saveSessionFor": 1,
+		"session.go:register": 1, "session.go:updateSession": 1, "session.go:saveSession": 1,
 		"session_names.go:rememberNativeConfigDir": 1, "session_names.go:hookName": 1, "task.go:SetTask": 1,
 	}
 	found := map[string]int{}
@@ -75,7 +76,7 @@ func sessionSaveCall(expr ast.Expr) bool {
 		return selector.Sel.Name == "saveSession"
 	}
 	if id, ok := expr.(*ast.Ident); ok {
-		return id.Name == "saveSessionWith" || id.Name == "savePrivateSessionRecord"
+		return id.Name == "saveSessionWith" || id.Name == "saveSessionFor" || id.Name == "savePrivateSessionRecord"
 	}
 	return false
 }

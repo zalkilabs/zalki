@@ -173,16 +173,25 @@ func (s *Service) startSession(kind string, hooks agent.HookAdapter, event agent
 }
 
 func (s *Service) applyLifecycleState(id, event string) error {
+	cause := lifecycleCause(event)
 	switch event {
 	case "SessionEnd":
-		return s.Store.Update(id, model.StateRetired, true)
+		return updateSession(s.Store, id, model.StateRetired, true, cause)
 	case "PermissionRequest":
-		return s.Store.Update(id, model.StateApproval, false)
+		return updateSession(s.Store, id, model.StateApproval, false, cause)
 	case "PostToolUse", "UserPromptSubmit":
-		return s.Store.Update(id, model.StateBusy, false)
+		return updateSession(s.Store, id, model.StateBusy, false, cause)
 	case "Stop", "Interrupt":
-		return s.Store.Update(id, model.StateReady, false)
+		return updateSession(s.Store, id, model.StateReady, false, cause)
 	default:
 		return errors.New("unsupported agent lifecycle event")
 	}
 }
+
+// lifecycleCauses names the event cause of each native hook event.
+var lifecycleCauses = map[string]model.EventCause{
+	"Stop": model.CauseStop, "Interrupt": model.CauseInterrupt, "UserPromptSubmit": model.CausePrompt,
+	"PostToolUse": model.CauseTool, "PermissionRequest": model.CausePermission, "SessionEnd": model.CauseSessionEnd,
+}
+
+func lifecycleCause(event string) model.EventCause { return lifecycleCauses[event] }

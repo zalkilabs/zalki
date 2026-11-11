@@ -19,7 +19,7 @@ type CheckTarget struct {
 	Lease  *os.File
 }
 
-// Check observes v0 transport and direct-child shutdown in temporary HOME/cwd/state.
+// Check observes v1 transport and direct-child shutdown in temporary HOME/cwd/state.
 // Temporary paths do not sandbox the executable or restrict its OS permissions.
 // Check does not advance real feeds or prove arbitrary side effects durable.
 func Check(ctx context.Context, target CheckTarget, output io.Writer) (result error) {
@@ -60,7 +60,7 @@ func Check(ctx context.Context, target CheckTarget, output io.Writer) (result er
 	}
 	header, err := c.receive(helloTimeout)
 	if err == nil && !header.validHello() {
-		err = errors.New("plugin requires hello.version=v0")
+		err = errHelloVersion
 	}
 	if err := reportCheck(output, "hello", err); err != nil {
 		return err

@@ -53,7 +53,7 @@ func setEventTestState(t *testing.T, store Store, id string, state model.Session
 			return err
 		}
 		next.State, next.UpdatedAt = state, model.Timestamp()
-		return saveSessionWith(store, next, writer)
+		return saveSessionWith(store, next, "", writer)
 	}); err != nil {
 		t.Fatal(err)
 	}

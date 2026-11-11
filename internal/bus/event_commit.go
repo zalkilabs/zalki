@@ -11,7 +11,12 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func saveSessionWith(s Store, next model.Session, writer commitWriter) error {
+// saveSessionFor saves a session; cause is recorded on the event, if any.
+func saveSessionFor(s Store, next model.Session, cause model.EventCause) error {
+	return saveSessionWith(s, next, cause, commitWriter{dir: s.Dir})
+}
+
+func saveSessionWith(s Store, next model.Session, cause model.EventCause, writer commitWriter) error {
 	record, err := prepareSessionRecord(s, next)
 	if err != nil {
 		return err
@@ -23,7 +28,7 @@ func saveSessionWith(s Store, next model.Session, writer commitWriter) error {
 	if err != nil {
 		return err
 	}
-	event, err := sessionEvent(prior, record.value)
+	event, err := sessionEvent(prior, record.value, cause)
 	if err != nil {
 		return err
 	}
@@ -43,7 +48,7 @@ func saveSessionWith(s Store, next model.Session, writer commitWriter) error {
 	}
 	// A prior single-file rename may be live but not durable after a failed
 	// directory sync. Order that preimage before the intent's FULL commit point.
-	if err := writer.orderSessionDirectory(filepath.Dir(record.path)); err != nil {
+	if err := writer.orderSubjectDirectory(filepath.Dir(record.path)); err != nil {
 		return err
 	}
 	if err := writer.log().Commit(batch); err != nil {

@@ -37,7 +37,7 @@ type readHost struct {
 
 func runReadHost(ctx context.Context, feed pluginfeed.PluginFeed, binding *pluginfeed.PluginFeedStatus, c *child, out io.Writer, ready string, header frame) error {
 	if header.Hello == nil || header.Hello.Version != "v1-read" || header.ID != "" || header.Ack != "" || header.Gap != "" || header.Event != nil || c.reader.Buffered() != 0 {
-		return errors.New("plugin requires hello.version=v0")
+		return errHelloVersion
 	}
 	c.readMode.Store(true)
 	ctx, cancel := context.WithCancel(ctx)

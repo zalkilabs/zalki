@@ -43,7 +43,7 @@ func externalTestChild(args []string) error {
 	if err := journal.WriteAtomic(args[0], raw); err != nil {
 		return err
 	}
-	if err := writeFrame(os.Stdout, frame{Hello: &hello{Version: "v0"}}); err != nil {
+	if err := writeFrame(os.Stdout, frame{Hello: &hello{Version: "v1"}}); err != nil {
 		return err
 	}
 	reader := bufio.NewReaderSize(os.Stdin, maxFrame+1)

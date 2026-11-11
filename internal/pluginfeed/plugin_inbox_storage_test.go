@@ -136,7 +136,7 @@ func TestPluginInboxStoredProvenanceAndExactRetry(t *testing.T) {
 }
 
 func TestPluginInboxPublicationCrashOrder(t *testing.T) {
-	for _, cut := range []string{"index-precommit", "index-post-rename", "canonical-post-rename"} {
+	for _, cut := range []string{"index-precommit", "index-post-rename", "canonical-dir-sync"} {
 		t.Run(cut, func(t *testing.T) {
 			checkInboxPublicationCut(t, cut)
 		})
@@ -251,12 +251,15 @@ func checkInboxPublicationCut(t *testing.T, cut string) {
 	if !bytes.Equal(before, after) {
 		t.Fatal("crash retry spent quota or republished index")
 	}
-	if cut == "index-post-rename" {
-		assertInboxFailure(t, again, retryErr)
-		x.assertAbsent(t, r.MessageID)
-	} else if retryErr != nil || again.ID != r.MessageID || again.Status != model.StatusSubmitted || again.AcknowledgedAt != "" {
-		t.Fatal("canonical retry failed to confirm durable outcome", retryErr)
+	// The canonical message is committed with its event in one batch that
+	// orders messages/ first, so a directory that cannot be synced stops the
+	// write before the rename: both cuts leave a reservation and no message,
+	// and the retry fails closed.
+	assertInboxFailure(t, again, retryErr)
+	if !strings.Contains(retryErr.Error(), "send again with a new message_id") {
+		t.Fatal("the retry error does not tell the sender what to do", retryErr)
 	}
+	x.assertAbsent(t, r.MessageID)
 
 }
 
@@ -437,7 +440,7 @@ func prepareInboxPublicationCut(t *testing.T, x inboxStorageFixture, cut, indexP
 			t.Skip("directory sync permission cut requires ordinary user")
 		}
 		dir := x.f.pluginDataPath()
-		if cut == "canonical-post-rename" {
+		if cut == "canonical-dir-sync" {
 			dir = filepath.Join(x.f.store.Dir, "messages")
 		}
 		t.Cleanup(func() { _ = os.Chmod(dir, 0700) })

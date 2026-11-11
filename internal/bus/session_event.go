@@ -8,12 +8,14 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// sessionEvent projects only registration, generation and lifecycle facts.
-func sessionEvent(previous []byte, next model.Session) (model.Event, error) {
+// sessionEvent projects only registration, generation and lifecycle facts,
+// with the writer's cause.
+func sessionEvent(previous []byte, next model.Session, cause model.EventCause) (model.Event, error) {
 	kind, projection, err := sessionProjection(previous, next)
 	if err != nil || kind == "" {
 		return model.Event{}, err
 	}
+	projection.Cause = cause
 	event := model.Event{ID: newID(), Type: kind, OccurredAt: model.Timestamp(), TransactionID: newID(), Session: projection}
 	return event, event.Validate()
 }
@@ -24,16 +26,16 @@ func sessionProjection(previous []byte, next model.Session) (string, model.Event
 		if err := json.Unmarshal(previous, &before); err != nil {
 			return "", model.EventSession{}, err
 		}
-		if err := checkSchema(previous, recordSchema); err != nil {
+		if err := checkSchema(previous); err != nil {
 			return "", model.EventSession{}, err
 		}
 		if before.ID != next.ID {
 			return "", model.EventSession{}, journal.ErrInvalidBatch
 		}
 	}
-	kind := "session.state_changed"
+	kind := model.EventSessionStateChanged
 	if previous == nil || before.Generation != next.Generation {
-		kind = "session.registered"
+		kind = model.EventSessionRegistered
 	} else if before.State == next.State && before.Retired == next.Retired {
 		return "", model.EventSession{}, nil
 	}
@@ -46,6 +48,7 @@ func validatePreparedSession(previous []byte, next model.Session, event model.Ev
 	if err != nil {
 		return err
 	}
+	projection.Cause = event.Session.Cause
 	if kind != event.Type || projection != event.Session {
 		return errors.New("event does not match session change")
 	}

@@ -118,7 +118,7 @@ func assertInvalidOldestDoesNotWrite(t *testing.T, fault string) {
 			return err
 		}
 		next.State, next.UpdatedAt = model.StateBusy, model.Timestamp()
-		return saveSessionWith(store, next, writer)
+		return saveSessionWith(store, next, "", writer)
 	})
 	if err == nil {
 		t.Fatal("invalid oldest record accepted")

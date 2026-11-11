@@ -129,7 +129,7 @@ func TestPluginInstallGoBuildEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(output, err)
 	}
-	for _, want := range []string{"Install gonote", "Build: go build -mod=readonly -o plugin .\r\nTool: /", "Access per session: changes = see message changes\r\n", "Publisher proof: none", "no sandbox", "Building...", "Installed and enabled gonote. Access: changes from 1 session(s). Not running yet"} {
+	for _, want := range []string{"Install gonote", "Build: go build -mod=readonly -o plugin .\r\nTool: /", "Access per session: changes = see state and message status, no text\r\n", "Publisher proof: none", "no sandbox", "Building...", "Installed and enabled gonote. Access: changes from 1 session(s). Not running yet"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output lacks %q:\n%s", want, output)
 		}

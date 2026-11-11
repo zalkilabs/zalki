@@ -16,11 +16,11 @@ func TestWireRefusesBadFrames(t *testing.T) {
 		}
 	}
 	var output bytes.Buffer
-	if err := writeFrame(&output, frame{Hello: &hello{Version: "v0"}}); err != nil {
+	if err := writeFrame(&output, frame{Hello: &hello{Version: "v1"}}); err != nil {
 		t.Fatal(err)
 	}
 	value, err := readFrame(bufio.NewReaderSize(&output, maxFrame+1))
-	if err != nil || value.Hello == nil || value.Hello.Version != "v0" {
+	if err != nil || value.Hello == nil || value.Hello.Version != "v1" {
 		t.Fatal("hello roundtrip", value, err)
 	}
 	if err := writeFrame(shortWriter{}, frame{Ack: "00000000-0000-4000-8000-000000000001"}); !errors.Is(err, io.ErrShortWrite) {
@@ -47,7 +47,7 @@ func TestWireDistinguishesEmptyFrameFromStreamEOF(t *testing.T) {
 }
 
 func TestWireEnforcesFrameSizeBoundaries(t *testing.T) {
-	const body = `{"hello":{"version":"v0"}}`
+	const body = `{"hello":{"version":"v1"}}`
 	for _, size := range []int{maxFrame, maxFrame + 1} {
 		raw := body + strings.Repeat(" ", size-len(body)-1) + "\n"
 		value, err := readFrame(bufio.NewReaderSize(strings.NewReader(raw), maxFrame+1))
@@ -61,5 +61,17 @@ func TestWireEnforcesFrameSizeBoundaries(t *testing.T) {
 	var output bytes.Buffer
 	if err := writeFrame(&output, frame{Ack: strings.Repeat("x", maxFrame)}); err == nil || output.Len() != 0 {
 		t.Fatal("oversized output frame was written", err, output.Len())
+	}
+}
+
+// Feed v1 is a clean break: a v0 hello is refused.
+func TestHelloRequiresFeedV1(t *testing.T) {
+	for version, want := range map[string]bool{"v1": true, "v0": false, "v1-read": false, "": false} {
+		if got := (frame{Hello: &hello{Version: version}}).validHello(); got != want {
+			t.Fatalf("validHello(%q) = %v, want %v", version, got, want)
+		}
+	}
+	if !strings.Contains(errHelloVersion.Error(), "v1") || !strings.Contains(errHelloVersion.Error(), "v0") {
+		t.Fatalf("hello error does not name the versions: %v", errHelloVersion)
 	}
 }

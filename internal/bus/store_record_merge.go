@@ -22,7 +22,7 @@ func (s Store) writeRecord(path string, value any) error {
 		return err
 	}
 	if len(previous) != 0 {
-		if err := checkSchema(previous, recordSchema); err != nil {
+		if err := checkSchema(previous); err != nil {
 			return err
 		}
 	}
@@ -41,9 +41,9 @@ func (s Store) writeRecord(path string, value any) error {
 	return journal.WriteAtomic(path, encoded)
 }
 
-// checkSchema rejects a record whose schema this build does not support.
-func checkSchema(raw json.RawMessage, supported int) error {
-	_, err := journal.CheckSchema(raw, supported)
+// checkSchema rejects a record whose schema is outside 0..recordSchema.
+func checkSchema(raw json.RawMessage) error {
+	_, err := journal.CheckSchema(raw, recordSchema)
 	var schema *journal.SchemaError
 	if errors.As(err, &schema) {
 		return model.NewError(model.CodeUnsupportedSchema, "unsupported journal schema %d", schema.Version)

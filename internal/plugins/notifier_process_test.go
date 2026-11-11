@@ -46,7 +46,7 @@ func referenceChildMode(t *testing.T, state, mode string) (*child, func()) {
 	}
 	stop := func() { _ = c.stop(nil); _ = lease.Close() }
 	t.Cleanup(stop)
-	if value, err := c.receive(2 * time.Second); err != nil || value.Hello == nil || value.Hello.Version != "v0" {
+	if value, err := c.receive(2 * time.Second); err != nil || value.Hello == nil || value.Hello.Version != "v1" {
 		t.Fatal("reference hello failed", value, err)
 	}
 	return c, stop
@@ -153,7 +153,7 @@ func cutReference(outbox, mode string) error {
 	if err := prepareOutbox(outbox); err != nil {
 		return err
 	}
-	if err := writeFrame(os.Stdout, frame{Hello: &hello{Version: "v0"}}); err != nil {
+	if err := writeFrame(os.Stdout, frame{Hello: &hello{Version: "v1"}}); err != nil {
 		return err
 	}
 	value, err := readFrame(bufio.NewReaderSize(os.Stdin, maxFrame+1))

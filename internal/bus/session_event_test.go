@@ -274,7 +274,7 @@ func stageInitialSessionCut(t *testing.T, store Store, next model.Session, appli
 		if err != nil {
 			return err
 		}
-		event, err := sessionEvent(nil, record.value)
+		event, err := sessionEvent(nil, record.value, "")
 		if err != nil {
 			return err
 		}
@@ -308,7 +308,7 @@ func TestOnePutSessionIntentRefusesCallbacks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	batch := journal.Batch{ID: newID(), Puts: []journal.Put{journal.NewPut(eventSessionPath(model.Event{Session: model.EventSession{ID: session.ID}}), previous, data)}}
+	batch := journal.Batch{ID: newID(), Puts: []journal.Put{journal.NewPut(eventSubjectPath(model.Event{Session: model.EventSession{ID: session.ID}}), previous, data)}}
 	stageCommit(t, commitFixture{writer: commitWriter{dir: store.Dir}}, batch)
 	if _, err := store.List(); err == nil {
 		t.Fatal("one-put session intent accepted")
