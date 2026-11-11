@@ -13,6 +13,15 @@ import (
 
 type requiredTest struct{ pkg, name string }
 
+// importPath maps a required package to its import path: "cmd/..." is under
+// the module root, everything else under internal/.
+func (t requiredTest) importPath() string {
+	if strings.HasPrefix(t.pkg, "cmd/") {
+		return "github.com/zalkilabs/zalki/" + t.pkg
+	}
+	return "github.com/zalkilabs/zalki/internal/" + t.pkg
+}
+
 var required = []requiredTest{
 	{"adapters/codex", "TestCodexTransportPinsUUIDAndNeverUsesShell"},
 	{"adapters/codex", "TestCodexQueueUsesRecipientProfile"},
@@ -37,6 +46,9 @@ var required = []requiredTest{
 	{"bus", "TestLiveSmokeRunnerWithEmulatedClient"},
 	{"bus", "TestProcessFingerprintTracksRealExit"},
 	{"bus", "TestRememberOwnerFindsItsParentInAControlledChild"},
+	{"cmd/zalki", "TestPluginInstallRealTerminalCtrlC"},
+	{"cmd/zalki", "TestPluginInstallRealTerminalCtrlCDuringBuild"},
+	{"cmd/zalki", "TestPluginInstallRealTerminalSecondCtrlCKills"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {
@@ -50,7 +62,7 @@ func check(input io.Reader, tests []requiredTest) error {
 			return fmt.Errorf("invalid go test JSON: %w", err)
 		}
 		for _, test := range tests {
-			if event.Package != "github.com/zalkilabs/zalki/internal/"+test.pkg {
+			if event.Package != test.importPath() {
 				continue
 			}
 			if event.Action == "skip" && (event.Test == test.name || strings.HasPrefix(event.Test, test.name+"/")) {

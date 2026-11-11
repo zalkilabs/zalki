@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -28,22 +29,24 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			feed := bus.NewPluginFeed(service.Store, args[0])
+			feed, name := bus.NewPluginFeed(service.Store, args[0]), plainText(args[0])
 			switch action {
 			case "add":
 				if executable != "" {
-					return feed.AddExternalPlugin(executable, args[1:])
+					return pluginDone(cmd, feed.AddExternalPlugin(executable, args[1:]), "Added %s (disabled).", name)
 				}
 				if args[0] != "fake-notifier" || len(args) != 1 {
 					return errors.New("external plugin add requires --exec; fake-notifier accepts no arguments")
 				}
-				return feed.AddPlugin()
+				return pluginDone(cmd, feed.AddPlugin(), "Added %s (disabled).", name)
 			case "remove":
-				return feed.RemovePlugin()
+				return pluginDone(cmd, feed.RemovePlugin(), "Removed %s.", name)
 			case "configure":
-				return feed.ConfigurePluginFeed(sessions)
-			case "enable", "disable":
-				return feed.EnablePluginFeed(action == "enable")
+				return pluginDone(cmd, feed.ConfigurePluginFeed(sessions), "Configured %s: %d session(s).", name, len(sessions))
+			case "enable":
+				return pluginDone(cmd, feed.EnablePluginFeed(true), "Enabled %s.", name)
+			case "disable":
+				return pluginDone(cmd, feed.EnablePluginFeed(false), "Disabled %s.", name)
 			default:
 				return printPluginStatus(cmd, service.Store, args[0])
 			}
@@ -56,6 +59,15 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 		cmd.Flags().StringVar(&executable, "exec", "", "absolute executable; arguments after -- are literal and visible in process listings")
 	}
 	return cmd
+}
+
+// pluginDone prints one plain line after a successful owner command.
+func pluginDone(cmd *cobra.Command, err error, format string, args ...any) error {
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), format+"\n", args...)
+	return err
 }
 
 func printPluginStatus(cmd *cobra.Command, store bus.Store, name string) error {

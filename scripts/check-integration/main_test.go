@@ -44,3 +44,27 @@ func TestRequiredIntegrationGate(t *testing.T) {
 		})
 	}
 }
+
+// A required test in cmd/zalki is matched under the module root, not internal/.
+func TestRequiredIntegrationGateCommandPackage(t *testing.T) {
+	event := func(action, path string) string {
+		data, err := json.Marshal(map[string]string{"Action": action, "Test": "TestPTY", "Package": path})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data) + "\n"
+	}
+	required := []requiredTest{{"cmd/zalki", "TestPTY"}}
+	const cmd = "github.com/zalkilabs/zalki/cmd/zalki"
+	if err := check(strings.NewReader(event("run", cmd)+event("pass", cmd)), required); err != nil {
+		t.Fatal(err)
+	}
+	for log, want := range map[string]string{
+		event("run", cmd) + event("skip", cmd): "skipped",
+		event("run", "github.com/zalkilabs/zalki/internal/cmd/zalki") + event("pass", "github.com/zalkilabs/zalki/internal/cmd/zalki"): "missing run/pass",
+	} {
+		if err := check(strings.NewReader(log), required); err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("wanted %q, got %v", want, err)
+		}
+	}
+}

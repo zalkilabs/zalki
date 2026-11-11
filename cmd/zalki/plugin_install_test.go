@@ -67,14 +67,21 @@ func pluginInstallLocal(t *testing.T, state string, mode installChoice, input st
 // fails the test quickly instead of growing memory without bound.
 type cappedOutput struct {
 	bytes.Buffer
-	limit int
+	limit   int
+	watch   string // when this text is written, onWatch runs once
+	onWatch func()
 }
 
 func (c *cappedOutput) Write(p []byte) (int, error) {
 	if c.Len()+len(p) > c.limit {
 		return 0, errors.New("test output limit reached")
 	}
-	return c.Buffer.Write(p)
+	n, err := c.Buffer.Write(p)
+	if c.onWatch != nil && strings.Contains(c.String(), c.watch) {
+		c.onWatch()
+		c.onWatch = nil
+	}
+	return n, err
 }
 
 // WriteString must be capped too: io.WriteString would use the embedded Buffer's.
@@ -122,7 +129,7 @@ func TestPluginInstallGoBuildEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(output, err)
 	}
-	for _, want := range []string{"Install gonote", "Build: /", "go build -mod=readonly -o plugin .", "Publisher proof: none", "no sandbox", "Building...", "Installed and enabled gonote. Access: changes from 1 session(s). Not running yet"} {
+	for _, want := range []string{"Install gonote", "Build: go build -mod=readonly -o plugin .\r\nTool: /", "Access per session: changes = see message changes\r\n", "Publisher proof: none", "no sandbox", "Building...", "Installed and enabled gonote. Access: changes from 1 session(s). Not running yet"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output lacks %q:\n%s", want, output)
 		}
@@ -233,7 +240,7 @@ func TestPluginInstallPlainLineFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(output, err)
 	}
-	for _, want := range []string{"1. ", "enter session numbers, e.g. 1,3", "Use numbers from 1 to 1", "Installed and enabled demo"} {
+	for _, want := range []string{"1. ", "enter session numbers, e.g. 1,3", "Use a number from the list (1).", "Installed and enabled demo"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output lacks %q:\n%s", want, output)
 		}
@@ -402,7 +409,7 @@ func TestPluginInstallRefusesLinksAndBadInputs(t *testing.T) {
 
 func TestPluginInstallScreenEscapesText(t *testing.T) {
 	screen := newInstallScreen("h\n", plugins.InstallRequests{Feed: true}, []model.Session{{ID: "codex:x", Name: "evil\x1b[2J\u202e"}})
-	if out := screen.render(false); strings.Contains(out, "\x1b[2J") || strings.Contains(out, "\u202e") {
+	if out := screen.render(screenKeys); strings.Contains(out, "\x1b[2J") || strings.Contains(out, "\u202e") {
 		t.Fatalf("unescaped session name: %q", out)
 	}
 	if plainText("plain path") != "plain path" || plainText("a\tb") != `"a\tb"` {
