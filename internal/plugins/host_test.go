@@ -122,7 +122,8 @@ func fakeDeliveries(state, mode string) error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(state, ".seen-"+value.ID), raw, 0600); err != nil {
+		// Atomic, so a test that sees the name never reads a half-written file.
+		if err := journal.WriteAtomic(filepath.Join(state, ".seen-"+value.ID), raw); err != nil {
 			return err
 		}
 		if mode == "hold" {
