@@ -1,3 +1,17 @@
+// Package pluginfeed owns plugin journal state, separate from native messaging
+// in bus and process/build work in plugins. Its ownership map is:
+//
+//	Installations and records  identity, capabilities, grants and pinned launches
+//	Feed replay                positions, gaps and delivery acknowledgements
+//	Inbox                      admission, reservation indexes and read audit
+//	Installer commit           one atomic enabled-record publication under the Store lock
+//	Child lease                read-only fd 3 lease shared with the child until exit
+//
+// Plugin state uses the core journal lock and JournalView boundary; bus must not
+// import pluginfeed. The CLI injects inbox admission and reservation into bus.
+// cmd/zalki owns install prompts, cancellation and the order of install steps.
+// internal/plugins owns source snapshots, tool resolution, builds and build logs.
+// This package owns install staging, pin verification and the record commit point.
 package pluginfeed
 
 import (

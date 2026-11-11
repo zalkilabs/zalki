@@ -1,3 +1,6 @@
+// Package main provides the zalki CLI and composes native adapters, the core
+// message journal, plugin state and plugin process hosts. It owns install
+// prompts and orchestration; plugin build and commit live in internal packages.
 package main
 
 import (
