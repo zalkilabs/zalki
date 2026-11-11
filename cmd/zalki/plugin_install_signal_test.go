@@ -139,6 +139,7 @@ func TestPluginInstallSecondSignalKills(t *testing.T) {
 			defer lock.Close()
 			build.release(t)
 			run.waitFor(t, "Enabling...", deadline)
+			waitForPin(t, store.Dir, "demo", deadline)
 			run.send(t, c.signal)
 			select {
 			case <-run.exited:

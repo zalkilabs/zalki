@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -161,6 +162,7 @@ func TestPluginInstallRealTerminalSecondCtrlCKills(t *testing.T) {
 	defer lock.Close()
 	session.typeText(t, "y\n")
 	session.waitFor(t, "Enabling...", deadline)
+	waitForPin(t, store.Dir, "demo", deadline)
 	session.typeText(t, "\x03")
 	// Give zalki time to handle the first Ctrl-C (it restores the default
 	// action); it must still be waiting for the lock afterwards, as designed.
@@ -179,6 +181,34 @@ func TestPluginInstallRealTerminalSecondCtrlCKills(t *testing.T) {
 	session.assertExitThenShellGetsInput(t, "130") // 128 + SIGINT: killed by the default action
 	if _, err := os.Stat(filepath.Join(store.Dir, "plugins", "demo.json")); err == nil {
 		t.Fatal("a record was written although the lock was held")
+	}
+}
+
+// pinName is the file name of a pinned artifact: its SHA-256 in hex.
+var pinName = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// waitForPin waits until Commit has published the pinned artifact at
+// <state>/plugins/<name>.bin/<sha256>. Commit does that after the last cancel
+// check and before it waits for the Store lock, so from then on a first cancel
+// is too late by design. "Enabling..." is printed BEFORE that check, so the
+// output line alone is not a safe point for the first cancel.
+func waitForPin(t *testing.T, state, name string, deadline <-chan time.Time) {
+	t.Helper()
+	dir := filepath.Join(state, "plugins", name+".bin")
+	tick := time.NewTicker(10 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		entries, _ := os.ReadDir(dir) // missing until Commit creates it
+		for _, entry := range entries {
+			if entry.Type().IsRegular() && pinName.MatchString(entry.Name()) {
+				return
+			}
+		}
+		select {
+		case <-tick.C:
+		case <-deadline:
+			t.Fatalf("no pinned artifact in %s in time", dir)
+		}
 	}
 }
 
