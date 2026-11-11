@@ -96,7 +96,7 @@ func (h hookRuntime) ApplyLifecycle(policy func(model.SessionView) (agent.Lifecy
 		if err := h.store.applyAdapterState(&v, change.AdapterState); err != nil {
 			return err
 		}
-		return h.store.saveSession(v)
+		return saveSessionFor(h.store, v, lifecycleCause(h.event))
 	})
 }
 
@@ -133,7 +133,7 @@ func (h hookRuntime) ClaimRecovery(policy func(model.SessionView) (agent.Recover
 		// Every credential rotation retires the lease: a listener armed under
 		// the old capability must not keep receiving for the new one.
 		releaseListenerLease(&v)
-		if err := h.store.saveSession(v); err != nil {
+		if err := saveSessionFor(h.store, v, model.CauseRecovery); err != nil {
 			return err
 		}
 		key = next

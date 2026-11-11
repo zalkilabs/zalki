@@ -17,6 +17,7 @@ package pluginfeed
 import (
 	"crypto/sha256"
 	"slices"
+	"strings"
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
@@ -114,8 +115,8 @@ func (s pluginFiles) scanPlugin(view bus.JournalView, p pluginRecord, raw []byte
 		if err != nil {
 			return PluginDelivery{}, err
 		}
-		if slices.Contains(p.Sessions, event.Session.ID) {
-			return pluginOffer(event.ID, "", &event, raw, pluginPosition{head.Epoch, position}), nil
+		if offered, ok := feedView(p.Sessions, event); ok {
+			return pluginOffer(event.ID, "", &offered, raw, pluginPosition{head.Epoch, position}), nil
 		}
 	}
 	if position != p.Position.Sequence {
@@ -142,4 +143,33 @@ func (s PluginFeed) AckPluginFeed(delivery PluginDelivery) error {
 		_, err = s.savePlugin(p)
 		return err
 	})
+}
+
+// feedView returns the event as a plugin with these feed sessions may see it.
+// A session event needs its session. A message event needs its sender or its
+// recipient; the other party is reduced to "kind:". reply_to is kept: bus
+// writes a reply only between its parent's parties (checkReplyParties), so the
+// parent is eligible for the same feed set.
+func feedView(sessions []string, event model.Event) (model.Event, bool) {
+	if event.Message == nil {
+		return event, slices.Contains(sessions, event.Session.ID)
+	}
+	m := *event.Message
+	from, to := slices.Contains(sessions, m.From), slices.Contains(sessions, m.To)
+	if !from && !to {
+		return model.Event{}, false
+	}
+	if !from {
+		m.From = addressKind(m.From)
+	}
+	if !to {
+		m.To = addressKind(m.To)
+	}
+	event.Message = &m
+	return event, true
+}
+
+func addressKind(address string) string {
+	kind, _, _ := strings.Cut(address, ":")
+	return kind + ":"
 }

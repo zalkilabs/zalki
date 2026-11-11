@@ -85,7 +85,7 @@ func fakeChild(outbox string) error {
 		time.Sleep(helloTimeout + 20*time.Second)
 		return nil
 	}
-	version := "v0"
+	version := "v1"
 	if string(mode) == "bad-hello" {
 		version = "other"
 	}

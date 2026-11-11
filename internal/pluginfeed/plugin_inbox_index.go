@@ -74,7 +74,7 @@ func (s pluginFiles) reservePluginInbox(index pluginInboxIndex, message model.Me
 	total := 0
 	for _, entry := range index.Entries {
 		if entry.ID == message.ID {
-			return model.NewError(model.CodeConflict, "prior plugin inbox reservation has an uncertain outcome")
+			return model.NewError(model.CodeConflict, "an earlier send with this message id did not finish and its outcome is unknown; the id is used, so send again with a new message_id")
 		}
 		total += entry.Bytes
 	}
@@ -93,7 +93,7 @@ func (s pluginFiles) reservePluginInbox(index pluginInboxIndex, message model.Me
 		return model.NewError(decision.Code, "%s", decision.Reason)
 	}
 	if !decision.Changed {
-		return model.NewError(model.CodeConflict, "prior plugin quota reservation has an uncertain outcome")
+		return model.NewError(model.CodeConflict, "an earlier send with this message id reserved quota and its outcome is unknown; the id is used, so send again with a new message_id")
 	}
 	index.Quota = decision.Next
 	index.Entries = append(index.Entries, pluginInboxEntry{ID: message.ID, Sender: message.From, Generation: generation, Revision: revision, At: now, Bytes: size})

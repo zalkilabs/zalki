@@ -43,7 +43,7 @@ func commitFixtureWithoutExtension(t *testing.T) commitFixture {
 	if bytes.Equal(plain, f.previous) {
 		t.Fatal("fixture has no extension field to remove")
 	}
-	if err := os.WriteFile(filepath.Join(f.writer.dir, eventSessionPath(f.event)), plain, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(f.writer.dir, eventSubjectPath(f.event)), plain, 0600); err != nil {
 		t.Fatal(err)
 	}
 	f.previous = plain

@@ -369,7 +369,7 @@ func readChildTestMain() {
 func readChildHandshake(mode, result string) (*bufio.Reader, error) {
 	version := "v1-read"
 	if mode == "v0-read" {
-		version = "v0"
+		version = "v1"
 	}
 	if err := writeFrame(os.Stdout, frame{Hello: &hello{Version: version}}); err != nil {
 		return nil, err

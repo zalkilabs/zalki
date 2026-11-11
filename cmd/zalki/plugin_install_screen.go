@@ -24,7 +24,7 @@ var installKinds = []struct {
 	installKind
 	requested func(plugins.InstallRequests) bool
 }{
-	{installKind{"changes", "see message changes", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Sessions }}, func(r plugins.InstallRequests) bool { return r.Feed }},
+	{installKind{"changes", "see state and message status, no text", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Sessions }}, func(r plugins.InstallRequests) bool { return r.Feed }},
 	{installKind{"read", "read messages sent to it (from any sender)", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Read }}, func(r plugins.InstallRequests) bool { return r.Read }},
 	{installKind{"send", "send messages to it", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Send }}, func(r plugins.InstallRequests) bool { return r.Send }},
 	{installKind{"accept", "it may message this plugin", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.InboxFrom }}, func(r plugins.InstallRequests) bool { return r.AcceptFrom }},

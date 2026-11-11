@@ -110,6 +110,8 @@ dir  sessions
 file events/meta.json
 file events/records/00000000000000000001.json
 file events/records/00000000000000000002.json
+file events/records/00000000000000000003.json
+file events/records/00000000000000000004.json
 file flood/beta_<uuid>.json
        .inbound.at = "<time>"
        .inbound.tokens = <number>
@@ -166,6 +168,11 @@ dir  transactions
 file events/meta.json
 file events/records/00000000000000000001.json
 file events/records/00000000000000000002.json
+file events/records/00000000000000000003.json
+file events/records/00000000000000000004.json
+file events/records/00000000000000000005.json
+file events/records/00000000000000000006.json
+file events/records/00000000000000000007.json
 file flood/alpha_<uuid>.json
 file flood/beta_<uuid>.json
 file lock
@@ -208,6 +215,8 @@ dir  sessions
 file events/meta.json
 file events/records/00000000000000000001.json
 file events/records/00000000000000000002.json
+file events/records/00000000000000000003.json
+file events/records/00000000000000000004.json
 file flood/beta_<uuid>.json
 file lock
 file messages/<uuid>.json
@@ -239,6 +248,7 @@ file events/meta.json
 file events/records/00000000000000000001.json
 file events/records/00000000000000000002.json
 file events/records/00000000000000000003.json
+file events/records/00000000000000000004.json
 file flood/beta_<uuid>.json
 file lock
 file messages/<uuid>.json

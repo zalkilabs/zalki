@@ -30,7 +30,7 @@ func RunNotifier(ctx context.Context, input io.ReadCloser, output io.Writer, out
 	if err := prepareOutbox(outbox); err != nil {
 		return err
 	}
-	if err := writeFrame(output, frame{Hello: &hello{Version: "v0"}}); err != nil {
+	if err := writeFrame(output, frame{Hello: &hello{Version: "v1"}}); err != nil {
 		return err
 	}
 	return runNotifierLoop(ctx, input, output, outbox)
@@ -77,11 +77,12 @@ func notify(outbox string, value frame) error {
 	if value.Event == nil || value.Event.ID != value.ID {
 		return errors.New("notifier event identity mismatch")
 	}
+	// Feed v1: other event types are acknowledged and ignored.
+	if value.Event.Type != model.EventSessionStateChanged {
+		return nil
+	}
 	if err := value.Event.Validate(); err != nil {
 		return err
-	}
-	if value.Event.Type == "session.registered" {
-		return nil
 	}
 	return writeOutbox(outbox, *value.Event)
 }

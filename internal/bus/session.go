@@ -71,7 +71,7 @@ func (s Store) session(id string) (model.Session, error) {
 }
 
 func (s Store) saveSession(v model.Session) error {
-	return saveSessionWith(s, v, commitWriter{dir: s.Dir})
+	return saveSessionFor(s, v, "")
 }
 
 func (s Store) Register(kind, id, cwd string, endpoint *model.Endpoint) (model.Session, string, error) {
@@ -131,7 +131,7 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 			}
 			session.ApprovalHeld = carried
 		}
-		if err := s.saveSession(session); err != nil {
+		if err := saveSessionFor(s, session, model.CauseRegister); err != nil {
 			return err
 		}
 		s.logEvent(slog.LevelInfo, "session.registered", eventData{Actor: session.ID, Agent: kind, Generation: session.Generation, State: session.State, Reused: preserved})
@@ -158,7 +158,13 @@ func (s Store) authenticate(id, key string) (model.Session, error) {
 	return current, nil
 }
 
+// Update sets a session's state with no specific cause. Hook paths use
+// updateSession with the cause of their hook event.
 func (s Store) Update(id string, state model.SessionState, retire bool) error {
+	return updateSession(s, id, state, retire, "")
+}
+
+func updateSession(s Store, id string, state model.SessionState, retire bool, cause model.EventCause) error {
 	if !state.Valid() || (state == model.StateRetired) != retire {
 		return model.NewError(model.CodeInvalidTransition, "invalid session state/retirement transition")
 	}
@@ -179,7 +185,7 @@ func (s Store) Update(id string, state model.SessionState, retire bool) error {
 		} else {
 			current.State, current.UpdatedAt = state, model.Timestamp()
 		}
-		if err := s.saveSession(current); err != nil {
+		if err := saveSessionFor(s, current, cause); err != nil {
 			return err
 		}
 		if previous != state {

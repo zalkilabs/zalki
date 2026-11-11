@@ -18,8 +18,13 @@ func TestEventRecoveryRunsBeforeLegacyReplyChangesSession(t *testing.T) {
 	if err != nil || got.State != model.StateBusy || got.ApprovalHeld != 1 {
 		t.Fatalf("reply recovery overwrote/wedged state: %+v, %v", got, err)
 	}
-	if metadata := eventState(t, store); metadata.Count != 2 {
-		t.Fatalf("legacy recovery emitted extra event: %+v", metadata)
+	// Event 2 is the staged session change; reply recovery then adds the held
+	// reply (3) and the parent's acknowledgement (4).
+	if metadata := eventState(t, store); metadata.Count != 4 {
+		t.Fatalf("recovery events = %+v, want 4", metadata)
+	}
+	if event := eventAt(t, store, 2); event.Session.State != model.StateBusy {
+		t.Fatalf("event 2 = %+v, want the staged session change", event)
 	}
 }
 
@@ -36,7 +41,8 @@ func seedLegacyHeldReply(t *testing.T, store Store, target model.Session) {
 	}
 	parent := model.Message{Schema: 1, ID: newID(), From: target.ID, To: sender.ID, Body: "question",
 		TargetGeneration: sender.Generation, Status: model.StatusSubmitted, CreatedAt: model.Timestamp()}
-	if err := store.saveMessage(parent); err != nil {
+	// The parent predates the crash; a plain write keeps the staged intent.
+	if err := store.writeRecord(filepath.Join(store.Dir, "messages", parent.ID+".json"), parent); err != nil {
 		t.Fatal(err)
 	}
 	reply := model.Message{Schema: 1, ID: replyID(sender.ID, parent.ID, "answer"), From: sender.ID, To: target.ID,

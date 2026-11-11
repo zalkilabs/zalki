@@ -14,7 +14,7 @@
 //	message*.go, service.go   send, inbox and message queries, reply, Service and delivery
 //	message_open.go          open-message markers for hook scans and prune repair
 //	envelope.go              sender labels for recipient rendering
-//	commit.go, event*.go     session/event commits, event records and recovery
+//	commit.go, event*.go     session and message commits with their events, recovery
 //	journal_view.go          scoped core reads and caller-owned write validation
 //	plugin_inbox.go          injected admission/reservation and core message publication
 //	endpoint.go              messaging-socket inspection and checks

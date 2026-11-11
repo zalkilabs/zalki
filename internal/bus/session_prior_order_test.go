@@ -32,7 +32,7 @@ func TestZeroEventPriorRenameOrdering(t *testing.T) {
 	if err := os.Chmod(directory, 0500); err != nil {
 		t.Fatal(err)
 	}
-	writer := commitWriter{dir: store.Dir, orderSession: func(parent string) error {
+	writer := commitWriter{dir: store.Dir, orderSubject: func(parent string) error {
 		if parent != directory {
 			t.Fatal("ordered another directory", parent)
 		}
@@ -89,7 +89,7 @@ func simulatePrivateRenameSyncFailure(t *testing.T, store Store, session model.S
 func publishEventBeforeTargetCut(t *testing.T, store Store, session model.Session, writer commitWriter) {
 	t.Helper()
 	session.State = model.StateBusy
-	err := store.locked(func() error { return saveSessionWith(store, session, writer) })
+	err := store.locked(func() error { return saveSessionWith(store, session, "", writer) })
 	if !errors.Is(err, os.ErrPermission) {
 		t.Fatalf("event target write cut = %v", err)
 	}

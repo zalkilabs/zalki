@@ -183,7 +183,11 @@ func (r *pruneRun) retireIfDue(v model.Session) error {
 		return nil
 	}
 	retireSession(&v, reason)
-	return r.store.saveSession(v)
+	cause := model.CauseCleanup
+	if reason == "owner_exited" {
+		cause = model.CauseOwnerExited
+	}
+	return saveSessionFor(r.store, v, cause)
 }
 
 func (r *pruneRun) deleteExitedRuntimes(runtimes []RuntimeInfo) error {

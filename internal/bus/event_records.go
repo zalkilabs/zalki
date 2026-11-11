@@ -167,7 +167,7 @@ func (w commitWriter) prepareEvents(previous, state []byte, event model.Event) (
 		return journal.Batch{}, err
 	}
 	return journal.Batch{ID: event.TransactionID, Puts: []journal.Put{
-		journal.NewPut(eventSessionPath(event), previous, state),
+		journal.NewPut(eventSubjectPath(event), previous, state),
 		journal.NewPut(eventRecordPath(record.Sequence), nil, raw),
 		journal.NewPut(eventMetaPath, priorMetadata, metaBytes),
 	}, Deletes: deletes}, nil

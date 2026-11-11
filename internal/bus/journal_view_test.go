@@ -162,10 +162,11 @@ func TestJournalViewRecoversEventsAndRepliesBeforeCallback(t *testing.T) {
 	seedLegacyHeldReply(t, store, target)
 	if err := WithJournalRead(store, func(view JournalView) error {
 		window, err := view.EventWindow()
-		if err != nil || window.Count != 2 || window.Last != 2 {
+		// Event 2 is the staged session change; reply recovery adds 3 and 4.
+		if err != nil || window.Count != 4 || window.Last != 4 {
 			t.Fatal("event recovery did not precede callback", window, err)
 		}
-		if event, err := view.EventAt(window.Epoch, window.Last); err != nil || event.Session.State != model.StateBusy {
+		if event, err := view.EventAt(window.Epoch, 2); err != nil || event.Session.State != model.StateBusy {
 			t.Fatal("missing recovered event", event, err)
 		}
 		current, err := store.session(target.ID)

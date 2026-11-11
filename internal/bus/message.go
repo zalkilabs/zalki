@@ -73,7 +73,7 @@ func (s Store) saveMessageRecord(v model.Message) error {
 			return err
 		}
 	}
-	if err := s.writeRecord(filepath.Join(s.Dir, "messages", v.ID+".json"), v); err != nil {
+	if err := s.writeMessage(filepath.Join(s.Dir, "messages", v.ID+".json"), v); err != nil {
 		return err
 	}
 	if !open {

@@ -150,6 +150,18 @@ func forgetEmittedMarker(t *testing.T, store Store, before map[string]string, id
 	delete(before, marker)
 }
 
+// forgetMessageEvent checks that the newest event is the emitted message's
+// status change, then adds its new record to the before snapshot.
+func forgetMessageEvent(t *testing.T, store Store, before map[string]string, id string) {
+	t.Helper()
+	event := latestSessionEvent(t, store)
+	if event.Message == nil || event.Message.ID != id || event.Message.Status != model.StatusContextEmitted {
+		t.Fatalf("newest event = %+v, want the emitted message's change", event)
+	}
+	rel := eventRecordPath(eventState(t, store).Last)
+	before[rel] = journalSnapshot(t, store)[rel]
+}
+
 // Another actor's context must remain private and pending. A matching host
 // still emits its own envelope once, without acknowledging it.
 func TestHookHostEmitPendingUsesBoundActor(t *testing.T) {
@@ -174,7 +186,9 @@ func TestHookHostEmitPendingUsesBoundActor(t *testing.T) {
 				t.Fatal("emission changed acknowledgement or lost its status", err)
 			}
 			forgetEmittedMarker(t, host.store, before, msg.ID)
-			assertForwardingChanges(t, host.store, before, filepath.Join(host.store.Dir, "messages", msg.ID+".json"))
+			forgetMessageEvent(t, host.store, before, msg.ID)
+			assertForwardingChanges(t, host.store, before, filepath.Join(host.store.Dir, "messages", msg.ID+".json"),
+				filepath.Join(host.store.Dir, eventMetaPath))
 			before = journalSnapshot(t, host.store)
 			if text, err := host.EmitPending(target.ID); err != nil || text != "" {
 				t.Fatalf("second emission=%q error=%v, want empty context", text, err)

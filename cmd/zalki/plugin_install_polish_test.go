@@ -15,7 +15,7 @@ func TestPluginInstallScreenStyles(t *testing.T) {
 	sessions := []model.Session{{ID: "codex:a"}, {ID: "codex:b", Name: "work"}}
 	screen := newInstallScreen("", plugins.InstallRequests{Feed: true, InboxRead: true}, sessions)
 	lines := screen.render(screenLines)
-	for _, want := range []string{"Access per session: changes = see message changes\n", "1. (no name)  codex:a\n", "2. work  codex:b\n"} {
+	for _, want := range []string{"Access per session: changes = see state and message status, no text\n", "1. (no name)  codex:a\n", "2. work  codex:b\n"} {
 		if !strings.Contains(lines, want) {
 			t.Fatalf("line mode lacks %q:\n%s", want, lines)
 		}

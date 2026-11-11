@@ -11,12 +11,12 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// commitWriter publishes prepared state and event records under the Store lock.
-// Its caller owns directory durability and session validation.
+// commitWriter publishes a prepared session or message record with its event
+// under the Store lock. Its caller owns directory durability.
 type commitWriter struct {
 	dir          string
 	limit        uint64
-	orderSession func(string) error
+	orderSubject func(string) error
 }
 
 func (w commitWriter) log() journal.BatchLog {
@@ -33,6 +33,22 @@ func (w commitWriter) prepare(previous []byte, next model.Session, event model.E
 	if err != nil {
 		return journal.Batch{}, err
 	}
+	return w.prepareSubject(previous, state, event)
+}
+
+// prepareMessage builds the batch for a message write and its event.
+func (w commitWriter) prepareMessage(previous []byte, next model.Message, event model.Event) (journal.Batch, error) {
+	if err := validatePreparedMessage(previous, next, event); err != nil {
+		return journal.Batch{}, err
+	}
+	state, err := encodeStateJSON(next)
+	if err != nil {
+		return journal.Batch{}, err
+	}
+	return w.prepareSubject(previous, state, event)
+}
+
+func (w commitWriter) prepareSubject(previous, state []byte, event model.Event) (journal.Batch, error) {
 	batch, err := w.prepareEvents(previous, state, event)
 	if err != nil {
 		return journal.Batch{}, err
@@ -43,9 +59,9 @@ func (w commitWriter) prepare(previous []byte, next model.Session, event model.E
 	return batch, nil
 }
 
-func (w commitWriter) orderSessionDirectory(path string) error {
-	if w.orderSession != nil {
-		return w.orderSession(path)
+func (w commitWriter) orderSubjectDirectory(path string) error {
+	if w.orderSubject != nil {
+		return w.orderSubject(path)
 	}
 	return journal.OrderDirectory(path)
 }
@@ -77,8 +93,11 @@ func (w commitWriter) validate(batch journal.Batch) error {
 	if err := w.validateMetadata(batch, record); err != nil {
 		return err
 	}
-	if batch.ID != event.TransactionID || batch.Puts[0].Path != eventSessionPath(event) || batch.Puts[1].Path != eventRecordPath(record.Sequence) {
+	if batch.ID != event.TransactionID || batch.Puts[0].Path != eventSubjectPath(event) || batch.Puts[1].Path != eventRecordPath(record.Sequence) {
 		return journal.ErrInvalidBatch
+	}
+	if event.Message != nil {
+		return validateEventMessage(batch.Puts[0].Data, event)
 	}
 	return validateEventSession(batch.Puts[0].Data, event)
 }
@@ -88,7 +107,7 @@ func validateEventSession(raw []byte, event model.Event) error {
 	if err := json.Unmarshal(raw, &next); err != nil {
 		return err
 	}
-	if err := checkSchema(raw, recordSchema); err != nil {
+	if err := checkSchema(raw); err != nil {
 		return err
 	}
 	if next.ID != event.Session.ID || next.Generation != event.Session.Generation || next.State != event.Session.State || next.Retired != event.Session.Retired {
@@ -97,6 +116,10 @@ func validateEventSession(raw []byte, event model.Event) error {
 	return nil
 }
 
-func eventSessionPath(event model.Event) string {
+// eventSubjectPath is the record an event describes: its message or its session.
+func eventSubjectPath(event model.Event) string {
+	if event.Message != nil {
+		return filepath.Join("messages", event.Message.ID+".json")
+	}
 	return filepath.Join("sessions", strings.ReplaceAll(event.Session.ID, ":", "_")+".json")
 }

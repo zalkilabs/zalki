@@ -41,7 +41,7 @@ func newCommitFixture(t *testing.T) commitFixture {
 		Type: "session.state_changed", OccurredAt: "2026-11-07T11:00:00Z",
 		TransactionID: "00000000-0000-4000-8000-000000000002",
 		Session:       model.EventSession{ID: session.ID, Generation: session.Generation, Previous: model.StateReady, State: model.StateBusy}}
-	if err := os.WriteFile(filepath.Join(dir, eventSessionPath(event)), raw, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, eventSubjectPath(event)), raw, 0600); err != nil {
 		t.Fatal(err)
 	}
 	session.State = model.StateBusy
@@ -62,7 +62,7 @@ func TestDormantCommitPublishesMatchingStateAndMetadata(t *testing.T) {
 	if err := f.writer.commit(f.previous, f.next, f.event); err != nil {
 		t.Fatal(err)
 	}
-	raw := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
+	raw := readCommitFile(t, filepath.Join(f.writer.dir, eventSubjectPath(f.event)))
 	var state map[string]any
 	if err := json.Unmarshal(raw, &state); err != nil {
 		t.Fatal(err)
@@ -146,7 +146,7 @@ func TestDormantCommitRejectsMismatchedEventBeforeWriting(t *testing.T) {
 			if err := f.writer.commit(f.previous, f.next, f.event); err == nil {
 				t.Fatal("mismatched state/event accepted")
 			}
-			got := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
+			got := readCommitFile(t, filepath.Join(f.writer.dir, eventSubjectPath(f.event)))
 			if !bytes.Equal(got, f.previous) {
 				t.Fatal("state changed after rejection")
 			}
@@ -162,7 +162,7 @@ func TestDormantRecoveryRejectsForeignFamilyBeforeAnyWrite(t *testing.T) {
 	if err := f.writer.recover(); !errors.Is(err, journal.ErrInvalidBatch) {
 		t.Fatalf("foreign target = %v", err)
 	}
-	got := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
+	got := readCommitFile(t, filepath.Join(f.writer.dir, eventSubjectPath(f.event)))
 	if !bytes.Equal(got, f.previous) {
 		t.Fatal("state changed before validation")
 	}
@@ -189,7 +189,7 @@ func TestDormantRecoveryRejectsPrivateEventFields(t *testing.T) {
 	if err := f.writer.recover(); err == nil {
 		t.Fatal("private event field accepted")
 	}
-	got := readCommitFile(t, filepath.Join(f.writer.dir, eventSessionPath(f.event)))
+	got := readCommitFile(t, filepath.Join(f.writer.dir, eventSubjectPath(f.event)))
 	if !bytes.Equal(got, f.previous) {
 		t.Fatal("state changed before metadata validation")
 	}

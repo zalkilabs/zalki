@@ -16,7 +16,7 @@ func (h hookRuntime) UpdateSession(id string, state model.SessionState, retired 
 	if h.actor == "" || id != h.actor {
 		return model.NewError(model.CodeUnauthorized, "hook operation must use its bound session")
 	}
-	return h.store.Update(id, state, retired)
+	return updateSession(h.store, id, state, retired, lifecycleCause(h.event))
 }
 func (h hookRuntime) EmitPending(id string) (string, error) {
 	if h.actor == "" || id != h.actor {

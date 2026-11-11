@@ -494,7 +494,9 @@ func TestPruneSettlesAHoldWhoseMarkerWasLost(t *testing.T) {
 
 // closeWithFailedSync writes msg as closed while messages/ cannot be opened for
 // its sync: the rename succeeds, so the closed record is visible, but its
-// directory sync fails (EACCES), so the record may not be durable yet.
+// directory sync fails (EACCES), so the record may not be durable yet. It uses
+// the plain record writer: saveMessage orders messages/ before its event batch
+// and so stops before the rename.
 func closeWithFailedSync(t *testing.T, f openFixture, msg model.Message) {
 	t.Helper()
 	dir := filepath.Join(f.store.Dir, "messages")
@@ -503,7 +505,7 @@ func closeWithFailedSync(t *testing.T, f openFixture, msg model.Message) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(dir, 0700) })
 	msg.AcknowledgedAt = model.Timestamp()
-	if err := f.store.saveMessage(msg); err == nil {
+	if err := f.store.writeRecord(filepath.Join(dir, msg.ID+".json"), msg); err == nil {
 		t.Fatal("the closing write did not report the failed directory sync")
 	}
 	if err := os.Chmod(dir, 0700); err != nil {
