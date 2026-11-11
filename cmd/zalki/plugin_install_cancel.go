@@ -4,13 +4,20 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
 	"os/signal"
-	"syscall"
 )
 
-// errInstallCancelled marks an install the owner stopped (Ctrl-C, SIGTERM or
-// SIGHUP cancel the command context). It is reported as "Cancelled".
+// errInstallCancelled marks an install the owner stopped. It is reported as
+// "Cancelled".
+//
+// Ctrl-C reaches the install by one of two routes:
+//   - raw keys (checkbox screen): the terminal sends byte 3 as input and no
+//     signal; readInstallKey turns it into the "ctrl-c" key, which means No.
+//   - plain lines (and the build, commit and other output after the screen):
+//     the terminal sends SIGINT, main's signal.NotifyContext cancels the
+//     command context, and contextReader stops waiting for input.
+//
+// SIGTERM and SIGHUP always take the second route.
 var errInstallCancelled = errors.New("install cancelled")
 
 // contextReader stops waiting for input when the context ends. In line mode
@@ -70,9 +77,6 @@ func (c *contextReader) Read(p []byte) (int, error) {
 	}
 }
 
-// installSignals are the signals main turns into a cancel.
-var installSignals = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}
-
 // restoreSignalsOnCancel gives the signals their default action back at the
 // first cancel, so a second Ctrl-C ends the process at once, even while the
 // install waits at its point of no return. The returned func stops watching.
@@ -81,7 +85,7 @@ func restoreSignalsOnCancel(ctx context.Context) func() {
 	go func() {
 		select {
 		case <-ctx.Done():
-			signal.Reset(installSignals...)
+			signal.Reset(cancelSignals...)
 		case <-done:
 		}
 	}()

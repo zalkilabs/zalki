@@ -211,9 +211,13 @@ func readInstallKey(r *bufio.Reader) string {
 	case c != 0x1b:
 		return string(rune(c))
 	}
-	if next, err := r.ReadByte(); err != nil || (next != '[' && next != 'O') {
+	// Only ESC '[' or ESC 'O' starts an arrow sequence. Any other byte after
+	// ESC stays in the buffer and is the next key, so ESC then y, n, q or
+	// Ctrl-C does not lose that key.
+	if next, err := r.Peek(1); err != nil || (next[0] != '[' && next[0] != 'O') {
 		return "esc"
 	}
+	_, _ = r.ReadByte() // the '[' or 'O' seen by Peek
 	c, err = r.ReadByte()
 	if err != nil {
 		return "eof"

@@ -273,14 +273,67 @@ func TestPluginInstallPlainLineFallback(t *testing.T) {
 }
 
 func TestPluginInstallReadsArrowKeys(t *testing.T) {
-	keys := bufio.NewReader(strings.NewReader("\x1b[A\x1b[B\x1b[C\x1b[D\x1bOC\x1bx\r\x03y"))
-	var got []string
-	for k := readInstallKey(keys); k != "eof"; k = readInstallKey(keys) {
-		got = append(got, k)
+	for input, want := range map[string][]string{
+		"\x1b[A\x1b[B\x1b[C\x1b[D\x1bOC\x1bx\r\x03y": {"up", "down", "right", "left", "right", "esc", "x", "enter", "ctrl-c", "y"},
+		// A key after a lone ESC is kept, not swallowed as part of a sequence.
+		"\x1by\x1bn\x1bq\x1b\x03\x1b\r": {"esc", "y", "esc", "n", "esc", "q", "esc", "ctrl-c", "esc", "enter"},
+		"\x1b\x1b[A\x1b":                {"esc", "up", "esc"},
+	} {
+		keys := bufio.NewReader(strings.NewReader(input))
+		var got []string
+		for k := readInstallKey(keys); k != "eof"; k = readInstallKey(keys) {
+			got = append(got, k)
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("input %q: keys %q, want %q", input, got, want)
+		}
 	}
-	if want := []string{"up", "down", "right", "left", "right", "esc", "enter", "ctrl-c", "y"}; !slices.Equal(got, want) {
-		t.Fatalf("keys %q, want %q", got, want)
+}
+
+func TestPluginInstallRawEscKeepsNextKey(t *testing.T) {
+	store, _ := pluginOwnerFixture(t)
+	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, "\x1b \x1by", nativeInstallFolder(t))
+	if err != nil || !strings.Contains(output, "Installed and enabled demo") {
+		t.Fatalf("keys after ESC were lost: %v\n%s", err, output)
 	}
+}
+
+// panicWriter panics when the raw screen is drawn.
+type panicWriter struct{ bytes.Buffer }
+
+func (w *panicWriter) Write(p []byte) (int, error) {
+	if bytes.Contains(p, []byte("\x1b[2J")) {
+		panic("screen write failed")
+	}
+	return w.Buffer.Write(p)
+}
+
+// WriteString hides bytes.Buffer.WriteString, which io.WriteString would use.
+func (w *panicWriter) WriteString(s string) (int, error) { return w.Write([]byte(s)) }
+
+func TestPluginInstallRestoresTerminalOnPanic(t *testing.T) {
+	store, _ := pluginOwnerFixture(t)
+	previous := installTerminal
+	restored := 0
+	installTerminal = func(io.Reader) (installChoice, func()) { return installRawKeys, func() { restored++ } }
+	t.Cleanup(func() { installTerminal = previous })
+	cmd := newRootCommand(t.TempDir())
+	cmd.SetIn(strings.NewReader(""))
+	cmd.SetOut(&panicWriter{})
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--state", store.Dir, "--log-level", "off", "plugins", "install", nativeInstallFolder(t)})
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("the screen did not panic")
+			}
+		}()
+		_ = cmd.ExecuteContext(t.Context())
+	}()
+	if restored != 1 {
+		t.Fatalf("terminal restored %d times after a panic, want 1", restored)
+	}
+	assertNothingInstalled(t, store.Dir)
 }
 
 func TestPluginInstallNeedsTerminalOrExplicitYes(t *testing.T) {
