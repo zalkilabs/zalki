@@ -50,10 +50,13 @@ func writeUnreadableMessage(t *testing.T, store Store, id string, kind unreadabl
 	return original
 }
 
-// newUnreadableMessage writes an unreadable file under a new UUID name.
+// newUnreadableMessage writes an unreadable file under a new UUID name. It
+// also writes the file's open marker: the file stands for an open message that
+// became unreadable, which is the case a hook must still see.
 func newUnreadableMessage(t *testing.T, store Store, kind unreadableFile) string {
 	t.Helper()
 	id := newID()
+	markOpen(t, store, id)
 	writeUnreadableMessage(t, store, id, kind)
 	return id
 }

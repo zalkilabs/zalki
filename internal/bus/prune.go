@@ -102,6 +102,13 @@ func (r *pruneRun) execute() error {
 		r.report.Sessions = append(r.report.Sessions, PruneItem(issue))
 	}
 	r.now = time.Now()
+	if !r.dryRun {
+		// Repair the open-message markers first, so every later step that
+		// settles approvals finds every held message; see message_open.go.
+		if err := markers(r.store).repair(); err != nil {
+			return err
+		}
+	}
 	if err := r.sweepSessions(sessions); err != nil {
 		return err
 	}

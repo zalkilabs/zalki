@@ -105,6 +105,7 @@ dir  events
 dir  events/records
 dir  flood
 dir  messages
+dir  open-messages
 dir  sessions
 file events/meta.json
 file events/records/00000000000000000001.json
@@ -164,6 +165,7 @@ dir  events
 dir  events/records
 dir  flood
 dir  messages
+dir  open-messages
 dir  sessions
 dir  transactions
 file events/meta.json
@@ -212,6 +214,7 @@ dir  events
 dir  events/records
 dir  flood
 dir  messages
+dir  open-messages
 dir  sessions
 file events/meta.json
 file events/records/00000000000000000001.json
@@ -242,6 +245,7 @@ dir  events
 dir  events/records
 dir  flood
 dir  messages
+dir  open-messages
 dir  sessions
 file events/meta.json
 file events/records/00000000000000000001.json
@@ -263,6 +267,7 @@ file messages/<uuid>.json
        .status = "not_sent_pending_approval"
        .target_generation = "<uuid>"
        .to = "beta:<uuid>"
+file open-messages/<uuid>
 file sessions/alpha_<uuid>.json
 file sessions/beta_<uuid>.json
        .approval_held = 1
@@ -282,6 +287,7 @@ file state-formats.json
 dir  events
 dir  events/records
 dir  messages
+dir  open-messages
 dir  sessions
 file events/meta.json
 file events/records/00000000000000000001.json

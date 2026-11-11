@@ -100,14 +100,21 @@ func emitSkipping(t *testing.T, f emitFixture, output *bytes.Buffer, bad string)
 	return text
 }
 
-// A bad file under a name that is not a UUID is counted but its name is not logged.
+// A bad file under a name that is not a UUID has no open marker, so the hook
+// never reads it. The list scan counts it but does not log its name.
 func TestEmitPendingDiagnosticNeverLogsANonCanonicalName(t *testing.T) {
-	f := newEmitFixture(t)
+	f := newOpenFixture(t)
 	output := capture(&f.store)
 	if err := os.WriteFile(filepath.Join(f.store.Dir, "messages", "secret-name.json"), []byte("x"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.store.EmitPending(f.target.ID); err != nil {
+		t.Fatal(err)
+	}
+	if records := skippedRecords(t, output); len(records) != 0 {
+		t.Fatalf("the hook read a file with no marker: %v", records)
+	}
+	if _, err := f.store.ReadMessages(MessageQuery{Actor: f.target.ID, Capability: f.targetKey}); err != nil {
 		t.Fatal(err)
 	}
 	records := skippedRecords(t, output)
