@@ -26,14 +26,14 @@ type pluginReadAudit struct {
 	Rows    []pluginReadAuditRow `json:"rows"`
 }
 
-func (s PluginFeed) loadPluginReadAudit(now time.Time) ([]pluginReadAuditRow, error) {
+func (s pluginFiles) loadPluginReadAudit(now time.Time) ([]pluginReadAuditRow, error) {
 	return s.loadPluginReadAuditFile("plugin-read-audit.json", now, func(row pluginReadAuditRow) error {
 		return s.checkCapabilityGrants(PluginCapabilityGrants{Read: []string{row.Session}})
 	})
 }
 
-func (s PluginFeed) loadPluginReadAuditFile(name string, now time.Time, validate func(pluginReadAuditRow) error) ([]pluginReadAuditRow, error) {
-	raw, err := journal.ReadBytes(filepath.Join(s.store.Dir, name), 1<<20)
+func (s pluginFiles) loadPluginReadAuditFile(name string, now time.Time, validate func(pluginReadAuditRow) error) ([]pluginReadAuditRow, error) {
+	raw, err := journal.ReadBytes(filepath.Join(s.root, name), 1<<20)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
@@ -63,11 +63,11 @@ func (s PluginFeed) loadPluginReadAuditFile(name string, now time.Time, validate
 	return rows, nil
 }
 
-func (s PluginFeed) savePluginReadAudit(rows []pluginReadAuditRow, now time.Time) error {
+func (s pluginFiles) savePluginReadAudit(rows []pluginReadAuditRow, now time.Time) error {
 	return s.savePluginReadAuditFile("plugin-read-audit.json", rows, now)
 }
 
-func (s PluginFeed) savePluginReadAuditFile(name string, rows []pluginReadAuditRow, now time.Time) error {
+func (s pluginFiles) savePluginReadAuditFile(name string, rows []pluginReadAuditRow, now time.Time) error {
 	if rows == nil {
 		rows = []pluginReadAuditRow{}
 	}
@@ -81,7 +81,7 @@ func (s PluginFeed) savePluginReadAuditFile(name string, rows []pluginReadAuditR
 		}
 		raw, err := journal.EncodeJSON(pluginReadAudit{Version: 1, Rows: rows}, 1<<20)
 		if err == nil {
-			return journal.WriteAtomic(filepath.Join(s.store.Dir, name), raw)
+			return journal.WriteAtomic(filepath.Join(s.root, name), raw)
 		}
 		var size *journal.SizeError
 		if !errors.As(err, &size) || len(rows) < 2 || now.Sub(rows[0].At) < time.Second {

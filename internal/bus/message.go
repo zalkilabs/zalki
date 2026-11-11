@@ -246,7 +246,7 @@ func (s Store) Ack(actor, key, id string) (result model.Message, resultErr error
 		if err != nil {
 			return err
 		}
-		if isPluginInboxAddress(msg.To) {
+		if model.IsPluginInboxAddress(msg.To) {
 			msg = model.Message{}
 			return model.NewError(model.CodeUnauthorized, "only the bound recipient can acknowledge")
 		}

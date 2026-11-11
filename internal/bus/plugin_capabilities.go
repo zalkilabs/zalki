@@ -42,7 +42,7 @@ func (c *PluginCapabilities) clone() *PluginCapabilities {
 	return &result
 }
 
-func (s PluginFeed) checkCapabilityGrants(g PluginCapabilityGrants) error {
+func (s pluginFiles) checkCapabilityGrants(g PluginCapabilityGrants) error {
 	for _, ids := range [][]string{g.Read, g.Send, g.InboxFrom} {
 		if err := s.checkPluginGrants(ids); err != nil {
 			return err
@@ -58,7 +58,7 @@ func (s PluginFeed) checkCapabilityGrants(g PluginCapabilityGrants) error {
 	return s.checkPluginGrants(slices.Compact(ids))
 }
 
-func (s PluginFeed) checkCapabilities(c *PluginCapabilities) error {
+func (s pluginFiles) checkCapabilities(c *PluginCapabilities) error {
 	if c == nil {
 		return nil
 	}
@@ -86,7 +86,7 @@ func (s PluginFeed) GrantPluginCapabilities(g PluginCapabilityGrants) error {
 	}
 	var before pluginRecord
 	var prior [32]byte
-	if err := s.store.readLocked(func() error {
+	if err := WithJournalRead(s.store, func(JournalView) error {
 		var raw []byte
 		var err error
 		before, raw, err = s.loadPlugin()

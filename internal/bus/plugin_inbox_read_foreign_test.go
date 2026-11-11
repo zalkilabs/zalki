@@ -20,8 +20,8 @@ func TestPluginInboxReadForeignAndAbsentIDsHaveSameFixedDenial(t *testing.T) {
 	for i, id := range ids {
 		var raw []byte
 		var readErr error
-		if err := other.locked(func() error {
-			raw, readErr = other.readPluginInboxAt(&status, id, x.now.Add(time.Duration(2*i)*time.Second))
+		if err := other.write(func(view JournalView) error {
+			raw, readErr = other.readPluginInboxAt(view, &status, id, x.now.Add(time.Duration(2*i)*time.Second))
 			return nil
 		}); err != nil {
 			t.Fatal(err)

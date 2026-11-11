@@ -10,7 +10,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func (s PluginFeed) checkName() error {
+func (s pluginFiles) checkName() error {
 	if len(s.name) > 32 || !model.ValidKind(s.name) {
 		return model.NewError(model.CodeInvalidInput, "plugin name must match [a-z][a-z0-9-]{0,31}")
 	}
@@ -18,14 +18,18 @@ func (s PluginFeed) checkName() error {
 }
 
 func (s PluginFeed) locked(fn func() error) error {
+	return s.write(func(JournalView) error { return fn() })
+}
+
+func (s PluginFeed) write(fn func(JournalView) error) error {
 	if err := s.checkName(); err != nil {
 		return err
 	}
-	return s.store.locked(fn)
+	return WithJournalWrite(s.store, fn)
 }
 
-func (s PluginFeed) pluginDir() string      { return filepath.Join(s.store.Dir, "plugins") }
-func (s PluginFeed) pluginDataPath() string { return filepath.Join(s.pluginDir(), s.name+".data") }
+func (s pluginFiles) pluginDir() string      { return filepath.Join(s.root, "plugins") }
+func (s pluginFiles) pluginDataPath() string { return filepath.Join(s.pluginDir(), s.name+".data") }
 
 func pluginDirectory(path string, create bool) error {
 	if create {

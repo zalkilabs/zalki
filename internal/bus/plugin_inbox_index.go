@@ -28,7 +28,7 @@ type pluginInboxIndex struct {
 
 // Under Store flock: validate before pruning or admitting. Orphan reservations
 // count just like readable entries until expiration; no body is stored here.
-func (s PluginFeed) loadPluginInboxIndex(installation string, now time.Time) (pluginInboxIndex, error) {
+func (s pluginFiles) loadPluginInboxIndex(view JournalView, installation string, now time.Time) (pluginInboxIndex, error) {
 	var index pluginInboxIndex
 	if err := pluginDirectory(s.pluginDataPath(), false); err != nil {
 		return index, err
@@ -50,7 +50,7 @@ func (s PluginFeed) loadPluginInboxIndex(installation string, now time.Time) (pl
 	active := make([]pluginInboxEntry, 0, len(index.Entries))
 	total := 0
 	for _, entry := range index.Entries {
-		if seen[entry.ID] || !validPluginInboxEntry(s.store, entry, now) {
+		if seen[entry.ID] || !validPluginInboxEntry(view, entry, now) {
 			return index, journal.ErrInvalidFile
 		}
 		seen[entry.ID] = true
@@ -69,7 +69,7 @@ func (s PluginFeed) loadPluginInboxIndex(installation string, now time.Time) (pl
 
 // Reserve quota/index durably before the canonical record can be published.
 // A matching orphan is an uncertain outcome, never a license to resend.
-func (s PluginFeed) reservePluginInbox(index pluginInboxIndex, message model.Message, generation, revision string, now time.Time) error {
+func (s pluginFiles) reservePluginInbox(index pluginInboxIndex, message model.Message, generation, revision string, now time.Time) error {
 	total := 0
 	for _, entry := range index.Entries {
 		if entry.ID == message.ID {
@@ -77,20 +77,16 @@ func (s PluginFeed) reservePluginInbox(index pluginInboxIndex, message model.Mes
 		}
 		total += entry.Bytes
 	}
-	raw, err := journal.Merge(nil, message)
+	size, err := EncodedMessageSize(message)
 	if err != nil {
 		return err
 	}
-	encoded, err := encodeStateJSON(raw)
-	if err != nil {
-		return err
-	}
-	if len(index.Entries) >= 1000 || total+len(encoded) > 16<<20 {
+	if len(index.Entries) >= 1000 || total+size > 16<<20 {
 		return model.NewError(model.CodeRateLimited, "plugin inbox is full")
 	}
-	decision := model.DecideFloodAdmission(index.Quota, derivedID("zalki/flood/sender/v1", message.From), message.ID, now)
+	decision := model.DecideFloodAdmission(index.Quota, model.DeriveUUID("zalki/flood/sender/v1", message.From), message.ID, now)
 	if decision.Code == model.CodeRateLimited {
-		return floodWait(decision.Reason, message.To, now, decision.RetryAt)
+		return model.FloodRetryError(decision.Reason, message.To, now, decision.RetryAt)
 	}
 	if decision.Code != "" {
 		return model.NewError(decision.Code, "%s", decision.Reason)
@@ -99,8 +95,8 @@ func (s PluginFeed) reservePluginInbox(index pluginInboxIndex, message model.Mes
 		return model.NewError(model.CodeConflict, "prior plugin quota reservation has an uncertain outcome")
 	}
 	index.Quota = decision.Next
-	index.Entries = append(index.Entries, pluginInboxEntry{ID: message.ID, Sender: message.From, Generation: generation, Revision: revision, At: now, Bytes: len(encoded)})
-	encoded, err = journal.EncodeJSON(index, 1<<20)
+	index.Entries = append(index.Entries, pluginInboxEntry{ID: message.ID, Sender: message.From, Generation: generation, Revision: revision, At: now, Bytes: size})
+	encoded, err := journal.EncodeJSON(index, 1<<20)
 	if err != nil {
 		return err
 	}
@@ -111,7 +107,6 @@ func validPluginInboxIndex(index pluginInboxIndex, installation string, now time
 	return index.Version == 1 && index.Installation == installation && index.Entries != nil && len(index.Entries) <= 1000 && index.Quota.ValidHeader() && !index.Quota.Inbound.At.After(now)
 }
 
-func validPluginInboxEntry(store Store, entry pluginInboxEntry, now time.Time) bool {
-	_, err := store.sessionPath(entry.Sender)
-	return err == nil && canonicalEventID(entry.ID) && canonicalEventID(entry.Generation) && canonicalEventID(entry.Revision) && !entry.At.IsZero() && !entry.At.After(now) && entry.Bytes >= 1 && entry.Bytes <= maxStateFileBytes
+func validPluginInboxEntry(view JournalView, entry pluginInboxEntry, now time.Time) bool {
+	return view.CheckSessionKind(entry.Sender) == nil && model.IsCanonicalUUID(entry.ID) && model.IsCanonicalUUID(entry.Generation) && model.IsCanonicalUUID(entry.Revision) && !entry.At.IsZero() && !entry.At.After(now) && entry.Bytes >= 1 && entry.Bytes <= MaxMessageRecordBytes
 }

@@ -61,7 +61,7 @@ func checkInboxReadAuditWriteFailure(t *testing.T, mode os.FileMode) {
 	}
 	var raw []byte
 	var readErr error
-	if err := x.f.locked(func() error {
+	if err := x.f.write(func(view JournalView) error {
 		if err := os.Chmod(x.f.store.Dir, mode); err != nil {
 			return err
 		}
@@ -70,7 +70,7 @@ func checkInboxReadAuditWriteFailure(t *testing.T, mode os.FileMode) {
 				t.Error(err)
 			}
 		}()
-		raw, readErr = x.f.readPluginInboxAt(&x.status, x.message.ID, x.now)
+		raw, readErr = x.f.readPluginInboxAt(view, &x.status, x.message.ID, x.now)
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -173,7 +173,10 @@ func TestPluginInboxReadConcurrentRequestsReleaseOnce(t *testing.T) {
 	for range 4 {
 		go func() {
 			var r reply
-			err := x.f.locked(func() error { r.raw, r.err = x.f.readPluginInboxAt(&x.status, x.message.ID, x.now); return nil })
+			err := x.f.write(func(view JournalView) error {
+				r.raw, r.err = x.f.readPluginInboxAt(view, &x.status, x.message.ID, x.now)
+				return nil
+			})
 			if err != nil {
 				r.err = err
 			}

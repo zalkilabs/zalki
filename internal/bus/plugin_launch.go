@@ -128,7 +128,7 @@ func (s PluginFeed) preparePluginPin() (*PluginLaunch, [32]byte, error) {
 	if s.name == "fake-notifier" {
 		return nil, prior, nil
 	}
-	err := s.store.readLocked(func() error {
+	err := WithJournalRead(s.store, func(JournalView) error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err

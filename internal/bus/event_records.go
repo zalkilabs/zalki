@@ -49,8 +49,7 @@ func (r eventRecord) validate() error {
 }
 
 func canonicalEventID(id string) bool {
-	canonical, err := model.UUID(id)
-	return err == nil && canonical == id
+	return model.IsCanonicalUUID(id)
 }
 
 func (m eventMetadata) validate(limit uint64) error {
@@ -64,6 +63,11 @@ func (m eventMetadata) validate(limit uint64) error {
 }
 
 func decodeEventJSON(raw []byte, target any) error {
+	return DecodeStrictRecordJSON(raw, target)
+}
+
+// DecodeStrictRecordJSON accepts a single value without unknown fields.
+func DecodeStrictRecordJSON(raw []byte, target any) error {
 	if !json.Valid(raw) {
 		return journal.ErrInvalidBatch
 	}

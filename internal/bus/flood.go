@@ -36,14 +36,6 @@ func (s Store) floodPath(target string) (string, error) {
 	return filepath.Join(s.Dir, "flood", strings.ReplaceAll(target, ":", "_")+".json"), nil
 }
 
-func floodWait(scope, target string, now, retry time.Time) error {
-	wait := retry.Sub(now).Round(time.Second)
-	if wait < retry.Sub(now) {
-		wait += time.Second
-	}
-	return model.NewError(model.CodeRateLimited, "rate limited: %s to %s; retry in %s (at %s); wait or reply less often", scope, target, wait, retry.UTC().Format(time.RFC3339Nano))
-}
-
 // consumeFloodQuota is called under the journal lock, after the exact-ID retry
 // check and validation. One atomic target file contains both buckets, so a
 // rejected inbound check never spends a sender token (or vice versa).
@@ -62,7 +54,7 @@ func (s Store) consumeFloodQuota(msg model.Message, now time.Time) error {
 	decision := model.DecideFloodAdmission(floodQuota(state), derivedID("zalki/flood/sender/v1", msg.From), msg.ID, now)
 	switch {
 	case decision.Code == model.CodeRateLimited:
-		return floodWait(decision.Reason, state.Target, now, decision.RetryAt)
+		return model.FloodRetryError(decision.Reason, state.Target, now, decision.RetryAt)
 	case decision.Code != "":
 		return model.NewError(decision.Code, "%s", decision.Reason)
 	case !decision.Changed:

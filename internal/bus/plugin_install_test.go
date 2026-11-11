@@ -99,7 +99,7 @@ func assertCommittedInstall(t *testing.T, s Store, f PluginFeed) {
 func pluginInboxTargetName(s Store, to string) (string, error) {
 	var name string
 	err := s.readLocked(func() error {
-		f, _, err := pluginInboxTarget(s, to)
+		f, _, err := pluginInboxTarget(s.Dir, to)
 		name = f.name
 		return err
 	})

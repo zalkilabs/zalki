@@ -2,11 +2,9 @@ package bus
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"slices"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -74,8 +72,8 @@ func (s PluginFeed) ReadPluginMessageBound(before *PluginFeedStatus, session, id
 		code = "denied"
 		readErr = pluginReadFailure(code)
 		if before != nil && before.ID != "" && before.Launch != nil && before.Capabilities != nil {
-			if err := s.locked(func() error {
-				raw, code, readErr = s.readPluginMessageAt(before, session, id, request, time.Now().UTC())
+			if err := s.write(func(view JournalView) error {
+				raw, code, readErr = s.readPluginMessageAt(view, before, session, id, request, time.Now().UTC())
 				return nil
 			}); err != nil {
 				code = "unavailable"
@@ -97,7 +95,7 @@ func validPluginReadInput(s PluginFeed, session, id string) bool {
 
 // Caller holds Store flock. The clock parameter also makes race/retention
 // controls deterministic without changing the public operation or global time.
-func (s PluginFeed) readPluginMessageAt(before *PluginFeedStatus, session, id, request string, now time.Time) ([]byte, string, error) {
+func (s pluginFiles) readPluginMessageAt(view JournalView, before *PluginFeedStatus, session, id, request string, now time.Time) ([]byte, string, error) {
 	p, _, err := s.loadPlugin()
 	if err != nil {
 		return nil, "unavailable", pluginReadFailure("unavailable")
@@ -113,7 +111,7 @@ func (s PluginFeed) readPluginMessageAt(before *PluginFeedStatus, session, id, r
 				return nil, "rate_limited", pluginReadFailure("rate_limited")
 			}
 		}
-		result.Message, result.Code = s.pluginInboxMessage(session, id)
+		result.Message, result.Code = pluginNativeReadMessage(view, session, id)
 	}
 	return finishPluginReadResult(before, session, id, result, rows, now, s.savePluginReadAudit)
 }
@@ -143,38 +141,16 @@ func finishPluginReadResult(before *PluginFeedStatus, session, id string, result
 	return raw, result.Code, nil
 }
 
-func (s PluginFeed) pluginInboxMessage(session, id string) (*pluginReadMessage, string) {
-	target, err := s.store.session(session)
-	if err != nil || !canonicalEventID(target.Generation) {
-		return nil, "unavailable"
+func pluginNativeReadMessage(view JournalView, session, id string) (*pluginReadMessage, string) {
+	message, outcome := view.NativeInboxMessage(session, id)
+	if outcome != "ok" && outcome != "native_deferred" {
+		return nil, outcome
 	}
-	raw, err := journal.ReadBytes(filepath.Join(s.store.Dir, "messages", id+".json"), maxStateFileBytes)
-	var message model.Message
-	if err != nil || decodeEventJSON(raw, &message) != nil || !validPluginReadMessage(&message, id) {
-		return nil, "denied"
-	}
-	if message.To != session {
-		return nil, "denied"
-	}
-	if message.TargetGeneration != target.Generation {
-		return nil, "stale_target"
-	}
-	if message.Held || !message.Status.CanAcknowledge() {
-		return nil, "unavailable"
-	}
-	if _, err := s.store.sessionRecordPath(message.From); err != nil {
-		return nil, "unavailable"
-	}
-	view := inboxView(message, target, false)
 	result := &pluginReadMessage{ID: message.ID, From: message.From, To: message.To, Kind: message.Kind}
-	if view.BodyDeferred {
-		return result, "native_deferred"
+	if outcome == "ok" {
+		result.Body = &message.Body
 	}
-	if len(view.Body) > 16<<10 {
-		return nil, "too_large"
-	}
-	result.Body = &view.Body
-	return result, "ok"
+	return result, outcome
 }
 
 func pluginReadAuthorization(p pluginRecord, before *PluginFeedStatus, session string) string {
@@ -191,8 +167,4 @@ func pluginReadAuthorization(p pluginRecord, before *PluginFeedStatus, session s
 	default:
 		return "ok"
 	}
-}
-
-func validPluginReadMessage(message *model.Message, id string) bool {
-	return message.Schema == recordSchema && message.ID == id && (message.Kind == "" || message.Kind == model.NoticeKind)
 }

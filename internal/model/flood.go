@@ -8,6 +8,15 @@ import (
 	"time"
 )
 
+// FloodRetryError reports a quota refusal with its rounded wait and UTC retry time.
+func FloodRetryError(scope, target string, now, retry time.Time) error {
+	wait := retry.Sub(now).Round(time.Second)
+	if wait < retry.Sub(now) {
+		wait += time.Second
+	}
+	return NewError(CodeRateLimited, "rate limited: %s to %s; retry in %s (at %s); wait or reply less often", scope, target, wait, retry.UTC().Format(time.RFC3339Nano))
+}
+
 const (
 	floodPairBurst        = 12
 	floodPairPerMinute    = 12

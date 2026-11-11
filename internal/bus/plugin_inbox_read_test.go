@@ -54,7 +54,10 @@ func (x inboxReadFixture) read(t *testing.T, before *PluginFeedStatus, now time.
 	t.Helper()
 	var raw []byte
 	var readErr error
-	err := x.f.locked(func() error { raw, readErr = x.f.readPluginInboxAt(before, x.message.ID, now); return nil })
+	err := x.f.write(func(view JournalView) error {
+		raw, readErr = x.f.readPluginInboxAt(view, before, x.message.ID, now)
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

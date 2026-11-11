@@ -1,7 +1,6 @@
 package bus
 
 import (
-	"path/filepath"
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/journal"
@@ -25,9 +24,9 @@ func (s PluginFeed) ReadPluginInboxMessage(id string) ([]byte, error) {
 		return nil, pluginReadFailure("stale_binding")
 	}
 	var raw []byte
-	err = s.locked(func() error {
+	err = s.write(func(view JournalView) error {
 		var err error
-		raw, err = s.readPluginInboxAt(&before, id, time.Now().UTC())
+		raw, err = s.readPluginInboxAt(view, &before, id, time.Now().UTC())
 		return err
 	})
 	if err != nil {
@@ -36,7 +35,7 @@ func (s PluginFeed) ReadPluginInboxMessage(id string) ([]byte, error) {
 	return raw, nil
 }
 
-func (s PluginFeed) readPluginInboxAt(before *PluginFeedStatus, id string, now time.Time) ([]byte, error) {
+func (s pluginFiles) readPluginInboxAt(view JournalView, before *PluginFeedStatus, id string, now time.Time) ([]byte, error) {
 	p, _, err := s.loadPlugin()
 	if err != nil {
 		return nil, pluginReadFailure("unavailable")
@@ -57,7 +56,7 @@ func (s PluginFeed) readPluginInboxAt(before *PluginFeedStatus, id string, now t
 				return nil, pluginReadFailure("rate_limited")
 			}
 		}
-		result.Message, result.Code = s.ownPluginInboxMessage(before.ID, id, now)
+		result.Message, result.Code = s.ownPluginInboxMessage(view, before.ID, id, now)
 	}
 	save := func(rows []pluginReadAuditRow, now time.Time) error {
 		return s.savePluginReadAuditFile("plugin-inbox-read-audit.json", rows, now)
@@ -82,8 +81,8 @@ func pluginInboxReadAuthorization(p pluginRecord, before *PluginFeedStatus) stri
 	}
 }
 
-func (s PluginFeed) ownPluginInboxMessage(installation, id string, now time.Time) (*pluginReadMessage, string) {
-	index, err := s.loadPluginInboxIndex(installation, now)
+func (s pluginFiles) ownPluginInboxMessage(view JournalView, installation, id string, now time.Time) (*pluginReadMessage, string) {
+	index, err := s.loadPluginInboxIndex(view, installation, now)
 	if err != nil {
 		return nil, "unavailable"
 	}
@@ -97,19 +96,18 @@ func (s PluginFeed) ownPluginInboxMessage(installation, id string, now time.Time
 	if found == nil {
 		return nil, "denied"
 	}
-	raw, err := journal.ReadBytes(filepath.Join(s.store.Dir, "messages", id+".json"), maxStateFileBytes)
-	var m model.Message
-	if err != nil || decodeEventJSON(raw, &m) != nil || !pluginInboxRecordMatches(&m, id, installation, *found, len(raw)) {
+	m, size, err := view.CurrentMessage(id)
+	if err != nil || !pluginInboxRecordMatches(&m, installation, *found, size) {
 		return nil, "denied"
 	}
-	if validateMessageBody(m.Body, "") != nil {
+	if model.ValidateMessageBody(m.Body, "") != nil {
 		return nil, "too_large"
 	}
 	return &pluginReadMessage{ID: m.ID, From: m.From, To: m.To, Body: &m.Body, SenderGeneration: found.Generation, AdmissionRevision: found.Revision}, "ok"
 }
 
-func pluginInboxRecordMatches(m *model.Message, id, installation string, entry pluginInboxEntry, encodedBytes int) bool {
-	return validPluginReadMessage(m, id) && m.Kind == "" && m.To == "plugin:"+installation && m.TargetGeneration == installation && m.From == entry.Sender && m.CreatedAt == entry.At.Format(time.RFC3339Nano) && encodedBytes == entry.Bytes && !m.Held && !m.BodyOmitted && !m.BodyDeferred && m.ReplyTo == "" && m.Status == model.StatusSubmitted && m.AcknowledgedAt == "" && validPluginInboxReceipt(m)
+func pluginInboxRecordMatches(m *model.Message, installation string, entry pluginInboxEntry, encodedBytes int) bool {
+	return m.Kind == "" && m.To == "plugin:"+installation && m.TargetGeneration == installation && m.From == entry.Sender && m.CreatedAt == entry.At.Format(time.RFC3339Nano) && encodedBytes == entry.Bytes && !m.Held && !m.BodyOmitted && !m.BodyDeferred && m.ReplyTo == "" && m.Status == model.StatusSubmitted && m.AcknowledgedAt == "" && validPluginInboxReceipt(m)
 }
 
 func validPluginInboxReceipt(m *model.Message) bool {

@@ -2,7 +2,6 @@ package bus
 
 import (
 	"crypto/sha256"
-	"path/filepath"
 	"slices"
 
 	"github.com/zalkilabs/zalki/internal/journal"
@@ -12,11 +11,16 @@ import (
 // PluginFeed provides the local plugin feed using its Store's journal lock.
 type PluginFeed struct {
 	store Store
-	name  string
+	pluginFiles
 }
 
+// pluginFiles contains the paths and selectors used inside a journal callback.
+type pluginFiles struct{ root, name string }
+
 // NewPluginFeed returns the named installation feed; operations reject invalid names.
-func NewPluginFeed(store Store, name string) PluginFeed { return PluginFeed{store: store, name: name} }
+func NewPluginFeed(store Store, name string) PluginFeed {
+	return PluginFeed{store: store, pluginFiles: pluginFiles{root: store.Dir, name: name}}
+}
 
 // PluginDelivery contains metadata only. Its private receipt stays with the host;
 // the child returns just ID, never a position supplied by executable code.
@@ -29,20 +33,12 @@ type PluginDelivery struct {
 	offer string
 }
 
-func (s PluginFeed) pluginHead() (eventMetadata, error) {
-	head, raw, err := (commitWriter{dir: s.store.Dir}).readMetadata()
-	if raw == nil {
-		head.Epoch = "" // No event stream exists yet; do not invent an epoch.
-	}
-	return head, err
-}
-
-func (p *pluginRecord) setGap(head eventMetadata, reason string) {
+func (p *pluginRecord) setGap(head EventWindow, reason string) {
 	p.Position = pluginPosition{head.Epoch, head.Last}
 	p.GapID, p.GapReason = newID(), reason
 }
 
-func (p pluginRecord) lost(head eventMetadata) string {
+func (p pluginRecord) lost(head EventWindow) string {
 	// An empty-stream position binds its first real epoch without skipping events.
 	if (p.Position.Epoch != "" && p.Position.Epoch != head.Epoch) || p.Position.Sequence > head.Last {
 		return "epoch"
@@ -61,7 +57,7 @@ func pluginOffer(id, gap string, event *model.Event, raw []byte, after pluginPos
 // are examined per call. No plugin work or callbacks execute under this lock.
 func (s PluginFeed) NextPluginFeed() (PluginDelivery, error) {
 	var delivery PluginDelivery
-	err := s.locked(func() error {
+	err := s.write(func(view JournalView) error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err
@@ -69,7 +65,7 @@ func (s PluginFeed) NextPluginFeed() (PluginDelivery, error) {
 		if !p.Enabled {
 			return model.NewError(model.CodeUnauthorized, "plugin is disabled")
 		}
-		head, err := s.pluginHead()
+		head, err := view.EventWindow()
 		if err != nil {
 			return err
 		}
@@ -89,32 +85,22 @@ func (s PluginFeed) NextPluginFeed() (PluginDelivery, error) {
 			delivery = pluginOffer(p.GapID, p.GapReason, nil, raw, p.Position)
 			return nil
 		}
-		delivery, err = s.scanPlugin(p, raw, head)
+		delivery, err = s.scanPlugin(view, p, raw, head)
 		return err
 	})
 	return delivery, err
 }
 
-func (s PluginFeed) scanPlugin(p pluginRecord, raw []byte, head eventMetadata) (PluginDelivery, error) {
+func (s pluginFiles) scanPlugin(view JournalView, p pluginRecord, raw []byte, head EventWindow) (PluginDelivery, error) {
 	position := p.Position.Sequence
 	for scanned := 0; position < head.Last && scanned < 64; scanned++ {
 		position++
-		data, err := journal.ReadBytes(filepath.Join(s.store.Dir, eventRecordPath(position)), maxEventBytes)
+		event, err := view.EventAt(head.Epoch, position)
 		if err != nil {
 			return PluginDelivery{}, err
 		}
-		var record eventRecord
-		if err := decodeEventJSON(data, &record); err != nil {
-			return PluginDelivery{}, err
-		}
-		if err := record.validate(); err != nil {
-			return PluginDelivery{}, err
-		}
-		if record.Epoch != head.Epoch || record.Sequence != position {
-			return PluginDelivery{}, journal.ErrInvalidBatch
-		}
-		if slices.Contains(p.Sessions, record.Event.Session.ID) {
-			return pluginOffer(record.Event.ID, "", &record.Event, raw, pluginPosition{head.Epoch, position}), nil
+		if slices.Contains(p.Sessions, event.Session.ID) {
+			return pluginOffer(event.ID, "", &event, raw, pluginPosition{head.Epoch, position}), nil
 		}
 	}
 	if position != p.Position.Sequence {

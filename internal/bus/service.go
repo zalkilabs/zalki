@@ -3,9 +3,7 @@ package bus
 import (
 	"context"
 	"log/slog"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -24,6 +22,8 @@ type ReplyRequest struct {
 type Service struct {
 	Store   Store
 	Runtime *RuntimeLease
+	// PluginInbox is the composition root's local inbox admission policy.
+	PluginInbox PluginInboxAdmit
 	// Deliver overrides native-inbox transports in isolated tests.
 	Deliver func(context.Context, model.Message, model.Session) model.Receipt
 }
@@ -38,11 +38,11 @@ func (s *Service) Send(ctx context.Context, request SendRequest) (result model.M
 			s.Store.logEvent(slog.LevelWarn, "message.send_failed", eventData{Actor: actor, Recipient: to, MessageID: id, Err: err})
 		}
 	}()
-	if err := validateMessageBody(body, key); err != nil {
+	if err := model.ValidateMessageBody(body, key); err != nil {
 		return model.Message{}, err
 	}
-	if isPluginInboxAddress(to) {
-		return submitPluginInbox(s.Store, request)
+	if model.IsPluginInboxAddress(to) {
+		return submitPluginInbox(s.Store, request, s.PluginInbox)
 	}
 	msg, target, fresh, err := s.Store.ReserveMessage(request)
 	if err != nil || !fresh {
@@ -152,19 +152,6 @@ func receiptLogLevel(receipt model.Receipt) slog.Level {
 	return slog.LevelInfo
 }
 
-func validateMessageBody(body, key string) error {
-	if !utf8.ValidString(body) {
-		return model.NewError(model.CodeInvalidInput, "body is not valid UTF-8")
-	}
-	if len(body) == 0 || len(body) > 16*1024 || strings.ContainsRune(body, 0) {
-		return model.NewError(model.CodeInvalidInput, "body must be 1..16384 UTF-8 bytes without NUL")
-	}
-	if key != "" && strings.Contains(body, key) {
-		return model.NewError(model.CodeInvalidInput, "refusing to include your session capability in an agent message")
-	}
-	return nil
-}
-
 // Reply uses the journal's exact sender, never the displayed label. Repeating
 // the same incoming ID and body reuses the outgoing ID without resubmission.
 func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result model.Message, err error) {
@@ -174,7 +161,7 @@ func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result model
 			s.Store.logEvent(slog.LevelWarn, "message.reply_failed", eventData{Actor: actor, MessageID: id, Err: err})
 		}
 	}()
-	if err := validateMessageBody(body, key); err != nil {
+	if err := model.ValidateMessageBody(body, key); err != nil {
 		return model.Message{}, err
 	}
 	msg, target, fresh, err := s.Store.prepareReply(request)
