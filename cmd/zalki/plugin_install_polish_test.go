@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
@@ -88,5 +89,19 @@ func TestPluginInstallBuildFailureShowsRealLines(t *testing.T) {
 	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, " y", folder)
 	if err == nil || !strings.Contains(output, "# demo\n./main.go:3:15: undefined: x\n") || strings.Contains(output, `\n`) {
 		t.Fatalf("build output not shown line by line: %v\n%s", err, output)
+	}
+}
+
+// The read grant opens every message sent to the session, whoever sent it, so
+// the owner-facing text must say so.
+func TestPluginInstallReadLabelNamesAnySender(t *testing.T) {
+	screen := newInstallScreen("", plugins.InstallRequests{Feed: true, Read: true}, []model.Session{{ID: "codex:a"}})
+	if lines := screen.render(screenLines); !strings.Contains(lines, "read = read messages sent to it (from any sender)") {
+		t.Fatalf("read legend hides other senders:\n%s", lines)
+	}
+	for _, cmd := range []*cobra.Command{newPluginInstallCommand(&commandOptions{}), newPluginCapabilityCommand(&commandOptions{}, "grant")} {
+		if flag := cmd.Flags().Lookup("read"); flag == nil || !strings.Contains(flag.Usage, "received messages") || !strings.Contains(flag.Usage, "from any sender") {
+			t.Fatalf("%s --read help hides other senders", cmd.Name())
+		}
 	}
 }

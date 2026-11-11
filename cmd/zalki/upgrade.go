@@ -60,13 +60,15 @@ func caskPrefix(path string) (string, bool) {
 	return "", false
 }
 
+// findBrew prefers the brew of the prefix zalki itself was installed from, so
+// another brew earlier on PATH does not run the upgrade.
 func findBrew(prefix string) (string, error) {
+	own := filepath.Join(prefix, "bin", "brew")
+	if info, err := os.Stat(own); err == nil && !info.IsDir() {
+		return own, nil
+	}
 	if path, err := lookPath("brew"); err == nil {
 		return path, nil
-	}
-	fallback := filepath.Join(prefix, "bin", "brew")
-	if info, err := os.Stat(fallback); err == nil && !info.IsDir() {
-		return fallback, nil
 	}
 	return "", errors.New("zalki was installed with Homebrew but brew was not found; run `" + brewUpgradeHint + "` and then `zalki upgrade --config-only`")
 }
