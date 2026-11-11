@@ -164,7 +164,7 @@ func TestPluginInboxFreshStateRequiresMissingFile(t *testing.T) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatal("fixture not initially absent")
 	}
-	index, err := x.f.loadPluginInboxIndex(x.status.ID, time.Now().UTC())
+	index, err := readFixtureInboxIndex(x, time.Now().UTC())
 	if err != nil || index.Version != 1 || index.Installation != x.status.ID || !index.Quota.ValidHeader() {
 		t.Fatal("missing file did not initialize fresh state", err)
 	}
@@ -181,13 +181,22 @@ func TestPluginInboxFreshStateRequiresMissingFile(t *testing.T) {
 func checkPluginInboxEmptyIndexRoundTrip(t *testing.T, x inboxStorageFixture) {
 	t.Helper()
 	now := time.Now().UTC().Add(31 * 24 * time.Hour)
-	index, err := x.f.loadPluginInboxIndex(x.status.ID, now)
+	index, err := readFixtureInboxIndex(x, now)
 	if err != nil || index.Entries == nil || len(index.Entries) != 0 {
 		t.Fatal("pruning must retain nonnil empty entries", err)
 	}
 	x.putIndex(t, index)
-	reloaded, err := x.f.loadPluginInboxIndex(x.status.ID, now)
+	reloaded, err := readFixtureInboxIndex(x, now)
 	if err != nil || reloaded.Entries == nil || len(reloaded.Entries) != 0 {
 		t.Fatal("persisted empty list must reload", err)
 	}
+}
+
+func readFixtureInboxIndex(x inboxStorageFixture, now time.Time) (index pluginInboxIndex, err error) {
+	err = WithJournalRead(x.f.store, func(view JournalView) error {
+		var readErr error
+		index, readErr = x.f.loadPluginInboxIndex(view, x.status.ID, now)
+		return readErr
+	})
+	return index, err
 }

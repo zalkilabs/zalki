@@ -47,7 +47,10 @@ func (x pluginReadFixture) read(t *testing.T, before *PluginFeedStatus, session,
 	t.Helper()
 	var raw []byte
 	var readErr error
-	if err := x.f.locked(func() error { raw, _, readErr = x.f.readPluginMessageAt(before, session, id, newID(), now); return nil }); err != nil {
+	if err := x.f.write(func(view JournalView) error {
+		raw, _, readErr = x.f.readPluginMessageAt(view, before, session, id, newID(), now)
+		return nil
+	}); err != nil {
 		t.Fatal(err)
 	}
 	return raw, readErr
@@ -390,7 +393,7 @@ func pluginReadAuditSyncFailure(t *testing.T) {
 	}
 	var raw []byte
 	var readErr error
-	if err := x.f.locked(func() error {
+	if err := x.f.write(func(view JournalView) error {
 		if err := os.Chmod(x.f.store.Dir, 0300); err != nil {
 			return err
 		}
@@ -399,7 +402,7 @@ func pluginReadAuditSyncFailure(t *testing.T) {
 				t.Error(err)
 			}
 		}()
-		raw, _, readErr = x.f.readPluginMessageAt(&x.before, x.target.ID, x.message.ID, newID(), x.now)
+		raw, _, readErr = x.f.readPluginMessageAt(view, &x.before, x.target.ID, x.message.ID, newID(), x.now)
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -492,8 +495,8 @@ func TestPluginReadConcurrentRequestsHaveOneAuditedRelease(t *testing.T) {
 	for range 4 {
 		go func() {
 			var r response
-			lockErr := x.f.locked(func() error {
-				r.raw, _, r.err = x.f.readPluginMessageAt(&x.before, x.target.ID, x.message.ID, newID(), x.now)
+			lockErr := x.f.write(func(view JournalView) error {
+				r.raw, _, r.err = x.f.readPluginMessageAt(view, &x.before, x.target.ID, x.message.ID, newID(), x.now)
 				return nil
 			})
 			if lockErr != nil {

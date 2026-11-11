@@ -8,12 +8,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func isPluginInboxAddress(to string) bool {
-	id, ok := strings.CutPrefix(to, "plugin:")
-	return ok && canonicalEventID(id)
-}
-
-func (s PluginFeed) savePluginIdentity(id string) error {
+func (s pluginFiles) savePluginIdentity(id string) error {
 	if !canonicalEventID(id) || s.checkName() != nil {
 		return journal.ErrInvalidFile
 	}
@@ -26,13 +21,13 @@ func (s PluginFeed) savePluginIdentity(id string) error {
 
 // A bounded hint locates a name; only the current installation is authority.
 // Caller holds Store flock. Native registration and name resolution stay intact.
-func pluginInboxTarget(s Store, to string) (PluginFeed, pluginRecord, error) {
+func pluginInboxTarget(root, to string) (pluginFiles, pluginRecord, error) {
 	var p pluginRecord
-	f := NewPluginFeed(s, "")
-	if !isPluginInboxAddress(to) || pluginDirectory(f.pluginDir(), false) != nil {
+	f := pluginFiles{root: root}
+	if !model.IsPluginInboxAddress(to) || pluginDirectory(f.pluginDir(), false) != nil {
 		return f, p, model.NewError(model.CodeUnauthorized, "plugin inbox unavailable")
 	}
-	raw, err := journal.ReadBytes(filepath.Join(s.Dir, "plugins", "id-"+strings.TrimPrefix(to, "plugin:")+".json"), 128)
+	raw, err := journal.ReadBytes(filepath.Join(f.pluginDir(), "id-"+strings.TrimPrefix(to, "plugin:")+".json"), 128)
 	if err == nil {
 		err = decodeEventJSON(raw, &f.name)
 	}
@@ -45,7 +40,7 @@ func pluginInboxTarget(s Store, to string) (PluginFeed, pluginRecord, error) {
 	return f, p, nil
 }
 
-func syncPluginIdentity(s PluginFeed, id string, enabled bool) error {
+func syncPluginIdentity(s pluginFiles, id string, enabled bool) error {
 	if !enabled {
 		return nil
 	}

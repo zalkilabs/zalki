@@ -37,7 +37,7 @@ func newInboxStorageFixture(t *testing.T) inboxStorageFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := Service{Store: f.store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
+	service := Service{Store: f.store, PluginInbox: AdmitPluginInbox, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 		t.Error("plugin called native transport")
 		return model.NewReceipt(model.StatusSubmitted)
 	}}
@@ -244,7 +244,7 @@ func checkInboxPublicationCut(t *testing.T, cut string) {
 		t.Fatal("post-rename index/quota reservation absent")
 	}
 	before, _ := os.ReadFile(indexPath)
-	fresh := Service{Store: Store{Dir: x.f.store.Dir, Registry: testRegistry()}}
+	fresh := Service{Store: Store{Dir: x.f.store.Dir, Registry: testRegistry()}, PluginInbox: AdmitPluginInbox}
 	again, retryErr := fresh.Send(context.Background(), r)
 	after, _ := os.ReadFile(indexPath)
 	if !bytes.Equal(before, after) {

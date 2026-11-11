@@ -33,16 +33,8 @@ func (s Store) sessionID(kind, id string) (string, error) {
 // sessionRecordPath validates a canonical address without requiring its adapter.
 // Cleanup can inspect the existence of a removed adapter's record safely.
 func (s Store) sessionRecordPath(id string) (string, error) {
-	parts := strings.Split(id, ":")
-	if len(parts) != 2 || !model.ValidKind(parts[0]) {
-		return "", model.NewError(model.CodeInvalidIdentity, "use the complete kind:UUID returned by list_agents")
-	}
-	uuid, err := model.UUID(parts[1])
-	if err != nil {
+	if err := model.ValidateSessionAddress(id); err != nil {
 		return "", err
-	}
-	if uuid != parts[1] {
-		return "", model.NewError(model.CodeInvalidIdentity, "invalid session identity")
 	}
 	return filepath.Join(s.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json"), nil
 }

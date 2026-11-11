@@ -54,7 +54,7 @@ func newInboxPublicFixture(t *testing.T) inboxPublicFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return inboxPublicFixture{service: &bus.Service{Store: store}, feed: feed, author: author, other: other, third: third, to: "plugin:" + status.ID, installation: status.ID}
+	return inboxPublicFixture{service: &bus.Service{Store: store, PluginInbox: bus.AdmitPluginInbox}, feed: feed, author: author, other: other, third: third, to: "plugin:" + status.ID, installation: status.ID}
 }
 
 func (x inboxPublicFixture) send(t *testing.T, body string) model.Message {

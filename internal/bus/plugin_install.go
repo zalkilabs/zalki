@@ -140,7 +140,7 @@ func (s PluginFeed) BeginPluginInstall() (*PluginInstall, error) {
 }
 
 func (s PluginFeed) prepareInstall() error {
-	if err := s.store.readLocked(func() error {
+	if err := WithJournalRead(s.store, func(JournalView) error {
 		p, _, err := s.loadPlugin()
 		if err != nil {
 			return err
@@ -280,18 +280,18 @@ func (i *PluginInstall) Commit(artifact string, args []string, grants PluginInst
 		return false, model.NewError(model.CodeConflict, "plugin artifact changed before install")
 	}
 	beforePluginInstallCommit()
-	err = s.locked(func() error {
+	err = s.write(func(view JournalView) error {
 		// Verify under the lock, right before the record write: no wait window.
 		if err := launch.Verify(); err != nil {
 			return err
 		}
-		kept, err = s.commitInstall(launch, grants, receipt)
+		kept, err = s.commitInstall(view, launch, grants, receipt)
 		return err
 	})
 	return kept, err
 }
 
-func (s PluginFeed) commitInstall(launch PluginLaunch, grants PluginInstallGrants, receipt PluginInstallReceipt) (bool, error) {
+func (s PluginFeed) commitInstall(view JournalView, launch PluginLaunch, grants PluginInstallGrants, receipt PluginInstallReceipt) (bool, error) {
 	p, _, err := s.loadPlugin()
 	if err != nil {
 		return false, err
@@ -302,7 +302,7 @@ func (s PluginFeed) commitInstall(launch PluginLaunch, grants PluginInstallGrant
 	if err := s.checkEmptyPluginData(); err != nil {
 		return false, err
 	}
-	head, err := s.pluginHead()
+	head, err := view.EventWindow()
 	if err != nil {
 		return false, err
 	}

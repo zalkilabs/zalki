@@ -45,14 +45,14 @@ type PluginFeedStatus struct {
 	Install      *PluginInstallReceipt `json:"install,omitempty"`
 }
 
-func (s PluginFeed) pluginPath() string { return filepath.Join(s.pluginDir(), s.name+".json") }
+func (s pluginFiles) pluginPath() string { return filepath.Join(s.pluginDir(), s.name+".json") }
 
-func (s PluginFeed) checkPluginGrants(ids []string) error {
+func (s pluginFiles) checkPluginGrants(ids []string) error {
 	if len(ids) > maxPluginGrants {
 		return model.NewError(model.CodeInvalidInput, "plugin permits at most 16 explicit session grants")
 	}
 	for i, id := range ids {
-		if _, err := s.store.sessionRecordPath(id); err != nil {
+		if err := model.ValidateSessionAddress(id); err != nil {
 			return err
 		}
 		if i > 0 && ids[i-1] >= id {
@@ -62,7 +62,7 @@ func (s PluginFeed) checkPluginGrants(ids []string) error {
 	return nil
 }
 
-func (s PluginFeed) loadPlugin() (pluginRecord, []byte, error) {
+func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
 	var p pluginRecord
 	if err := s.checkName(); err != nil {
 		return p, nil, err
@@ -109,7 +109,7 @@ func (p pluginRecord) invalidPosition() bool {
 		(p.GapID != "" && (!canonicalEventID(p.GapID) || p.GapReason == ""))
 }
 
-func (s PluginFeed) savePlugin(p pluginRecord) ([]byte, error) {
+func (s pluginFiles) savePlugin(p pluginRecord) ([]byte, error) {
 	raw, err := journal.EncodeJSON(p, 16<<10)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func (s PluginFeed) EnablePluginFeed(enabled bool) error {
 }
 
 func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [32]byte) error {
-	return s.locked(func() error {
+	return s.write(func(view JournalView) error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err
@@ -170,7 +170,7 @@ func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [
 			return model.NewError(model.CodeNotFound, "add the plugin first")
 		}
 		// This also backfills the UUID hint for existing enabled installations.
-		if err := syncPluginIdentity(s, p.ID, enabled); err != nil {
+		if err := syncPluginIdentity(s.pluginFiles, p.ID, enabled); err != nil {
 			return err
 		}
 		if p.Enabled == enabled {
@@ -183,7 +183,7 @@ func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [
 			if len(p.Sessions) == 0 {
 				return model.NewError(model.CodeInvalidInput, "configure explicit session grants first")
 			}
-			head, err := s.pluginHead()
+			head, err := view.EventWindow()
 			if err != nil {
 				return err
 			}
@@ -201,7 +201,7 @@ func (s PluginFeed) PluginStatus() (PluginFeedStatus, error) {
 		return PluginFeedStatus{}, err
 	}
 	var status PluginFeedStatus
-	err := s.store.readLocked(func() error {
+	err := WithJournalRead(s.store, func(JournalView) error {
 		p, _, err := s.loadPlugin()
 		status = PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Sessions: slices.Clone(p.Sessions), GapPending: p.GapID != "", LastGap: p.GapReason, Capabilities: p.Capabilities.clone(), Install: p.Install}
 		return err

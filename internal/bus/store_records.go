@@ -1,9 +1,7 @@
 package bus
 
 import (
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -72,14 +70,7 @@ func canonicalNativeID(id string) (string, error) {
 // Length-prefixed components prevent ambiguity even when native IDs contain
 // separators. UUID-shaped native IDs keep their original public address.
 func derivedID(namespace string, parts ...string) string {
-	h := sha256.New()
-	h.Write([]byte(namespace))
-	for _, part := range parts {
-		_, _ = fmt.Fprintf(h, "\x00%d:%s", len(part), part) // hash.Hash writes never fail
-	}
-	b := h.Sum(nil)
-	b[6], b[8] = b[6]&15|128, b[8]&63|128
-	return fmt.Sprintf("%x-%x-%x-%x-%x", b[:4], b[4:6], b[6:8], b[8:10], b[10:16])
+	return model.DeriveUUID(namespace, parts...)
 }
 
 // SessionIssue describes one skipped file. ID comes from its filename, never

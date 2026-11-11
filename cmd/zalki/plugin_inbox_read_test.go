@@ -50,7 +50,7 @@ func newInboxReadCLIFixture(t *testing.T) inboxReadCLIFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := bus.Service{Store: store}
+	service := bus.Service{Store: store, PluginInbox: bus.AdmitPluginInbox}
 	m, err := service.Send(context.Background(), bus.SendRequest{Actor: author.ID, Capability: key, To: "plugin:" + status.ID, MessageID: "30000000-0000-4000-8000-000000000083", Body: "PRIVATE-C1A2-CLI-BODY <>&\nsecret"})
 	if err != nil {
 		t.Fatal(err)

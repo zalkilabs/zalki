@@ -130,7 +130,7 @@ func (opts *commandOptions) service() (*bus.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &bus.Service{Store: store}, nil
+	return &bus.Service{Store: store, PluginInbox: bus.AdmitPluginInbox}, nil
 }
 
 func encodeOutput(cmd *cobra.Command, value any) error {
