@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
@@ -37,7 +38,17 @@ func TestRecoveryHintPrefersCommonStepsAndBoundsAdapterHints(t *testing.T) {
 	}
 }
 
+// slowVersionProbes gives the /bin/sh fake clients time to start under a
+// loaded full race; the production 5 s bound is unchanged.
+func slowVersionProbes(t *testing.T) {
+	t.Helper()
+	before := clientVersionProbeTimeout
+	clientVersionProbeTimeout = 30 * time.Second
+	t.Cleanup(func() { clientVersionProbeTimeout = before })
+}
+
 func TestClientVersionProbeAndUnknownVersionDiagnostics(t *testing.T) {
+	slowVersionProbes(t)
 	for _, test := range []struct{ output, want string }{
 		{"codex-cli 0.163.0", "0.163.0"}, {"2.1.308 (Claude Code)", "2.1.308"},
 		{"2026.10.22-27dcf5f", "2026.10.22-27dcf5f"}, {"unrecognized output", ""},

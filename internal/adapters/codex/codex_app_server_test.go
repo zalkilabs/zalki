@@ -83,7 +83,9 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			marker := queueSpy(t)
 			spec := fakeCodex{Home: root, Thread: thread, Mode: mode}
 			calls := serveFakeCodex(t, listener, spec)
-			timeout := 8 * time.Second
+			// Fallback modes spawn the native queue path, which is slow under a
+			// loaded full race; 30 s matches production codex delivery.
+			timeout := 30 * time.Second
 			if mode == "hang" {
 				timeout = 400 * time.Millisecond
 			}
@@ -140,7 +142,7 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			var seen observedCodex
 			select {
 			case seen = <-calls:
-			case <-time.After(8 * time.Second):
+			case <-time.After(30 * time.Second):
 				t.Fatal("app-server exchange did not finish")
 			}
 			if mode == "unsupported" || mode == "closed" {
