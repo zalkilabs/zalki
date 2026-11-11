@@ -19,6 +19,10 @@ import (
 // interactive shell would; zalki itself starts with the default action.
 const ptyShell = `trap : INT; "$0" "$@"; echo "zalki exited $?"; IFS= read -r line; echo "shell got: $line"`
 
+// stillWaitingWindow is how long a test lets zalki handle a first cancel
+// before it checks that zalki still waits at its point of no return.
+const stillWaitingWindow = 500 * time.Millisecond
+
 // ptySession runs the real binary under ptyShell on a pseudo-terminal.
 type ptySession struct {
 	master *os.File
@@ -160,7 +164,7 @@ func TestPluginInstallRealTerminalSecondCtrlCKills(t *testing.T) {
 	session.typeText(t, "\x03")
 	// Give zalki time to handle the first Ctrl-C (it restores the default
 	// action); it must still be waiting for the lock afterwards, as designed.
-	wait := time.After(500 * time.Millisecond)
+	wait := time.After(stillWaitingWindow)
 	for waited := false; !waited; {
 		select {
 		case <-session.more:

@@ -189,13 +189,13 @@ func (p *pluginInstaller) review() (pluginfeed.PluginInstallGrants, bool, error)
 	}
 	in, out := p.cmd.InOrStdin(), p.cmd.OutOrStdout()
 	choice, restore := installTerminal(in)
+	defer restore() // also after a panic, so the terminal never stays raw
 	// Ctrl-C, SIGTERM or SIGHUP cancel the context; the reader then stops waiting.
 	keys := newContextReader(p.cmd.Context(), in)
 	var yes bool
 	switch choice {
 	case installRawKeys:
 		yes, err = screen.chooseRaw(keys, out)
-		restore()
 	case installPlainLines:
 		yes, err = screen.chooseLines(keys, out)
 	case installNoTerminal:

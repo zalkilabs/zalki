@@ -8,8 +8,12 @@ import (
 	"syscall"
 )
 
+// cancelSignals cancel the command context. plugins install gives them their
+// default action back at the first cancel (restoreSignalsOnCancel).
+var cancelSignals = []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}
+
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	ctx, cancel := signal.NotifyContext(context.Background(), cancelSignals...)
 	defer cancel()
 	ctx = context.WithValue(ctx, signalContextKey{}, ctx)
 	if err := run(ctx, os.Args[1:]); err != nil {

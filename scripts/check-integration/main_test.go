@@ -68,3 +68,25 @@ func TestRequiredIntegrationGateCommandPackage(t *testing.T) {
 		}
 	}
 }
+
+// The real-binary cancel tests (Ctrl-C on a terminal, SIGTERM and SIGHUP on
+// pipes) are each required exactly once.
+func TestRequiredIntegrationListsInstallCancelTests(t *testing.T) {
+	for _, name := range []string{
+		"TestPluginInstallRealTerminalCtrlC",
+		"TestPluginInstallRealTerminalCtrlCDuringBuild",
+		"TestPluginInstallRealTerminalSecondCtrlCKills",
+		"TestPluginInstallSignalCancels",
+		"TestPluginInstallSecondSignalKills",
+	} {
+		count := 0
+		for _, test := range required {
+			if test == (requiredTest{"cmd/zalki", name}) {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Errorf("%s is required %d times, want 1", name, count)
+		}
+	}
+}
