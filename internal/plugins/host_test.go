@@ -69,6 +69,10 @@ func fakeChild(outbox string) error {
 	if err := recordFakeChildEnvironment(state); err != nil {
 		return err
 	}
+	if string(mode) == "control-stderr" {
+		_, _ = os.Stderr.Write([]byte("\x1b[2Jhidden\x07\u202e\r\xff\nnext\tline"))
+		return errors.New("control stderr")
+	}
 	if string(mode) == "eof-before-hello" {
 		_, err := io.Copy(io.Discard, os.Stdin)
 		return err
@@ -696,4 +700,40 @@ func recordFakeChildEnvironment(state string) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(state, ".child-env"), []byte(strings.Join(os.Environ(), "\n")), 0600)
+}
+
+// Plugin stderr reaches the owner's terminal inside the host error, so control
+// sequences must arrive escaped while line breaks and tabs stay real.
+func TestHostEscapesChildStderr(t *testing.T) {
+	store, _ := hostStore(t)
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("control-stderr"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, done := startHost(t, store)
+	select {
+	case err := <-done:
+		text := fmt.Sprint(err)
+		if err == nil || !strings.Contains(text, `\x1b[2Jhidden\a\u202e\r\xff`+"\nnext\tline") {
+			t.Fatalf("stderr not escaped as expected: %q", text)
+		}
+		if strings.ContainsAny(text, "\x1b\x07\u202e\r") {
+			t.Fatalf("raw control character reached the error: %q", text)
+		}
+	case <-time.After(helloTimeout + 10*time.Second):
+		t.Fatal("child failure did not terminate host")
+	}
+}
+
+func TestPlainStderr(t *testing.T) {
+	for in, want := range map[string]string{
+		"plain text\twith tab\n": "plain text\twith tab\n",
+		"\x1b]0;title\x07":       `\x1b]0;title\a`,
+		"caf\u00e9 \u202eevil":   "caf\u00e9 " + `\u202eevil`,
+		"bad \xff byte":          `bad \xff byte`,
+		"zero\u200bwidth":        `zero\u200bwidth`,
+	} {
+		if got := plainStderr([]byte(in)); got != want {
+			t.Errorf("plainStderr(%q) = %q, want %q", in, got, want)
+		}
+	}
 }

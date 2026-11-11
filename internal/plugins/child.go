@@ -9,10 +9,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 var errChildCanceled = errors.New("plugin canceled pipe I/O")
@@ -157,7 +161,7 @@ func (c *child) stop(cause error) error {
 	if c.readMode.Load() {
 		return errors.New("plugin v1-read failed")
 	}
-	return fmt.Errorf("%w; child stderr: %s", cause, c.stderr)
+	return fmt.Errorf("%w; child stderr: %s", cause, plainStderr(c.stderr))
 }
 
 func (c *child) deadlineError(file *os.File, err error) error {
@@ -193,4 +197,25 @@ func (c *child) canceledStop(ctx context.Context, cause error) bool {
 	}
 	status, ok := exit.Sys().(syscall.WaitStatus)
 	return c.killedForCancel && ok && status.Signaled() && status.Signal() == syscall.SIGKILL
+}
+
+// plainStderr keeps line breaks, tabs and printable text of plugin stderr. Any
+// other rune (ESC, BEL, bidi controls) or invalid byte is shown as a Go escape,
+// so the plugin cannot drive the owner's terminal through an error message.
+func plainStderr(b []byte) string {
+	var out strings.Builder
+	for len(b) > 0 {
+		r, size := utf8.DecodeRune(b)
+		switch {
+		case r == utf8.RuneError && size == 1:
+			fmt.Fprintf(&out, `\x%02x`, b[0])
+		case r == '\n' || r == '\t' || unicode.IsPrint(r):
+			out.Write(b[:size])
+		default:
+			quoted := strconv.QuoteRune(r)
+			out.WriteString(quoted[1 : len(quoted)-1])
+		}
+		b = b[size:]
+	}
+	return out.String()
 }

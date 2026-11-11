@@ -23,7 +23,7 @@ func newPluginCapabilityCommand(opts *commandOptions, action string) *cobra.Comm
 		},
 	}
 	if action == "grant" {
-		cmd.Flags().StringArrayVar(&grants.Read, "read", nil, "exact native session for recorded body-read permission (repeat)")
+		cmd.Flags().StringArrayVar(&grants.Read, "read", nil, "exact session whose received messages it may read, from any sender (repeat)")
 		cmd.Flags().StringArrayVar(&grants.Send, "send", nil, "exact native recipient for recorded send permission (repeat)")
 		cmd.Flags().BoolVar(&grants.InboxRead, "inbox-read", false, "record permission to read the plugin's own inbox")
 		cmd.Flags().StringArrayVar(&grants.InboxFrom, "accept-from", nil, "exact native peer allowed to message this plugin (repeat)")

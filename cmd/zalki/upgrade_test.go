@@ -185,6 +185,27 @@ func TestUpgradeUsesBrewFromPathAndIsIdempotent(t *testing.T) {
 	}
 }
 
+// Another brew earlier on PATH must not run the upgrade: the brew of the prefix
+// zalki was installed from wins.
+func TestUpgradePrefersBrewOfItsOwnPrefix(t *testing.T) {
+	f := newUpgradeFixture(t, "", "echo 'Upgrade successful'\n")
+	pathDir := t.TempDir()
+	other := filepath.Join(pathDir, "other-brew.log")
+	if err := os.WriteFile(filepath.Join(pathDir, "brew"), []byte("#!/bin/sh\necho \"$@\" >> '"+other+"'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", pathDir)
+	if out, _, err := execute(t, f.home, "", "upgrade", "--state", f.state); err != nil || out != "Upgrade successful\n" {
+		t.Fatal("upgrade", out, err)
+	}
+	if got := f.logged(t, f.brewLog); got != "upgrade --cask zalkilabs/tap/zalki" {
+		t.Fatal("prefix brew did not run", got)
+	}
+	if _, err := os.Stat(other); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("brew from PATH ran instead of the prefix brew", err)
+	}
+}
+
 func TestUpgradeDryRunNeverUpgradesOrEdits(t *testing.T) {
 	f := newUpgradeFixture(t, "", "")
 	before := f.manifestBytes(t)

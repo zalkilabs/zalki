@@ -71,7 +71,7 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 	cmd.Flags().StringVar(&flags.tree, "tree-sha256", "", "expected snapshot hash of FOLDER (with --yes)")
 	cmd.Flags().BoolVar(&flags.allowUnsandboxed, "allow-unsandboxed", false, "accept that the build and plugin run without a sandbox (with --yes)")
 	cmd.Flags().StringArrayVar(&flags.grants.Sessions, "session", nil, "exact session the plugin sees changes from (repeat; with --yes)")
-	cmd.Flags().StringArrayVar(&flags.grants.Read, "read", nil, "exact session whose message bodies it may read (repeat; with --yes)")
+	cmd.Flags().StringArrayVar(&flags.grants.Read, "read", nil, "exact session whose received messages it may read, from any sender (repeat; with --yes)")
 	cmd.Flags().StringArrayVar(&flags.grants.Send, "send", nil, "exact session it may send to (repeat; with --yes)")
 	cmd.Flags().StringArrayVar(&flags.grants.InboxFrom, "accept-from", nil, "exact session allowed to message it (repeat; with --yes)")
 	cmd.Flags().BoolVar(&flags.inboxRead, "inbox-read", false, "allow reading its own inbox (with --yes)")
