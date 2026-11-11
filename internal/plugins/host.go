@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
@@ -55,7 +54,7 @@ func Run(ctx context.Context, store bus.Store, binary, name string, output io.Wr
 			resultErr = nil
 		}
 	}()
-	header, err := c.receive(2 * time.Second)
+	header, err := c.receive(helloTimeout)
 	if err != nil {
 		return fmt.Errorf("plugin hello failed: %w", err)
 	}

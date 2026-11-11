@@ -98,20 +98,32 @@ func TestPluginCheckObservesTransportWithPrivateHomeCwdAndReap(t *testing.T) {
 	}
 }
 
+// check uses the same hello deadline as run: a slow first frame still passes.
+func TestPluginCheckAcceptsASlowHello(t *testing.T) {
+	target, _ := checkFixture(t, "slow-hello")
+	var output bytes.Buffer
+	ctx, cancel := context.WithTimeout(t.Context(), helloTimeout+15*time.Second)
+	defer cancel()
+	if err := Check(ctx, target, &output); err != nil || !strings.Contains(output.String(), "PASS hello\n") {
+		t.Fatal("slow hello failed check", output.String(), err)
+	}
+}
+
 func TestPluginCheckReportsObservedFailuresAndAlwaysReaps(t *testing.T) {
 	cases := map[string]string{"exit": "FAIL hello", "no-hello": "FAIL hello", "bad-hello": "FAIL hello", "bad-ack": "FAIL enabled-gap", "ignore-eof": "FAIL stdin-eof", "close-stdout": "FAIL stream", "oversize": "FAIL stream"}
 	for mode, stage := range cases {
 		t.Run(mode, func(t *testing.T) {
 			target, path := checkFixture(t, mode)
 			var output bytes.Buffer
-			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), helloTimeout+15*time.Second)
 			defer cancel()
 			started := time.Now()
 			err := Check(ctx, target, &output)
 			if err == nil || !strings.Contains(output.String(), stage) || !strings.Contains(output.String(), "PASS reaped\n") {
 				t.Fatal("failure/reap observation missing", output.String(), err)
 			}
-			if time.Since(started) > 12*time.Second {
+			// no-hello waits for the hello deadline, then the EOF grace and kill.
+			if time.Since(started) > helloTimeout+8*time.Second {
 				t.Fatal("check failed to complete within generous lifecycle bound")
 			}
 			var observed checkObservation
