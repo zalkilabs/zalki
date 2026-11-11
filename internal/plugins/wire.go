@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"time"
 
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -15,6 +16,13 @@ import (
 const ChildCommand = "plugin-notifier"
 
 const maxFrame = 64 << 10
+
+// helloTimeout bounds how long run and check wait for a plugin's first frame.
+// Only the plugin's own installation lease is held during the wait, never the
+// Store lock, and cancellation still stops the child at once. A cold first
+// launch (a new unsigned binary, an interpreter under load) can take seconds,
+// so a plugin that never says hello fails after this deadline, not sooner.
+const helloTimeout = 10 * time.Second
 
 var errPartialFrameEOF = errors.New("plugin stream ended mid-frame")
 

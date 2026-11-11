@@ -72,8 +72,12 @@ func fakeChild(outbox string) error {
 		_, err := io.Copy(io.Discard, os.Stdin)
 		return err
 	}
+	if string(mode) == "slow-hello" {
+		time.Sleep(3 * time.Second) // A cold first launch, well inside helloTimeout.
+	}
 	if string(mode) == "no-hello" {
-		time.Sleep(10 * time.Second)
+		// Outlive the hello deadline so the host's timeout, not an exit, ends it.
+		time.Sleep(helloTimeout + 20*time.Second)
 		return nil
 	}
 	version := "v0"
@@ -258,6 +262,30 @@ func TestHostReapsChildOnEOFAndDoesNotInheritSecrets(t *testing.T) {
 
 }
 
+// A plugin that needs a few seconds before its hello is accepted: the deadline
+// is helloTimeout, not the old 2 s.
+func TestHostAcceptsASlowHello(t *testing.T) {
+	store, _ := hostStore(t)
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("slow-hello"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, done := startHost(t, store)
+	feed := bus.NewPluginFeed(store, "fake-notifier")
+	until := time.Now().Add(helloTimeout + 5*time.Second)
+	for time.Now().Before(until) {
+		select {
+		case err := <-done:
+			t.Fatal("host stopped on a slow but valid hello", err)
+		default:
+		}
+		if status, err := feed.PluginStatus(); err == nil && !status.GapPending {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatal("slow hello was never accepted")
+}
+
 func TestHostStopsOnChildFailures(t *testing.T) {
 	for _, mode := range []string{"bad-hello", "unsolicited", "oversize", "bad-ack", "stderr", "no-hello", "no-ack"} {
 		t.Run(mode, func(t *testing.T) {
@@ -271,7 +299,7 @@ func TestHostStopsOnChildFailures(t *testing.T) {
 				if err == nil {
 					t.Fatal("child failure was hidden")
 				}
-			case <-time.After(9 * time.Second):
+			case <-time.After(helloTimeout + 10*time.Second):
 				t.Fatal("child failure did not terminate host")
 			}
 		})

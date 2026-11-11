@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
@@ -60,7 +59,7 @@ func Check(ctx context.Context, target CheckTarget, output io.Writer) (result er
 	if err := reportCheck(output, "launch", nil); err != nil {
 		return err
 	}
-	header, err := c.receive(2 * time.Second)
+	header, err := c.receive(helloTimeout)
 	if err == nil && !header.validHello() {
 		err = errors.New("plugin requires hello.version=v0")
 	}
