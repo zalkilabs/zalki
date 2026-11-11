@@ -74,8 +74,12 @@ func (b *versionBuffer) Write(p []byte) (int, error) {
 
 func execClientPath(name string) (string, error) { return exec.LookPath(name) }
 
+// clientVersionProbeTimeout bounds one `--version` run. Tests in this package
+// may raise it; production code never changes it.
+var clientVersionProbeTimeout = 5 * time.Second
+
 func probeClientVersion(ctx context.Context, path string) string {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, clientVersionProbeTimeout)
 	defer cancel()
 	command := exec.CommandContext(ctx, path, "--version")
 	var output versionBuffer

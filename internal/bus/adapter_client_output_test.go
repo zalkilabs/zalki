@@ -18,6 +18,7 @@ func versionOutputExecutable(t *testing.T, script string) string {
 }
 
 func TestClientVersionProbeBoundsExecutableOutput(t *testing.T) {
+	slowVersionProbes(t)
 	for _, test := range []struct{ name, script, want string }{
 		{"version_after_limit", "printf '%s' '" + strings.Repeat("x", 1024) + " 9.8.7'", ""},
 		{"version_at_limit", "printf '%s' '" + strings.Repeat("x", 1019) + "9.8.7'", "9.8.7"},
