@@ -221,7 +221,10 @@ func TestPruneIgnoresWatchNamesThatAreNotCanonical(t *testing.T) {
 	}
 }
 
-func TestPruneKeepsNewerSchemaWatchesOnLiveAndMissingTargets(t *testing.T) {
+// With one build, a watch with another schema is damaged, so prune treats it as
+// stale: listed on a dry run and deleted on a real run, for live and missing
+// targets alike.
+func TestPruneDeletesNewerSchemaWatchesOnLiveAndMissingTargets(t *testing.T) {
 	store := fixtureStore(t)
 	watcher, _, live, _ := registerPair(t, store, "codex", "cursor")
 	orphan, _ := register(t, store, "cursor")
@@ -237,20 +240,23 @@ func TestPruneKeepsNewerSchemaWatchesOnLiveAndMissingTargets(t *testing.T) {
 		}
 		return path
 	}
-	kept, dropped := write(live.ID), write(orphan.ID)
+	paths := []string{write(live.ID), write(orphan.ID)}
 	if err := os.Remove(store.sessionPathMust(t, orphan.ID)); err != nil {
 		t.Fatal(err)
 	}
 	for _, dry := range []bool{true, false} {
 		report, err := store.Prune(dry, nil)
-		if err != nil || len(report.DeletedWatches) != 0 {
-			t.Fatalf("dry=%v report: %+v %v", dry, report, err)
+		if err != nil {
+			t.Fatal(err)
 		}
-		if _, err := os.Lstat(kept); err != nil {
-			t.Fatalf("dry=%v removed a newer-schema watch on a live target: %v", dry, err)
+		for _, path := range paths {
+			name := filepath.Base(filepath.Dir(path)) + "/" + filepath.Base(path)
+			if !slices.Contains(report.DeletedWatches, name) {
+				t.Fatalf("dry=%v did not list %s: %v", dry, name, report.DeletedWatches)
+			}
+			if _, err := os.Lstat(path); dry != (err == nil) {
+				t.Fatalf("dry=%v: %s exists = %v", dry, name, err == nil)
+			}
 		}
-	}
-	if _, err := os.Lstat(dropped); err != nil {
-		t.Fatalf("missing target's newer-schema watch was removed: %v", err)
 	}
 }

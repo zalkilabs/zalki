@@ -21,24 +21,7 @@ type hookTrace struct {
 func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output io.Writer) (resultErr error) {
 	started := time.Now()
 	trace := hookTrace{stage: "adapter"}
-	defer func() {
-		if IsUpgradeRequired(resultErr) || model.ErrorCodeOf(resultErr) == model.CodeUnsupportedSchema {
-			s.Store.logEvent(slog.LevelWarn, "hook.upgrade_required", eventData{Agent: kind, Actor: trace.actor, HookEvent: trace.lifecycle, Err: resultErr})
-			resultErr = nil
-			return
-		}
-		level, event := slog.LevelDebug, "hook.completed"
-		data := eventData{Agent: kind, Actor: trace.actor, HookEvent: trace.lifecycle, Duration: time.Since(started), Err: resultErr}
-		if resultErr != nil {
-			level, event = slog.LevelWarn, "hook.failed"
-			data.HookStage = trace.stage
-			data.HookPayloadClass = trace.payloadClass
-		}
-		s.Store.logEvent(level, event, data)
-	}()
-	if err := s.Store.CheckWriteCompatibility(); err != nil {
-		return err
-	}
+	defer func() { resultErr = s.finishHook(kind, trace, started, resultErr) }()
 	adapter, err := s.Store.registry().Lookup(kind)
 	if err != nil {
 		return err
@@ -88,6 +71,27 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 	}
 	trace.stage = "approval"
 	return s.releaseApprovalQueue(ctx, id)
+}
+
+// finishHook logs the hook's outcome and returns its final error. A record the
+// hook cannot skip (its own session, a watch, flood or reply record) with an
+// unsupported schema is damaged: it is logged and the hook stays successful, so
+// one bad file never breaks the agent. Unsupported message files are skipped
+// and counted by the scans.
+func (s *Service) finishHook(kind string, trace hookTrace, started time.Time, err error) error {
+	if model.ErrorCodeOf(err) == model.CodeUnsupportedSchema {
+		s.Store.logEvent(slog.LevelWarn, "hook.record_unsupported", eventData{Agent: kind, Actor: trace.actor, HookEvent: trace.lifecycle, Err: err})
+		return nil
+	}
+	level, event := slog.LevelDebug, "hook.completed"
+	data := eventData{Agent: kind, Actor: trace.actor, HookEvent: trace.lifecycle, Duration: time.Since(started), Err: err}
+	if err != nil {
+		level, event = slog.LevelWarn, "hook.failed"
+		data.HookStage = trace.stage
+		data.HookPayloadClass = trace.payloadClass
+	}
+	s.Store.logEvent(level, event, data)
+	return err
 }
 
 // decodeHook captures the native contract before mapping and normalizing it.

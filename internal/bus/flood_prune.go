@@ -52,7 +52,7 @@ func (r *pruneRun) deleteFloodEntry(dir string, entry os.DirEntry) error {
 	if !info.Mode().IsRegular() {
 		return nil
 	}
-	orphan, err := r.floodRecordIsOrphan(dir, base, target)
+	orphan, err := r.floodRecordIsOrphan(base, target)
 	if err != nil || !orphan {
 		return err
 	}
@@ -83,9 +83,9 @@ func floodRecordTarget(base string) (string, bool) {
 }
 
 // floodRecordIsOrphan reports whether a quota record can be removed: its
-// session is gone (or this run deletes it) and the record is not from a newer
-// format. A session lookup that fails for another reason is an error.
-func (r *pruneRun) floodRecordIsOrphan(dir, base, target string) (bool, error) {
+// session is gone (or this run deletes it). A session lookup that fails for
+// another reason is an error.
+func (r *pruneRun) floodRecordIsOrphan(base, target string) (bool, error) {
 	if !r.deleted[target] {
 		if _, err := os.Lstat(filepath.Join(r.store.Dir, "sessions", base)); err == nil {
 			return false, nil
@@ -93,5 +93,5 @@ func (r *pruneRun) floodRecordIsOrphan(dir, base, target string) (bool, error) {
 			return false, err
 		}
 	}
-	return !futureRecord(filepath.Join(dir, base), recordSchema), nil
+	return true, nil
 }

@@ -13,7 +13,7 @@ import (
 )
 
 func TestPluginInboxAdmissionRequiresLiveWriteScope(t *testing.T) {
-	for _, kind := range []string{"zero", "expired", "foreign", "read", "future read"} {
+	for _, kind := range []string{"zero", "expired", "foreign", "read"} {
 		t.Run(kind, func(t *testing.T) { checkPluginInboxAdmissionScope(t, kind) })
 	}
 }
@@ -21,12 +21,6 @@ func TestPluginInboxAdmissionRequiresLiveWriteScope(t *testing.T) {
 func checkPluginInboxAdmissionScope(t *testing.T, kind string) {
 	t.Helper()
 	x := newInboxAdmissionFixture(t)
-	if kind == "future read" {
-		pluginScopeFutureMarker(t, x.store)
-		if model.ErrorCodeOf(x.store.CheckWriteCompatibility()) != model.CodeUnsupportedSchema {
-			t.Fatal("fixture must fence writers")
-		}
-	}
 	before := pluginScopeSnapshot(t, x.store)
 	check := func(view bus.JournalView) error {
 		var denial error

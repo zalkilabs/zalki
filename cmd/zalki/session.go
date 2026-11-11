@@ -33,16 +33,12 @@ func newMCPCommand(opts *commandOptions) *cobra.Command {
 				return err
 			}
 			lease, err := service.Store.TrackRuntime("mcp", "")
-			if err != nil && !bus.IsUpgradeRequired(err) {
+			if err != nil {
 				return err
 			}
-			if err == nil {
-				defer lease.Close() //nolint:errcheck // Stale runtime records can be pruned after shutdown.
-				service.Runtime = lease
-				opts.logger.InfoContext(cmd.Context(), "mcp.started", "runtime_id", lease.Info().ID)
-			} else {
-				opts.logger.WarnContext(cmd.Context(), "mcp.read_only", "reason", "upgrade_required")
-			}
+			defer lease.Close() //nolint:errcheck // Stale runtime records can be pruned after shutdown.
+			service.Runtime = lease
+			opts.logger.InfoContext(cmd.Context(), "mcp.started", "runtime_id", lease.Info().ID)
 			defer opts.logger.InfoContext(cmd.Context(), "mcp.stopped")
 			// The observer shares the server's lifetime but never its failures:
 			// it logs and skips, and shutdown waits for it only briefly.

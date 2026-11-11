@@ -231,7 +231,7 @@ func TestPrivateSessionAtomicSaveRefusesStalePrior(t *testing.T) {
 	if err := journal.WriteAtomic(path, data); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.locked(func() error { return savePrivateSessionRecord(store, record, prior) }); !errors.Is(err, journal.ErrBatchConflict) {
+	if err := store.locked(func() error { return savePrivateSessionRecord(record, prior) }); !errors.Is(err, journal.ErrBatchConflict) {
 		t.Fatalf("stale prior = %v", err)
 	}
 	if !bytes.Equal(readCommitFile(t, path), data) {

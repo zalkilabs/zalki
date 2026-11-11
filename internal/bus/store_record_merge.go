@@ -25,19 +25,13 @@ type recordUpdate struct {
 
 // writeRecord is called under the journal lock. Re-read the on-disk record so
 // re-registration and crash recovery also preserve fields absent from their
-// newly constructed values. A future record is never overwritten by a fresh value.
+// newly constructed values. A previous record whose schema is outside
+// 0..supported is never overwritten (a missing schema reads as 0 and is
+// accepted here; readers that need the exact schema use readRecord).
 func (s Store) writeRecord(path string, value any, supported int, updates ...recordUpdate) error {
 	update := recordUpdate{}
 	if len(updates) != 0 {
 		update = updates[0]
-	}
-	next, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-	nextSchema, err := checkSchema(next, supported)
-	if err != nil {
-		return err
 	}
 	var previous json.RawMessage
 	if err := readJSON(path, &previous); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -47,7 +41,7 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 		previous = update.previous
 	}
 	if len(previous) != 0 {
-		if _, err := checkSchema(previous, supported); err != nil {
+		if err := checkSchema(previous, supported); err != nil {
 			return err
 		}
 	}
@@ -55,8 +49,7 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 	if err != nil {
 		return err
 	}
-	// Validate before publishing the marker, then write these exact bytes after
-	// the marker. Unknown fields are never dropped to make an oversized merge fit.
+	// Unknown fields are never dropped to make an oversized merge fit.
 	encoded, err := encodeStateJSON(raw)
 	if err != nil {
 		return err
@@ -69,32 +62,15 @@ func (s Store) writeRecord(path string, value any, supported int, updates ...rec
 	if family == "sessions" {
 		return model.NewError(model.CodeInvalidInput, "session writes require the commit path")
 	}
-	version := nextSchema
-	if version == 0 {
-		version = 1
-	}
-	if err := s.ensureStateFormat(family, version); err != nil {
-		return err
-	}
 	return journal.WriteAtomic(path, encoded)
 }
 
-// checkSchema returns the record's schema version and rejects one this build
-// does not support.
-func checkSchema(raw json.RawMessage, supported int) (int, error) {
-	version, err := journal.CheckSchema(raw, supported)
+// checkSchema rejects a record whose schema this build does not support.
+func checkSchema(raw json.RawMessage, supported int) error {
+	_, err := journal.CheckSchema(raw, supported)
 	var schema *journal.SchemaError
 	if errors.As(err, &schema) {
-		return 0, model.NewError(model.CodeUnsupportedSchema, "unsupported journal schema %d; upgrade zalki", schema.Version)
+		return model.NewError(model.CodeUnsupportedSchema, "unsupported journal schema %d", schema.Version)
 	}
-	return version, err
-}
-
-// futureRecord is used only to protect cleanup candidates. Corrupt old records
-// keep their existing cleanup policy, but a readable future header is kept.
-func futureRecord(path string, supported int) bool {
-	var header struct {
-		Schema int `json:"schema"`
-	}
-	return readJSON(path, &header) == nil && header.Schema > supported
+	return err
 }

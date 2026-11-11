@@ -30,7 +30,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 	}{
 		{
 			name:     "register and send",
-			prefixes: []string{"state-formats", "messages", "flood", "sessions/alpha"},
+			prefixes: []string{"messages", "flood", "sessions/alpha"},
 			run: func(t *testing.T, _, _ *fakeAdapter, svc bus.Service, from, to agent) {
 				t.Helper()
 				send(t, svc, from, to)
@@ -38,7 +38,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 		},
 		{
 			name:     "reply",
-			prefixes: []string{"state-formats", "messages"},
+			prefixes: []string{"messages"},
 			run: func(t *testing.T, _, _ *fakeAdapter, svc bus.Service, from, to agent) {
 				t.Helper()
 				msg := send(t, svc, from, to)
@@ -154,11 +154,6 @@ file sessions/alpha_<uuid>.json
        .state = "ready"
        .updated_at = "<time>"
 file sessions/beta_<uuid>.json
-file state-formats.json
-       .formats.flood = 1
-       .formats.messages = 1
-       .formats.sessions = 1
-       .schema = 1
 `,
 	"reply": `dir  commits
 dir  events
@@ -202,12 +197,6 @@ file messages/<uuid>.json
        .to = "alpha:<uuid>"
 file sessions/alpha_<uuid>.json
 file sessions/beta_<uuid>.json
-file state-formats.json
-       .formats.flood = 1
-       .formats.messages = 1
-       .formats.sessions = 1
-       .formats.transactions = 1
-       .schema = 1
 `,
 	"transport refuses": `dir  commits
 dir  events
@@ -238,7 +227,6 @@ file messages/<uuid>.json
        .to = "beta:<uuid>"
 file sessions/alpha_<uuid>.json
 file sessions/beta_<uuid>.json
-file state-formats.json
 `,
 	"held for approval": `dir  commits
 dir  events
@@ -281,7 +269,6 @@ file sessions/beta_<uuid>.json
        .schema = 1
        .state = "approval"
        .updated_at = "<time>"
-file state-formats.json
 `,
 	"retired session": `dir  commits
 dir  events
@@ -307,6 +294,5 @@ file sessions/beta_<uuid>.json
        .schema = 1
        .state = "retired"
        .updated_at = "<time>"
-file state-formats.json
 `,
 }

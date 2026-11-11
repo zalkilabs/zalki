@@ -72,9 +72,6 @@ func TestPreservedExtensionsRemainWithinEncodedReadLimit(t *testing.T) {
 	if _, err := store.message(msg.ID); err != nil {
 		t.Fatal("rejected rewrite made original unreadable", err)
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, stateFormatFile)); !os.IsNotExist(err) {
-		t.Fatal("oversized record published a marker before validation", err)
-	}
 }
 
 func TestStateJSONExactEncodedLimitAndOneByteOverflow(t *testing.T) {

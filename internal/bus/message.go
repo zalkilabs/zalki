@@ -63,9 +63,6 @@ func (s Store) saveMessage(v model.Message) error {
 }
 
 func (s Store) saveMessageRecord(v model.Message, previous json.RawMessage) error {
-	if v.Schema < 0 || v.Schema > recordSchema {
-		return model.NewError(model.CodeUnsupportedSchema, "unsupported message schema %d", v.Schema)
-	}
 	if _, err := model.UUID(v.ID); err != nil {
 		return err
 	}

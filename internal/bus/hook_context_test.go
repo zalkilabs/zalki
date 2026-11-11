@@ -306,23 +306,6 @@ func TestHookContextCancellationKeepsUncertainReceipt(t *testing.T) {
 	assertHookContextOutcome(t, fixture, ids, model.StatusUnknownWrite)
 }
 
-func TestHookContextCancellationKeepsCompatibilityFence(t *testing.T) {
-	fixture := newHookContextFixture(t, "watch", 1)
-	futureStateMarker(t, fixture.service.Store)
-	before := journalSnapshot(t, fixture.service.Store)
-	fixture.service.Deliver = func(context.Context, model.Message, model.Session) model.Receipt {
-		t.Error("unsupported state reached transport")
-		return model.NewReceipt(model.StatusSubmitted)
-	}
-	parent, cancel := context.WithCancel(t.Context())
-	cancel()
-	// Hook already treats an upgrade-required fence as an ignored hook.
-	if err := fixture.invoke(parent); err != nil {
-		t.Fatalf("cancellation replaced the existing ignored-upgrade result: %v", err)
-	}
-	assertForwardingChanges(t, fixture.service.Store, before)
-}
-
 func TestHookContextCancellationKeepsDecodeError(t *testing.T) {
 	fixture := newHookContextFixture(t, "watch", 1)
 	fixture.input = []byte("{")

@@ -45,17 +45,13 @@ func privateDir(path string) error {
 	return nil
 }
 
-func (s Store) locked(fn func() error) error {
-	return s.lockedMode(fn, false)
-}
-
-// readLocked preserves normal reply recovery when formats are compatible. A
-// newer marker disables recovery and permits reads without applying old writes.
+// readLocked takes the journal lock for a read. It is the same as locked: it
+// also runs recovery, so a read never sees a half-applied event commit or reply.
 func (s Store) readLocked(fn func() error) error {
-	return s.lockedMode(fn, true)
+	return s.locked(fn)
 }
 
-func (s Store) lockedMode(fn func() error, readOnly bool) error {
+func (s Store) locked(fn func() error) error {
 	if err := privateDir(s.Dir); err != nil {
 		return err
 	}
@@ -73,18 +69,12 @@ func (s Store) lockedMode(fn func() error, readOnly bool) error {
 		return err
 	}
 	defer journal.Unlock(fd) //nolint:errcheck // Descriptor close also releases the lock.
-	compatibility := s.CheckWriteCompatibility()
-	if compatibility != nil && (!readOnly || eventIntentPresent(s)) {
-		return compatibility
+	if err := recoverEventCommit(s); err != nil {
+		return err
 	}
-	if compatibility == nil {
-		if err := recoverEventCommit(s); err != nil {
-			return err
-		}
-		if err := s.recoverReplies(); err != nil {
-			s.logEvent(slog.LevelError, "reply.recovery_failed", eventData{Err: err})
-			return err
-		}
+	if err := s.recoverReplies(); err != nil {
+		s.logEvent(slog.LevelError, "reply.recovery_failed", eventData{Err: err})
+		return err
 	}
 	return fn()
 }
