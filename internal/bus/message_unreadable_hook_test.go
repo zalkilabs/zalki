@@ -17,35 +17,6 @@ import (
 // One unreadable message file must not block hook delivery for any session.
 // The bad file stays on disk (persisted poison) and is reported, never repaired.
 
-type poison struct {
-	name    string
-	content []byte
-	mode    os.FileMode
-}
-
-func poisons() []poison {
-	return []poison{
-		{"truncated", []byte(`{"schema":1,"id":"`), 0600},
-		{"not-json", []byte("not json"), 0600},
-		{"unreadable-mode", []byte(`{}`), 0000},
-	}
-}
-
-// plant writes a bad message file with a canonical UUID name and returns its ID.
-func plant(t *testing.T, store Store, p poison) string {
-	t.Helper()
-	id := newID()
-	path := filepath.Join(store.Dir, "messages", id+".json")
-	if err := os.WriteFile(path, p.content, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(path, p.mode); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(path, 0600) })
-	return id
-}
-
 func capture(store *Store) *bytes.Buffer {
 	var output bytes.Buffer
 	store.Logger = slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -89,14 +60,14 @@ func requireOneSkipRecord(t *testing.T, output *bytes.Buffer, actor, id string, 
 }
 
 func TestEmitPendingSkipsAnUnreadableFileAndStillDelivers(t *testing.T) {
-	for _, p := range poisons() {
+	for _, p := range unreadableMessages() {
 		t.Run(p.name, func(t *testing.T) {
 			f := newEmitFixture(t)
 			output := capture(&f.store)
 			base := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 			first := f.queue(t, "first", base)
 			second := f.queue(t, "second", base.Add(time.Second))
-			bad := plant(t, f.store, p)
+			bad := newUnreadableMessage(t, f.store, p)
 			// The poison persists across calls; the second call emits nothing new.
 			text := emitSkipping(t, f, output, bad)
 			if got := emitted(t, text, []model.Message{first, second}); strings.Join(got, ",") != first.ID+","+second.ID {
@@ -154,7 +125,7 @@ func TestEmitPendingReportsAllSkippedFilesInOneDiagnostic(t *testing.T) {
 	output := capture(&f.store)
 	var first string
 	for i := 0; i < 3; i++ {
-		id := plant(t, f.store, poisons()[0])
+		id := newUnreadableMessage(t, f.store, truncatedMessage)
 		if first == "" || id < first {
 			first = id // eachMessage visits files in lexical order.
 		}
@@ -228,7 +199,7 @@ func approvalHeld(t *testing.T, store Store, id string) int {
 func TestEmitPendingReleasesReadableApprovalsWhenSkipping(t *testing.T) {
 	service, target, held := heldFixture(t)
 	output := capture(&service.Store)
-	bad := plant(t, service.Store, poisons()[0])
+	bad := newUnreadableMessage(t, service.Store, truncatedMessage)
 	text, err := service.Store.EmitPending(target.ID)
 	if err != nil || !strings.Contains(text, held.ID) {
 		t.Fatalf("EmitPending = %q, %v", text, err)
@@ -248,7 +219,7 @@ func TestLifecycleApprovalReleaseSkipsAnUnreadableHold(t *testing.T) {
 	service, target, held := heldFixture(t)
 	second := holdAnother(t, service, target)
 	output := capture(&service.Store)
-	original := breakFile(t, service.Store, second.ID)
+	original := writeUnreadableMessage(t, service.Store, second.ID, halfMessage)
 	if err := service.releaseApprovalQueue(context.Background(), target.ID); err != nil {
 		t.Fatalf("lifecycle release failed on one bad file: %v", err)
 	}
@@ -259,7 +230,7 @@ func TestLifecycleApprovalReleaseSkipsAnUnreadableHold(t *testing.T) {
 		t.Fatalf("held count = %d, want 1 for the unreadable hold", got)
 	}
 	requireOneSkipRecord(t, output, target.ID, second.ID, 1)
-	restoreFile(t, service.Store, second.ID, original)
+	restoreMessage(t, service.Store, second.ID, original)
 	if err := service.releaseApprovalQueue(context.Background(), target.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +249,7 @@ func TestRegistrationOfAKnownSessionSkipsAnUnreadableFile(t *testing.T) {
 			store := fixtureStore(t)
 			session, _ := register(t, store, kind)
 			output := capture(&store)
-			bad := plant(t, store, poisons()[0])
+			bad := newUnreadableMessage(t, store, truncatedMessage)
 			var endpoint *model.Endpoint
 			if kind == "claude" {
 				endpoint = &model.Endpoint{Path: "/fixture/not-a-real-socket"}
@@ -299,7 +270,7 @@ func TestRegistrationOfAKnownSessionSkipsAnUnreadableFile(t *testing.T) {
 func TestExactReadOfAnUnreadableFileStillFails(t *testing.T) {
 	store := fixtureStore(t)
 	register(t, store, "codex")
-	bad := plant(t, store, poisons()[0])
+	bad := newUnreadableMessage(t, store, truncatedMessage)
 	if _, err := store.message(bad); err == nil {
 		t.Fatal("exact read of a truncated record succeeded")
 	}
@@ -311,7 +282,7 @@ func TestPruneApprovalSettlementAddsNoSkipDiagnostic(t *testing.T) {
 	service, target, held := heldFixture(t)
 	store := service.Store
 	output := capture(&store)
-	plant(t, store, poisons()[0])
+	newUnreadableMessage(t, store, truncatedMessage)
 	if err := store.locked(func() error {
 		return store.settleReadableApprovalQueue(target.ID, "destination has retired")
 	}); err != nil {
@@ -329,7 +300,7 @@ func TestPruneApprovalSettlementAddsNoSkipDiagnostic(t *testing.T) {
 // B's hook still delivers B's message and never shows C's ID; C's hook works
 // and only the diagnostic shows the problem.
 func TestUnreadableFileOfAnotherRecipientDoesNotBlockHooks(t *testing.T) {
-	for _, p := range []poison{poisons()[0], poisons()[2]} {
+	for _, p := range []unreadableFile{truncatedMessage, modeZeroMessage} {
 		t.Run(p.name, func(t *testing.T) {
 			store := fixtureStore(t)
 			output := capture(&store)
@@ -341,14 +312,7 @@ func TestUnreadableFileOfAnotherRecipientDoesNotBlockHooks(t *testing.T) {
 			base := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 			toC := fc.queue(t, "for C", base)
 			toB := fb.queue(t, "for B", base.Add(time.Second))
-			path := filepath.Join(store.Dir, "messages", toC.ID+".json")
-			if err := os.WriteFile(path, p.content, 0600); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.Chmod(path, p.mode); err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = os.Chmod(path, 0600) })
+			writeUnreadableMessage(t, store, toC.ID, p)
 			text := emitSkipping(t, fb, output, toC.ID)
 			if !strings.Contains(text, toB.ID) || strings.Contains(text, toC.ID) || strings.Contains(text, "for C") {
 				t.Fatalf("B's hook context = %q", text)

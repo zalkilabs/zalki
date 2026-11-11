@@ -29,27 +29,6 @@ func holdAnother(t *testing.T, service Service, target model.Session) model.Mess
 	return msg
 }
 
-// breakFile truncates a message file and returns its original bytes.
-func breakFile(t *testing.T, store Store, id string) []byte {
-	t.Helper()
-	path := filepath.Join(store.Dir, "messages", id+".json")
-	original, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, original[:len(original)/2], 0600); err != nil {
-		t.Fatal(err)
-	}
-	return original
-}
-
-func restoreFile(t *testing.T, store Store, id string, original []byte) {
-	t.Helper()
-	if err := os.WriteFile(filepath.Join(store.Dir, "messages", id+".json"), original, 0600); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestHeldAfterScan(t *testing.T) {
 	for _, c := range []struct{ prior, processed, skipped, want int }{
 		{0, 0, 0, 0}, {3, 3, 0, 0}, {3, 1, 0, 0}, // healthy scan: exact count 0
@@ -96,7 +75,7 @@ func TestUnrelatedPoisonNeverRatchetsTheHeldCount(t *testing.T) {
 	for _, repairAt := range []int{0, 10} {
 		service := newTestService(t)
 		target, _ := register(t, service.Store, "cursor")
-		bad := plant(t, service.Store, poisons()[0])
+		bad := newUnreadableMessage(t, service.Store, truncatedMessage)
 		for cycle := 1; cycle <= 20; cycle++ {
 			if cycle == repairAt {
 				if err := os.Remove(filepath.Join(service.Store.Dir, "messages", bad+".json")); err != nil {
@@ -115,7 +94,7 @@ func TestUnrelatedPoisonNeverRatchetsTheHeldCount(t *testing.T) {
 func TestPersistentUnreadableHoldKeepsOneCredit(t *testing.T) {
 	service, target, first := heldFixture(t)
 	stuck := holdAnother(t, service, target)
-	breakFile(t, service.Store, stuck.ID)
+	writeUnreadableMessage(t, service.Store, stuck.ID, halfMessage)
 	output := capture(&service.Store)
 	if err := service.releaseApprovalQueue(context.Background(), target.ID); err != nil {
 		t.Fatal(err)
@@ -157,7 +136,7 @@ func emitText(t *testing.T, store Store, id string) string {
 // readable, settled as not sent; it is never delivered to the new generation.
 func TestB3ReviewRepairedHeldRecordSettlesAfterResume(t *testing.T) {
 	service, target, held := heldFixture(t)
-	original := breakFile(t, service.Store, held.ID)
+	original := writeUnreadableMessage(t, service.Store, held.ID, halfMessage)
 	resumed, _, err := service.Store.Register(target.Kind, target.NativeID, "/workspace", nil)
 	if err != nil || resumed.Generation == target.Generation {
 		t.Fatalf("resume: %v", err)
@@ -165,7 +144,7 @@ func TestB3ReviewRepairedHeldRecordSettlesAfterResume(t *testing.T) {
 	if got := approvalHeld(t, service.Store, target.ID); got != 1 {
 		t.Fatalf("resume carried %d, want 1", got)
 	}
-	restoreFile(t, service.Store, held.ID, original)
+	restoreMessage(t, service.Store, held.ID, original)
 	if err := service.releaseApprovalQueue(context.Background(), target.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +164,7 @@ func TestB3ReviewRepairedHeldRecordSettlesAfterResume(t *testing.T) {
 func TestB3ReviewUnrelatedUnreadableRecordDoesNotExhaustApprovalCapacity(t *testing.T) {
 	service := newTestService(t)
 	target, _ := register(t, service.Store, "cursor")
-	plant(t, service.Store, poisons()[0])
+	newUnreadableMessage(t, service.Store, truncatedMessage)
 	for cycle := 1; cycle <= approvalQueueCap+1; cycle++ {
 		if _, id := approvalCycle(t, service, target, cycle); storedMessage(t, service.Store, id).IsQueuedForApproval() {
 			t.Fatalf("cycle %d left a held record", cycle)
@@ -199,13 +178,13 @@ func TestResumeCarriesOnlyUnreadableHoldsWithinTheCap(t *testing.T) {
 	t.Run("unrelated poison", func(t *testing.T) {
 		service, target, _ := heldFixture(t)
 		holdAnother(t, service, target)
-		plant(t, service.Store, poisons()[0])
+		newUnreadableMessage(t, service.Store, truncatedMessage)
 		resumeAndRequireCarried(t, service, target, 0)
 	})
 	t.Run("unreadable hold", func(t *testing.T) {
 		service, target, _ := heldFixture(t)
 		stuck := holdAnother(t, service, target)
-		breakFile(t, service.Store, stuck.ID)
+		writeUnreadableMessage(t, service.Store, stuck.ID, halfMessage)
 		resumeAndRequireCarried(t, service, target, 1)
 	})
 	t.Run("cap", func(t *testing.T) {
@@ -215,10 +194,10 @@ func TestResumeCarriesOnlyUnreadableHoldsWithinTheCap(t *testing.T) {
 			ids = append(ids, holdAnother(t, service, target).ID)
 		}
 		for _, id := range ids {
-			breakFile(t, service.Store, id)
+			writeUnreadableMessage(t, service.Store, id, halfMessage)
 		}
 		for range 4 {
-			plant(t, service.Store, poisons()[0])
+			newUnreadableMessage(t, service.Store, truncatedMessage)
 		}
 		resumeAndRequireCarried(t, service, target, approvalQueueCap)
 	})
