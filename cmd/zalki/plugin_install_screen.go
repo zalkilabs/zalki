@@ -16,21 +16,28 @@ import (
 
 // installKind is one kind of access the manifest asked for, per session.
 type installKind struct {
-	label string
-	field func(*bus.PluginInstallGrants) *[]string
+	label, help string
+	field       func(*bus.PluginInstallGrants) *[]string
 }
 
 var installKinds = []struct {
 	installKind
 	requested func(plugins.InstallRequests) bool
 }{
-	{installKind{"changes", func(g *bus.PluginInstallGrants) *[]string { return &g.Sessions }}, func(r plugins.InstallRequests) bool { return r.Feed }},
-	{installKind{"read", func(g *bus.PluginInstallGrants) *[]string { return &g.Read }}, func(r plugins.InstallRequests) bool { return r.Read }},
-	{installKind{"send", func(g *bus.PluginInstallGrants) *[]string { return &g.Send }}, func(r plugins.InstallRequests) bool { return r.Send }},
-	{installKind{"accept", func(g *bus.PluginInstallGrants) *[]string { return &g.InboxFrom }}, func(r plugins.InstallRequests) bool { return r.AcceptFrom }},
+	{installKind{"changes", "see message changes", func(g *bus.PluginInstallGrants) *[]string { return &g.Sessions }}, func(r plugins.InstallRequests) bool { return r.Feed }},
+	{installKind{"read", "read message bodies", func(g *bus.PluginInstallGrants) *[]string { return &g.Read }}, func(r plugins.InstallRequests) bool { return r.Read }},
+	{installKind{"send", "send messages to it", func(g *bus.PluginInstallGrants) *[]string { return &g.Send }}, func(r plugins.InstallRequests) bool { return r.Send }},
+	{installKind{"accept", "it may message this plugin", func(g *bus.PluginInstallGrants) *[]string { return &g.InboxFrom }}, func(r plugins.InstallRequests) bool { return r.AcceptFrom }},
 }
 
-const installKindHelp = "changes = see message changes from that session; read = read message bodies; send = send to it; accept = it may message this plugin"
+// screenStyle is how the session rows are drawn.
+type screenStyle int
+
+const (
+	screenKeys  screenStyle = iota // checkbox screen with a cursor
+	screenPlan                     // the --yes plan: boxes show what was accepted
+	screenLines                    // line mode: numbered rows, the questions follow
+)
 
 // plainText shows owner-facing text safely: anything not printable is quoted.
 func plainText(value string) string {
@@ -38,6 +45,23 @@ func plainText(value string) string {
 		return strconv.Quote(value)
 	}
 	return value
+}
+
+// plainLines keeps real line breaks and makes each line safe on its own.
+func plainLines(value string) string {
+	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
+	for i, line := range lines {
+		lines[i] = plainText(line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// sessionLabel names a session for the owner; an unnamed one says so.
+func sessionLabel(session model.Session) string {
+	if session.Name == "" {
+		return "(no name)"
+	}
+	return plainText(session.Name)
 }
 
 // installScreen is the single review screen. Nothing starts selected.
@@ -95,22 +119,29 @@ func (s *installScreen) check() string {
 	return ""
 }
 
-func (s *installScreen) render(cursor bool) string {
+func (s *installScreen) render(style screenStyle) string {
 	var b strings.Builder
 	b.WriteString(s.header)
-	b.WriteString("Access (" + installKindHelp + "):\n")
+	legend := make([]string, 0, len(s.kinds))
+	for _, kind := range s.kinds {
+		legend = append(legend, kind.label+" = "+kind.help)
+	}
+	b.WriteString("Access per session: " + strings.Join(legend, "; ") + "\n")
+	cursor := style == screenKeys
 	if cursor {
 		b.WriteString("Arrows move, Space changes a choice, y installs, n or Enter cancels.\n")
 	}
 	for i, session := range s.sessions {
-		b.WriteString(s.mark(cursor && s.row == i))
-		for j, kind := range s.kinds {
-			on := s.selected[[2]int{i, j}]
-			b.WriteString(s.box(cursor && s.row == i && s.col == j, on) + kind.label + "  ")
+		if style != screenLines {
+			b.WriteString(s.mark(cursor && s.row == i))
+			for j, kind := range s.kinds {
+				on := s.selected[[2]int{i, j}]
+				b.WriteString(s.box(cursor && s.row == i && s.col == j, on) + kind.label + "  ")
+			}
 		}
-		fmt.Fprintf(&b, "%d. %s  %s\n", i+1, plainText(session.Name), plainText(session.ID))
+		fmt.Fprintf(&b, "%d. %s  %s\n", i+1, sessionLabel(session), plainText(session.ID))
 	}
-	if s.inboxRead {
+	if s.inboxRead && style != screenLines {
 		b.WriteString(s.mark(cursor && s.row == len(s.sessions)) + s.box(cursor && s.row == len(s.sessions), s.inboxOn) + "read messages stored in this plugin's own inbox\n")
 	}
 	if s.notice != "" {
@@ -194,7 +225,7 @@ func readInstallKey(r *bufio.Reader) string {
 func (s *installScreen) chooseRaw(in io.Reader, out io.Writer) (bool, error) {
 	keys := bufio.NewReader(in)
 	for {
-		if _, err := io.WriteString(out, "\x1b[H\x1b[2J"+strings.ReplaceAll(s.render(true), "\n", "\r\n")); err != nil {
+		if _, err := io.WriteString(out, "\x1b[H\x1b[2J"+strings.ReplaceAll(s.render(screenKeys), "\n", "\r\n")); err != nil {
 			return false, err
 		}
 		k := readInstallKey(keys)
@@ -212,7 +243,7 @@ func (s *installScreen) chooseRaw(in io.Reader, out io.Writer) (bool, error) {
 // chooseLines is the plain fallback when raw keys are unavailable.
 func (s *installScreen) chooseLines(in io.Reader, out io.Writer) (bool, error) {
 	lines := bufio.NewReader(in)
-	if _, err := io.WriteString(out, strings.TrimSuffix(s.render(false), "Install and enable with these choices? [y/N] ")); err != nil {
+	if _, err := io.WriteString(out, strings.TrimSuffix(s.render(screenLines), "Install and enable with these choices? [y/N] ")); err != nil {
 		return false, err
 	}
 	for j, kind := range s.kinds {
@@ -240,6 +271,9 @@ func askLine(lines *bufio.Reader, out io.Writer, prompt string) (string, error) 
 		return "", err
 	}
 	line, err := lines.ReadString('\n')
+	if cancelled(err) {
+		return "", errInstallCancelled
+	}
 	if err != nil {
 		line = "" // Closed input means no, even after a partial line.
 	}
@@ -258,11 +292,18 @@ func (s *installScreen) askNumbers(lines *bufio.Reader, out io.Writer, col int, 
 			}
 			return nil
 		}
-		if _, err := fmt.Fprintf(out, "Use numbers from 1 to %d, separated by commas.\n", len(s.sessions)); err != nil {
+		if _, err := io.WriteString(out, s.numberHelp()); err != nil {
 			return err
 		}
 	}
 	return fmt.Errorf("no valid session numbers for %s; nothing was installed", label)
+}
+
+func (s *installScreen) numberHelp() string {
+	if len(s.sessions) == 1 {
+		return "Use a number from the list (1).\n"
+	}
+	return fmt.Sprintf("Use numbers from the list (1-%d), separated by commas.\n", len(s.sessions))
 }
 
 func (s *installScreen) parseNumbers(answer string) ([]int, bool) {

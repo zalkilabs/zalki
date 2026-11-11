@@ -15,7 +15,10 @@ import (
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
-const installBuildWarning = "The build runs now, and the plugin runs later, with your OS user access and your normal environment. There is no sandbox. Zalki cannot undo what the build or the plugin does to your files."
+// installWarning is the one warning on the install screen. It keeps every
+// statement of the build warning and of pluginTrustNotice in two lines.
+const installWarning = "Warning: no sandbox. The build runs now and the plugin runs later with your OS user access and normal environment; Zalki cannot undo what they do to your files.\n" +
+	"The plugin can read and change all your Zalki state. Your session choices filter only the Zalki feed, not file access. Install only code you trust."
 
 type installChoice int
 
@@ -51,7 +54,7 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 		Use:   "install FOLDER",
 		Short: "Build, pin, grant and enable a local plugin folder after one review",
 		Long: "Install reads zalki-plugin.json in FOLDER, copies the folder to a private staging folder, and shows one review screen with one [y/N] question. After yes it builds the copy, pins the result, records the selected access and enables the plugin in one step. Failure installs nothing. Enabled does not mean running: start it with zalki plugins run NAME.\n\n" +
-			installBuildWarning + "\n\n" + pluginTrustNotice +
+			installWarning +
 			"\n\nWithout a terminal, --yes needs --tree-sha256, --allow-unsandboxed and explicit access flags. --yes never grants everything the plugin asks for.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -92,6 +95,7 @@ func (p *pluginInstaller) run(folder string) (err error) {
 	if !p.flags.yes && (p.flags.tree != "" || p.flags.allowUnsandboxed || p.flags.grants.InboxRead || len(slices.Concat(p.flags.grants.Sessions, p.flags.grants.Read, p.flags.grants.Send, p.flags.grants.InboxFrom)) > 0) {
 		return errors.New("access, --tree-sha256 and --allow-unsandboxed flags need --yes; without --yes, choose on the review screen")
 	}
+	defer restoreSignalsOnCancel(p.cmd.Context())()
 	p.say("Preparing...\n")
 	if p.folder, err = plugins.ResolveInstallSource(folder); err != nil {
 		return err
@@ -108,13 +112,18 @@ func (p *pluginInstaller) run(folder string) (err error) {
 		return err
 	}
 	grants, ok, err := p.review()
-	if err != nil || !ok {
-		if err == nil {
-			p.say("Cancelled. Nothing was installed.\n")
-		}
-		return err
+	switch {
+	case err == nil && ok:
+		err = p.finish(grants)
+	case err == nil:
+		err = errInstallCancelled
 	}
-	return p.finish(grants)
+	if cancelled(err) {
+		// The command ends here and the process exits: nothing runs or reads after this.
+		p.say("Cancelled. Nothing was installed.\n")
+		return nil
+	}
+	return err
 }
 
 func (p *pluginInstaller) prepare(name string) error {
@@ -141,17 +150,17 @@ func (p *pluginInstaller) header() string {
 	fmt.Fprintf(&b, "Purpose (author claim): %s\n", plainText(m.Purpose))
 	if len(m.Build) > 0 {
 		args := make([]string, 0, len(m.Build))
-		for _, arg := range append([]string{p.tool.Path}, m.Build[1:]...) {
+		for _, arg := range m.Build {
 			args = append(args, plainText(arg))
 		}
 		fmt.Fprintf(&b, "Build: %s\n", strings.Join(args, " "))
+		fmt.Fprintf(&b, "Tool: %s\n", plainText(p.tool.Path))
 	} else {
 		b.WriteString("Build: none (ready-made executable)\n")
 	}
 	fmt.Fprintf(&b, "Artifact: %s, pinned by SHA256 after the build\n", plainText(m.Artifact))
 	b.WriteString("Publisher proof: none (local folder)\n")
-	b.WriteString("Warning: " + installBuildWarning + "\n")
-	b.WriteString(pluginTrustNotice + "\n")
+	b.WriteString(installWarning + "\n")
 	return b.String()
 }
 
@@ -179,13 +188,15 @@ func (p *pluginInstaller) review() (bus.PluginInstallGrants, bool, error) {
 	}
 	in, out := p.cmd.InOrStdin(), p.cmd.OutOrStdout()
 	choice, restore := installTerminal(in)
+	// Ctrl-C, SIGTERM or SIGHUP cancel the context; the reader then stops waiting.
+	keys := newContextReader(p.cmd.Context(), in)
 	var yes bool
 	switch choice {
 	case installRawKeys:
-		yes, err = screen.chooseRaw(in, out)
+		yes, err = screen.chooseRaw(keys, out)
 		restore()
 	case installPlainLines:
-		yes, err = screen.chooseLines(in, out)
+		yes, err = screen.chooseLines(keys, out)
 	case installNoTerminal:
 		err = errors.New("plugins install needs a terminal for its review screen; use --yes with explicit flags instead")
 	}
@@ -220,7 +231,7 @@ func (p *pluginInstaller) reviewFlags(screen *installScreen) (bus.PluginInstallG
 	if notice := screen.check(); notice != "" {
 		return g, false, errors.New(notice + " Nothing was installed.")
 	}
-	p.say("%s", strings.TrimSuffix(screen.render(false), "Install and enable with these choices? [y/N] "))
+	p.say("%s", strings.TrimSuffix(screen.render(screenPlan), "Install and enable with these choices? [y/N] "))
 	p.say("Accepted by --yes.\n")
 	return screen.grants(), true, nil
 }
@@ -232,16 +243,24 @@ func unrequestedInstallFlags(g bus.PluginInstallGrants, r plugins.InstallRequest
 func (p *pluginInstaller) finish(grants bus.PluginInstallGrants) error {
 	m := p.source.Manifest
 	receipt := bus.PluginInstallReceipt{Source: p.folder, TreeSHA256: p.source.TreeSHA256, ManifestSHA256: p.source.ManifestSHA256, Build: m.Build, Artifact: m.Artifact, InstalledAt: model.Timestamp()}
+	ctx := p.cmd.Context()
 	if len(m.Build) > 0 {
+		installStep("build")
+		if ctx.Err() != nil {
+			return errInstallCancelled
+		}
 		p.say("Building...\n")
 		receipt.Tool, receipt.ToolSHA256 = p.tool.Path, p.tool.SHA256
 		log := filepath.Join(p.install.StagingDir(), "build.log")
-		if err := plugins.RunInstallBuild(p.cmd.Context(), p.tool, m.Build, p.source.Dir, log); err != nil {
+		if err := plugins.RunInstallBuild(ctx, p.tool, m.Build, p.source.Dir, log); err != nil {
+			if ctx.Err() != nil {
+				return errInstallCancelled // no log is kept: Close removes the staging folder
+			}
 			// Keep only the log in its fixed place; the copied source is removed.
 			if err := os.RemoveAll(p.source.Dir); err == nil {
 				p.install.KeepBuildLog()
 			}
-			p.say("%s\n", plainText(plugins.TailInstallLog(log, 20)))
+			p.say("%s\n", plainLines(plugins.TailInstallLog(log, 20)))
 			return fmt.Errorf("build failed: %w. Nothing was installed. Full log: %s (removed by the next install of %s or by plugins remove %s)", err, log, m.Name, m.Name)
 		}
 	}
@@ -251,6 +270,13 @@ func (p *pluginInstaller) finish(grants bus.PluginInstallGrants) error {
 		return fmt.Errorf("%w. Nothing was installed", err)
 	}
 	p.say("Enabling...\n")
+	installStep("commit")
+	// Point of no return: this is the last check, after all output. Once Commit
+	// starts (including its wait for the Store lock) the install completes and
+	// is reported as installed, so the success text below is always true.
+	if ctx.Err() != nil {
+		return errInstallCancelled
+	}
 	if err := installCommitError(m.Name)(p.install.Commit(artifact, m.Args, grants, receipt)); err != nil {
 		return err
 	}
