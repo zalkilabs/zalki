@@ -24,6 +24,9 @@ type ConfigFile struct {
 
 func (file ConfigFile) target(home string) (string, error) {
 	root := os.Getenv(file.ConfigRootEnv)
+	if err := checkClientRoot(file.ConfigRootEnv, root); err != nil {
+		return "", err
+	}
 	if file.ConfigRootEnv == "" || strings.TrimSpace(root) == "" {
 		return filepath.Join(home, file.Path), nil
 	}

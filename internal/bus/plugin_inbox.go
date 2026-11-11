@@ -49,6 +49,9 @@ func preparePluginInbox(s Store, view JournalView, request SendRequest, admit pl
 	if err != nil || found {
 		return old, err
 	}
+	if err := checkAdmissionBody(request.Body, s.MaxBodyBytes); err != nil {
+		return model.Message{}, err
+	}
 	if admit == nil {
 		return model.Message{}, model.NewError(model.CodeUnauthorized, "plugin inbox unavailable")
 	}

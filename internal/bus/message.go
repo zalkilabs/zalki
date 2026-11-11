@@ -99,7 +99,7 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (message model.
 		return message, target, false, err
 	}
 	request.MessageID = id
-	if len(request.Body) == 0 || len(request.Body) > 16*1024 || strings.ContainsRune(request.Body, 0) {
+	if len(request.Body) == 0 || len(request.Body) > model.MaxMessageBodyBytes || strings.ContainsRune(request.Body, 0) {
 		return message, target, false, model.NewError(model.CodeInvalidInput, "body must be 1..16384 UTF-8 bytes without NUL")
 	}
 	sender, err := s.authenticate(request.Actor, request.Capability)
@@ -115,6 +115,9 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (message model.
 		return old, target, false, nil // Never submit the same message twice, even after a crash.
 	}
 	if !errors.Is(err, os.ErrNotExist) {
+		return message, target, false, err
+	}
+	if err := checkAdmissionBody(request.Body, s.MaxBodyBytes); err != nil {
 		return message, target, false, err
 	}
 	return s.reserveNewMessage(sender, request, persist)

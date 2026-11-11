@@ -81,7 +81,7 @@ func TestStoreRequiresRegistry(t *testing.T) {
 	if _, _, err := (Store{Dir: t.TempDir()}).Register("codex", newID(), "/workspace", nil); err == nil {
 		t.Fatal("registration succeeded without a registry")
 	}
-	if _, err := (*agent.Registry)(nil).Configuration("/bin/zalki", t.TempDir()); err == nil {
+	if _, err := (*agent.Registry)(nil).Configuration("/bin/zalki", []string{"--state", t.TempDir()}); err == nil {
 		t.Fatal("nil registry produced configuration")
 	}
 }

@@ -24,10 +24,11 @@ type installation struct {
 }
 
 type Request struct {
-	Action   string
-	Binary   string
-	StateDir string
-	HomeDir  string
+	Action     string
+	Binary     string
+	StateDir   string
+	HomeDir    string
+	ConfigFile string
 
 	Apply bool
 }

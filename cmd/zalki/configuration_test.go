@@ -32,7 +32,7 @@ func TestInstallDeclarationsPreservesFieldsAndJSONSharing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := installDeclarations(registry)("/fixture/zalki", "/fixture/state")
+	got, err := installDeclarations(registry, "/fixture/config.json")("/fixture/zalki", "/fixture/state")
 	want := []install.ConfigFile{
 		{Path: ".a/config.json", Draft: "a.json", JSON: patch, ConfigRootEnv: "A_CONFIG_ROOT"},
 		{Path: ".b/config.toml", Draft: "b.toml", TOML: "setting = true\n", ConfigRootEnv: "B_CONFIG_ROOT"},
@@ -48,8 +48,8 @@ func TestInstallDeclarationsPreservesFieldsAndJSONSharing(t *testing.T) {
 
 func TestInstallDeclarationsPreservesRegistryFailure(t *testing.T) {
 	var registry *agent.Registry
-	_, wantErr := registry.Configuration("/fixture/zalki", "/fixture/state")
-	got, err := installDeclarations(registry)("/fixture/zalki", "/fixture/state")
+	_, wantErr := registry.Configuration("/fixture/zalki", []string{"--state", "/fixture/state"})
+	got, err := installDeclarations(registry, "/fixture/config.json")("/fixture/zalki", "/fixture/state")
 	if got != nil || err == nil || err.Error() != wantErr.Error() || model.ErrorCodeOf(err) != "internal" {
 		t.Fatalf("registry refusal changed: files %+v error %v", got, err)
 	}

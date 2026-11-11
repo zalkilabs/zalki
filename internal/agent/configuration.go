@@ -15,15 +15,15 @@ type ConfigurationAdapter interface {
 	Configuration(string, []string) []model.ConfigDeclaration
 }
 
-// Configuration returns only paths declared by the registered adapters.
-func (r *Registry) Configuration(binary, state string) ([]model.ConfigDeclaration, error) {
+// Configuration returns only paths declared by the registered adapters. Each
+// adapter receives its own copy of the caller's literal command arguments.
+func (r *Registry) Configuration(binary string, args []string) ([]model.ConfigDeclaration, error) {
 	if r == nil {
 		return nil, errNoRegistry
 	}
-	if !filepath.IsAbs(binary) || !filepath.IsAbs(state) {
-		return nil, errors.New("binary and state paths must be absolute")
+	if !filepath.IsAbs(binary) {
+		return nil, errors.New("binary path must be absolute")
 	}
-	args := []string{"--state", state}
 	files := []model.ConfigDeclaration{}
 	paths, drafts := map[string]bool{}, map[string]bool{"targets.json": true}
 	for _, kind := range r.Kinds() {

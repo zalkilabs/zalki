@@ -18,7 +18,7 @@ func newUninstallCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			report, err := install.Manage(installDeclarations(opts.registry), install.Request{
+			report, err := install.Manage(installDeclarations(opts.registry, opts.snapshot.Paths.ConfigFile.Value), install.Request{
 				Action: "uninstall", Binary: binary,
 				StateDir: service.Store.Dir, HomeDir: opts.home, Apply: apply,
 			})

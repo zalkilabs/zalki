@@ -128,10 +128,10 @@ func TestSetupQuotesPathsAndWritesOnlyDrafts(t *testing.T) {
 	home := t.TempDir()
 	out := filepath.Join(home, "drafts")
 	binary := "/tmp/agent's tools/$literal/zalki"
-	if err := install.WriteSetup(declare, binary, filepath.Join(home, "state"), out, home); err != nil {
+	if err := install.WriteSetup(declare, binary, filepath.Join(home, "state"), out, home, ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := install.WriteSetup(declare, binary, filepath.Join(home, "state"), out, home); err == nil {
+	if err := install.WriteSetup(declare, binary, filepath.Join(home, "state"), out, home, ""); err == nil {
 		t.Fatal("overwrote setup drafts")
 	}
 	data, err := os.ReadFile(filepath.Join(out, "cursor-hooks.json"))

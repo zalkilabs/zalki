@@ -60,7 +60,7 @@ func TestBuiltinConfigurationDeclarations(t *testing.T) {
 			json: `{"mcpServers":{"zalki":{"args":["--state","/var/my state","mcp"],"command":"/opt/my tools/it's zalki"}}}`},
 	}
 
-	got, err := adapters.Builtin().Configuration(binary, state)
+	got, err := adapters.Builtin().Configuration(binary, []string{"--state", state})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestBuiltinConfigurationDeclarations(t *testing.T) {
 func TestBuiltinConfigurationIsIndependentPerCall(t *testing.T) {
 	registry := adapters.Builtin()
 	encode := func(label string) string {
-		files, err := registry.Configuration("/bin/zalki", "/state")
+		files, err := registry.Configuration("/bin/zalki", []string{"--state", "/state"})
 		if err != nil {
 			t.Fatalf("%s: %v", label, err)
 		}
@@ -132,7 +132,7 @@ func TestBuiltinConfigurationIsIndependentPerCall(t *testing.T) {
 	}
 	reference := encode("reference")
 
-	files, err := registry.Configuration("/bin/zalki", "/state")
+	files, err := registry.Configuration("/bin/zalki", []string{"--state", "/state"})
 	if err != nil {
 		t.Fatal(err)
 	}

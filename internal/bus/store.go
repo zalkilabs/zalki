@@ -18,6 +18,10 @@ type Store struct {
 	// Registry is required; NewStore rejects a nil or empty registry.
 	Registry *agent.Registry
 	Logger   *slog.Logger
+	// MaxBodyBytes limits fresh admission. Zero uses the fixed hard ceiling.
+	MaxBodyBytes int
+	// ConfigFile pins the selected settings file in trusted child guidance.
+	ConfigFile string
 }
 
 // NewStore returns a Store that resolves agent kinds through registry.
@@ -25,7 +29,7 @@ func NewStore(dir string, registry *agent.Registry, logger *slog.Logger) (Store,
 	if len(registry.Kinds()) == 0 {
 		return Store{}, errors.New("an agent registry with at least one adapter is required")
 	}
-	return Store{Dir: dir, Registry: registry, Logger: logger}, nil
+	return Store{Dir: dir, Registry: registry, Logger: logger, MaxBodyBytes: model.MaxMessageBodyBytes}, nil
 }
 
 func privateDir(path string) error {

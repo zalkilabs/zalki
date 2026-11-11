@@ -65,7 +65,11 @@ func newPruneCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			report, err := service.Store.PruneRetired(dryRun, selected, retiredOlderThan)
+			retention := opts.snapshot.Settings.RetiredOlderThan.Value
+			if cmd.Flags().Changed("retired-older-than") {
+				retention = retiredOlderThan
+			}
+			report, err := service.Store.PruneRetired(dryRun, selected, retention)
 			if err != nil {
 				return err
 			}

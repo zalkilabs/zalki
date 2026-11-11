@@ -90,7 +90,7 @@ func TestInstallCommandDraftsFirstThenApplies(t *testing.T) {
 	drafts := filepath.Join(home, "drafts")
 
 	out, diagnostic, err := execute(t, home, "", "install", "--state", state, "--out", drafts)
-	want := "Configuration drafts written to " + drafts + "\nTo apply after review: zalki install --apply\n"
+	want := defaultConfigLine(home) + "Configuration drafts written to " + drafts + "\nTo apply after review: zalki install --apply\n"
 	if err != nil || diagnostic != "" || out != want {
 		t.Fatalf("draft run: out %q diagnostic %q err %v; want %q", out, diagnostic, err, want)
 	}
@@ -117,7 +117,7 @@ func TestInstallCommandDraftsFirstThenApplies(t *testing.T) {
 	for _, target := range configTargets(home) {
 		updated.WriteString("Updated: " + target + "\n")
 	}
-	if err != nil || diagnostic != "" || out != updated.String()+installAppliedNote {
+	if err != nil || diagnostic != "" || out != defaultConfigLine(home)+updated.String()+installAppliedNote {
 		t.Fatalf("apply run: out %q diagnostic %q err %v", out, diagnostic, err)
 	}
 	binary, err := installationBinary()
@@ -132,7 +132,7 @@ func TestInstallCommandDraftsFirstThenApplies(t *testing.T) {
 	// The same command again has nothing to update, and changes no file.
 	before := cliSnapshot(t, home)
 	out, _, err = execute(t, home, "", "install", "--state", state, "--apply")
-	if err != nil || out != installAppliedNote || !reflect.DeepEqual(before, cliSnapshot(t, home)) {
+	if err != nil || out != defaultConfigLine(home)+installAppliedNote || !reflect.DeepEqual(before, cliSnapshot(t, home)) {
 		t.Fatalf("repeat apply: out %q err %v, files changed: %v", out, err, !reflect.DeepEqual(before, cliSnapshot(t, home)))
 	}
 }

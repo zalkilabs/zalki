@@ -31,13 +31,9 @@ func (declare Declare) plan(request Request) (installationPlan, error) {
 	if !filepath.IsAbs(request.StateDir) || !filepath.IsAbs(request.HomeDir) {
 		return plan, errors.New("home and state paths must be absolute")
 	}
-	allowed, err := declare("/zalki", request.StateDir)
+	declarations, err := declare.planDeclarations(request)
 	if err != nil {
 		return plan, err
-	}
-	declarations := make(map[string]ConfigFile, len(allowed))
-	for _, file := range allowed {
-		declarations[file.Path] = file
 	}
 	manifest, err := readInstallationManifest(request, declarations)
 	if err != nil {
@@ -222,4 +218,25 @@ func (change settingsChange) plan(action string) (configEdit, error) {
 		}
 	}
 	return edit, nil
+}
+
+func (declare Declare) planDeclarations(request Request) (map[string]ConfigFile, error) {
+	allowed, err := declare("/zalki", request.StateDir)
+	if err != nil {
+		return nil, err
+	}
+	declarations := make(map[string]ConfigFile, len(allowed))
+	for _, file := range allowed {
+		if request.Action != "uninstall" {
+			target, err := file.target(request.HomeDir)
+			if err != nil {
+				return nil, err
+			}
+			if err := validateReservedTarget(target, file, request); err != nil {
+				return nil, err
+			}
+		}
+		declarations[file.Path] = file
+	}
+	return declarations, nil
 }

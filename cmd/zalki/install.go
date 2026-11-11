@@ -44,11 +44,16 @@ func applyConfiguration(cmd *cobra.Command, opts *commandOptions) error {
 	if err != nil {
 		return err
 	}
-	paths, err := install.Apply(installDeclarations(opts.registry), binary, service.Store.Dir, opts.home)
+	report, err := install.Manage(installDeclarations(opts.registry, opts.snapshot.Paths.ConfigFile.Value), install.Request{
+		Action: "install", Binary: binary, StateDir: service.Store.Dir, HomeDir: opts.home, ConfigFile: opts.snapshot.Paths.ConfigFile.Value, Apply: true,
+	})
 	if err != nil {
 		return err
 	}
-	for _, path := range paths {
+	if _, err := fmt.Fprintln(cmd.OutOrStdout(), "Config file:", opts.snapshot.Paths.ConfigFile.Value); err != nil {
+		return err
+	}
+	for _, path := range report.Paths {
 		if _, err := fmt.Fprintln(cmd.OutOrStdout(), "Updated:", path); err != nil {
 			return err
 		}
@@ -66,7 +71,10 @@ func writeConfigurationDrafts(cmd *cobra.Command, opts *commandOptions, out stri
 	if err != nil {
 		return err
 	}
-	if err := install.WriteSetup(installDeclarations(opts.registry), binary, service.Store.Dir, out, opts.home); err != nil {
+	if err := install.WriteSetup(installDeclarations(opts.registry, opts.snapshot.Paths.ConfigFile.Value), binary, service.Store.Dir, out, opts.home, opts.snapshot.Paths.ConfigFile.Value); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(cmd.OutOrStdout(), "Config file:", opts.snapshot.Paths.ConfigFile.Value); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(cmd.OutOrStdout(), "Configuration drafts written to", out); err != nil {

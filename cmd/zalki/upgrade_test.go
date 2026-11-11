@@ -83,6 +83,34 @@ func (f upgradeFixture) logged(t *testing.T, path string) string {
 	return strings.TrimSpace(string(data))
 }
 
+func TestUpgradeLocationUsesValidatedInstalledBinary(t *testing.T) {
+	t.Setenv("ZALKI_CONFIG", filepath.Join(t.TempDir(), "not-an-executable"))
+	where, err := locateInstallation()
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary, err := installationBinary()
+	if err != nil || !filepath.IsAbs(where.Binary) || where.Binary != binary {
+		t.Fatal("upgrade did not select the validated absolute installation path", err)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	installed, err := os.Stat(where.Binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	running, err := os.Stat(executable)
+	if err != nil || !os.SameFile(installed, running) {
+		t.Fatal("upgrade selected an executable other than this installation", err)
+	}
+	resolved, err := filepath.EvalSymlinks(executable)
+	if err != nil || where.Resolved != resolved {
+		t.Fatal("upgrade lost the installed executable's resolved path", err)
+	}
+}
+
 func TestUpgradeUpgradesBinaryThenHandsOffToNewBuild(t *testing.T) {
 	f := newUpgradeFixture(t, "echo noisy brew progress\n", "echo 'Upgrade successful'\n")
 	before := f.manifestBytes(t)
@@ -93,7 +121,7 @@ func TestUpgradeUpgradesBinaryThenHandsOffToNewBuild(t *testing.T) {
 	if got := f.logged(t, f.brewLog); got != "upgrade --cask zalkilabs/tap/zalki" {
 		t.Fatal("brew invocation", got)
 	}
-	if got := f.logged(t, f.childLog); got != "upgrade --finish-upgrade --state="+f.state {
+	if got := f.logged(t, f.childLog); got != "upgrade --finish-upgrade --config "+filepath.Join(f.home, ".config", "zalki", "config.json")+" --state "+f.state {
 		t.Fatal("new binary handoff", got)
 	}
 	if f.manifestBytes(t) != before {
