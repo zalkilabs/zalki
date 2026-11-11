@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,13 +91,50 @@ func (Adapter) NormalizeHook(event agent.HookInput) (agent.HookInput, error) {
 	if event.Event == "Stop" && event.Status != "" && event.Status != "completed" {
 		event.Event = "Interrupt"
 	}
-	if event.SessionID == "" {
+	// Every Cursor hook carries conversation_id. The IDE adds session_id only
+	// on sessionStart and sessionEnd, so conversation_id keeps one actor per chat.
+	if event.ConversationID != "" {
 		event.SessionID = event.ConversationID
 	}
-	if event.CWD == "" && len(event.WorkspaceRoots) > 0 {
-		event.CWD = event.WorkspaceRoots[0]
-	}
+	event.CWD = hookCWD(event)
 	return event, nil
+}
+
+// hookCWD returns an absolute cwd, else the first local workspace root, else
+// HOME. The IDE may send no root at all. An empty result lets register refuse it.
+func hookCWD(event agent.HookInput) string {
+	if filepath.IsAbs(event.CWD) {
+		return event.CWD
+	}
+	for _, root := range event.WorkspaceRoots {
+		if path, ok := localRoot(root); ok {
+			return path
+		}
+	}
+	if home, err := os.UserHomeDir(); err == nil && filepath.IsAbs(home) {
+		return home
+	}
+	return ""
+}
+
+// localRoot accepts an absolute path, or a file URI on this machine (no host or
+// localhost) with no query or fragment, whose decoded path is absolute and has
+// no control characters. Remote schemes and relative paths are not local folders.
+func localRoot(root string) (string, bool) {
+	if filepath.IsAbs(root) {
+		return root, true
+	}
+	u, err := url.Parse(root)
+	if err != nil || u.Scheme != "file" || u.Opaque != "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return "", false
+	}
+	if u.Host != "" && !strings.EqualFold(u.Host, "localhost") {
+		return "", false
+	}
+	if !filepath.IsAbs(u.Path) || strings.IndexFunc(u.Path, unicode.IsControl) >= 0 {
+		return "", false
+	}
+	return u.Path, true
 }
 
 func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error) {

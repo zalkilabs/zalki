@@ -71,7 +71,7 @@ func (stubCursorAdapter) NormalizeHook(v agent.HookInput) (agent.HookInput, erro
 	if v.Event == "Stop" && v.Status != "" && v.Status != "completed" {
 		v.Event = "Interrupt"
 	}
-	if v.SessionID == "" {
+	if v.ConversationID != "" {
 		v.SessionID = v.ConversationID
 	}
 	if v.CWD == "" && len(v.WorkspaceRoots) > 0 {
