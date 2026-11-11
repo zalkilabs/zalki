@@ -6,12 +6,12 @@ The upstream texts below are reproduced verbatim. Identical texts are included
 once, with every corresponding component and source filename listed.
 
 This bundle covers the modules linked by the macOS amd64/arm64 release
-targets (CGO_ENABLED=0) and the Go 1.26.10 runtime and standard library. Review
+targets (CGO_ENABLED=0) and the Go 1.26.11 runtime and standard library. Review
 and refresh it when pinned dependencies or the release toolchain change.
 Test tools, upstream documentation, and fuzzing fixtures are not bundled.
 
 Components:
-  Go runtime and standard library (go1.26.10)
+  Go runtime and standard library (go1.26.11)
   github.com/coder/websocket v1.8.15
   github.com/google/jsonschema-go v0.4.3
   github.com/modelcontextprotocol/go-sdk v1.8.0
@@ -27,11 +27,11 @@ Components:
   golang.org/x/time v0.15.0
 
 ===== Upstream text 1 =====
-Go runtime and standard library go1.26.10: LICENSE
-Go runtime and standard library go1.26.10: src/vendor/golang.org/x/crypto/LICENSE
-Go runtime and standard library go1.26.10: src/vendor/golang.org/x/net/LICENSE
-Go runtime and standard library go1.26.10: src/vendor/golang.org/x/sys/LICENSE
-Go runtime and standard library go1.26.10: src/vendor/golang.org/x/text/LICENSE
+Go runtime and standard library go1.26.11: LICENSE
+Go runtime and standard library go1.26.11: src/vendor/golang.org/x/crypto/LICENSE
+Go runtime and standard library go1.26.11: src/vendor/golang.org/x/net/LICENSE
+Go runtime and standard library go1.26.11: src/vendor/golang.org/x/sys/LICENSE
+Go runtime and standard library go1.26.11: src/vendor/golang.org/x/text/LICENSE
 golang.org/x/oauth2 v0.35.0: LICENSE
 golang.org/x/sync v0.20.0: LICENSE
 golang.org/x/sys v0.49.0: LICENSE
@@ -66,11 +66,11 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ===== Upstream text 2 =====
-Go runtime and standard library go1.26.10: PATENTS
-Go runtime and standard library go1.26.10: src/vendor/golang.org/x/crypto/PATENTS
-Go runtime and standard library go1.26.10: src/vendor/golang.org/x/net/PATENTS
-Go runtime and standard library go1.26.10: src/vendor/golang.org/x/sys/PATENTS
-Go runtime and standard library go1.26.10: src/vendor/golang.org/x/text/PATENTS
+Go runtime and standard library go1.26.11: PATENTS
+Go runtime and standard library go1.26.11: src/vendor/golang.org/x/crypto/PATENTS
+Go runtime and standard library go1.26.11: src/vendor/golang.org/x/net/PATENTS
+Go runtime and standard library go1.26.11: src/vendor/golang.org/x/sys/PATENTS
+Go runtime and standard library go1.26.11: src/vendor/golang.org/x/text/PATENTS
 golang.org/x/sync v0.20.0: PATENTS
 golang.org/x/sys v0.49.0: PATENTS
 golang.org/x/time v0.15.0: PATENTS
@@ -99,7 +99,7 @@ rights granted to you under this License for this implementation of Go
 shall terminate as of the date such litigation is filed.
 
 ===== Upstream text 3 =====
-Go runtime and standard library go1.26.10: src/crypto/internal/boring/LICENSE
+Go runtime and standard library go1.26.11: src/crypto/internal/boring/LICENSE
 
 The Go source code and supporting files in this directory
 are covered by the usual Go license (see ../../../../LICENSE).
