@@ -10,10 +10,11 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 type capabilityOwnerStatus struct {
-	bus.PluginFeedStatus
+	pluginfeed.PluginFeedStatus
 	CapabilitiesBound *bool `json:"capabilities_bound"`
 	PinMatches        *bool `json:"pin_matches"`
 }
@@ -180,7 +181,7 @@ func capabilityNativeAddress(i int) string {
 	return fmt.Sprintf("codex:00000000-0000-4000-8000-%012d", i+1)
 }
 
-func assertCapabilityOwnerFullGrant(t *testing.T, status *capabilityOwnerStatus, session string) *bus.PluginCapabilities {
+func assertCapabilityOwnerFullGrant(t *testing.T, status *capabilityOwnerStatus, session string) *pluginfeed.PluginCapabilities {
 	t.Helper()
 	c := status.Capabilities
 	if c == nil || status.Launch == nil || c.Version != 1 || c.Installation != status.ID || c.PinSHA256 != status.Launch.PinSHA256 || c.Revision == "" || !c.InboxRead || !slices.Equal(c.Read, []string{session}) || !slices.Equal(c.Send, []string{session}) || !slices.Equal(c.InboxFrom, []string{session}) || status.CapabilitiesBound == nil || !*status.CapabilitiesBound {

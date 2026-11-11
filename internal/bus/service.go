@@ -23,7 +23,7 @@ type Service struct {
 	Store   Store
 	Runtime *RuntimeLease
 	// PluginInbox is the composition root's local inbox admission policy.
-	PluginInbox PluginInboxAdmit
+	PluginInbox pluginInboxAdmit
 	// Deliver overrides native-inbox transports in isolated tests.
 	Deliver func(context.Context, model.Message, model.Session) model.Receipt
 }

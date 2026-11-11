@@ -9,6 +9,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 func TestExternalPluginOwnerAddAndStatusMismatch(t *testing.T) {
@@ -33,7 +34,7 @@ func TestExternalPluginOwnerAddAndStatusMismatch(t *testing.T) {
 }
 
 type externalOwnerStatus struct {
-	bus.PluginFeedStatus
+	pluginfeed.PluginFeedStatus
 	PinMatches *bool  `json:"pin_matches"`
 	PinError   string `json:"pin_error"`
 }
@@ -88,7 +89,7 @@ func TestExternalPluginOwnerReportsStoredArgvDrift(t *testing.T) {
 	if err := json.Unmarshal(raw, &record); err != nil {
 		t.Fatal(err)
 	}
-	var launch bus.PluginLaunch
+	var launch pluginfeed.PluginLaunch
 	if err := json.Unmarshal(record["launch"], &launch); err != nil {
 		t.Fatal(err)
 	}

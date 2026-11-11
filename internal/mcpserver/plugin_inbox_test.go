@@ -12,6 +12,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 func TestMCPPluginInboxStoredReceiptAndPrivateErrors(t *testing.T) {
@@ -85,20 +86,20 @@ func newMCPInboxFixture(t *testing.T) (*bus.Service, model.Session, string, mode
 	t.Setenv("CODEX_HOME", t.TempDir())
 	t.Setenv("CURSOR_CONFIG_DIR", t.TempDir())
 	service := newTestService(t)
-	service.PluginInbox = bus.AdmitPluginInbox
+	service.PluginInbox = pluginfeed.AdmitPluginInbox
 	author, key, other, otherKey := registerPair(t, service.Store, "cursor", "00000000-0000-4000-8000-000000000051", "codex", "00000000-0000-4000-8000-000000000052")
 	executable := filepath.Join(t.TempDir(), "private-plugin")
 	if err := os.WriteFile(executable, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	feed := bus.NewPluginFeed(service.Store, "inbox-fixture")
+	feed := pluginfeed.NewPluginFeed(service.Store, "inbox-fixture")
 	if err := feed.AddExternalPlugin(executable, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := feed.ConfigurePluginFeed([]string{author.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := feed.GrantPluginCapabilities(bus.PluginCapabilityGrants{InboxFrom: []string{author.ID}}); err != nil {
+	if err := feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{InboxFrom: []string{author.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := feed.EnablePluginFeed(true); err != nil {

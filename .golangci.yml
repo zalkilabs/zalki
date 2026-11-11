@@ -79,6 +79,22 @@ linters:
             - github.com/zalkilabs/zalki/internal/fsutil$
             - github.com/zalkilabs/zalki/internal/journal$
             - github.com/zalkilabs/zalki/internal/model$
+            - github.com/zalkilabs/zalki/internal/pluginfeed$
+        pluginfeed:
+          files: ["**/internal/pluginfeed/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/zalkilabs/zalki/internal/bus$
+            - github.com/zalkilabs/zalki/internal/fsutil$
+            - github.com/zalkilabs/zalki/internal/journal$
+            - github.com/zalkilabs/zalki/internal/model$
+        pluginfeed-importers:
+          files: ["$all", "!$test", "!**/cmd/zalki/*.go", "!**/internal/plugins/*.go"]
+          list-mode: lax
+          deny:
+            - pkg: github.com/zalkilabs/zalki/internal/pluginfeed
+              desc: Only cmd/zalki and plugins may compose plugin state; bus must use its injected port.
         plugin-importers:
           files: ["$all", "!**/cmd/zalki/*.go"]
           list-mode: lax

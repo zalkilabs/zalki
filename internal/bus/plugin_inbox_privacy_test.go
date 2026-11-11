@@ -11,13 +11,14 @@ import (
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 // The privacy boundary is exercised through public operations and persisted
 // records, without calling admission/index implementation helpers.
 type inboxPublicFixture struct {
 	service              *bus.Service
-	feed                 bus.PluginFeed
+	feed                 pluginfeed.PluginFeed
 	author, other, third agent
 	to, installation     string
 }
@@ -37,14 +38,14 @@ func newInboxPublicFixture(t *testing.T) inboxPublicFixture {
 	if err = os.WriteFile(executable, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	feed := bus.NewPluginFeed(store, "inbox-fixture")
+	feed := pluginfeed.NewPluginFeed(store, "inbox-fixture")
 	if err = feed.AddExternalPlugin(executable, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err = feed.ConfigurePluginFeed([]string{author.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err = feed.GrantPluginCapabilities(bus.PluginCapabilityGrants{InboxFrom: []string{author.ID}}); err != nil {
+	if err = feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{InboxFrom: []string{author.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err = feed.EnablePluginFeed(true); err != nil {
@@ -54,7 +55,7 @@ func newInboxPublicFixture(t *testing.T) inboxPublicFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return inboxPublicFixture{service: &bus.Service{Store: store, PluginInbox: bus.AdmitPluginInbox}, feed: feed, author: author, other: other, third: third, to: "plugin:" + status.ID, installation: status.ID}
+	return inboxPublicFixture{service: &bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox}, feed: feed, author: author, other: other, third: third, to: "plugin:" + status.ID, installation: status.ID}
 }
 
 func (x inboxPublicFixture) send(t *testing.T, body string) model.Message {
@@ -150,7 +151,7 @@ func TestPluginInboxNativeReadGrantDoesNotBecomeSentAccess(t *testing.T) {
 	if err := x.feed.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.feed.GrantPluginCapabilities(bus.PluginCapabilityGrants{Read: []string{x.author.ID}, InboxFrom: []string{x.author.ID}}); err != nil {
+	if err := x.feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Read: []string{x.author.ID}, InboxFrom: []string{x.author.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.feed.EnablePluginFeed(true); err != nil {

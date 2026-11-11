@@ -9,6 +9,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 // Run owns one foreground child; only the bounded feed API enters Store flock.
@@ -19,7 +20,7 @@ func Run(ctx context.Context, store bus.Store, binary, name string, output io.Wr
 	if !filepath.IsAbs(binary) || !filepath.IsAbs(store.Dir) {
 		return errors.New("plugin requires the absolute path of this binary")
 	}
-	feed := bus.NewPluginFeed(store, name)
+	feed := pluginfeed.NewPluginFeed(store, name)
 	status, err := feed.PluginStatus()
 	if err != nil {
 		return err
@@ -65,7 +66,7 @@ func Run(ctx context.Context, store bus.Store, binary, name string, output io.Wr
 	return hostLoop(ctx, feed, c, output, ready)
 }
 
-func hostLoop(ctx context.Context, feed bus.PluginFeed, c *child, output io.Writer, readyMessage string) error {
+func hostLoop(ctx context.Context, feed pluginfeed.PluginFeed, c *child, output io.Writer, readyMessage string) error {
 	ready := false
 	for ctx.Err() == nil {
 		if err := c.idle(); err != nil {
@@ -94,7 +95,7 @@ func hostLoop(ctx context.Context, feed bus.PluginFeed, c *child, output io.Writ
 	return nil
 }
 
-func deliver(feed bus.PluginFeed, c *child, d bus.PluginDelivery) error {
+func deliver(feed pluginfeed.PluginFeed, c *child, d pluginfeed.PluginDelivery) error {
 	if err := c.exchange(frame{ID: d.ID, Gap: d.Gap, Event: d.Event}); err != nil {
 		return fmt.Errorf("plugin delivery failed: %w", err)
 	}
@@ -108,7 +109,7 @@ func deliver(feed bus.PluginFeed, c *child, d bus.PluginDelivery) error {
 	return err
 }
 
-func checkInstallation(feed bus.PluginFeed, id string) (bus.PluginFeedStatus, error) {
+func checkInstallation(feed pluginfeed.PluginFeed, id string) (pluginfeed.PluginFeedStatus, error) {
 	current, err := feed.PluginStatus()
 	if err != nil {
 		return current, err
@@ -119,14 +120,14 @@ func checkInstallation(feed bus.PluginFeed, id string) (bus.PluginFeedStatus, er
 	return current, nil
 }
 
-func prepareLaunch(status bus.PluginFeedStatus, binary string) (bus.PluginLaunch, string, error) {
+func prepareLaunch(status pluginfeed.PluginFeedStatus, binary string) (pluginfeed.PluginLaunch, string, error) {
 	ready := status.Name + " ready"
 	if status.Name == "fake-notifier" {
 		outbox := filepath.Join(status.DataDir, "outbox")
-		return bus.PluginLaunch{Executable: binary, Args: []string{ChildCommand, "--outbox", outbox}}, ready + "; local outbox: " + outbox, nil
+		return pluginfeed.PluginLaunch{Executable: binary, Args: []string{ChildCommand, "--outbox", outbox}}, ready + "; local outbox: " + outbox, nil
 	}
 	if status.Launch == nil {
-		return bus.PluginLaunch{}, "", errors.New("plugin has no external executable")
+		return pluginfeed.PluginLaunch{}, "", errors.New("plugin has no external executable")
 	}
 	return *status.Launch, ready, status.Launch.Verify()
 }

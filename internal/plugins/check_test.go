@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 type checkObservation struct {
@@ -26,7 +26,7 @@ type checkObservation struct {
 }
 
 func checkTestChild(mode, report string) error {
-	if err := journal.CheckPluginLeaseFD(3); err != nil {
+	if err := pluginfeed.CheckPluginLeaseFD(3); err != nil {
 		return err
 	}
 	cwd, err := os.Getwd()
@@ -62,7 +62,7 @@ func checkFixture(t *testing.T, mode string) (CheckTarget, string) {
 		t.Fatal(err)
 	}
 	report := filepath.Join(t.TempDir(), "observed.json")
-	launch, err := bus.NewPluginLaunch(binary, []string{"check-test-child", mode, report})
+	launch, err := pluginfeed.NewPluginLaunch(binary, []string{"check-test-child", mode, report})
 	if err != nil {
 		t.Fatal(err)
 	}

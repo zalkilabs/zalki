@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
@@ -31,7 +32,7 @@ func newPluginCheckCommand(opts *commandOptions) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if executable != "" {
-				launch, err := bus.NewPluginLaunch(executable, args)
+				launch, err := pluginfeed.NewPluginLaunch(executable, args)
 				if err != nil {
 					return err
 				}
@@ -54,7 +55,7 @@ func newPluginCheckCommand(opts *commandOptions) *cobra.Command {
 }
 
 func namedCheckTarget(store bus.Store, name string) (plugins.CheckTarget, func(), error) {
-	feed := bus.NewPluginFeed(store, name)
+	feed := pluginfeed.NewPluginFeed(store, name)
 	status, err := feed.PluginStatus()
 	if err != nil {
 		return plugins.CheckTarget{}, nil, err

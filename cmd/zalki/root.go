@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/logging"
 	"github.com/zalkilabs/zalki/internal/model"
-
-	"github.com/spf13/cobra"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 type commandOptions struct {
@@ -130,7 +130,7 @@ func (opts *commandOptions) service() (*bus.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &bus.Service{Store: store, PluginInbox: bus.AdmitPluginInbox}, nil
+	return &bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox}, nil
 }
 
 func encodeOutput(cmd *cobra.Command, value any) error {
