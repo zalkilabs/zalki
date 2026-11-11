@@ -61,7 +61,7 @@ func TestListenerLeaseLifecycleAsPersisted(t *testing.T) {
 	}
 	armed := readJSONFile(t, path)
 	listener, _ := armed["listener"].(map[string]any)
-	if armed["schema"] != float64(2) || strings.Join(keysOf(listener), ",") != "endpoint,generation,id" || listener["generation"] != a.Generation {
+	if armed["schema"] != float64(1) || strings.Join(keysOf(listener), ",") != "endpoint,generation,id" || listener["generation"] != a.Generation {
 		t.Fatalf("armed record: schema %v listener %v", armed["schema"], listener)
 	}
 	if got := strings.Join(keysOf(listener["endpoint"].(map[string]any)), ","); got != "changed_ns,device,inode,path" {

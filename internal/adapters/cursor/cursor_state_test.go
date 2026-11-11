@@ -5,60 +5,30 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func TestCursorStateInitializesWithoutMigratingTopLevelFields(t *testing.T) {
-	out, err := (Adapter{}).DecodeState(agent.StateInput{Extensions: map[string]json.RawMessage{
-		"cursor_recovery_attempted":  json.RawMessage(`true`),
-		"cursor_recovery_suppressed": json.RawMessage(`true`),
-		"cursor_wake":                json.RawMessage(`{"path":"/tmp/zalki-old/inbox.sock"}`),
-	}})
-	if err != nil || string(out) != `{"schema":1}` {
-		t.Fatalf("top-level fields changed fresh current state: %s %v", out, err)
-	}
-	if out, err := (Adapter{}).DecodeState(agent.StateInput{}); err != nil || string(out) != `{"schema":1}` {
-		t.Fatalf("a record without state did not get the current schema: %s %v", out, err)
+func TestCursorStateStartsEmpty(t *testing.T) {
+	if out, err := (Adapter{}).DecodeState(agent.StateInput{}); err != nil || string(out) != `{}` {
+		t.Fatalf("a record without state = %s %v, want {}", out, err)
 	}
 }
 
-func TestCursorStateRejectsUnknownSchemasAndMalformedState(t *testing.T) {
-	for name, in := range map[string]agent.StateInput{
-		"future schema":   {State: json.RawMessage(`{"schema":2}`)},
-		"missing schema":  {State: json.RawMessage(`{"recovery_attempted":true}`)},
-		"malformed state": {State: json.RawMessage(`{"schema":`)},
-	} {
-		if out, err := (Adapter{}).DecodeState(in); err == nil {
-			t.Fatalf("%s was accepted: %s", name, out)
-		}
+// The two recovery flags round-trip; any other key is dropped.
+func TestCursorStateKeepsOnlyTheRecoveryFlags(t *testing.T) {
+	raw := json.RawMessage(`{"schema":1,"recovery_attempted":true,"recovery_suppressed":true,"wake":{"path":"/old"}}`)
+	out, err := (Adapter{}).DecodeState(agent.StateInput{State: raw})
+	if err != nil || string(out) != `{"recovery_attempted":true,"recovery_suppressed":true}` {
+		t.Fatalf("state = %s %v", out, err)
 	}
-	if _, err := (Adapter{}).DecodeState(agent.StateInput{State: json.RawMessage(`{"schema":2}`)}); model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
-		t.Fatal("a future Cursor schema was not reported as unsupported", err)
-	}
-}
-
-func TestCursorStateKeepsUnknownFieldsWhenKnownFlagsAreCleared(t *testing.T) {
-	raw := json.RawMessage(`{"schema":1,"recovery_attempted":true,"recovery_suppressed":true,"wake":{"path":"/old"},"future_flag":{"large":123456789012345678901234567890}}`)
-	normalized, err := (Adapter{}).DecodeState(agent.StateInput{State: raw})
-	if err != nil {
-		t.Fatal(err)
-	}
-	state := decodeCursorState(normalized)
+	state := decodeCursorState(out)
 	state.RecoveryAttempted, state.RecoverySuppressed = false, false
-	encoded := encodeCursorState(state)
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(encoded, &fields); err != nil {
-		t.Fatal(err)
+	if encoded := encodeCursorState(state); string(encoded) != `{}` {
+		t.Fatalf("cleared flags = %s, want {}", encoded)
 	}
-	if string(fields["future_flag"]) != `{"large":123456789012345678901234567890}` {
-		t.Fatal("extension lost", string(encoded))
-	}
-	if string(fields["wake"]) != `{"path":"/old"}` {
-		t.Fatal("unknown extension was interpreted or stripped", string(encoded))
-	}
-	for _, key := range []string{"recovery_attempted", "recovery_suppressed"} {
-		if _, exists := fields[key]; exists {
-			t.Fatal("cleared or obsolete field resurrected", key)
-		}
+}
+
+func TestCursorStateRejectsMalformedState(t *testing.T) {
+	if out, err := (Adapter{}).DecodeState(agent.StateInput{State: json.RawMessage(`{"recovery_attempted":`)}); err == nil {
+		t.Fatalf("malformed state was accepted: %s", out)
 	}
 }

@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -20,8 +21,37 @@ const (
 	byteFixtureNative = "00000000-0000-4000-8000-000000000076"
 )
 
+// The redo intent is pinned for the commit fixture with and without an unknown
+// field in its prior record. The intent holds the prior bytes too, so the two
+// hashes differ; the new session bytes inside both are the same plain typed
+// encoding (the unknown field is not kept).
 func TestPluginJournalEventAndRedoBytes(t *testing.T) {
+	t.Run("prior with unknown field", func(t *testing.T) {
+		checkPluginJournalBytes(t, newCommitFixture(t), "redo intent")
+	})
+	t.Run("prior without unknown field", func(t *testing.T) {
+		checkPluginJournalBytes(t, commitFixtureWithoutExtension(t), "redo intent, prior without unknown field")
+	})
+}
+
+// commitFixtureWithoutExtension is newCommitFixture with the unknown
+// "extension" field removed from the prior record, on disk and in memory.
+func commitFixtureWithoutExtension(t *testing.T) commitFixture {
+	t.Helper()
 	f := newCommitFixture(t)
+	plain := bytes.Replace(f.previous, []byte(`,"extension":{"keep":true}`), nil, 1)
+	if bytes.Equal(plain, f.previous) {
+		t.Fatal("fixture has no extension field to remove")
+	}
+	if err := os.WriteFile(filepath.Join(f.writer.dir, eventSessionPath(f.event)), plain, 0600); err != nil {
+		t.Fatal(err)
+	}
+	f.previous = plain
+	return f
+}
+
+func checkPluginJournalBytes(t *testing.T, f commitFixture, redo string) {
+	t.Helper()
 	if err := os.Chmod(f.writer.dir, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +70,7 @@ func TestPluginJournalEventAndRedoBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	stageCommit(t, f, preparedCommit(t, f))
-	assertPluginJournalBytes(t, "redo intent", readCommitFile(t, filepath.Join(f.writer.dir, "commits", "pending.json")))
+	assertPluginJournalBytes(t, redo, readCommitFile(t, filepath.Join(f.writer.dir, "commits", "pending.json")))
 	store := Store{Dir: f.writer.dir, Registry: testRegistry()}
 	if err := WithJournalRead(store, func(view JournalView) error {
 		event, err := view.EventAt(byteFixturePlugin, 2)
@@ -58,10 +88,16 @@ func TestPluginJournalEventAndRedoBytes(t *testing.T) {
 func assertPluginJournalBytes(t *testing.T, name string, raw []byte) {
 	t.Helper()
 	// Captured with production files at 149740f before the journal boundary.
+	// The redo intents were re-captured for compat (b). Main's merge kept the
+	// fixture's unknown "extension" field and re-sorted the keys of a rewritten
+	// record (old hash 1a7911203480433b504c8831062eb66b37a0887bebd10904975d9562f08a7414).
+	// A plain typed write keeps neither: the session bytes in the intent were
+	// checked to be identical to main's first-write encoding of the same session.
 	want := map[string]string{
 		"inbox message":  "2fcf250cc799f48e7e63a66ee3cea05e9210c572a57bae3f6971e372f81ca8cb",
 		"native message": "6cb482bf5bacc7311c49c6ba2f304f1efd1aa94c9f13252c16beebb8611d5622",
-		"redo intent":    "1a7911203480433b504c8831062eb66b37a0887bebd10904975d9562f08a7414",
+		"redo intent":    "96b42747efb8231da1436b73e7c71daa5fd0ef74b5a821332cb284d0702230ca",
+		"redo intent, prior without unknown field": "b93bdc53e66ac4cbf1e50f69c035c5f2c9ea1f734049b2510fe83d5a826fab83",
 		"event record":   "6cc6c4d35fcbf4c0e95deb13b643b371fa6ba81b9d88f27cba3a5e5cdd09c1d4",
 		"event metadata": "bfd0377c967540dfc41e311bc4a01df29883984fc6788c8c3bae125873b4b60e",
 	}[name]

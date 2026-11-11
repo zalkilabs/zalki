@@ -176,9 +176,8 @@ func requireFutureMessageSkipped(t *testing.T, store Store, actor, key string) {
 	}
 }
 
-// Characterizes how this build treats a session written by a future schema, as
-// an older build would see a newer record during a mixed-version upgrade. Every
-// registry-wide read skips it, and nothing rewrites the unreadable record.
+// A session record with another schema (2, the old lease schema) is damaged for
+// this build. Every registry-wide read skips it, and nothing rewrites it.
 func TestFutureSchemaSessionSkipsRegistryReadsWithoutWriting(t *testing.T) {
 	store := fixtureStore(t)
 	from, key, healthy, _ := registerPair(t, store, "codex", "claude")
@@ -188,7 +187,7 @@ func TestFutureSchemaSessionSkipsRegistryReadsWithoutWriting(t *testing.T) {
 	if err := readJSON(path, &record); err != nil {
 		t.Fatal(err)
 	}
-	record["schema"] = leaseSessionSchema + 1
+	record["schema"] = 2
 	record["future_lease"] = map[string]string{"id": newID()}
 	if err := writeJSON(path, record); err != nil {
 		t.Fatal(err)
@@ -217,66 +216,6 @@ func TestFutureSchemaSessionSkipsRegistryReadsWithoutWriting(t *testing.T) {
 	}
 }
 
-// preLeaseSession is the session record as builds before listener leases
-// (73e3050) decode and rewrite it. They reject schemas above 1 before using a
-// record, and silently drop fields they do not know when they write it back.
-type preLeaseSession struct {
-	Schema          int                       `json:"schema"`
-	NativeID        string                    `json:"native_id,omitempty"`
-	AdapterState    json.RawMessage           `json:"adapter_state,omitempty"`
-	ID              string                    `json:"id"`
-	Kind            string                    `json:"kind"`
-	Name            string                    `json:"name,omitempty"`
-	NameSource      string                    `json:"name_source,omitempty"`
-	NativeConfigDir string                    `json:"native_config_dir,omitempty"`
-	CWD             string                    `json:"cwd"`
-	Generation      string                    `json:"generation"`
-	State           model.SessionState        `json:"state"`
-	UpdatedAt       string                    `json:"updated_at"`
-	Retired         bool                      `json:"retired"`
-	RetiredReason   string                    `json:"retired_reason,omitempty"`
-	Owner           *model.ProcessRef         `json:"owner,omitempty"`
-	Liveness        string                    `json:"liveness,omitempty"`
-	HookBuild       string                    `json:"hook_build,omitempty"`
-	Endpoint        *model.Endpoint           `json:"endpoint,omitempty"`
-	KeyHash         string                    `json:"key_hash,omitempty"`
-	Receive         model.ReceiveCapabilities `json:"receive"`
-}
-
-// preLeaseRewrite reads a record as an older build would and, when it accepts
-// it, writes it back as that build would after a state update.
-func preLeaseRewrite(t *testing.T, store Store, id string) error {
-	t.Helper()
-	path, _ := store.sessionPath(id)
-	var v preLeaseSession
-	if err := readJSON(path, &v); err != nil {
-		return err
-	}
-	if v.Schema < 0 || v.Schema > 1 {
-		return model.NewError(model.CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
-	}
-	v.Schema, v.State, v.UpdatedAt = 1, model.StateBusy, model.Timestamp()
-	return writeJSON(path, v)
-}
-
-func TestLeasedRecordsAreHiddenFromOlderWriters(t *testing.T) {
-	store := fixtureStore(t)
-	to, key := register(t, store, "cursor")
-	lease := armedLease(t, store, to.ID, key)
-	before := sessionBytes(t, store, to.ID)
-	if err := preLeaseRewrite(t, store, to.ID); model.ErrorCodeOf(err) != model.CodeUnsupportedSchema || !bytes.Equal(before, sessionBytes(t, store, to.ID)) {
-		t.Fatal("an older build could rewrite a leased record and drop its lease", err)
-	}
-	lease.Close(nil)
-	if err := preLeaseRewrite(t, store, to.ID); err != nil {
-		t.Fatal("a record without a lease was not returned to older builds", err)
-	}
-	current, err := store.session(to.ID)
-	if err != nil || current.Listener != nil || current.State != model.StateBusy || current.Receive.IdleWake {
-		t.Fatalf("an older build's rewrite was not readable or revived a listener: %+v %v", current, err)
-	}
-}
-
 func TestInterruptedLeaseIsRetiredByRecovery(t *testing.T) {
 	store := fixtureStore(t)
 	to, key := register(t, store, "cursor")
@@ -285,30 +224,10 @@ func TestInterruptedLeaseIsRetiredByRecovery(t *testing.T) {
 	if err := syscall.Flock(lease.fd, syscall.LOCK_UN); err != nil {
 		t.Fatal(err)
 	}
-	if err := preLeaseRewrite(t, store, to.ID); model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
-		t.Fatal("an older build could rewrite an interrupted lease", err)
-	}
 	if grant, err := claimCursorRecovery(store, to.ID); err != nil || grant.Capability == "" {
 		t.Fatal("an interrupted lease blocked recovery", err)
 	}
-	if err := preLeaseRewrite(t, store, to.ID); err != nil {
-		t.Fatal("recovery left the record unreadable by older builds", err)
-	}
-}
-
-func TestListenerLeaseUnderOlderSchemaIsRejected(t *testing.T) {
-	store := fixtureStore(t)
-	to, _ := register(t, store, "cursor")
-	path, _ := store.sessionPath(to.ID)
-	var record map[string]any
-	if err := readJSON(path, &record); err != nil {
-		t.Fatal(err)
-	}
-	record["listener"] = model.ListenerLease{ID: newID(), Generation: to.Generation, Endpoint: model.Endpoint{Path: "/tmp/zalki-x/inbox.sock"}}
-	if err := writeJSON(path, record); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.session(to.ID); model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
-		t.Fatal("accepted a lease stored under a schema older builds would rewrite", err)
+	if current, err := store.session(to.ID); err != nil || current.Listener != nil {
+		t.Fatalf("recovery did not retire the interrupted lease: %+v %v", current, err)
 	}
 }

@@ -15,40 +15,31 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// A released or future build may write compact JSON that is readable but grows
-// beyond the journal bound when an extension is indented during a rewrite.
-func compactExtendedMessage(t *testing.T, store Store, msg model.Message) (string, []byte) {
+// nearLimitMessage pads msg's body so its record is 4 bytes under the encoded
+// limit, writes that record, and returns its path and bytes. Any rewrite that
+// grows the record (a longer status, a receipt, an acknowledgement) is then
+// over the limit.
+func nearLimitMessage(t *testing.T, store Store, msg *model.Message) (string, []byte) {
 	t.Helper()
 	if err := store.locked(func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	msg.Schema = recordSchema
-	raw, err := json.Marshal(msg)
+	base, err := encodeStateJSON(*msg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		t.Fatal(err)
-	}
-	extension, err := json.Marshal(make([]int, 20000))
-	if err != nil {
-		t.Fatal(err)
-	}
-	fields["future_extension"] = extension
-	raw, err = json.Marshal(fields)
-	if err != nil {
-		t.Fatal(err)
+	msg.Body += strings.Repeat("x", maxStateFileBytes-4-len(base))
+	raw, err := encodeStateJSON(*msg)
+	if err != nil || len(raw) != maxStateFileBytes-4 {
+		t.Fatalf("fixture is %d bytes, want %d: %v", len(raw), maxStateFileBytes-4, err)
 	}
 	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if len(raw) >= maxStateFileBytes {
-		t.Fatal("fixture is not initially below the read limit")
-	}
 	if _, err := store.message(msg.ID); err != nil {
-		t.Fatal("compact input was unreadable", err)
+		t.Fatal("near-limit input was unreadable", err)
 	}
 	return path, raw
 }
@@ -60,14 +51,17 @@ func requireEncodedSizeError(t *testing.T, err error) {
 	}
 }
 
-func TestPreservedExtensionsRemainWithinEncodedReadLimit(t *testing.T) {
+// A rewrite that grows over the encoded limit is refused, and the original
+// record stays as it was and readable.
+func TestARewriteOverTheLimitLeavesTheOriginal(t *testing.T) {
 	store := fixtureStore(t)
 	msg := model.Message{ID: newID(), From: "codex:" + newID(), To: "cursor:" + newID(), Body: "fixture", Status: model.StatusSubmitted}
-	path, before := compactExtendedMessage(t, store, msg)
+	path, before := nearLimitMessage(t, store, &msg)
+	msg.Status = model.StatusPendingActivity
 	requireEncodedSizeError(t, store.saveMessage(msg))
 	after, err := os.ReadFile(path)
 	if err != nil || !bytes.Equal(before, after) {
-		t.Fatal("rejected merge changed original record", err)
+		t.Fatal("rejected rewrite changed original record", err)
 	}
 	if _, err := store.message(msg.ID); err != nil {
 		t.Fatal("rejected rewrite made original unreadable", err)
@@ -133,7 +127,7 @@ func TestMessageWriteSizeRefusalKeepsDurableStatusAndLogsFailure(t *testing.T) {
 				status = model.StatusAttempting
 			}
 			msg := model.Message{ID: newID(), From: from.ID, To: target.ID, TargetGeneration: target.Generation, Body: "private-body-size-sentinel", Status: status}
-			path, before := compactExtendedMessage(t, store, msg)
+			path, before := nearLimitMessage(t, store, &msg)
 			snapshot := journalSnapshot(t, store)
 			var diagnostic bytes.Buffer
 			store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))

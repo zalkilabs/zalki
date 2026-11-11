@@ -153,8 +153,8 @@ func TestListenerLeaseLifecycleWritesLeaseOnlyUnderItsSchema(t *testing.T) {
 	if err != nil || current.Listener == nil || current.Listener.Generation != to.Generation || !current.Receive.IdleWake || store.listenerStatus(current) != model.ListenerRunning {
 		t.Fatalf("armed lease was not recorded as the running listener: %+v %v", current, err)
 	}
-	if recordSchemaOf(t, store, to.ID) != leaseSessionSchema {
-		t.Fatal("a leased session was readable by builds that would drop its lease")
+	if recordSchemaOf(t, store, to.ID) != recordSchema {
+		t.Fatal("a leased session was not written with the one record schema")
 	}
 	if err := lease.Confirm(func(model.SessionView) (json.RawMessage, error) {
 		return encodedCursorState(CursorListenerState{RecoverySuppressed: true}), nil

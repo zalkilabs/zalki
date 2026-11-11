@@ -14,12 +14,6 @@ import (
 
 const recordSchema = 1
 
-// leaseSessionSchema marks a session record that carries a listener lease.
-// Older builds drop unknown fields when they rewrite a record, so a lease must
-// never be stored under a schema they accept. Records without one stay at
-// recordSchema and remain readable by older builds.
-const leaseSessionSchema = 2
-
 // Versioned journal reads require a current schema header.
 func readRecord(path string, value any, schema *int) error {
 	if err := readJSON(path, value); err != nil {
@@ -40,20 +34,14 @@ func (s Store) readSession(path string) (model.Session, error) {
 	if err := json.Unmarshal(raw, &v); err != nil {
 		return v, err
 	}
-	if v.Schema < recordSchema || v.Schema > leaseSessionSchema {
+	if v.Schema != recordSchema {
 		return v, model.NewError(model.CodeUnsupportedSchema, "unsupported session schema %d", v.Schema)
-	}
-	if v.Listener != nil && v.Schema != leaseSessionSchema {
-		return v, model.NewError(model.CodeUnsupportedSchema, "a listener lease requires session schema %d", leaseSessionSchema)
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return v, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")
 	}
-	extensions, err := stateExtensions(raw)
-	if err != nil {
-		return v, err
-	}
-	v.AdapterState, err = s.decodeAdapterState(v.Kind, agent.StateInput{Extensions: extensions, State: v.AdapterState})
+	var err error
+	v.AdapterState, err = s.decodeAdapterState(v.Kind, agent.StateInput{State: v.AdapterState})
 	return v, err
 }
 

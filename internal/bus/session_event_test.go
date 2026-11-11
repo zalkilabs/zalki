@@ -207,7 +207,7 @@ func TestPrivateSessionAtomicSaveAndBypassRefusal(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(store.Dir, "commits", "pending.json")); !os.IsNotExist(err) {
 		t.Fatal("private save left an intent", err)
 	}
-	if err := store.writeRecord(path, session, leaseSessionSchema); err == nil || !strings.Contains(err.Error(), "commit path") {
+	if err := store.writeRecord(path, session); err == nil || !strings.Contains(err.Error(), "commit path") {
 		t.Fatal("raw session bypass accepted", err)
 	}
 }
@@ -224,7 +224,7 @@ func TestPrivateSessionAtomicSaveRefusesStalePrior(t *testing.T) {
 	}
 	intervening := session
 	intervening.Task = "intervening"
-	data, err := prepareSessionBytes(prior, intervening)
+	data, err := encodeStateJSON(intervening)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +304,7 @@ func TestOnePutSessionIntentRefusesCallbacks(t *testing.T) {
 	path, _ := store.sessionPath(session.ID)
 	previous := readCommitFile(t, path)
 	session.Task = "private"
-	data, err := prepareSessionBytes(previous, session)
+	data, err := encodeStateJSON(session)
 	if err != nil {
 		t.Fatal(err)
 	}

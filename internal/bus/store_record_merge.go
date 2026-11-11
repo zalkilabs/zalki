@@ -11,46 +11,22 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// mergeRecordJSON preserves fields outside the typed record while replacing
-// every field the type owns, including fields omitted because they were cleared.
-func mergeRecordJSON(previous json.RawMessage, value any) (json.RawMessage, error) {
-	return journal.Merge(previous, value)
-}
-
-// recordUpdate carries preservation data only for an exceptional first write
-// from a durable reply intent. Session writes are prepared by commitWriter.
-type recordUpdate struct {
-	previous json.RawMessage
-}
-
-// writeRecord is called under the journal lock. Re-read the on-disk record so
-// re-registration and crash recovery also preserve fields absent from their
-// newly constructed values. A previous record whose schema is outside
-// 0..supported is never overwritten (a missing schema reads as 0 and is
-// accepted here; readers that need the exact schema use readRecord).
-func (s Store) writeRecord(path string, value any, supported int, updates ...recordUpdate) error {
-	update := recordUpdate{}
-	if len(updates) != 0 {
-		update = updates[0]
-	}
+// writeRecord is called under the journal lock. It writes exactly the typed
+// value, so a field the value omits is not kept from an earlier record. It never
+// overwrites a record it cannot trust: an existing file that cannot be read, or
+// whose schema is outside 0..recordSchema, is refused and left unchanged (a
+// missing schema reads as 0; readers that need the exact schema use readRecord).
+func (s Store) writeRecord(path string, value any) error {
 	var previous json.RawMessage
 	if err := readJSON(path, &previous); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if len(previous) == 0 {
-		previous = update.previous
-	}
 	if len(previous) != 0 {
-		if err := checkSchema(previous, supported); err != nil {
+		if err := checkSchema(previous, recordSchema); err != nil {
 			return err
 		}
 	}
-	raw, err := mergeRecordJSON(previous, value)
-	if err != nil {
-		return err
-	}
-	// Unknown fields are never dropped to make an oversized merge fit.
-	encoded, err := encodeStateJSON(raw)
+	encoded, err := encodeStateJSON(value)
 	if err != nil {
 		return err
 	}

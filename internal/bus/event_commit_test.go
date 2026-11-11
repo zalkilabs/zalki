@@ -168,7 +168,9 @@ func TestEventMalformedIntentBlocksReadsAndWrites(t *testing.T) {
 	}
 }
 
-func TestEventExactPriorWhitespaceAndUnknownFieldsSurvive(t *testing.T) {
+// The commit accepts exact prior bytes with odd whitespace, and the new record
+// is the typed session: an unknown field in the prior record is not kept.
+func TestEventExactPriorWhitespaceIsAcceptedAndUnknownFieldsAreDropped(t *testing.T) {
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")
 	path, err := store.sessionPath(session.ID)
@@ -188,8 +190,8 @@ func TestEventExactPriorWhitespaceAndUnknownFieldsSurvive(t *testing.T) {
 	if err := json.Unmarshal(readCommitFile(t, path), &result); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(result["custom"], map[string]any{"keep": float64(9)}) || result["state"] != "busy" {
-		t.Fatalf("merged record = %v", result)
+	if _, kept := result["custom"]; kept || result["state"] != "busy" {
+		t.Fatalf("record = %v, want busy and no unknown field", result)
 	}
 }
 

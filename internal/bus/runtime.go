@@ -144,7 +144,7 @@ func (s Store) TrackRuntime(role, actor string) (*RuntimeLease, error) {
 		if err := privateDir(filepath.Join(s.Dir, "runtimes")); err != nil {
 			return err
 		}
-		return s.writeRecord(filepath.Join(s.Dir, "runtimes", info.ID+".json"), info, recordSchema)
+		return s.writeRecord(filepath.Join(s.Dir, "runtimes", info.ID+".json"), info)
 	})
 	return &RuntimeLease{store: s, info: info}, err
 }
@@ -183,7 +183,7 @@ func (r *RuntimeLease) ObserveActor(actor string) {
 	updated.Actors = append(append([]string(nil), r.info.Actors...), actor)
 	sort.Strings(updated.Actors)
 	if err := r.store.locked(func() error {
-		return r.store.writeRecord(filepath.Join(r.store.Dir, "runtimes", r.info.ID+".json"), updated, recordSchema)
+		return r.store.writeRecord(filepath.Join(r.store.Dir, "runtimes", r.info.ID+".json"), updated)
 	}); err == nil {
 		r.info = updated
 	}

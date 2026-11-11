@@ -2,7 +2,6 @@ package bus
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -144,7 +143,7 @@ func (s Store) commitReplyIntent(parent, msg model.Message, fresh bool) error {
 		return err
 	}
 	path := filepath.Join(dir, msg.ID+".json")
-	if err := s.writeRecord(path, tx, recordSchema); err != nil {
+	if err := s.writeRecord(path, tx); err != nil {
 		return err
 	}
 	s.logEvent(slog.LevelDebug, "reply.intent_committed", messageEvent(msg))
@@ -198,7 +197,7 @@ func (s Store) applyReplyTransaction(path string, tx replyTransaction) error {
 		return err
 	}
 	if missing {
-		if err := s.restoreReplyReservation(path, tx); err != nil {
+		if err := s.restoreReplyReservation(tx); err != nil {
 			return err
 		}
 	}
@@ -258,14 +257,8 @@ func (s Store) replyReservationMissing(tx replyTransaction) (bool, error) {
 }
 
 // restoreReplyReservation writes the reply record from the stored intent.
-func (s Store) restoreReplyReservation(path string, tx replyTransaction) error {
-	var intent struct {
-		Reply json.RawMessage `json:"reply"`
-	}
-	if err := readJSON(path, &intent); err != nil {
-		return err
-	}
-	if err := s.saveReservationRecord(tx.Reply, intent.Reply); err != nil {
+func (s Store) restoreReplyReservation(tx replyTransaction) error {
+	if err := s.saveReservation(tx.Reply); err != nil {
 		return err
 	}
 	s.logReservation(tx.Reply)

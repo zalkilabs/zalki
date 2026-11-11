@@ -19,7 +19,7 @@ type floodRecord struct {
 	Recent  []model.FloodArrival         `json:"recent"`
 }
 
-// Keep persisted fields explicit: journal's typed merge walks direct fields.
+// floodQuota maps the persisted record to the model's quota state.
 func floodQuota(record floodRecord) model.FloodState {
 	return model.FloodState{Inbound: record.Inbound, Senders: record.Senders, Recent: record.Recent}
 }
@@ -87,5 +87,5 @@ func (s Store) saveFloodState(path string, state floodRecord) error {
 	}
 	// Reserve quota first: an IO failure or crash may consume capacity without
 	// sending, but must not permit uncounted delivery after restarting.
-	return s.writeRecord(path, state, recordSchema)
+	return s.writeRecord(path, state)
 }

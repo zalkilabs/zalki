@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/journal"
@@ -68,8 +67,8 @@ func TestDormantCommitPublishesMatchingStateAndMetadata(t *testing.T) {
 	if err := json.Unmarshal(raw, &state); err != nil {
 		t.Fatal(err)
 	}
-	if state["state"] != "busy" || !reflect.DeepEqual(state["extension"], map[string]any{"keep": true}) {
-		t.Fatalf("state/extension = %v", state)
+	if _, kept := state["extension"]; state["state"] != "busy" || kept {
+		t.Fatalf("state/extension = %v, want busy and no unknown field", state)
 	}
 	metadata := readCommitFile(t, filepath.Join(f.writer.dir, eventRecordPath(1)))
 	var got eventRecord

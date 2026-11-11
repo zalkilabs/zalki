@@ -62,7 +62,7 @@ func savePrivateSessionRecord(record sessionRecord, prior []byte) error {
 	if kind != "" {
 		return journal.ErrInvalidBatch
 	}
-	state, err := prepareSessionBytes(prior, record.value)
+	state, err := encodeStateJSON(record.value)
 	if err != nil {
 		return err
 	}

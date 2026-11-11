@@ -262,8 +262,7 @@ func (l *Lease) WakeEmitted(messageID string) {
 	l.store.logEvent(slog.LevelInfo, "listener.wake_emitted", eventData{Actor: l.actor, MessageID: messageID, Generation: l.gen})
 }
 
-// releaseListenerLease drops the persisted lease. The following saveSession
-// writes recordSchema, which older builds can read. A process that still holds
+// releaseListenerLease drops the persisted lease. A process that still holds
 // the lifetime lock is fenced: owns requires the record to name its lease, so
 // that process cannot confirm, validate, or clear the record.
 func releaseListenerLease(v *model.Session) {
