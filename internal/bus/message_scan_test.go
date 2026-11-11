@@ -22,6 +22,7 @@ func TestMessageScanCallersKeepTheirUnreadableRecordPolicies(t *testing.T) {
 		t.Fatal(err)
 	}
 	unreadable := newID()
+	markOpen(t, store, unreadable)
 	if err := os.WriteFile(filepath.Join(store.Dir, "messages", unreadable+".json"), []byte("{bad"), 0600); err != nil {
 		t.Fatal(err)
 	}

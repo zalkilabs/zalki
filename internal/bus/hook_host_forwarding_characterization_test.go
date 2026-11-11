@@ -136,6 +136,20 @@ func TestHookHostUpdateSessionErrorsFollowActorCheck(t *testing.T) {
 	assertForwardingChanges(t, host.store, before)
 }
 
+// forgetEmittedMarker checks that the pending message had an open marker and
+// that emission removed it, then drops the marker from the before snapshot.
+func forgetEmittedMarker(t *testing.T, store Store, before map[string]string, id string) {
+	t.Helper()
+	marker, err := filepath.Rel(store.Dir, markers(store).path(id))
+	if _, open := before[marker]; err != nil || !open {
+		t.Fatal("pending message had no open marker", err)
+	}
+	if _, err := os.Lstat(markers(store).path(id)); !os.IsNotExist(err) {
+		t.Fatal("emitted message kept its open marker", err)
+	}
+	delete(before, marker)
+}
+
 // Another actor's context must remain private and pending. A matching host
 // still emits its own envelope once, without acknowledging it.
 func TestHookHostEmitPendingUsesBoundActor(t *testing.T) {
@@ -159,6 +173,7 @@ func TestHookHostEmitPendingUsesBoundActor(t *testing.T) {
 			if err != nil || current.Status != model.StatusContextEmitted || current.AcknowledgedAt != "" {
 				t.Fatal("emission changed acknowledgement or lost its status", err)
 			}
+			forgetEmittedMarker(t, host.store, before, msg.ID)
 			assertForwardingChanges(t, host.store, before, filepath.Join(host.store.Dir, "messages", msg.ID+".json"))
 			before = journalSnapshot(t, host.store)
 			if text, err := host.EmitPending(target.ID); err != nil || text != "" {

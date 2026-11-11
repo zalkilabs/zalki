@@ -101,7 +101,7 @@ func (s Store) clearApprovalHeld(targetID string) error {
 // The caller holds the journal lock.
 func (s Store) queuedApprovals(target string) ([]model.Message, skippedMessages, error) {
 	queued := []model.Message{}
-	skipped, err := s.eachReadableMessage(func(msg model.Message) error {
+	skipped, err := markers(s).eachReadable(func(msg model.Message) error {
 		if msg.To == target && msg.IsQueuedForApproval() {
 			queued = append(queued, msg)
 		}

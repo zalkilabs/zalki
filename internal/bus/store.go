@@ -59,7 +59,7 @@ func (s Store) lockedMode(fn func() error, readOnly bool) error {
 	if err := privateDir(s.Dir); err != nil {
 		return err
 	}
-	for _, dir := range []string{"sessions", "messages"} {
+	for _, dir := range []string{"sessions", "messages", openMessagesDir} {
 		if err := privateDir(filepath.Join(s.Dir, dir)); err != nil {
 			return err
 		}

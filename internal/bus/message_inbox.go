@@ -318,7 +318,7 @@ func (k skippedMessages) report(s Store, actor string) {
 // not changed; it stays pending and is delivered once it can be read again.
 func (s Store) pendingForHook(actor string, current model.Session) ([]model.Message, error) {
 	pending := []model.Message{}
-	skipped, err := s.eachReadableMessage(func(msg model.Message) error {
+	skipped, err := markers(s).eachReadable(func(msg model.Message) error {
 		if msg.To == actor && msg.TargetGeneration == current.Generation && model.HookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
 			pending = append(pending, msg)
 		}

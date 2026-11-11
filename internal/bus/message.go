@@ -70,7 +70,20 @@ func (s Store) saveMessageRecord(v model.Message, previous json.RawMessage) erro
 		return err
 	}
 	v.Schema = recordSchema
-	return s.writeRecord(filepath.Join(s.Dir, "messages", v.ID+".json"), v, recordSchema, recordUpdate{previous: previous})
+	// Keep markers ⊇ open records; see message_open.go.
+	open := openMessage(v)
+	if open {
+		if err := markers(s).add(v.ID, true); err != nil {
+			return err
+		}
+	}
+	if err := s.writeRecord(filepath.Join(s.Dir, "messages", v.ID+".json"), v, recordSchema, recordUpdate{previous: previous}); err != nil {
+		return err
+	}
+	if !open {
+		markers(s).drop(v.ID)
+	}
+	return nil
 }
 
 func (s Store) ReserveMessage(request SendRequest) (message model.Message, target model.Session, fresh bool, err error) {
