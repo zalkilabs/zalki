@@ -8,14 +8,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 // CheckTarget selects a pinned executable, or the built-in Binary when Launch is nil.
 // The caller retains ownership of an optional installed-name Lease until Check returns.
 type CheckTarget struct {
-	Launch *bus.PluginLaunch
+	Launch *pluginfeed.PluginLaunch
 	Binary string
 	Lease  *os.File
 }
@@ -41,7 +40,7 @@ func Check(ctx context.Context, target CheckTarget, output io.Writer) (result er
 	}
 	lease := target.Lease
 	if lease == nil {
-		lease, err = journal.OpenPluginLease(filepath.Join(state, "lease"))
+		lease, err = pluginfeed.OpenPluginLease(filepath.Join(state, "lease"))
 		if err != nil {
 			return reportCheck(output, "setup", err)
 		}
@@ -73,9 +72,9 @@ func Check(ctx context.Context, target CheckTarget, output io.Writer) (result er
 	return checkExchanges(c, offers, output)
 }
 
-func checkLaunch(target CheckTarget, cwd string) (bus.PluginLaunch, error) {
+func checkLaunch(target CheckTarget, cwd string) (pluginfeed.PluginLaunch, error) {
 	if target.Launch == nil {
-		return bus.NewPluginLaunch(target.Binary, []string{ChildCommand, "--outbox", filepath.Join(cwd, "outbox")})
+		return pluginfeed.NewPluginLaunch(target.Binary, []string{ChildCommand, "--outbox", filepath.Join(cwd, "outbox")})
 	}
 	return *target.Launch, target.Launch.Verify()
 }

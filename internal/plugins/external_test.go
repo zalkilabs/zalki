@@ -16,6 +16,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 type externalEvidence struct {
@@ -27,7 +28,7 @@ type externalEvidence struct {
 }
 
 func externalTestChild(args []string) error {
-	if err := journal.CheckPluginLeaseFD(3); err != nil {
+	if err := pluginfeed.CheckPluginLeaseFD(3); err != nil {
 		return err
 	}
 	cwd, err := os.Getwd()
@@ -73,7 +74,7 @@ func TestExternalPluginLiteralArgsHomeOnlyAndPersistentCwd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	feed := bus.NewPluginFeed(store, "external")
+	feed := pluginfeed.NewPluginFeed(store, "external")
 	data := filepath.Join(store.Dir, "plugins", "external.data")
 	evidence := filepath.Join(data, "observed.json")
 	marker := filepath.Join(data, "shell-was-used")
@@ -142,7 +143,7 @@ func TestExternalPluginRunRejectsChangedFileBeforeExec(t *testing.T) {
 	if err := os.WriteFile(file, []byte(body), 0700); err != nil {
 		t.Fatal(err)
 	}
-	feed := bus.NewPluginFeed(store, "external")
+	feed := pluginfeed.NewPluginFeed(store, "external")
 	if err := feed.AddExternalPlugin(file, nil); err != nil {
 		t.Fatal(err)
 	}

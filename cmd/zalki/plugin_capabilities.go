@@ -2,11 +2,11 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 func newPluginCapabilityCommand(opts *commandOptions, action string) *cobra.Command {
-	var grants bus.PluginCapabilityGrants
+	var grants pluginfeed.PluginCapabilityGrants
 	cmd := &cobra.Command{
 		Use: action + " NAME", Short: "Manage recorded plugin body/message permissions", Args: cobra.ExactArgs(1),
 		Long: "Grant replaces all recorded permissions while disabled; omitted selectors deny. Revoke clears them and disables the installation. The owner read proxy checks explicit read grants; opt-in v1-read children use the same read grants after metadata ACK. Plugin-origin sends remain unavailable. Native peers allowed by accept-from may store messages at plugin:UUID. Stored, not delivered. The owner inbox-read proxy requires --inbox-read. Not acknowledged. Re-run plugins enable NAME once to initialize an existing installation address.",
@@ -15,7 +15,7 @@ func newPluginCapabilityCommand(opts *commandOptions, action string) *cobra.Comm
 			if err != nil {
 				return err
 			}
-			feed, name := bus.NewPluginFeed(service.Store, args[0]), plainText(args[0])
+			feed, name := pluginfeed.NewPluginFeed(service.Store, args[0]), plainText(args[0])
 			if action == "revoke" {
 				return pluginDone(cmd, feed.RevokePluginCapabilities(), "Revoked all permissions of %s; it is disabled.", name)
 			}

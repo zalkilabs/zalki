@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
@@ -90,9 +90,9 @@ func (c *cappedOutput) WriteString(s string) (int, error) {
 }
 
 type installStatus struct {
-	bus.PluginFeedStatus
-	Install    *bus.PluginInstallReceipt `json:"install"`
-	PinMatches *bool                     `json:"pin_matches"`
+	pluginfeed.PluginFeedStatus
+	Install    *pluginfeed.PluginInstallReceipt `json:"install"`
+	PinMatches *bool                            `json:"pin_matches"`
 }
 
 func readInstallStatus(t *testing.T, state, name string) installStatus {
@@ -160,7 +160,7 @@ func assertGoInstallStatus(t *testing.T, state, session, output string) string {
 	return r.TreeSHA256
 }
 
-func assertGoReceipt(t *testing.T, r *bus.PluginInstallReceipt, artifact string) {
+func assertGoReceipt(t *testing.T, r *pluginfeed.PluginInstallReceipt, artifact string) {
 	t.Helper()
 	if r == nil || !strings.HasSuffix(r.Source, "plugin-src") || r.ArtifactSHA256 != artifact || !filepath.IsAbs(r.Tool) || len(r.ToolSHA256) != 64 || !slices.Equal(r.Build, []string{"go", "build", "-mod=readonly", "-o", "plugin", "."}) {
 		t.Fatalf("receipt wrong: %+v", r)

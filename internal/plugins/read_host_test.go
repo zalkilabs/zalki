@@ -18,6 +18,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 	"golang.org/x/sys/unix"
 )
 
@@ -37,7 +38,7 @@ type readTestOutcome struct {
 
 type readFixture struct {
 	store          bus.Store
-	feed           bus.PluginFeed
+	feed           pluginfeed.PluginFeed
 	session        model.Session
 	message        model.Message
 	binary, result string
@@ -54,14 +55,14 @@ func readHostFixture(t *testing.T, mode string, body string, nativePending bool)
 		t.Fatal(err)
 	}
 	x.binary = binary
-	x.feed = bus.NewPluginFeed(x.store, "reader")
+	x.feed = pluginfeed.NewPluginFeed(x.store, "reader")
 	if err := x.feed.AddExternalPlugin(binary, []string{"read-test-child", mode, x.result, session.ID, "10000000-0000-4000-8000-000000000001"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.feed.ConfigurePluginFeed([]string{session.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.feed.GrantPluginCapabilities(bus.PluginCapabilityGrants{Read: []string{session.ID}}); err != nil {
+	if err := x.feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Read: []string{session.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	x.message = model.Message{Schema: 1, ID: "10000000-0000-4000-8000-000000000001", From: session.ID, To: session.ID, TargetGeneration: session.Generation, Body: body, CreatedAt: "2000-01-01T00:00:00Z", AcknowledgedAt: "2000-01-02T00:00:00Z", Status: model.StatusSubmitted}
@@ -126,7 +127,7 @@ func writeReadCommand(out io.Writer, session, message string) error {
 }
 
 func readTestChild(args []string) error {
-	if err := journal.CheckPluginLeaseFD(3); err != nil {
+	if err := pluginfeed.CheckPluginLeaseFD(3); err != nil {
 		return err
 	}
 	mode, result, session, message := args[0], args[1], args[2], args[3]

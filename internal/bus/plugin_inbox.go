@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -12,12 +11,12 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// PluginInboxAdmit selects an authorized plugin installation and returns its
+// pluginInboxAdmit selects an authorized plugin installation and returns its
 // reservation step. Both calls run synchronously under the same journal lock.
-type PluginInboxAdmit func(view JournalView, stateDir, to, sender, generation string) (func(model.Message, time.Time) error, error)
+type pluginInboxAdmit func(view JournalView, stateDir, to, sender, generation string) (func(model.Message, time.Time) error, error)
 
 // submitPluginInbox never invokes an adapter or acknowledges a native message.
-func submitPluginInbox(s Store, request SendRequest, admit PluginInboxAdmit) (model.Message, error) {
+func submitPluginInbox(s Store, request SendRequest, admit pluginInboxAdmit) (model.Message, error) {
 	var message model.Message
 	err := WithJournalWrite(s, func(view JournalView) error {
 		var err error
@@ -30,7 +29,7 @@ func submitPluginInbox(s Store, request SendRequest, admit PluginInboxAdmit) (mo
 	return message, nil
 }
 
-func preparePluginInbox(s Store, view JournalView, request SendRequest, admit PluginInboxAdmit) (model.Message, error) {
+func preparePluginInbox(s Store, view JournalView, request SendRequest, admit pluginInboxAdmit) (model.Message, error) {
 	id, err := model.UUID(request.MessageID)
 	if err != nil {
 		return model.Message{}, err
@@ -76,37 +75,6 @@ func preparePluginInbox(s Store, view JournalView, request SendRequest, admit Pl
 		return model.Message{}, err
 	}
 	return message, nil
-}
-
-// AdmitPluginInbox is the CLI's local plugin inbox admission implementation.
-// The returned operation is used once, before the journal callback returns.
-func AdmitPluginInbox(view JournalView, stateDir, to, sender, generation string) (func(model.Message, time.Time) error, error) {
-	var reserve func(model.Message, time.Time) error
-	err := view.WithWriteScope(stateDir, func() error {
-		f, p, err := pluginInboxTarget(stateDir, to)
-		if err != nil {
-			return err
-		}
-		if !pluginInboxAdmissionAllowed(p, sender) {
-			return model.NewError(model.CodeUnauthorized, "plugin inbox admission denied")
-		}
-		reserve = func(message model.Message, now time.Time) error {
-			return view.WithWriteScope(stateDir, func() error {
-				index, err := f.loadPluginInboxIndex(view, p.ID, now)
-				if err != nil {
-					return err
-				}
-				return f.reservePluginInbox(index, message, generation, p.Capabilities.Revision, now)
-			})
-		}
-		return nil
-	})
-	return reserve, err
-}
-
-func pluginInboxAdmissionAllowed(p pluginRecord, sender string) bool {
-	c := p.Capabilities
-	return p.Launch != nil && c != nil && c.Installation == p.ID && c.PinSHA256 == p.Launch.PinSHA256 && slices.Contains(c.InboxFrom, sender)
 }
 
 func existingPluginInboxMessage(store Store, request SendRequest) (model.Message, bool, error) {

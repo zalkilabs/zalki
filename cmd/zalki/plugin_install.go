@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
@@ -45,7 +46,7 @@ var installTerminal = func(in io.Reader) (installChoice, func()) {
 type installFlags struct {
 	yes, allowUnsandboxed, inboxRead bool
 	tree                             string
-	grants                           bus.PluginInstallGrants
+	grants                           pluginfeed.PluginInstallGrants
 }
 
 func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
@@ -81,7 +82,7 @@ type pluginInstaller struct {
 	cmd     *cobra.Command
 	store   bus.Store
 	flags   installFlags
-	install *bus.PluginInstall
+	install *pluginfeed.PluginInstall
 	source  plugins.InstallSource
 	tool    plugins.InstallTool
 	folder  string
@@ -104,7 +105,7 @@ func (p *pluginInstaller) run(folder string) (err error) {
 	if err != nil {
 		return err
 	}
-	if p.install, err = bus.NewPluginFeed(p.store, manifest.Name).BeginPluginInstall(); err != nil {
+	if p.install, err = pluginfeed.NewPluginFeed(p.store, manifest.Name).BeginPluginInstall(); err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, p.install.Close()) }()
@@ -174,17 +175,17 @@ func (p *pluginInstaller) sessions() ([]model.Session, error) {
 	return all[:min(len(all), 50)], nil
 }
 
-func (p *pluginInstaller) review() (bus.PluginInstallGrants, bool, error) {
+func (p *pluginInstaller) review() (pluginfeed.PluginInstallGrants, bool, error) {
 	sessions, err := p.sessions()
 	if err != nil {
-		return bus.PluginInstallGrants{}, false, err
+		return pluginfeed.PluginInstallGrants{}, false, err
 	}
 	screen := newInstallScreen(p.header(), p.source.Manifest.Requests, sessions)
 	if p.flags.yes {
 		return p.reviewFlags(screen)
 	}
 	if len(sessions) == 0 {
-		return bus.PluginInstallGrants{}, false, errors.New("no Zalki sessions are registered, so there is nothing to grant; nothing was installed")
+		return pluginfeed.PluginInstallGrants{}, false, errors.New("no Zalki sessions are registered, so there is nothing to grant; nothing was installed")
 	}
 	in, out := p.cmd.InOrStdin(), p.cmd.OutOrStdout()
 	choice, restore := installTerminal(in)
@@ -204,7 +205,7 @@ func (p *pluginInstaller) review() (bus.PluginInstallGrants, bool, error) {
 }
 
 // reviewFlags checks the non-interactive choices and prints the same plan.
-func (p *pluginInstaller) reviewFlags(screen *installScreen) (bus.PluginInstallGrants, bool, error) {
+func (p *pluginInstaller) reviewFlags(screen *installScreen) (pluginfeed.PluginInstallGrants, bool, error) {
 	g, r := p.flags.grants, p.source.Manifest.Requests
 	switch {
 	case p.flags.tree != p.source.TreeSHA256:
@@ -236,13 +237,13 @@ func (p *pluginInstaller) reviewFlags(screen *installScreen) (bus.PluginInstallG
 	return screen.grants(), true, nil
 }
 
-func unrequestedInstallFlags(g bus.PluginInstallGrants, r plugins.InstallRequests) bool {
+func unrequestedInstallFlags(g pluginfeed.PluginInstallGrants, r plugins.InstallRequests) bool {
 	return (len(g.Read) > 0 && !r.Read) || (len(g.Send) > 0 && !r.Send) || (len(g.InboxFrom) > 0 && !r.AcceptFrom) || (g.InboxRead && !r.InboxRead)
 }
 
-func (p *pluginInstaller) finish(grants bus.PluginInstallGrants) error {
+func (p *pluginInstaller) finish(grants pluginfeed.PluginInstallGrants) error {
 	m := p.source.Manifest
-	receipt := bus.PluginInstallReceipt{Source: p.folder, TreeSHA256: p.source.TreeSHA256, ManifestSHA256: p.source.ManifestSHA256, Build: m.Build, Artifact: m.Artifact, InstalledAt: model.Timestamp()}
+	receipt := pluginfeed.PluginInstallReceipt{Source: p.folder, TreeSHA256: p.source.TreeSHA256, ManifestSHA256: p.source.ManifestSHA256, Build: m.Build, Artifact: m.Artifact, InstalledAt: model.Timestamp()}
 	ctx := p.cmd.Context()
 	if len(m.Build) > 0 {
 		installStep("build")
@@ -299,7 +300,7 @@ func installCommitError(name string) func(bool, error) error {
 	}
 }
 
-func describeInstallGrants(g bus.PluginInstallGrants) string {
+func describeInstallGrants(g pluginfeed.PluginInstallGrants) string {
 	parts := []string{fmt.Sprintf("changes from %d session(s)", len(g.Sessions))}
 	for _, kind := range []struct {
 		label string

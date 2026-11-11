@@ -11,17 +11,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
-func gracefulChildFixture(t *testing.T, mode string) (*child, context.CancelFunc, bus.PluginFeed, *os.File, string) {
+func gracefulChildFixture(t *testing.T, mode string) (*child, context.CancelFunc, pluginfeed.PluginFeed, *os.File, string) {
 	t.Helper()
 	store, _ := hostStore(t)
 	data := hostData(store)
 	if err := os.WriteFile(filepath.Join(data, ".child-mode"), []byte(mode), 0600); err != nil {
 		t.Fatal(err)
 	}
-	feed := bus.NewPluginFeed(store, "fake-notifier")
+	feed := pluginfeed.NewPluginFeed(store, "fake-notifier")
 	lease, err := feed.AcquirePluginLease()
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestPluginCancellationPreservesGenuineNonzeroExit(t *testing.T) {
 
 func TestPluginAlreadyCanceledContextDoesNotLaunch(t *testing.T) {
 	store, _ := hostStore(t)
-	feed := bus.NewPluginFeed(store, "fake-notifier")
+	feed := pluginfeed.NewPluginFeed(store, "fake-notifier")
 	lease, err := feed.AcquirePluginLease()
 	if err != nil {
 		t.Fatal(err)
@@ -178,7 +178,7 @@ func pluginGoroutineContains(needles ...string) bool {
 func TestPluginCancellationReentryLeavesNoShutdownGoroutines(t *testing.T) {
 	store, _ := hostStore(t)
 	cancel, done := startHost(t, store)
-	feed := bus.NewPluginFeed(store, "fake-notifier")
+	feed := pluginfeed.NewPluginFeed(store, "fake-notifier")
 	eventually(t, func() bool {
 		status, err := feed.PluginStatus()
 		return err == nil && !status.GapPending
@@ -237,7 +237,7 @@ func cancellationBlockedReceive(t *testing.T, mode string) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("receive cancellation did not reap")
 	}
-	feed := bus.NewPluginFeed(store, "fake-notifier")
+	feed := pluginfeed.NewPluginFeed(store, "fake-notifier")
 	lease, err := feed.AcquirePluginLease()
 	if err != nil {
 		t.Fatal("receive cancellation retained FD3", err)

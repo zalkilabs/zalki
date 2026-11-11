@@ -9,25 +9,25 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
 // installKind is one kind of access the manifest asked for, per session.
 type installKind struct {
 	label, help string
-	field       func(*bus.PluginInstallGrants) *[]string
+	field       func(*pluginfeed.PluginInstallGrants) *[]string
 }
 
 var installKinds = []struct {
 	installKind
 	requested func(plugins.InstallRequests) bool
 }{
-	{installKind{"changes", "see message changes", func(g *bus.PluginInstallGrants) *[]string { return &g.Sessions }}, func(r plugins.InstallRequests) bool { return r.Feed }},
-	{installKind{"read", "read message bodies", func(g *bus.PluginInstallGrants) *[]string { return &g.Read }}, func(r plugins.InstallRequests) bool { return r.Read }},
-	{installKind{"send", "send messages to it", func(g *bus.PluginInstallGrants) *[]string { return &g.Send }}, func(r plugins.InstallRequests) bool { return r.Send }},
-	{installKind{"accept", "it may message this plugin", func(g *bus.PluginInstallGrants) *[]string { return &g.InboxFrom }}, func(r plugins.InstallRequests) bool { return r.AcceptFrom }},
+	{installKind{"changes", "see message changes", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Sessions }}, func(r plugins.InstallRequests) bool { return r.Feed }},
+	{installKind{"read", "read message bodies", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Read }}, func(r plugins.InstallRequests) bool { return r.Read }},
+	{installKind{"send", "send messages to it", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Send }}, func(r plugins.InstallRequests) bool { return r.Send }},
+	{installKind{"accept", "it may message this plugin", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.InboxFrom }}, func(r plugins.InstallRequests) bool { return r.AcceptFrom }},
 }
 
 // screenStyle is how the session rows are drawn.
@@ -93,8 +93,8 @@ func (s *installScreen) rows() int {
 	return len(s.sessions)
 }
 
-func (s *installScreen) grants() bus.PluginInstallGrants {
-	var g bus.PluginInstallGrants
+func (s *installScreen) grants() pluginfeed.PluginInstallGrants {
+	var g pluginfeed.PluginInstallGrants
 	for key, on := range s.selected {
 		if on {
 			field := s.kinds[key[1]].field(&g)

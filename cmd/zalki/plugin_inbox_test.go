@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 func TestPluginInboxActualCLIStoredOnlyAndFailurePrivacy(t *testing.T) {
@@ -31,7 +31,7 @@ func TestPluginInboxActualCLIStoredOnlyAndFailurePrivacy(t *testing.T) {
 	capabilityCLIOK(t, binary, store.Dir, "configure", "inbox-fixture", "--session", author.ID)
 	capabilityCLIOK(t, binary, store.Dir, "grant", "inbox-fixture", "--accept-from", author.ID)
 	capabilityCLIOK(t, binary, store.Dir, "enable", "inbox-fixture")
-	status, err := bus.NewPluginFeed(store, "inbox-fixture").PluginStatus()
+	status, err := pluginfeed.NewPluginFeed(store, "inbox-fixture").PluginStatus()
 	if err != nil {
 		t.Fatal(err)
 	}

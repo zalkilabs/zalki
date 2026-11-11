@@ -19,6 +19,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 func TestPluginOwnerBinaryRoundtrip(t *testing.T) {
@@ -125,7 +126,7 @@ func assertPluginOwnerStatus(t *testing.T, binary, state, session string, enable
 	t.Helper()
 	raw, err := pluginOwnerCLI(t, binary, state, "status", "fake-notifier")
 	var status struct {
-		bus.PluginFeedStatus
+		pluginfeed.PluginFeedStatus
 		Outbox    string `json:"outbox"`
 		MaxEvents int    `json:"max_events"`
 	}
@@ -298,7 +299,7 @@ func TestPluginOwnerConfigureValidatesGrantsAndEnabledState(t *testing.T) {
 	if raw, err := pluginOwnerLocal(t, store.Dir, "configure", "fake-notifier", "--session", ids[1], "--session", ids[0]); err != nil {
 		t.Fatal("unsorted canonical grants were refused", string(raw), err)
 	}
-	status, err := bus.NewPluginFeed(store, "fake-notifier").PluginStatus()
+	status, err := pluginfeed.NewPluginFeed(store, "fake-notifier").PluginStatus()
 	if err != nil || status.Enabled || !reflect.DeepEqual(status.Sessions, ids) {
 		t.Fatal("configure did not preserve sorted explicit grants", status, err)
 	}

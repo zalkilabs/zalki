@@ -15,12 +15,13 @@ import (
 	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 // RunNotifier is the trusted reference child. It writes only its private outbox.
 func RunNotifier(ctx context.Context, input io.ReadCloser, output io.Writer, outbox string) error {
 	// The OS releases raw FD3 at process exit, after all exit handlers.
-	if err := journal.CheckPluginLeaseFD(3); err != nil {
+	if err := pluginfeed.CheckPluginLeaseFD(3); err != nil {
 		return err
 	}
 	if err := journal.LockExclusive(3, true); err != nil {

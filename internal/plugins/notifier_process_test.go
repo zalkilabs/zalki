@@ -17,6 +17,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 func referenceChild(t *testing.T, state string) (*child, func()) {
@@ -29,7 +30,7 @@ func referenceChildMode(t *testing.T, state, mode string) (*child, func()) {
 	if err := os.WriteFile(filepath.Join(state, ".child-mode"), []byte(mode), 0600); err != nil {
 		t.Fatal(err)
 	}
-	lease, err := journal.OpenPluginLease(filepath.Join(state, "child.lock"))
+	lease, err := pluginfeed.OpenPluginLease(filepath.Join(state, "child.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +147,7 @@ func TestOutboxParentLinkMustBeConfirmedOnRetry(t *testing.T) {
 }
 
 func cutReference(outbox, mode string) error {
-	if err := journal.CheckPluginLeaseFD(3); err != nil {
+	if err := pluginfeed.CheckPluginLeaseFD(3); err != nil {
 		return err
 	}
 	if err := prepareOutbox(outbox); err != nil {
@@ -378,17 +379,17 @@ func seedFullOutbox(t *testing.T, path string) {
 
 func TestPluginCommandBinaryFullOutboxRecovery(t *testing.T) {
 	store, session := hostStore(t)
-	gap, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+	gap, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
 	if err != nil || gap.Gap != "enabled" {
 		t.Fatal("initial gap", gap, err)
 	}
-	if err := bus.NewPluginFeed(store, "fake-notifier").AckPluginFeed(gap); err != nil {
+	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").AckPluginFeed(gap); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	pending, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+	pending, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
 	if err != nil || pending.Event == nil {
 		t.Fatal("missing pending state change", pending, err)
 	}
@@ -401,7 +402,7 @@ func TestPluginCommandBinaryFullOutboxRecovery(t *testing.T) {
 	if raw, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(raw), "outbox is full") {
 		t.Fatal("full outbox did not fail explicitly", string(raw), err)
 	}
-	again, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+	again, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
 	if err != nil || again.ID != pending.ID {
 		t.Fatal("failed notification advanced core cursor", again, err)
 	}
@@ -444,10 +445,10 @@ func runReferenceUntilConsumed(t *testing.T, store bus.Store, binary string) {
 		}
 	})
 	eventually(t, func() bool {
-		d, err := bus.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+		d, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
 		return err == nil && d.ID == ""
 	})
-	if err := bus.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {
+	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
 	select {

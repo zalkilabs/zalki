@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 func checkRealBinary(t *testing.T) string {
@@ -79,7 +79,7 @@ func TestPluginCheckNamedRefusesDriftAndActiveNameLease(t *testing.T) {
 	if err := os.WriteFile(file, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	feed := bus.NewPluginFeed(store, "external")
+	feed := pluginfeed.NewPluginFeed(store, "external")
 	if err := feed.AddExternalPlugin(file, nil); err != nil {
 		t.Fatal(err)
 	}

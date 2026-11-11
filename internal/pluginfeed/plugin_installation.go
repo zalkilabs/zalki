@@ -1,0 +1,160 @@
+package pluginfeed
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/model"
+)
+
+func (s pluginFiles) checkName() error {
+	if len(s.name) > 32 || !model.ValidKind(s.name) {
+		return model.NewError(model.CodeInvalidInput, "plugin name must match [a-z][a-z0-9-]{0,31}")
+	}
+	return nil
+}
+
+func (s PluginFeed) locked(fn func() error) error {
+	return s.write(func(bus.JournalView) error { return fn() })
+}
+
+func (s PluginFeed) write(fn func(bus.JournalView) error) error {
+	if err := s.checkName(); err != nil {
+		return err
+	}
+	return bus.WithJournalWrite(s.store, fn)
+}
+
+func (s pluginFiles) pluginDir() string      { return filepath.Join(s.root, "plugins") }
+func (s pluginFiles) pluginDataPath() string { return filepath.Join(s.pluginDir(), s.name+".data") }
+
+func pluginDirectory(path string, create bool) error {
+	if create {
+		if err := os.Mkdir(path, 0700); err != nil && !errors.Is(err, os.ErrExist) {
+			return err
+		}
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || (create && info.Mode().Perm() != 0700) || info.Mode().Perm()&0077 != 0 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) { //nolint:gosec // G115: getuid returns a Unix uid_t.
+		return errors.New("plugin directory must be private and owned by this user")
+	}
+	return nil
+}
+
+// AcquirePluginLease excludes add, remove, other hosts and any still-live child.
+// The lease file persists across removal; never unlink or explicitly unlock it.
+func (s PluginFeed) AcquirePluginLease() (*os.File, error) {
+	if err := s.checkName(); err != nil {
+		return nil, err
+	}
+	if err := pluginDirectory(s.pluginDir(), false); err != nil {
+		return nil, err
+	}
+	return OpenPluginLease(filepath.Join(s.pluginDir(), s.name+".lock"))
+}
+
+// AddPlugin creates a disabled installation and its persistent private data dir.
+// An existing record is never replaced and abandoned data is never adopted.
+func (s PluginFeed) AddPlugin() error { return s.addPlugin(nil) }
+
+// AddExternalPlugin pins an owner-supplied launch specification before installation.
+func (s PluginFeed) AddExternalPlugin(executable string, args []string) error {
+	if err := s.checkName(); err != nil {
+		return err
+	}
+	if s.name == "fake-notifier" {
+		return model.NewError(model.CodeInvalidInput, "fake-notifier is reserved for the built-in plugin")
+	}
+	launch, err := NewPluginLaunch(executable, args)
+	if err != nil {
+		return err
+	}
+	return s.addPlugin(&launch)
+}
+
+func (s PluginFeed) addPlugin(launch *PluginLaunch) error {
+	if err := s.locked(func() error {
+		if err := pluginDirectory(s.pluginDir(), true); err != nil {
+			return err
+		}
+		return errors.Join(journal.SyncDir(filepath.Dir(s.store.Dir)), journal.SyncDir(s.store.Dir))
+	}); err != nil {
+		return err
+	}
+	lease, err := s.AcquirePluginLease()
+	if err != nil {
+		return err
+	}
+	defer lease.Close() //nolint:errcheck // Closing releases the installation lease.
+	return s.locked(func() error {
+		p, _, err := s.loadPlugin()
+		if err != nil {
+			return err
+		}
+		if p.ID != "" {
+			return model.NewError(model.CodeConflict, "plugin already exists")
+		}
+		if err := pluginDirectory(s.pluginDataPath(), true); err != nil {
+			return err
+		}
+		if err := s.checkEmptyPluginData(); err != nil {
+			return err
+		}
+		return createPluginInstallation(s, launch)
+	})
+}
+
+// RemovePlugin deletes a disabled, stopped installation and its private data.
+// Data cleanup runs outside the journal lock, while retaining the name lease.
+func (s PluginFeed) RemovePlugin() error {
+	var installation string
+	lease, err := s.AcquirePluginLease()
+	if err != nil {
+		return err
+	}
+	defer lease.Close() //nolint:errcheck // Closing releases the installation lease.
+	if err := s.locked(func() error {
+		p, _, err := s.loadPlugin()
+		if err != nil {
+			return err
+		}
+		installation = p.ID
+		if p.Enabled {
+			return model.NewError(model.CodeConflict, "disable the plugin before removing it")
+		}
+		if err := os.Remove(s.pluginPath()); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		return journal.SyncDir(s.pluginDir())
+	}); err != nil {
+		return err
+	}
+	if installation != "" {
+		if err := os.Remove(filepath.Join(s.pluginDir(), "id-"+installation+".json")); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	if err := os.RemoveAll(s.pluginDataPath()); err != nil {
+		return err
+	}
+	if err := s.sweepPluginInstallFiles(); err != nil {
+		return err
+	}
+	return journal.SyncDir(s.pluginDir())
+}
+
+func createPluginInstallation(s PluginFeed, launch *PluginLaunch) error {
+	p := pluginRecord{ID: model.NewUUID(), Name: s.name, Launch: launch}
+	if err := s.savePluginIdentity(p.ID); err != nil {
+		return err
+	}
+	_, err := s.savePlugin(p)
+	return err
+}

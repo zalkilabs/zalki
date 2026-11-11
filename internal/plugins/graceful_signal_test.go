@@ -11,25 +11,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 type signalFixtureHost struct {
 	cmd                  *exec.Cmd
 	done                 chan struct{}
 	waitErr              error
-	feed                 bus.PluginFeed
+	feed                 pluginfeed.PluginFeed
 	data, stdout, stderr string
 }
 
-func signalFixture(t *testing.T) (bus.PluginFeed, string, string) {
+func signalFixture(t *testing.T) (pluginfeed.PluginFeed, string, string) {
 	t.Helper()
 	store, session := hostStore(t)
 	binary, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	feed := bus.NewPluginFeed(store, "signal-child")
+	feed := pluginfeed.NewPluginFeed(store, "signal-child")
 	data := filepath.Join(store.Dir, "plugins", "signal-child.data")
 	if err := feed.AddExternalPlugin(binary, []string{ChildCommand, "--outbox", filepath.Join(data, "outbox")}); err != nil {
 		t.Fatal(err)

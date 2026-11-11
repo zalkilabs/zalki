@@ -5,7 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/spf13/cobra"
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 func newPluginReadCommand(opts *commandOptions) *cobra.Command {
@@ -23,7 +23,7 @@ func newPluginReadCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			raw, err := bus.NewPluginFeed(service.Store, args[0]).ReadPluginMessage(session, message)
+			raw, err := pluginfeed.NewPluginFeed(service.Store, args[0]).ReadPluginMessage(session, message)
 			if err != nil {
 				return err
 			}

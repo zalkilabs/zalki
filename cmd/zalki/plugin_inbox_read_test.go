@@ -14,6 +14,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 type inboxReadCLIFixture struct {
@@ -21,7 +22,7 @@ type inboxReadCLIFixture struct {
 	store   bus.Store
 	key     string
 	message model.Message
-	status  bus.PluginFeedStatus
+	status  pluginfeed.PluginFeedStatus
 	marker  string
 }
 
@@ -46,11 +47,11 @@ func newInboxReadCLIFixture(t *testing.T) inboxReadCLIFixture {
 	capabilityCLIOK(t, binary, store.Dir, "configure", "external", "--session", author.ID)
 	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--accept-from", author.ID, "--inbox-read")
 	capabilityCLIOK(t, binary, store.Dir, "enable", "external")
-	status, err := bus.NewPluginFeed(store, "external").PluginStatus()
+	status, err := pluginfeed.NewPluginFeed(store, "external").PluginStatus()
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := bus.Service{Store: store, PluginInbox: bus.AdmitPluginInbox}
+	service := bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox}
 	m, err := service.Send(context.Background(), bus.SendRequest{Actor: author.ID, Capability: key, To: "plugin:" + status.ID, MessageID: "30000000-0000-4000-8000-000000000083", Body: "PRIVATE-C1A2-CLI-BODY <>&\nsecret"})
 	if err != nil {
 		t.Fatal(err)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
@@ -29,7 +30,7 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			feed, name := bus.NewPluginFeed(service.Store, args[0]), plainText(args[0])
+			feed, name := pluginfeed.NewPluginFeed(service.Store, args[0]), plainText(args[0])
 			switch action {
 			case "add":
 				if executable != "" {
@@ -71,12 +72,12 @@ func pluginDone(cmd *cobra.Command, err error, format string, args ...any) error
 }
 
 func printPluginStatus(cmd *cobra.Command, store bus.Store, name string) error {
-	status, err := bus.NewPluginFeed(store, name).PluginStatus()
+	status, err := pluginfeed.NewPluginFeed(store, name).PluginStatus()
 	if err != nil {
 		return err
 	}
 	value := struct {
-		bus.PluginFeedStatus
+		pluginfeed.PluginFeedStatus
 		Outbox            string `json:"outbox,omitempty"`
 		MaxEvents         int    `json:"max_events,omitempty"`
 		PinMatches        *bool  `json:"pin_matches,omitempty"`

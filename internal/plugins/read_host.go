@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 type readRequest struct {
@@ -25,8 +25,8 @@ type readCommand struct {
 }
 type readHost struct {
 	ctx     context.Context
-	feed    bus.PluginFeed
-	binding *bus.PluginFeedStatus
+	feed    pluginfeed.PluginFeed
+	binding *pluginfeed.PluginFeedStatus
 	child   *child
 	frames  chan *readCommand
 	failed  chan string
@@ -35,7 +35,7 @@ type readHost struct {
 	acked   bool
 }
 
-func runReadHost(ctx context.Context, feed bus.PluginFeed, binding *bus.PluginFeedStatus, c *child, out io.Writer, ready string, header frame) error {
+func runReadHost(ctx context.Context, feed pluginfeed.PluginFeed, binding *pluginfeed.PluginFeedStatus, c *child, out io.Writer, ready string, header frame) error {
 	if header.Hello == nil || header.Hello.Version != "v1-read" || header.ID != "" || header.Ack != "" || header.Gap != "" || header.Event != nil || c.reader.Buffered() != 0 {
 		return errors.New("plugin requires hello.version=v0")
 	}
