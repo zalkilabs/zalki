@@ -84,11 +84,9 @@ func TestRegistryConfigurationRefusals(t *testing.T) {
 		{"nil registry", func(*testing.T) *agentapi.Registry { return nil }, "/bin/zalki", "/state",
 			"internal: agent registry is not configured", "internal"},
 		{"relative binary", registryFor(declaring(kind, good)), "zalki", "/state",
-			"binary and state paths must be absolute", "internal"},
-		{"relative state", registryFor(declaring(kind, good)), "/bin/zalki", "state",
-			"binary and state paths must be absolute", "internal"},
+			"binary path must be absolute", "internal"},
 		{"empty binary", registryFor(declaring(kind, good)), "", "/state",
-			"binary and state paths must be absolute", "internal"},
+			"binary path must be absolute", "internal"},
 		{"no adapter implements the interface", registryFor(nativeAdapter(kind)), "/bin/zalki", "/state",
 			"no adapter declares installation configuration", "internal"},
 		{"an adapter that declares nothing", registryFor(declaring(kind)), "/bin/zalki", "/state",
@@ -140,7 +138,7 @@ func TestRegistryConfigurationRefusals(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			files, err := test.registry(t).Configuration(test.binary, test.state)
+			files, err := test.registry(t).Configuration(test.binary, []string{"--state", test.state})
 			if err == nil || err.Error() != test.wantText || files != nil {
 				t.Fatalf("got %v, %v; want no files and error %q", files, err, test.wantText)
 			}
@@ -155,7 +153,7 @@ func TestRegistryConfigurationResult(t *testing.T) {
 	file := func(path, draft string) declared { return declared{Path: path, Draft: draft, JSON: jsonPatch(draft)} }
 	t.Run("one adapter", func(t *testing.T) {
 		registry := registryOf(t, declaring("alpha", declared{Path: ".a/c.toml", Draft: "c.toml", TOML: "x = 1\n", ConfigRootEnv: "ALPHA_HOME"}))
-		files, err := registry.Configuration("/bin/zalki", "/state")
+		files, err := registry.Configuration("/bin/zalki", []string{"--state", "/state"})
 		want := []summary{{Path: ".a/c.toml", Draft: "c.toml", Root: "ALPHA_HOME", TOML: "x = 1\n"}}
 		if err != nil || !reflect.DeepEqual(summarize(files), want) {
 			t.Fatalf("got %+v, %v; want %+v", summarize(files), err, want)
@@ -168,7 +166,7 @@ func TestRegistryConfigurationResult(t *testing.T) {
 			declaring("alpha", file(".z/a.json", "a.json"), file(".m/y.json", "y.json")),
 			declaring("mid", file(".m/b.json", "b.json")),
 		)
-		files, err := registry.Configuration("/bin/zalki", "/state")
+		files, err := registry.Configuration("/bin/zalki", []string{"--state", "/state"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -184,42 +182,14 @@ func TestRegistryConfigurationResult(t *testing.T) {
 
 	t.Run("adapters that do not implement the interface are skipped", func(t *testing.T) {
 		registry := registryOf(t, nativeAdapter("alpha"), declaring("beta", file(".b/x.json", "x.json")))
-		files, err := registry.Configuration("/bin/zalki", "/state")
+		files, err := registry.Configuration("/bin/zalki", []string{"--state", "/state"})
 		if err != nil || len(files) != 1 || files[0].Path != ".b/x.json" {
 			t.Fatalf("got %+v, %v", files, err)
 		}
 	})
 
 	t.Run("each adapter gets the binary and its own copy of the arguments", func(t *testing.T) {
-		var seen [][]string
-		var binaries []string
-		record := func(kind, path, draft string, tamper bool) agentapi.Adapter {
-			return configAdapter{nativeAdapter(kind), func(binary string, args []string) []declared {
-				binaries = append(binaries, binary)
-				seen = append(seen, append([]string{}, args...))
-				if tamper {
-					args[0] = "--tampered"
-				}
-				return []declared{file(path, draft)}
-			}}
-		}
-		registry := registryOf(t, record("beta", ".b/x.json", "x.json", false), record("alpha", ".a/y.json", "y.json", true))
-		for range 2 {
-			if _, err := registry.Configuration("/opt/my tools/zalki", "/var/my state"); err != nil {
-				t.Fatal(err)
-			}
-		}
-		wantArgs := []string{"--state", "/var/my state"}
-		// Adapters run in kind order: alpha (tampers), then beta, on every call.
-		if len(seen) != 4 || !reflect.DeepEqual(seen[0], wantArgs) || !reflect.DeepEqual(seen[1], wantArgs) ||
-			!reflect.DeepEqual(seen[2], wantArgs) || !reflect.DeepEqual(seen[3], wantArgs) {
-			t.Fatalf("adapters saw %q", seen)
-		}
-		for _, binary := range binaries {
-			if binary != "/opt/my tools/zalki" {
-				t.Fatalf("binary %q was altered", binary)
-			}
-		}
+		checkRegistryArgumentCopies(t, file)
 	})
 
 	t.Run("the slice is new on every call but the JSON maps are the adapter's own", func(t *testing.T) {
@@ -227,12 +197,12 @@ func TestRegistryConfigurationResult(t *testing.T) {
 		registry := registryOf(t, declaring("alpha",
 			declared{Path: ".a/two.json", Draft: "two.json", JSON: patch},
 			declared{Path: ".a/one.json", Draft: "one.json", JSON: jsonPatch("hooks")}))
-		first, err := registry.Configuration("/bin/zalki", "/state")
+		first, err := registry.Configuration("/bin/zalki", []string{"--state", "/state"})
 		if err != nil {
 			t.Fatal(err)
 		}
 		first[0], first[1] = first[1], first[0] // Reordering a result must not leak into later calls.
-		second, err := registry.Configuration("/bin/zalki", "/state")
+		second, err := registry.Configuration("/bin/zalki", []string{"--state", "/state"})
 		if err != nil || second[0].Path != ".a/one.json" || second[1].Path != ".a/two.json" {
 			t.Fatalf("a later call saw the earlier caller's reordering: %+v, %v", summarize(second), err)
 		}
@@ -243,4 +213,41 @@ func TestRegistryConfigurationResult(t *testing.T) {
 		}
 	})
 
+}
+
+func checkRegistryArgumentCopies(t *testing.T, file func(string, string) declared) {
+	t.Helper()
+	var seen [][]string
+	var binaries []string
+	record := func(kind, path, draft string, tamper bool) agentapi.Adapter {
+		return configAdapter{nativeAdapter(kind), func(binary string, args []string) []declared {
+			binaries = append(binaries, binary)
+			seen = append(seen, append([]string{}, args...))
+			if tamper {
+				args[0] = "--tampered"
+			}
+			return []declared{file(path, draft)}
+		}}
+	}
+	registry := registryOf(t, record("beta", ".b/x.json", "x.json", false), record("alpha", ".a/y.json", "y.json", true))
+	args := []string{"--config", "/settings ' $literal.json", "--state", "/var/my state"}
+	for range 2 {
+		if _, err := registry.Configuration("/opt/my tools/zalki", args); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wantArgs := []string{"--config", "/settings ' $literal.json", "--state", "/var/my state"}
+	if !reflect.DeepEqual(args, wantArgs) {
+		t.Fatal("adapter changed the caller's arguments")
+	}
+	// Adapters run in kind order: alpha (tampers), then beta, on every call.
+	if len(seen) != 4 || !reflect.DeepEqual(seen[0], wantArgs) || !reflect.DeepEqual(seen[1], wantArgs) ||
+		!reflect.DeepEqual(seen[2], wantArgs) || !reflect.DeepEqual(seen[3], wantArgs) {
+		t.Fatalf("adapters saw %q", seen)
+	}
+	for _, binary := range binaries {
+		if binary != "/opt/my tools/zalki" {
+			t.Fatalf("binary %q was altered", binary)
+		}
+	}
 }

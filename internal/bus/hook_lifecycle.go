@@ -143,5 +143,5 @@ func (h hookRuntime) ClaimRecovery(policy func(model.SessionView) (agent.Recover
 		return agent.RecoveryGrant{}, err
 	}
 	h.store.logEvent(slog.LevelInfo, "listener.recovery_requested", eventData{Actor: h.actor})
-	return agent.RecoveryGrant{Actor: h.actor, Capability: key, StateDir: h.store.Dir}, nil
+	return agent.RecoveryGrant{Actor: h.actor, Capability: key, StateDir: h.store.Dir, ConfigFile: h.store.ConfigFile}, nil
 }

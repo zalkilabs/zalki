@@ -339,7 +339,7 @@ func TestAdapterConfigurationCannotClaimArbitraryPaths(t *testing.T) {
 // does: all five fields are converted by name and the JSON maps are not copied.
 func installDeclare(registry *agent.Registry) install.Declare {
 	return func(binary, state string) ([]install.ConfigFile, error) {
-		declarations, err := registry.Configuration(binary, state)
+		declarations, err := registry.Configuration(binary, []string{"--state", state})
 		if err != nil {
 			return nil, err
 		}

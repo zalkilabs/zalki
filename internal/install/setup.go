@@ -14,7 +14,7 @@ import (
 func ShellQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'" }
 
 // WriteSetup writes reviewable configuration drafts for the declared files.
-func WriteSetup(declare Declare, binary, state, out, home string) error {
+func WriteSetup(declare Declare, binary, state, out, home, configFile string) error {
 	files, err := declare(binary, state)
 	if err != nil {
 		return err
@@ -22,18 +22,9 @@ func WriteSetup(declare Declare, binary, state, out, home string) error {
 	if !filepath.IsAbs(home) {
 		return errors.New("home path must be absolute")
 	}
-	targets := map[string]string{}
-	seen := map[string]bool{}
-	for _, file := range files {
-		target, err := file.target(home)
-		if err != nil {
-			return err
-		}
-		if seen[target] || target == filepath.Join(state, "installation.json") {
-			return errors.New("configuration targets overlap each other or installation state")
-		}
-		seen[target] = true
-		targets[file.Draft] = target
+	targets, err := setupTargets(files, Request{StateDir: state, HomeDir: home, ConfigFile: configFile})
+	if err != nil {
+		return err
 	}
 	if err := os.MkdirAll(out, 0700); err != nil {
 		return err
@@ -193,4 +184,24 @@ func configBytes(path string) ([]byte, bool, error) {
 	}
 	b, err := os.ReadFile(path) //nolint:gosec // G304: path is a client settings file the installer owns
 	return b, true, err
+}
+
+func setupTargets(files []ConfigFile, request Request) (map[string]string, error) {
+	targets := map[string]string{}
+	seen := map[string]bool{}
+	for _, file := range files {
+		target, err := file.target(request.HomeDir)
+		if err != nil {
+			return nil, err
+		}
+		if err := validateReservedTarget(target, file, request); err != nil {
+			return nil, err
+		}
+		if seen[target] || target == filepath.Join(request.StateDir, "installation.json") {
+			return nil, errors.New("configuration targets overlap each other or installation state")
+		}
+		seen[target] = true
+		targets[file.Draft] = target
+	}
+	return targets, nil
 }

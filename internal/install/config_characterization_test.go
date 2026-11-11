@@ -24,7 +24,7 @@ import (
 // execution specification. The JSON maps are passed on by reference, as the
 // direct registry-to-installer wiring does today.
 func configDeclare(binary, state string) ([]install.ConfigFile, error) {
-	files, err := adapters.Builtin().Configuration(binary, state)
+	files, err := adapters.Builtin().Configuration(binary, []string{"--state", state})
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func TestSetupWritesExactlyTheDeclaredDrafts(t *testing.T) {
 		isolateConfigEnv(t)
 		home := t.TempDir()
 		state, out := filepath.Join(home, "state"), filepath.Join(home, "drafts")
-		if err := install.WriteSetup(configDeclare, binary, state, out, home); err != nil {
+		if err := install.WriteSetup(configDeclare, binary, state, out, home, ""); err != nil {
 			t.Fatal(err)
 		}
 		if got := entryNames(t, out); !reflect.DeepEqual(got, drafts) {
@@ -147,7 +147,7 @@ func TestSetupWritesExactlyTheDeclaredDrafts(t *testing.T) {
 		t.Setenv("CURSOR_CONFIG_DIR", filepath.Join(custom, "cursor")) // Declared files ignore this one.
 		t.Setenv("XDG_CONFIG_HOME", filepath.Join(custom, "xdg"))      // So does this one.
 		out := filepath.Join(home, "drafts")
-		if err := install.WriteSetup(configDeclare, binary, filepath.Join(home, "state"), out, home); err != nil {
+		if err := install.WriteSetup(configDeclare, binary, filepath.Join(home, "state"), out, home, ""); err != nil {
 			t.Fatal(err)
 		}
 		var targets map[string]string
@@ -168,12 +168,12 @@ func TestSetupWritesExactlyTheDeclaredDrafts(t *testing.T) {
 		}
 	})
 
-	t.Run("a blank variable means unset", func(t *testing.T) {
+	t.Run("graphic spaces mean unset", func(t *testing.T) {
 		isolateConfigEnv(t)
 		home := t.TempDir()
-		t.Setenv("CODEX_HOME", " \t ")
+		t.Setenv("CODEX_HOME", "   ")
 		out := filepath.Join(home, "drafts")
-		if err := install.WriteSetup(configDeclare, binary, filepath.Join(home, "state"), out, home); err != nil {
+		if err := install.WriteSetup(configDeclare, binary, filepath.Join(home, "state"), out, home, ""); err != nil {
 			t.Fatal(err)
 		}
 		var targets map[string]string
@@ -211,7 +211,7 @@ func TestSetupRefusals(t *testing.T) {
 				t.Setenv(name, strings.ReplaceAll(value, "@home", base))
 			}
 			out := filepath.Join(base, "drafts")
-			err := install.WriteSetup(configDeclare, binary, filepath.Join(base, "state"), out, test.home(base))
+			err := install.WriteSetup(configDeclare, binary, filepath.Join(base, "state"), out, test.home(base), "")
 			if err == nil || err.Error() != test.want {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
@@ -432,7 +432,7 @@ func TestPreviewAndPlanNeverChangeTheDeclaredMaps(t *testing.T) {
 		}
 		checkMaps(step.name)
 	}
-	if err := install.WriteSetup(declare, "/bin/two", state, filepath.Join(home, "drafts"), home); err != nil {
+	if err := install.WriteSetup(declare, "/bin/two", state, filepath.Join(home, "drafts"), home, ""); err != nil {
 		t.Fatal(err)
 	}
 	checkMaps("setup")

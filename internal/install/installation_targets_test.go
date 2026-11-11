@@ -164,7 +164,7 @@ func TestSetupRecordsCustomDestinations(t *testing.T) {
 	home, custom := t.TempDir(), t.TempDir()
 	t.Setenv("CLAUDE_CONFIG_DIR", custom)
 	out := filepath.Join(home, "drafts")
-	if err := install.WriteSetup(declare, "/fixture/zalki", filepath.Join(home, "state"), out, home); err != nil {
+	if err := install.WriteSetup(declare, "/fixture/zalki", filepath.Join(home, "state"), out, home, ""); err != nil {
 		t.Fatal(err)
 	}
 	var targets map[string]string

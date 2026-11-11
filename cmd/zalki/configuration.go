@@ -9,9 +9,9 @@ import (
 // to the installer's execution specification. All five fields are converted by
 // name. The JSON maps are passed on as they are, never copied: the installer
 // reads them but does not modify them.
-func installDeclarations(registry *agent.Registry) install.Declare {
+func installDeclarations(registry *agent.Registry, configFile string) install.Declare {
 	return func(binary, state string) ([]install.ConfigFile, error) {
-		declarations, err := registry.Configuration(binary, state)
+		declarations, err := registry.Configuration(binary, []string{"--config", configFile, "--state", state})
 		if err != nil {
 			return nil, err
 		}

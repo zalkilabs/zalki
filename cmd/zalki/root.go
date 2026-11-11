@@ -8,25 +8,29 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/config"
+	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/logging"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 type commandOptions struct {
-	home     string
-	state    string
-	logLevel string
-	logFile  string
-	logger   *slog.Logger
-	registry *agent.Registry
+	root       *cobra.Command
+	home       string
+	state      string
+	configFile string
+	logLevel   string
+	logFile    string
+	logger     *slog.Logger
+	registry   *agent.Registry
+	snapshot   *config.Snapshot
 }
 
 // A fresh command tree keeps flags and IO local to each invocation.
@@ -40,10 +44,15 @@ func newRootCommand(home string) *cobra.Command {
 		SilenceUsage:  true, // Runtime errors must not produce protocol output.
 	}
 	root.SetVersionTemplate("{{.Version}}\n")
+	opts.root = root
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if err := opts.loadConfig(); err != nil && cmd.Name() != "version" {
+			return err
+		}
 		return opts.initLogger(cmd)
 	}
-	root.PersistentFlags().StringVar(&opts.state, "state", filepath.Join(home, ".local", "state", "zalki"), "shared private registry directory")
+	root.PersistentFlags().StringVar(&opts.configFile, "config", "", "JSON settings file (ZALKI_CONFIG; default XDG_CONFIG_HOME/zalki/config.json or ~/.config/zalki/config.json)")
+	root.PersistentFlags().StringVar(&opts.state, "state", "", "shared private registry directory (ZALKI_STATE; default XDG_STATE_HOME/zalki or ~/.local/state/zalki)")
 	level := os.Getenv("ZALKI_LOG_LEVEL")
 	if level == "" {
 		level = "info"
@@ -51,6 +60,7 @@ func newRootCommand(home string) *cobra.Command {
 	root.PersistentFlags().StringVar(&opts.logLevel, "log-level", level, "diagnostic level: debug, info, warn, error, off (ZALKI_LOG_LEVEL)")
 	root.PersistentFlags().StringVar(&opts.logFile, "log-file", os.Getenv("ZALKI_LOG_FILE"), "private JSON log file; default STATE/logs/zalki.jsonl, - for stderr (ZALKI_LOG_FILE)")
 	root.AddCommand(
+		newConfigCommand(opts),
 		newMCPCommand(opts), newHookCommand(opts), newCursorListenCommand(opts),
 		newSendCommand(opts), newListCommand(opts), newDoctorCommand(opts),
 		newPruneCommand(opts), newSetupCommand(opts), newInstallCommand(opts),
@@ -71,29 +81,50 @@ func newRootCommand(home string) *cobra.Command {
 // initLogger opens the diagnostic log selected by --log-file and --log-level,
 // defaulting to a private file in the state directory.
 func (opts *commandOptions) initLogger(cmd *cobra.Command) error {
-	path := opts.logFile
-	var stateRoot string
-	if path == "" {
-		path = filepath.Join(opts.state, "logs", "zalki.jsonl")
-		var err error
-		stateRoot, err = filepath.Abs(opts.state)
-		if err != nil {
-			return err
-		}
+	paths, err := opts.resolvedPaths()
+	if err != nil {
+		return err
 	}
-	if path != "-" {
-		var err error
-		path, err = filepath.Abs(path)
-		if err != nil {
-			return err
-		}
+	cfg, err := opts.loggerConfig(paths)
+	if err != nil {
+		return err
 	}
-	logger, err := logging.New(logging.Config{Level: opts.logLevel, File: path, ExistingStateDir: stateRoot}, cmd.ErrOrStderr())
+	declare := installDeclarations(opts.registry, paths.ConfigFile.Value)
+	if cmd.Name() == "uninstall" {
+		declare = nil
+	}
+	if err := install.CheckLogFile(declare, cfg.File, paths.StateDir.Value, opts.home); err != nil {
+		return err
+	}
+	logger, err := logging.New(cfg, cmd.ErrOrStderr())
 	if err != nil {
 		return err
 	}
 	opts.logger = logger.With("app", "zalki", "version", bus.BuildVersion(), "pid", os.Getpid(), "component", cmd.Name())
 	return nil
+}
+
+func (opts *commandOptions) loggerConfig(paths config.Paths) (logging.Config, error) {
+	level, path := opts.logLevel, opts.logFile
+	fromState := path == ""
+	if opts.snapshot != nil {
+		level = opts.snapshot.Settings.LogLevel.Value
+		path = opts.snapshot.Settings.LogFile.Value
+		fromState = opts.snapshot.Settings.LogFileFromState
+	}
+	var stateRoot string
+	if fromState {
+		path = paths.DefaultLogFile
+		stateRoot = paths.StateDir.Value
+	}
+	path, err := absoluteLogPath(path)
+	if err != nil {
+		return logging.Config{}, err
+	}
+	if err := checkLogConfigFile(path, paths.ConfigFile.Value); err != nil {
+		return logging.Config{}, err
+	}
+	return logging.Config{Level: level, File: path, ExistingStateDir: stateRoot}, nil
 }
 
 func observeCommands(root *cobra.Command, opts *commandOptions) {
@@ -125,14 +156,15 @@ func observeCommands(root *cobra.Command, opts *commandOptions) {
 }
 
 func (opts *commandOptions) service() (*bus.Service, error) {
-	directory, err := filepath.Abs(opts.state)
+	if err := opts.loadConfig(); err != nil {
+		return nil, err
+	}
+	store, err := bus.NewStore(opts.snapshot.Paths.StateDir.Value, opts.registry, opts.logger)
 	if err != nil {
 		return nil, err
 	}
-	store, err := bus.NewStore(directory, opts.registry, opts.logger)
-	if err != nil {
-		return nil, err
-	}
+	store.MaxBodyBytes = opts.snapshot.Settings.MaxBodyBytes.Value
+	store.ConfigFile = opts.snapshot.Paths.ConfigFile.Value
 	return &bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox}, nil
 }
 

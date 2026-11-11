@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/config"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -72,6 +73,14 @@ func TestMCPSignalProcessHelper(*testing.T) {
 	}
 	state := os.Getenv("ZALKI_SIGNAL_STATE")
 	opts := &commandOptions{home: filepath.Dir(state), state: state, logLevel: "debug", logFile: "-", registry: signalTestRegistry(os.Getenv("ZALKI_SIGNAL_MARKER"))}
+	opts.snapshot = &config.Snapshot{
+		Paths: config.Paths{StateDir: config.Value[string]{Value: state}},
+		Settings: config.Settings{
+			MaxBodyBytes: config.Value[int]{Value: model.MaxMessageBodyBytes},
+			LogLevel:     config.Value[string]{Value: opts.logLevel},
+			LogFile:      config.Value[string]{Value: opts.logFile},
+		},
+	}
 	root := &cobra.Command{Use: "signal-helper", SilenceErrors: true, SilenceUsage: true}
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error { return opts.initLogger(cmd) }
 	root.AddCommand(newMCPCommand(opts))

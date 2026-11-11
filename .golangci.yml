@@ -26,6 +26,12 @@ linters:
   settings:
     depguard:
       rules:
+        config:
+          files: ["**/internal/config/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/zalkilabs/zalki/internal/model$
         core:
           files: ["**/internal/bus/*.go", "!$test"]
           list-mode: strict

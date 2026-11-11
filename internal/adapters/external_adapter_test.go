@@ -157,7 +157,7 @@ func TestExternalAdapterComposesWithBuiltins(t *testing.T) {
 	if err != nil || msg.Status != model.StatusSubmitted || msg.Receipt == nil || msg.Receipt.Output != "external-fourth" {
 		t.Fatalf("external delivery was not accepted: %+v %v", msg, err)
 	}
-	files, err := registry.Configuration("/bin/zalki", store.Dir)
+	files, err := registry.Configuration("/bin/zalki", []string{"--state", store.Dir})
 	if err != nil || len(files) == 0 {
 		t.Fatal("built-in configuration disappeared beside the external adapter", err)
 	}

@@ -39,6 +39,7 @@ type RecoveryGrant struct {
 	Actor      string
 	Capability string `json:"-"`
 	StateDir   string
+	ConfigFile string
 }
 
 // LifecycleHost is the trusted host for adapters whose hooks own client state.

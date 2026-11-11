@@ -2,16 +2,25 @@ package cursor
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
+func cursorListenerCommand(binary, actor, capability, state, configFile string) string {
+	args := []string{binary, "--config", configFile, "--state", state, "cursor-listen", "--actor", actor}
+	for i := range args {
+		args[i] = install.ShellQuote(args[i])
+	}
+	return "ZALKI_CAPABILITY=" + install.ShellQuote(capability) + " " + strings.Join(args, " ")
+}
+
 func cursorRecoveryContext(binary string, claim agent.RecoveryGrant) string {
 	if claim.Capability == "" {
 		return ""
 	}
-	command := "ZALKI_CAPABILITY=" + install.ShellQuote(claim.Capability) + " " + install.ShellQuote(binary) + " --state " + install.ShellQuote(claim.StateDir) + " cursor-listen --actor " + install.ShellQuote(claim.Actor)
+	command := cursorListenerCommand(binary, claim.Actor, claim.Capability, claim.StateDir, claim.ConfigFile)
 	return fmt.Sprintf("[Zalki local listener recovery]\nYour registered Cursor session has no verified live listener. "+
 		"Your actor remains %s. Your refreshed private capability is %s; use it for future zalki calls. "+
 		"This replaces only your own previous capability; never reveal it or borrow another session's. "+

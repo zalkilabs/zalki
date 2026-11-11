@@ -122,7 +122,7 @@ func runUpgrade(cmd *cobra.Command, opts *commandOptions, f upgradeFlags) error 
 		if err := runBrewUpgrade(cmd.Context(), brew); err != nil {
 			return err
 		}
-		return finishWithNewBinary(cmd, where.Binary)
+		return finishWithNewBinary(cmd, opts, where.Binary)
 	}
 	if err := refreshConfiguration(cmd, opts, where.Binary); err != nil {
 		return err
@@ -155,8 +155,8 @@ func manageConfiguration(opts *commandOptions, binary string, apply bool) (insta
 	if err != nil {
 		return install.Report{}, err
 	}
-	return install.Manage(installDeclarations(opts.registry), install.Request{
-		Action: "upgrade", Binary: binary, StateDir: service.Store.Dir, HomeDir: opts.home, Apply: apply,
+	return install.Manage(installDeclarations(opts.registry, opts.snapshot.Paths.ConfigFile.Value), install.Request{
+		Action: "upgrade", Binary: binary, StateDir: service.Store.Dir, HomeDir: opts.home, ConfigFile: opts.snapshot.Paths.ConfigFile.Value, Apply: apply,
 	})
 }
 
@@ -187,14 +187,14 @@ func runBrewUpgrade(ctx context.Context, brew string) error {
 
 // The running process is the old build and its package directory may be gone,
 // so the new build must write the configuration.
-func finishWithNewBinary(cmd *cobra.Command, binary string) error {
-	args := []string{"upgrade", "--finish-upgrade"}
-	for _, name := range []string{"state", "log-level", "log-file"} {
+func finishWithNewBinary(cmd *cobra.Command, opts *commandOptions, binary string) error {
+	args := []string{"upgrade", "--finish-upgrade", "--config", opts.snapshot.Paths.ConfigFile.Value, "--state", opts.snapshot.Paths.StateDir.Value}
+	for _, name := range []string{"log-level", "log-file"} {
 		if flag := cmd.Flags().Lookup(name); flag != nil && flag.Changed {
 			args = append(args, "--"+name+"="+flag.Value.String())
 		}
 	}
-	c := exec.CommandContext(cmd.Context(), binary, args...)
+	c := exec.CommandContext(cmd.Context(), binary, args...) //nolint:gosec // G204: installationBinary checked this absolute installed path against os.Executable before the upgrade.
 	c.Stdin, c.Stdout, c.Stderr = cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr()
 	if err := c.Run(); err != nil {
 		return fmt.Errorf("the binary was upgraded but refreshing configuration failed (%w); run `zalki upgrade --config-only` to retry", err)

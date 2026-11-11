@@ -171,12 +171,12 @@ func (Adapter) RecoveryHint(d model.SessionDiagnostic) string {
 }
 
 func (Adapter) StartupOutput(startup agent.StartupContext) (any, error) {
-	id, key, state, context := startup.Actor, startup.Capability, startup.StateDir, startup.Instructions
+	id, key, context := startup.Actor, startup.Capability, startup.Instructions
 	binary, err := os.Executable()
 	if err != nil {
 		return nil, err
 	}
-	command := "ZALKI_CAPABILITY=" + install.ShellQuote(key) + " " + install.ShellQuote(binary) + " --state " + install.ShellQuote(state) + " cursor-listen --actor " + install.ShellQuote(id)
+	command := cursorListenerCommand(binary, id, key, startup.StateDir, startup.ConfigFile)
 	return (map[string]any{
 		"additional_context": context + " Cursor idle wake requires one native Shell background task in this conversation. " +
 			"Once your normal permissions allow it, start this exact command through Shell with block_until_ms=0 and " +

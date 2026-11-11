@@ -45,7 +45,7 @@ func checkConfigurationFailureOrder(t *testing.T, declarations []declared, want 
 		return []declared{{Path: ".b/ok.json", Draft: "beta.json", JSON: jsonPatch("hooks")}}
 	}}
 	// Reverse registration order: validation must visit alpha first and stop.
-	files, err := registryOf(t, beta, alpha).Configuration("/bin/zalki", "/state")
+	files, err := registryOf(t, beta, alpha).Configuration("/bin/zalki", []string{"--state", "/state"})
 	if err == nil || err.Error() != want || files != nil {
 		t.Fatalf("files=%v error=%v, want nil files and %q", files, err, want)
 	}
@@ -63,9 +63,8 @@ func TestRegistryConfigurationInputOrder(t *testing.T) {
 		nilRegistry              bool
 	}{
 		{"nil registry before relative inputs", "zalki", "state", "internal: agent registry is not configured", true},
-		{"relative binary before callbacks", "zalki", "/state", "binary and state paths must be absolute", false},
-		{"relative state before callbacks", "/bin/zalki", "state", "binary and state paths must be absolute", false},
-		{"empty inputs before callbacks", "", "", "binary and state paths must be absolute", false},
+		{"relative binary before callbacks", "zalki", "/state", "binary path must be absolute", false},
+		{"empty inputs before callbacks", "", "", "binary path must be absolute", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var calls int
@@ -76,7 +75,7 @@ func TestRegistryConfigurationInputOrder(t *testing.T) {
 					return nil
 				}})
 			}
-			files, err := registry.Configuration(test.binary, test.state)
+			files, err := registry.Configuration(test.binary, []string{"--state", test.state})
 			if err == nil || err.Error() != test.err || files != nil || calls != 0 {
 				t.Fatalf("files=%v error=%v callbacks=%d; want nil, %q, zero callbacks", files, err, calls, test.err)
 			}

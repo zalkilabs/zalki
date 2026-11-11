@@ -25,7 +25,7 @@ type HookInput struct {
 }
 
 type StartupContext struct {
-	Actor, Capability, StateDir, Instructions string
+	Actor, Capability, StateDir, ConfigFile, Instructions string
 }
 
 // HookRegistration is what an adapter reports when a lifecycle hook registers a session.

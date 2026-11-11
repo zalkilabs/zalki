@@ -165,7 +165,7 @@ func TestGeneratedSetupRetainsInstalledCommandSyntax(t *testing.T) {
 		var value struct {
 			Servers map[string]struct{ Args []string } `json:"mcpServers"`
 		}
-		if json.Unmarshal(config, &value) != nil || strings.Join(value.Servers["zalki"].Args, "|") != "--state|"+state+"|mcp" {
+		if json.Unmarshal(config, &value) != nil || strings.Join(value.Servers["zalki"].Args, "|") != "--config|"+filepath.Join(home, ".config", "zalki", "config.json")+"|--state|"+state+"|mcp" {
 			t.Fatal("installed MCP invocation changed")
 		}
 	}
