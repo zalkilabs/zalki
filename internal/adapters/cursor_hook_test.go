@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -131,4 +132,74 @@ func TestCursorDoctorReportsAPreLeaseListener(t *testing.T) {
 		}
 	}
 	t.Fatal("Cursor session missing from diagnostics")
+}
+
+// An IDE chat starts with session_id != conversation_id and no usable root, and
+// later hooks carry only conversation_id. Start and later hooks must address one
+// actor. The payloads follow Cursor's hook docs; they are not a recorded capture.
+func TestCursorIDEStartAndLaterHooksShareOneActor(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		roots   []string
+		wantCWD string // "" means the test HOME
+	}{
+		{"no roots", []string{}, ""},
+		{"file URI root", []string{"file:///fixture/proj%20dir"}, "/fixture/proj dir"},
+		{"remote root", []string{"vscode-remote://ssh-remote+h/y"}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			want := tc.wantCWD
+			if want == "" {
+				want = home
+			}
+			checkIDEChatSharesOneActor(t, tc.roots, want)
+		})
+	}
+}
+
+func checkIDEChatSharesOneActor(t *testing.T, roots []string, wantCWD string) {
+	t.Helper()
+	store := adapterTestStore(t)
+	service := bus.Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
+		t.Fatal("used unsupported Cursor transport")
+		return model.Receipt{}
+	}}
+	conversation, session := newTestID(), newTestID()
+	runCursorHook(t, &service, map[string]any{"hook_event_name": "sessionStart", "session_id": session, "conversation_id": conversation, "workspace_roots": roots})
+	sessions, err := store.List()
+	if err != nil || len(sessions) != 1 || sessions[0].ID != "cursor:"+conversation || sessions[0].CWD != wantCWD {
+		t.Fatalf("want one session cursor:%s with cwd %q: %+v %v", conversation, wantCWD, sessions, err)
+	}
+	sender, key := registerAdapterSession(t, store, "codex")
+	id := newTestID()
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: sessions[0].ID, MessageID: id, Body: "ide body"})
+	if err != nil || msg.Status != "pending_next_activity" {
+		t.Fatalf("%+v %v", msg, err)
+	}
+	out := runCursorHook(t, &service, map[string]any{"hook_event_name": "postToolUse", "conversation_id": conversation})
+	if !strings.Contains(out, "additional_context") || !strings.Contains(out, "ide body") {
+		t.Fatalf("later hook did not reach the started session: %s", out)
+	}
+	if msg := adapterTestMessage(t, store, id); msg.Status != "hook_context_emitted" {
+		t.Fatalf("%+v", msg)
+	}
+	if sessions, err := store.List(); err != nil || len(sessions) != 2 || slices.ContainsFunc(sessions, func(v model.Session) bool { return v.ID == "cursor:"+session }) {
+		t.Fatalf("session_id created a second actor: %+v %v", sessions, err)
+	}
+}
+
+// runCursorHook runs one Cursor hook payload through the service and returns its output.
+func runCursorHook(t *testing.T, service *bus.Service, fields map[string]any) string {
+	t.Helper()
+	input, err := json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), &out); err != nil {
+		t.Fatalf("%s: %v", fields["hook_event_name"], err)
+	}
+	return out.String()
 }
