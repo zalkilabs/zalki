@@ -42,6 +42,22 @@ func (s Store) eachMessage(visit func(id string, message model.Message, readErr 
 	return nil
 }
 
+// eachReadableMessage visits every readable message file and returns the files
+// it skipped as unreadable or unsupported, so one such file cannot stop a scan.
+// The caller holds the journal lock and reports the skipped files as it needs.
+func (s Store) eachReadableMessage(visit func(model.Message) error) (skippedMessages, error) {
+	var skipped skippedMessages
+	err := s.eachMessage(func(id string, msg model.Message, readErr error) error {
+		if readErr != nil {
+			skipped.add(id)
+		} else if err := visit(msg); err != nil {
+			return err
+		}
+		return nil
+	})
+	return skipped, err
+}
+
 func (s Store) saveMessage(v model.Message) error {
 	return s.saveMessageRecord(v, nil)
 }

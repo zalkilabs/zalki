@@ -53,22 +53,10 @@ func batchJSON(t *testing.T, batch MessageBatch) string {
 	return string(raw)
 }
 
-func breakWith(t *testing.T, store Store, id string, p poison) {
-	t.Helper()
-	path := filepath.Join(store.Dir, "messages", id+".json")
-	if err := os.WriteFile(path, p.content, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(path, p.mode); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(path, 0600) })
-}
-
 // Investigator case: A sends to B and to C; C's file breaks. B's inbox and
 // history still work and never show C's message; C sees only the count.
 func TestListSkipsAnotherRecipientsUnreadableFile(t *testing.T) {
-	for _, p := range []poison{poisons()[0], poisons()[2]} {
+	for _, p := range []unreadableFile{truncatedMessage, modeZeroMessage} {
 		t.Run(p.name, func(t *testing.T) {
 			l := newListFixture(t)
 			b, keyB := l.recipient(t)
@@ -76,7 +64,7 @@ func TestListSkipsAnotherRecipientsUnreadableFile(t *testing.T) {
 			base := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 			toC := c.queue(t, "BODY-FOR-C", base)
 			toB := b.queue(t, "BODY-FOR-B", base.Add(time.Second))
-			breakWith(t, l.store, toC.ID, p)
+			writeUnreadableMessage(t, l.store, toC.ID, p)
 			for _, history := range []bool{false, true} {
 				requireOnlyOwnMessage(t, l.store, MessageQuery{Actor: b.target.ID, Capability: keyB, History: history, IncludeBody: true}, toB.ID, toC.ID)
 			}
@@ -163,7 +151,7 @@ func TestListCursorAnchorAndExactReadOfAnUnreadableFileStillFail(t *testing.T) {
 	l := newListFixture(t)
 	b, key := l.recipient(t)
 	msg := b.queue(t, "anchor", time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC))
-	breakWith(t, l.store, msg.ID, poisons()[0])
+	writeUnreadableMessage(t, l.store, msg.ID, truncatedMessage)
 	if _, err := l.store.ReadMessages(MessageQuery{Actor: b.target.ID, Capability: key, Cursor: msg.ID}); err == nil {
 		t.Fatal("an unreadable cursor anchor was accepted")
 	}
@@ -177,7 +165,7 @@ func TestListReportsAnUnreadableFileOncePerCall(t *testing.T) {
 	l := newListFixture(t)
 	b, key := l.recipient(t)
 	output := capture(&l.store)
-	bad := plant(t, l.store, poisons()[0])
+	bad := newUnreadableMessage(t, l.store, truncatedMessage)
 	for call := range 2 {
 		output.Reset()
 		if batch := readList(t, l.store, MessageQuery{Actor: b.target.ID, Capability: key}); batch.Unreadable != 1 {

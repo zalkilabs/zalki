@@ -146,14 +146,13 @@ func (s Store) scanMessages(r messageRead, limit int, skipped *skippedMessages) 
 	if err != nil {
 		return items, false, err
 	}
-	if err := s.eachMessage(func(id string, item model.Message, readErr error) error {
-		if readErr != nil {
-			skipped.add(id)
-		} else if r.matches(item, cursor) {
+	*skipped, err = s.eachReadableMessage(func(item model.Message) error {
+		if r.matches(item, cursor) {
 			items = append(items, r.view(item, r.history && !r.query.IncludeBody))
 		}
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return items, false, err
 	}
 	sort.Slice(items, func(i, j int) bool { return messageComesBefore(items[i], items[j], r.history) })
@@ -319,16 +318,14 @@ func (k skippedMessages) report(s Store, actor string) {
 // not changed; it stays pending and is delivered once it can be read again.
 func (s Store) pendingForHook(actor string, current model.Session) ([]model.Message, error) {
 	pending := []model.Message{}
-	var skipped skippedMessages
-	defer func() { skipped.report(s, actor) }()
-	if err := s.eachMessage(func(id string, msg model.Message, readErr error) error {
-		if readErr != nil {
-			skipped.add(id)
-		} else if msg.To == actor && msg.TargetGeneration == current.Generation && model.HookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
+	skipped, err := s.eachReadableMessage(func(msg model.Message) error {
+		if msg.To == actor && msg.TargetGeneration == current.Generation && model.HookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
 			pending = append(pending, msg)
 		}
 		return nil
-	}); err != nil {
+	})
+	skipped.report(s, actor)
+	if err != nil {
 		return nil, err
 	}
 	sort.Slice(pending, func(i, j int) bool { return pending[i].CreatedAt < pending[j].CreatedAt })

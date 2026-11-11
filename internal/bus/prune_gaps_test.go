@@ -266,18 +266,6 @@ func journalMessage(t *testing.T, store Store, id string) model.Message {
 	return msg
 }
 
-// unreadableMessage writes malformed JSON so record decoding fails on every OS
-// and user identity, including root. Permission-error coverage lives separately.
-func unreadableMessage(t *testing.T, store Store) string {
-	t.Helper()
-	id := newID()
-	path := filepath.Join(store.Dir, "messages", id+".json")
-	if err := os.WriteFile(path, []byte("{"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
-
 // assertHoldCounts checks the approval count of each session. Sessions must
 // not be retired before the applied run (retirement is not checked after it).
 func assertHoldCounts(t *testing.T, store Store, want map[string]int, applied bool) {
@@ -303,7 +291,7 @@ func TestPruneReportsApprovalDecisionsInOrderAndDryRunMatchesApply(t *testing.T)
 	missingB, missingA := "cursor:00000000-0000-4000-8000-0000000000f2", "cursor:00000000-0000-4000-8000-0000000000f1"
 	queuedFor(t, store, sender, missingB)
 	queuedFor(t, store, sender, missingA)
-	unreadable := unreadableMessage(t, store)
+	unreadable := newUnreadableMessage(t, store, notJSONMessage) // decoding fails even for root
 	issue := "cursor:00000000-0000-4000-8000-0000000000e0"
 	if err := os.WriteFile(mustSessionPath(t, store, issue), []byte(`{"schema":99}`), 0600); err != nil {
 		t.Fatal(err)

@@ -253,7 +253,7 @@ func TestHookHostCompletedNativePromptErrorsFollowActorCheck(t *testing.T) {
 	}
 	assertForwardingChanges(t, host.store, before)
 	msg := forwardingMessage(t, host.store, target, model.StatusSubmitted)
-	corruptForwardingMessage(t, host.store, msg.ID)
+	writeUnreadableMessage(t, host.store, msg.ID, truncatedMessage)
 	before = journalSnapshot(t, host.store)
 	wrongHost := host
 	wrongHost.actor = other.ID
@@ -385,13 +385,6 @@ func seedBindingLease(t *testing.T, store Store, target model.Session) {
 	t.Helper()
 	target.Listener = &model.ListenerLease{ID: newID(), Generation: target.Generation, Endpoint: model.Endpoint{Path: filepath.Join(store.Dir, "missing.sock")}}
 	if err := store.locked(func() error { return store.saveSession(target) }); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func corruptForwardingMessage(t *testing.T, store Store, id string) {
-	t.Helper()
-	if err := os.WriteFile(filepath.Join(store.Dir, "messages", id+".json"), []byte("{"), 0600); err != nil {
 		t.Fatal(err)
 	}
 }

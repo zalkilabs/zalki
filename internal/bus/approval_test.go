@@ -203,7 +203,7 @@ func TestApprovalQueueCapsAndDropsOnRetirement(t *testing.T) {
 	if len(delivered) != 0 {
 		t.Fatal("retired session was delivered", delivered)
 	}
-	queued, err := store.queuedApprovals(target.ID)
+	queued, _, err := store.queuedApprovals(target.ID)
 	if err != nil || len(queued) != 0 {
 		t.Fatal("approval queue survived retirement", queued, err)
 	}
