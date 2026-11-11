@@ -1,3 +1,6 @@
+// Package install plans and applies zalki's native client configuration edits,
+// tracks installation ownership and writes reviewable setup drafts. Plugin
+// source builds and plugin journal commits belong to plugins and pluginfeed.
 package install
 
 import (

@@ -11,9 +11,11 @@ import (
 
 var errJournalViewInactive = errors.New("journal view is only available within its lock callback")
 
-// JournalView reads core records under the caller's existing journal lock.
-// Go does not enforce borrowed lifetimes. The view expires when the callback
-// returns or panics, and the callback must not reacquire the Store lock.
+// JournalView reads core records under the caller's existing exclusive journal
+// lock. Go does not enforce borrowed lifetimes: the view expires when its
+// originating callback returns or panics. Callbacks must not re-enter the Store
+// lock, including through another WithJournalRead or WithJournalWrite call.
+// Core reads through a zero or expired view return errJournalViewInactive.
 type JournalView struct{ scope *journalScope }
 
 type journalScope struct {
@@ -23,13 +25,21 @@ type journalScope struct {
 	active   sync.WaitGroup
 }
 
-// WithJournalRead preserves the compatibility and recovery rules for reads.
+// WithJournalRead runs fn under the exclusive journal lock, not a shared read
+// lock. When the writer format is compatible, pending event and reply recovery
+// runs before fn and may write to the journal. An incompatible format permits
+// reads without recovery only when no pending event intent requires recovery.
+// The view is read-only even when recovery writes; fn must not re-enter the
+// Store lock.
 func WithJournalRead(store Store, fn func(JournalView) error) error {
 	return withJournalView(store, true, fn)
 }
 
-// WithJournalWrite checks writer compatibility before invoking fn. The view
-// provides core reads. The callback may update files owned by its package.
+// WithJournalWrite takes the exclusive journal lock, checks writer compatibility
+// and recovers pending events and replies before invoking fn. The view provides
+// core reads; fn may update files owned by its package without re-entering the
+// Store lock. A write reached through an injected callback started by bus must
+// validate its borrowed view with WithWriteScope.
 func WithJournalWrite(store Store, fn func(JournalView) error) error {
 	return withJournalView(store, false, fn)
 }
@@ -74,10 +84,17 @@ func (v JournalView) use(fn func(Store) error) error {
 	return fn(store)
 }
 
-// WithWriteScope runs a synchronous write to files owned by the caller's
-// package, only under the originating live write scope and exact state root.
-// It exposes no Store. Expiry rejects new operations and waits for active ones
-// before the journal lock is released. The callback must not reacquire it.
+// WithWriteScope runs fn synchronously to write files owned by the caller's
+// package. Use it for writes reached through an injected callback started by
+// bus, including each later reservation callback. It validates the existing
+// scope without taking the journal lock again or exposing a Store.
+//
+// A zero or expired view, a read-only scope and a different state root all return
+// the same CodeUnauthorized error, "plugin write requires its live journal
+// scope", without invoking fn. stateDir must equal Store.Dir by exact string
+// comparison; paths are not cleaned or resolved. Errors from fn pass through.
+// Expiry rejects new operations and waits for active ones before releasing the
+// journal lock. fn must not re-enter the Store lock.
 func (v JournalView) WithWriteScope(stateDir string, fn func() error) error {
 	_, done, err := v.acquire(&stateDir)
 	if err != nil {

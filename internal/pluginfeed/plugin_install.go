@@ -87,9 +87,11 @@ func (r *PluginInstallReceipt) validBuild() bool {
 	return printableText(r.Tool, 1024) && filepath.IsAbs(r.Tool) && validPluginSHA(r.ToolSHA256)
 }
 
-func (s PluginFeed) stagingRoot() string    { return filepath.Join(s.pluginDir(), ".staging") }
-func (s PluginFeed) stagingPath() string    { return filepath.Join(s.stagingRoot(), s.name) }
-func (s PluginFeed) pluginBinPath() string  { return filepath.Join(s.pluginDir(), s.name+".bin") }
+func (s PluginFeed) stagingRoot() string   { return filepath.Join(s.pluginDir(), ".staging") }
+func (s PluginFeed) stagingPath() string   { return filepath.Join(s.stagingRoot(), s.name) }
+func (s PluginFeed) pluginBinPath() string { return filepath.Join(s.pluginDir(), s.name+".bin") }
+
+// StagingDir returns this install attempt's staging directory for source and build output.
 func (i *PluginInstall) StagingDir() string { return i.feed.stagingPath() }
 
 // KeepBuildLog keeps the staging folder after Close so the owner can read the log.

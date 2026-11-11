@@ -1,3 +1,6 @@
+// Package codex implements the Codex adapter: hook normalization, app-server
+// delivery, client configuration and client-specific liveness policy.
+// Core messaging and journal policy remain in bus.
 package codex
 
 import (

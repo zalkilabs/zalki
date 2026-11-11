@@ -1,3 +1,6 @@
+// Package cursor implements the Cursor adapter: hook normalization, listener
+// delivery and recovery, adapter state and client configuration.
+// Core messaging and journal policy remain in bus.
 package cursor
 
 import (

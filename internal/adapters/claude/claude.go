@@ -1,3 +1,6 @@
+// Package claude implements the Claude Code adapter: hook normalization,
+// messaging-socket delivery, client configuration and session liveness evidence.
+// Core messaging and journal policy remain in bus.
 package claude
 
 import (

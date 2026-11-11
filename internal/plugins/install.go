@@ -391,6 +391,8 @@ type installLog struct {
 	stop func()
 }
 
+// Write records build output up to the cap and stops the build once it is
+// exceeded. Further output is consumed and discarded so the pipe cannot block.
 func (l *installLog) Write(p []byte) (int, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
