@@ -184,7 +184,7 @@ func TestHookRemovesStaleMarkers(t *testing.T) {
 func TestOpenMarkerIsWrittenBeforeTheRecord(t *testing.T) {
 	store := fixtureStore(t)
 	msg := model.Message{ID: newID(), From: "codex:" + newID(), To: "cursor:" + newID(), Body: "fixture", Status: model.StatusSubmitted}
-	compactExtendedMessage(t, store, msg)
+	nearLimitMessage(t, store, &msg)
 	msg.Status = model.StatusPendingActivity
 	requireEncodedSizeError(t, store.saveMessage(msg))
 	requireMarkers(t, store, msg.ID)

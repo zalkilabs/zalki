@@ -73,11 +73,7 @@ func adapterTestSession(t *testing.T, store bus.Store, id string) model.Session 
 	if codec, ok := adapter.(interface {
 		DecodeState(agent.StateInput) (json.RawMessage, error)
 	}); ok {
-		var extensions map[string]json.RawMessage
-		if err := json.Unmarshal(data, &extensions); err != nil {
-			t.Fatal(err)
-		}
-		if session.AdapterState, err = codec.DecodeState(agent.StateInput{Extensions: extensions, State: session.AdapterState}); err != nil {
+		if session.AdapterState, err = codec.DecodeState(agent.StateInput{State: session.AdapterState}); err != nil {
 			t.Fatal(err)
 		}
 	}

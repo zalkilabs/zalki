@@ -62,16 +62,7 @@ func saveTestMessage(store bus.Store, message model.Message) error {
 		return err
 	}
 	message.Schema = recordSchema
-	path := filepath.Join(store.Dir, "messages", message.ID+".json")
-	previous, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	merged, err := journal.Merge(previous, message)
-	if err != nil {
-		return err
-	}
-	return writeJSON(path, merged)
+	return writeJSON(filepath.Join(store.Dir, "messages", message.ID+".json"), message)
 }
 
 func journalSnapshot(t *testing.T, store bus.Store) map[string]string {

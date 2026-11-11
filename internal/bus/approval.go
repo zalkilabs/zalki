@@ -2,7 +2,6 @@ package bus
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"sort"
@@ -16,17 +15,13 @@ const approvalQueueCap = 8
 // saveReservation writes the count before a held reservation so a crash cannot
 // leave a durable held message with a zero count. The caller holds the lock.
 func (s Store) saveReservation(msg model.Message) error {
-	return s.saveReservationRecord(msg, nil)
-}
-
-func (s Store) saveReservationRecord(msg model.Message, previous json.RawMessage) error {
 	held := msg.IsQueuedForApproval()
 	if held {
 		if err := s.rememberApprovalHold(msg.To, 1); err != nil {
 			return err
 		}
 	}
-	if err := s.saveMessageRecord(msg, previous); err != nil {
+	if err := s.saveMessageRecord(msg); err != nil {
 		if held {
 			_ = s.rememberApprovalHold(msg.To, -1)
 		}

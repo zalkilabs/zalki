@@ -3,12 +3,10 @@ package agent
 import "encoding/json"
 
 // StateInput is what an adapter's state codec may read. It never carries the
-// session: State is a copy of the adapter's own persisted state, and
-// Extensions holds a copy of each top-level record field core does not own.
-// Credentials, identity and every other core field are removed before the codec runs.
+// session: State is a copy of the adapter's own persisted state. Credentials,
+// identity and every other core field are removed before the codec runs.
 type StateInput struct {
-	Extensions map[string]json.RawMessage
-	State      json.RawMessage
+	State json.RawMessage
 }
 
 // SessionStateAdapter initializes or validates an adapter's persisted state. It

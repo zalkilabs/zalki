@@ -29,7 +29,7 @@ func (w commitWriter) prepare(previous []byte, next model.Session, event model.E
 	if err := validatePreparedSession(previous, next, event); err != nil {
 		return journal.Batch{}, err
 	}
-	state, err := prepareSessionBytes(previous, next)
+	state, err := encodeStateJSON(next)
 	if err != nil {
 		return journal.Batch{}, err
 	}
@@ -41,14 +41,6 @@ func (w commitWriter) prepare(previous []byte, next model.Session, event model.E
 		return journal.Batch{}, err
 	}
 	return batch, nil
-}
-
-func prepareSessionBytes(previous []byte, next model.Session) ([]byte, error) {
-	raw, err := mergeRecordJSON(json.RawMessage(previous), next)
-	if err != nil {
-		return nil, err
-	}
-	return encodeStateJSON(raw)
 }
 
 func (w commitWriter) orderSessionDirectory(path string) error {
@@ -96,7 +88,7 @@ func validateEventSession(raw []byte, event model.Event) error {
 	if err := json.Unmarshal(raw, &next); err != nil {
 		return err
 	}
-	if err := checkSchema(raw, leaseSessionSchema); err != nil {
+	if err := checkSchema(raw, recordSchema); err != nil {
 		return err
 	}
 	if next.ID != event.Session.ID || next.Generation != event.Session.Generation || next.State != event.Session.State || next.Retired != event.Session.Retired {

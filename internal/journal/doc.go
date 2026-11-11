@@ -1,7 +1,7 @@
 // Package journal holds the generic, domain-free primitives beneath zalki's
-// on-disk record store: bounded JSON reads, canonical record encoding, a
-// field-preserving merge, schema headers, atomic replacement, directory sync
-// and FD-level lock primitives.
+// on-disk record store: bounded JSON reads, canonical record encoding, schema
+// headers, atomic replacement, directory sync, durable batch intents and
+// FD-level lock primitives.
 //
 // The package knows nothing about sessions, messages, record families, error
 // codes or logging. It reports its own conditions through the sentinel
@@ -12,7 +12,7 @@
 // error vocabulary.
 //
 // Callers own the transaction. This package does not decide when to lock, in
-// which order, what to recover, or when a format marker must be published.
+// which order, or what to recover.
 // Its lock functions leave raw descriptor ownership and policy to the caller:
 // they add no implicit retries, mutexes, caching, finalizers or close-on-exec.
 package journal

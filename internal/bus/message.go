@@ -1,7 +1,6 @@
 package bus
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"os"
@@ -59,10 +58,10 @@ func (s Store) eachReadableMessage(visit func(model.Message) error) (skippedMess
 }
 
 func (s Store) saveMessage(v model.Message) error {
-	return s.saveMessageRecord(v, nil)
+	return s.saveMessageRecord(v)
 }
 
-func (s Store) saveMessageRecord(v model.Message, previous json.RawMessage) error {
+func (s Store) saveMessageRecord(v model.Message) error {
 	if _, err := model.UUID(v.ID); err != nil {
 		return err
 	}
@@ -74,7 +73,7 @@ func (s Store) saveMessageRecord(v model.Message, previous json.RawMessage) erro
 			return err
 		}
 	}
-	if err := s.writeRecord(filepath.Join(s.Dir, "messages", v.ID+".json"), v, recordSchema, recordUpdate{previous: previous}); err != nil {
+	if err := s.writeRecord(filepath.Join(s.Dir, "messages", v.ID+".json"), v); err != nil {
 		return err
 	}
 	if !open {

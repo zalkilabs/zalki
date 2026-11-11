@@ -78,8 +78,8 @@ func TestCursorRecoveryRetiresAStaleLease(t *testing.T) {
 	if err := store.locked(func() error { return store.saveSession(to) }); err != nil {
 		t.Fatal(err)
 	}
-	if recordSchemaOf(t, store, to.ID) != leaseSessionSchema {
-		t.Fatal("fixture lease was not written under its schema")
+	if recordSchemaOf(t, store, to.ID) != recordSchema {
+		t.Fatal("fixture lease was not written under the record schema")
 	}
 	for _, createLock := range []bool{false, true} {
 		if createLock {

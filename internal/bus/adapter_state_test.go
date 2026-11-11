@@ -1,15 +1,11 @@
 package bus
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
-	"reflect"
-	"sort"
-	"strings"
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // capturingCursorAdapter records what its codec was given.
@@ -36,7 +32,9 @@ func rewriteRecord(t *testing.T, store Store, id string, edit func(map[string]an
 	}
 }
 
-func TestStateCodecSeesOnlyFieldsCoreDoesNotOwn(t *testing.T) {
+// The codec sees only the adapter's own state. Top-level fields core does not
+// own are not passed on (and are dropped on the next write).
+func TestStateCodecSeesOnlyTheAdapterState(t *testing.T) {
 	store := fixtureStore(t)
 	to, _ := register(t, store, "cursor")
 	var seen []agent.StateInput
@@ -46,12 +44,7 @@ func TestStateCodecSeesOnlyFieldsCoreDoesNotOwn(t *testing.T) {
 	}
 	store.Registry = registry
 	rewriteRecord(t, store, to.ID, func(record map[string]any) {
-		// encoding/json decodes every case variant into its core field, so each
-		// keeps a value of that field's type (and the real key sorts after it).
-		record["KEY_HASH"], record["Key_Hash"] = "core-owned", "core-owned"
-		record["GENERATION"], record["ID"] = to.Generation, to.ID
-		record["Listener"] = nil
-		record["Adapter_State"] = map[string]int{"schema": 1}
+		record["adapter_state"] = map[string]any{"schema": 1, "recovery_attempted": true}
 		record["cursor_recovery_attempted"] = true
 		record["client_extension"] = map[string]int{"n": 1}
 	})
@@ -61,44 +54,8 @@ func TestStateCodecSeesOnlyFieldsCoreDoesNotOwn(t *testing.T) {
 	if len(seen) != 1 {
 		t.Fatalf("codec ran %d times for one read", len(seen))
 	}
-	var keys []string
-	for key := range seen[0].Extensions {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	if !reflect.DeepEqual(keys, []string{"client_extension", "cursor_recovery_attempted"}) {
-		t.Fatalf("codec saw core-owned fields: %v", keys)
-	}
-}
-
-func TestStateExtensionsAreBounded(t *testing.T) {
-	for name, edit := range map[string]func(map[string]any){
-		"too many fields": func(record map[string]any) {
-			for i := range maxExtensions + 1 {
-				record[fmt.Sprintf("extension_%d", i)] = true
-			}
-		},
-		"oversized field": func(record map[string]any) {
-			record["extension"] = strings.Repeat("x", maxAdapterState)
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			store := fixtureStore(t)
-			to, _ := register(t, store, "cursor")
-			rewriteRecord(t, store, to.ID, edit)
-			if _, err := store.session(to.ID); model.ErrorCodeOf(err) != model.CodeInvalidInput {
-				t.Fatal("an unbounded record reached the adapter codec", err)
-			}
-		})
-	}
-	store := fixtureStore(t)
-	to, _ := register(t, store, "cursor")
-	rewriteRecord(t, store, to.ID, func(record map[string]any) {
-		for i := range maxExtensions {
-			record[fmt.Sprintf("extension_%d", i)] = true
-		}
-	})
-	if _, err := store.session(to.ID); err != nil {
-		t.Fatal("a record at the extension limit was rejected", err)
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, seen[0].State); err != nil || compact.String() != `{"recovery_attempted":true,"schema":1}` {
+		t.Fatalf("codec input = %s, want only the adapter state", seen[0].State)
 	}
 }

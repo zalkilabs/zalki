@@ -49,7 +49,7 @@ func seedLegacyHeldReply(t *testing.T, store Store, target model.Session) {
 		t.Fatal(err)
 	}
 	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: model.Timestamp(), Reply: reply}
-	if err := store.writeRecord(filepath.Join(store.Dir, "transactions", reply.ID+".json"), tx, 1); err != nil {
+	if err := store.writeRecord(filepath.Join(store.Dir, "transactions", reply.ID+".json"), tx); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -228,10 +228,6 @@ func (v JournalView) CheckSessionKind(id string) error {
 
 // EncodedMessageSize measures the exact bytes used for a fresh message record.
 func EncodedMessageSize(message model.Message) (int, error) {
-	raw, err := journal.Merge(nil, message)
-	if err != nil {
-		return 0, err
-	}
-	encoded, err := encodeStateJSON(raw)
+	encoded, err := encodeStateJSON(message)
 	return len(encoded), err
 }

@@ -24,7 +24,7 @@ func sessionProjection(previous []byte, next model.Session) (string, model.Event
 		if err := json.Unmarshal(previous, &before); err != nil {
 			return "", model.EventSession{}, err
 		}
-		if err := checkSchema(previous, leaseSessionSchema); err != nil {
+		if err := checkSchema(previous, recordSchema); err != nil {
 			return "", model.EventSession{}, err
 		}
 		if before.ID != next.ID {

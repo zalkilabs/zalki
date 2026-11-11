@@ -31,8 +31,7 @@ type Session struct {
 	Liveness     Liveness    `json:"liveness,omitempty"`
 	HookBuild    string      `json:"hook_build,omitempty"`
 	Endpoint     *Endpoint   `json:"endpoint,omitempty"`
-	// Listener is the core-owned lease of a native listener. Records that carry
-	// one are written as leaseSessionSchema, which older builds refuse to read.
+	// Listener is the core-owned lease of a native listener.
 	Listener *ListenerLease      `json:"listener,omitempty"`
 	KeyHash  string              `json:"key_hash,omitempty"`
 	Receive  ReceiveCapabilities `json:"receive"`

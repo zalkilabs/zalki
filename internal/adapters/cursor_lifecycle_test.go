@@ -149,7 +149,6 @@ func TestCursorRecoveryClearsAStaleWake(t *testing.T) {
 	if err != nil || json.Unmarshal(data, &record) != nil {
 		t.Fatal("unreadable session record", err)
 	}
-	record["schema"] = 2
 	record["listener"] = map[string]any{"id": newTestID(), "generation": to.Generation, "endpoint": map[string]any{"path": "/tmp/zalki-cursor-crashed/inbox.sock", "device": 1, "inode": 1}}
 	if err := writeTestJSON(path, record); err != nil {
 		t.Fatal(err)
@@ -164,8 +163,8 @@ func TestCursorRecoveryClearsAStaleWake(t *testing.T) {
 	}
 }
 
-// A retirement from before leases were cleared can leave schema 2 behind.
-// Prune must drop that leftover lease, and a dry run must only report it.
+// A crash during retirement can leave a lease on a retired record. Prune must
+// drop that leftover lease, and a dry run must only report it.
 func TestPruneReleasesALeaseLeftOnARetiredSession(t *testing.T) {
 	store := adapterTestStore(t)
 	to, _ := registerAdapterSession(t, store, "cursor")
@@ -175,7 +174,6 @@ func TestPruneReleasesALeaseLeftOnARetiredSession(t *testing.T) {
 	if err != nil || json.Unmarshal(data, &record) != nil {
 		t.Fatal("unreadable session record", err)
 	}
-	record["schema"] = 2
 	record["state"] = "retired"
 	record["retired"] = true
 	record["retired_reason"] = "explicit_cleanup"
@@ -211,9 +209,8 @@ func TestPruneReleasesALeaseLeftOnARetiredSession(t *testing.T) {
 	}
 }
 
-// Retirement must drop the listener lease. A record that keeps one stays at
-// session schema 2, which older builds reject for the whole registry. A
-// listener that is still running is fenced: it stays up, and it receives no wake.
+// Retirement must drop the listener lease. A listener that is still running is
+// fenced: it stays up, and it receives no wake.
 func TestRetirementReleasesTheListenerLease(t *testing.T) {
 	retire := func(t *testing.T, store bus.Store, service *bus.Service, id, how string) {
 		t.Helper()
@@ -242,7 +239,7 @@ func TestRetirementReleasesTheListenerLease(t *testing.T) {
 			to, key := registerAdapterSession(t, store, "cursor")
 			stop, output := startRecoveryListener(t, store, to.ID, key)
 			leased := adapterTestSession(t, store, to.ID)
-			if leased.Listener == nil || leased.Schema != 2 || !leased.Receive.IdleWake {
+			if leased.Listener == nil || leased.Schema != 1 || !leased.Receive.IdleWake {
 				t.Fatal("listener was not leased")
 			}
 			endpoint := leased.Listener.Endpoint.Path
