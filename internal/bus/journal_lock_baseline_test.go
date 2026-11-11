@@ -59,52 +59,52 @@ func TestMissingListenerProbesDoNotCreateLockFiles(t *testing.T) {
 }
 
 func TestJournalFailureReleasesExclusiveLock(t *testing.T) {
-	for _, failure := range []string{"callback", "compatibility", "recovery"} {
-		t.Run(failure, func(t *testing.T) {
-			store := fixtureStore(t)
-			// Prepare the root independently so a broken first transaction cannot
-			// leave a lock that hides this test behind a second blocking acquire.
-			if err := os.MkdirAll(store.Dir, 0700); err != nil {
-				t.Fatal(err)
-			}
-			callbackError := errors.New("baseline callback failure")
-			if failure == "compatibility" {
-				futureStateMarker(t, store)
-			}
-			if failure == "recovery" {
-				dir := filepath.Join(store.Dir, "transactions")
-				if err := os.Mkdir(dir, 0700); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(filepath.Join(dir, "11111111-1111-4111-8111-111111111111.json"), []byte("{"), 0600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			called := false
-			err := store.locked(func() error { called = true; return callbackError })
-			if err == nil || called != (failure == "callback") {
-				t.Fatalf("%s failure: callback=%v, error=%v", failure, called, err)
-			}
-			if failure == "callback" && err != callbackError { //nolint:errorlint // Characterize exact callback error identity, including absence of wrapping.
-				t.Fatalf("callback error changed: %v", err)
-			}
-			if failure == "compatibility" && (model.ErrorCodeOf(err) != model.CodeUnsupportedSchema || err.Error() != "unsupported_schema: state formats are unsupported or unreadable; upgrade zalki before writing") {
-				t.Fatalf("compatibility error changed: %v", err)
-			}
-			assertRawLockState(t, filepath.Join(store.Dir, "lock"), false)
-		})
+	for _, failure := range []string{"callback", "recovery"} {
+		t.Run(failure, func(t *testing.T) { checkJournalFailureReleasesLock(t, failure) })
 	}
 }
 
-func TestFailedRecordPublicationKeepsConservativeFormatMarker(t *testing.T) {
+func checkJournalFailureReleasesLock(t *testing.T, failure string) {
+	t.Helper()
+	store := fixtureStore(t)
+	// Prepare the root independently so a broken first transaction cannot
+	// leave a lock that hides this test behind a second blocking acquire.
+	if err := os.MkdirAll(store.Dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	callbackError := errors.New("baseline callback failure")
+	if failure == "recovery" {
+		writeBrokenReplyIntent(t, store)
+	}
+	called := false
+	err := store.locked(func() error { called = true; return callbackError })
+	if err == nil || called != (failure == "callback") {
+		t.Fatalf("%s failure: callback=%v, error=%v", failure, called, err)
+	}
+	if failure == "callback" && err != callbackError { //nolint:errorlint // Characterize exact callback error identity, including absence of wrapping.
+		t.Fatalf("callback error changed: %v", err)
+	}
+	assertRawLockState(t, filepath.Join(store.Dir, "lock"), false)
+}
+
+// writeBrokenReplyIntent leaves a reply transaction that recovery cannot read.
+func writeBrokenReplyIntent(t *testing.T, store Store) {
+	t.Helper()
+	dir := filepath.Join(store.Dir, "transactions")
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "11111111-1111-4111-8111-111111111111.json"), []byte("{"), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFailedRecordPublicationReleasesTheLock(t *testing.T) {
 	store := fixtureStore(t)
 	session, _ := register(t, store, "cursor")
 	path, _ := store.sessionPath(session.ID)
 	session.Listener = &model.ListenerLease{ID: newID(), Generation: session.Generation}
 	err := store.locked(func() error {
-		if err := os.Remove(filepath.Join(store.Dir, stateFormatFile)); err != nil {
-			return err
-		}
 		if err := os.Remove(path); err != nil {
 			return err
 		}
@@ -117,8 +117,4 @@ func TestFailedRecordPublicationKeepsConservativeFormatMarker(t *testing.T) {
 		t.Fatalf("missing record parent must fail publication: %v", err)
 	}
 	requireAbsentLock(t, path)
-	marker, err := os.ReadFile(filepath.Join(store.Dir, "state-formats.json"))
-	if err != nil || string(marker) != "{\n  \"schema\": 1,\n  \"formats\": {\n    \"sessions\": 2\n  }\n}\n" {
-		t.Fatalf("failed publication lost conservative high-water marker: %s, %v", marker, err)
-	}
 }

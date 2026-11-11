@@ -88,9 +88,6 @@ func (s Store) watchPath(watcher, target string) (string, error) {
 }
 
 func (s Store) saveWatch(v Watch) error {
-	if v.Schema < 0 || v.Schema > recordSchema {
-		return model.NewError(model.CodeUnsupportedSchema, "unsupported watch schema %d", v.Schema)
-	}
 	path, err := s.watchPath(v.Watcher, v.Target)
 	if err != nil {
 		return err

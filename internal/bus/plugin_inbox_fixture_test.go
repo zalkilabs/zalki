@@ -97,17 +97,6 @@ func pluginScopeSnapshot(t *testing.T, store bus.Store) map[string]string {
 	return snapshot
 }
 
-func pluginScopeFutureMarker(t *testing.T, store bus.Store) {
-	t.Helper()
-	raw, err := journal.EncodeJSON(map[string]any{"schema": 1, "formats": map[string]int{"sessions": 3}}, bus.MaxMessageRecordBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir, "state-formats.json"), raw); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func assertPluginScopeLock(t *testing.T, store bus.Store, held bool) {
 	t.Helper()
 	fd, err := journal.OpenLockFile(filepath.Join(store.Dir, "lock"), false)

@@ -386,13 +386,13 @@ func TestObserverClaimsASweepOncePerHalfIntervalAcrossServers(t *testing.T) {
 	}
 	now := time.Now()
 	interval := 20 * time.Second
-	if claimed, err := store.claimObservation(interval, now); err != nil || !claimed {
+	if !store.claimObservation(interval, now) {
 		t.Fatal("the first server did not sweep")
 	}
-	if claimed, err := store.claimObservation(interval, now.Add(interval/4)); err != nil || claimed {
+	if store.claimObservation(interval, now.Add(interval/4)) {
 		t.Fatal("a second server swept within half an interval")
 	}
-	if claimed, err := store.claimObservation(interval, now.Add(interval)); err != nil || !claimed {
+	if !store.claimObservation(interval, now.Add(interval)) {
 		t.Fatal("no server swept after the interval")
 	}
 	stamp := filepath.Join(store.Dir, observerStampName)
@@ -416,7 +416,7 @@ func TestObserverClaimsASweepOncePerHalfIntervalAcrossServers(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 { // repeated: a stamp that cannot be used must never suppress a sweep
-		if claimed, err := store.claimObservation(interval, now); err != nil || !claimed {
+		if !store.claimObservation(interval, now) {
 			t.Fatal("a symlinked stamp suppressed the sweep")
 		}
 	}
@@ -563,4 +563,21 @@ func TestObserverPanicStopsOnlyTheObserver(t *testing.T) {
 	}
 	stop() // Reaching here means the panic did not escape the goroutine.
 	waitFor(t, "exit source closed after the panic", fake.isClosed)
+}
+
+func TestPruneKeepsObserverStamp(t *testing.T) {
+	store := fixtureStore(t)
+	register(t, store, "codex")
+	path := filepath.Join(store.Dir, observerStampName)
+	if err := os.WriteFile(path, []byte("stamp fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, dry := range []bool{true, false} {
+		if _, err := store.Prune(dry, nil); err != nil {
+			t.Fatal(err)
+		}
+		if raw, err := os.ReadFile(path); err != nil || string(raw) != "stamp fixture" {
+			t.Fatal("prune touched observer stamp", err)
+		}
+	}
 }

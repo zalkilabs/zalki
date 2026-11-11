@@ -6,7 +6,6 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
-	"reflect"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -50,7 +49,7 @@ type ownershipObserverLog struct {
 func (h ownershipObserverLog) Handle(ctx context.Context, record slog.Record) error {
 	err := h.Handler.Handle(ctx, record)
 	switch record.Message {
-	case "watch.observer_source_failed", "message.receipt_saved", "watch.observer_upgrade_required":
+	case "watch.observer_source_failed", "message.receipt_saved":
 		select {
 		case h.records <- record.Message:
 		default:
@@ -109,42 +108,25 @@ func waitOwnershipRecord(t *testing.T, records <-chan string, want string) {
 func assertFailedSourceRetained(t *testing.T, f ownershipObserverFixture, calls int32) {
 	t.Helper()
 	if f.source.closeCount() != 0 || !f.source.watchingProcess(*f.owner) || !f.source.watchingDir(filepath.Join(f.service.Store.Dir, "watches")) {
-		t.Fatal("source failure closed the owned source before fence or shutdown")
+		t.Fatal("source failure closed the owned source before shutdown")
 	}
 	if f.source.calls.Load() != calls || f.counter.count() != 1 {
 		t.Fatal("fallback sweep reused the failed source or lost the notice")
 	}
 }
 
-func assertFencedSourceClosed(t *testing.T, f ownershipObserverFixture) {
+// assertSourceClosedOnce checks that shutdown released the retained source
+// and its registrations exactly once.
+func assertSourceClosedOnce(t *testing.T, f ownershipObserverFixture) {
 	t.Helper()
 	if f.source.closeCount() != 1 || f.source.watchingProcess(*f.owner) || f.source.watchingDir(filepath.Join(f.service.Store.Dir, "watches")) {
-		t.Fatal("fence did not release the retained source and registrations exactly once")
+		t.Fatal("shutdown did not release the retained source and registrations exactly once")
 	}
 }
 
-func assertFencedSourceStayedIdle(t *testing.T, f ownershipObserverFixture, before map[string]string) {
-	t.Helper()
-	assertFencedSourceClosed(t, f)
-	if f.counter.count() != 1 || !reflect.DeepEqual(before, journalSnapshot(t, f.service.Store)) {
-		t.Fatal("fenced observer delivered or changed state during shutdown")
-	}
-	select {
-	case event, ok := <-f.source.Events():
-		if !ok || event.Kind != procwatch.ProcessExited {
-			t.Fatal("source channel closed or lost the post-fence event")
-		}
-	default:
-		t.Fatal("fenced observer consumed a raw event")
-	}
-	select {
-	case <-f.source.Events():
-		t.Fatal("source event channel did not stay open and empty")
-	default:
-	}
-}
-
-func TestObserverSourceFailureThenFenceThenCancelKeepsCloseOwnership(t *testing.T) {
+// A failed exit source stays owned (not closed, its registrations kept) while
+// the observer falls back to sweeps; cancellation then closes it exactly once.
+func TestObserverSourceFailureThenCancelKeepsCloseOwnership(t *testing.T) {
 	f := newOwnershipObserver(t)
 	f.source.events <- procwatch.Event{Kind: procwatch.SourceFailed}
 	waitOwnershipRecord(t, f.records, "watch.observer_source_failed")
@@ -152,11 +134,6 @@ func TestObserverSourceFailureThenFenceThenCancelKeepsCloseOwnership(t *testing.
 	setOwner(t, f.service.Store, f.target.ID, &deadOwner)
 	waitOwnershipRecord(t, f.records, "message.receipt_saved")
 	assertFailedSourceRetained(t, f, calls)
-	futureStateMarker(t, f.service.Store)
-	waitOwnershipRecord(t, f.records, "watch.observer_upgrade_required")
-	assertFencedSourceClosed(t, f)
-	before := journalSnapshot(t, f.service.Store)
-	f.source.events <- procwatch.Event{Kind: procwatch.ProcessExited}
 	f.stop()
-	assertFencedSourceStayedIdle(t, f, before)
+	assertSourceClosedOnce(t, f)
 }

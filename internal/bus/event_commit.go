@@ -28,13 +28,10 @@ func saveSessionWith(s Store, next model.Session, writer commitWriter) error {
 		return err
 	}
 	if event.ID == "" {
-		return savePrivateSessionRecord(s, record, prior)
+		return savePrivateSessionRecord(record, prior)
 	}
 	batch, err := writer.prepare(prior, record.value, event)
 	if err != nil {
-		return err
-	}
-	if err := s.ensureStateFormat("sessions", record.value.Schema); err != nil {
 		return err
 	}
 	_, metadata, err := writer.readMetadata()
@@ -57,7 +54,7 @@ func saveSessionWith(s Store, next model.Session, writer commitWriter) error {
 
 // savePrivateSessionRecord is the only zero-event session write sink. Caller
 // holds the Store lock and has completed pending-intent recovery and absence.
-func savePrivateSessionRecord(s Store, record sessionRecord, prior []byte) error {
+func savePrivateSessionRecord(record sessionRecord, prior []byte) error {
 	kind, _, err := sessionProjection(prior, record.value)
 	if err != nil {
 		return err
@@ -67,9 +64,6 @@ func savePrivateSessionRecord(s Store, record sessionRecord, prior []byte) error
 	}
 	state, err := prepareSessionBytes(prior, record.value)
 	if err != nil {
-		return err
-	}
-	if err := s.ensureStateFormat("sessions", record.value.Schema); err != nil {
 		return err
 	}
 	current, err := journal.ReadBytes(record.path, maxStateFileBytes)
@@ -124,9 +118,4 @@ func recoverEventCommit(s Store) error {
 		return err
 	}
 	return (commitWriter{dir: s.Dir}).recover()
-}
-
-func eventIntentPresent(s Store) bool {
-	_, err := os.Lstat(filepath.Join(s.Dir, "commits", "pending.json"))
-	return !errors.Is(err, os.ErrNotExist)
 }

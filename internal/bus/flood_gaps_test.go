@@ -68,7 +68,7 @@ func TestFloodTamperedArrivalsAndBucketsFailClosedThroughTheStore(t *testing.T) 
 	}
 }
 
-func TestPruneFloodKeepsFutureRecordsAndNonJSONFilesAndListsTheRest(t *testing.T) {
+func TestPruneFloodDeletesOrphansOfAnySchemaAndKeepsNonRecordFiles(t *testing.T) {
 	store := fixtureStore(t)
 	dir := filepath.Join(store.Dir, "flood")
 	if err := store.locked(func() error { return privateDir(dir) }); err != nil {
@@ -87,7 +87,7 @@ func TestPruneFloodKeepsFutureRecordsAndNonJSONFilesAndListsTheRest(t *testing.T
 	write(orphanOld, `{"schema":1}`)
 	write(orphanBroken, `not json at all`)
 	write(orphanCurrent, `{"schema":`+jsonNumber(recordSchema)+`}`)
-	// Kept: a record from a newer build, and files that are not quota records.
+	// With one build, a record with another schema is damaged: an orphan too.
 	future := "cursor_" + newID() + ".json"
 	write(future, `{"schema":`+jsonNumber(recordSchema+1)+`,"extra":"kept"}`)
 	// The bare name is a valid <kind>_<uuid>; only the missing .json keeps it.
@@ -97,8 +97,8 @@ func TestPruneFloodKeepsFutureRecordsAndNonJSONFilesAndListsTheRest(t *testing.T
 	for _, base := range notRecords {
 		write(base, "keep")
 	}
-	kept := append([]string{future}, notRecords...)
-	want := []string{orphanOld, orphanBroken, orphanCurrent}
+	kept := notRecords
+	want := []string{orphanOld, orphanBroken, orphanCurrent, future}
 	slices.Sort(want)
 
 	preview, err := store.Prune(true, nil)

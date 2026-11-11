@@ -3,7 +3,6 @@ package bus
 import (
 	"encoding/json"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/model"
@@ -28,14 +27,6 @@ func allowBoundStateEvent(t *testing.T, store Store, target model.Session, befor
 	}
 	if record.Event.Session.ID != target.ID || record.Event.Session.Generation != target.Generation || record.Event.Session.Previous != model.StateReady || record.Event.Session.State != model.StateBusy {
 		t.Fatal("event was not bound to the updated session")
-	}
-	var expected stateFormats
-	if err := json.Unmarshal([]byte(before[stateFormatFile]), &expected); err != nil {
-		t.Fatal(err)
-	}
-	actual, _, err := store.readStateFormats()
-	if err != nil || !reflect.DeepEqual(expected, actual) {
-		t.Fatalf("format changes exceeded declared event families: %+v, %v", actual, err)
 	}
 	for _, path := range []string{eventRecordPath(metadata.Last), eventMetaPath} {
 		before[path] = string(readCommitFile(t, filepath.Join(store.Dir, path)))

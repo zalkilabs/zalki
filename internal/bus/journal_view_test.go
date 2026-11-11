@@ -2,7 +2,6 @@ package bus
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"reflect"
 	"sync"
@@ -176,41 +175,5 @@ func TestJournalViewRecoversEventsAndRepliesBeforeCallback(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestJournalViewPreservesFormatFenceReadAndWriteModes(t *testing.T) {
-	store, _, _ := stagedLiveCommit(t)
-	futureStateMarker(t, store)
-	assertJournalViewFenced(t, store, WithJournalRead)
-	assertJournalViewFenced(t, store, WithJournalWrite)
-	if err := os.Remove(filepath.Join(store.Dir, "commits", "pending.json")); err != nil {
-		t.Fatal(err)
-	}
-	before := journalSnapshot(t, store)
-	if err := WithJournalRead(store, func(view JournalView) error {
-		_, err := view.EventWindow()
-		return err
-	}); err != nil {
-		t.Fatal("future marker without pending intent should permit reads", err)
-	}
-	if after := journalSnapshot(t, store); !reflect.DeepEqual(before, after) {
-		t.Fatal("read behind future writer marker changed bytes")
-	}
-	assertJournalViewFenced(t, store, WithJournalWrite)
-}
-
-func assertJournalViewFenced(t *testing.T, store Store, run func(Store, func(JournalView) error) error) {
-	t.Helper()
-	before := journalSnapshot(t, store)
-	err := run(store, func(JournalView) error {
-		t.Error("format fence permitted callback")
-		return nil
-	})
-	if model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
-		t.Fatal("wrong writer compatibility error", err)
-	}
-	if after := journalSnapshot(t, store); !reflect.DeepEqual(before, after) {
-		t.Fatal("fenced callback changed bytes")
 	}
 }

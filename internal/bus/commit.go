@@ -12,7 +12,7 @@ import (
 )
 
 // commitWriter publishes prepared state and event records under the Store lock.
-// Its caller owns format fences, directory durability and session validation.
+// Its caller owns directory durability and session validation.
 type commitWriter struct {
 	dir          string
 	limit        uint64
@@ -96,7 +96,7 @@ func validateEventSession(raw []byte, event model.Event) error {
 	if err := json.Unmarshal(raw, &next); err != nil {
 		return err
 	}
-	if _, err := checkSchema(raw, leaseSessionSchema); err != nil {
+	if err := checkSchema(raw, leaseSessionSchema); err != nil {
 		return err
 	}
 	if next.ID != event.Session.ID || next.Generation != event.Session.Generation || next.State != event.Session.State || next.Retired != event.Session.Retired {

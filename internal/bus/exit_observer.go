@@ -30,8 +30,7 @@ const dirSettle = 50 * time.Millisecond
 // ObserveExits delivers ended notices for watched sessions that exited without
 // a SessionEnd hook (a kill or crash), until ctx is cancelled. Run it in its own
 // goroutine; it never blocks the caller's tool calls. Failures are logged and
-// skipped, and a panic stops only the observer. A state-format fence logs once
-// and idles until ctx is cancelled; it never creates observer state or delivers.
+// skipped, and a panic stops only the observer.
 //
 // It keeps no timer faster than the sweep. Idle, with no watches, it is blocked
 // on the kernel; with the platform's exit source unavailable it falls back to the
@@ -49,10 +48,6 @@ func (s *Service) observeExits(ctx context.Context, sweep time.Duration, open fu
 	o := &exitObserver{
 		service: s, root: filepath.Join(s.Store.Dir, "watches"),
 		procs: map[procwatch.Identity]struct{}{}, owners: map[procwatch.Identity][]string{},
-	}
-	if !o.canWrite() {
-		<-ctx.Done()
-		return
 	}
 	// Ensure the directory exists so its creation of entries is observable.
 	if err := privateDir(o.root); err != nil {
@@ -74,12 +69,6 @@ func (s *Service) observeExits(ctx context.Context, sweep time.Duration, open fu
 
 	o.sync(ctx)
 	for {
-		if !o.canWrite() {
-			settle.Stop()
-			sweepTimer.Stop()
-			<-ctx.Done()
-			return
-		}
 		select {
 		case <-ctx.Done():
 			return
@@ -100,10 +89,7 @@ func (s *Service) observeExits(ctx context.Context, sweep time.Duration, open fu
 			settling = false
 			o.sync(ctx)
 		case <-sweepTimer.C:
-			claimed, err := s.Store.claimObservation(sweep, time.Now())
-			if err != nil {
-				o.stopOnUpgrade(err)
-			} else if claimed {
+			if s.Store.claimObservation(sweep, time.Now()) {
 				o.sync(ctx)
 			}
 			sweepTimer.Reset(jittered(sweep))
@@ -121,7 +107,6 @@ type exitObserver struct {
 	service      *Service
 	root         string
 	rootUnusable bool
-	fenced       bool             // Sticky until this observer's context ends, even if the marker changes.
 	source       procwatch.Source // Usable watcher; nil in sweep-only mode.
 	ownedSource  procwatch.Source // Retains ownership after source failure until Close.
 	procs        map[procwatch.Identity]struct{}
@@ -139,46 +124,17 @@ func (o *exitObserver) closeSource() {
 	clear(o.owners)
 }
 
-// canWrite is checked before directory creation, scans and every delivery.
-// A newer or unreadable marker permanently idles this observer, logging once.
-func (o *exitObserver) canWrite() bool {
-	if o.fenced {
-		return false
-	}
-	err := o.service.Store.CheckWriteCompatibility()
-	if err == nil {
-		return true
-	}
-	o.stopOnUpgrade(err)
-	return false
-}
-
-func (o *exitObserver) stopOnUpgrade(err error) bool {
-	if !IsUpgradeRequired(err) {
-		return false
-	}
-	if !o.fenced {
-		o.fenced = true
-		o.closeSource()
-		o.service.Store.logEvent(slog.LevelWarn, "watch.observer_upgrade_required", eventData{Err: err})
-	}
-	return true
-}
-
 // sync re-reads the watched targets without the journal lock, registers their
 // owner processes and directories with the exit source, and notices targets that
 // already look exited (a sweep, and the start-up check). It skips anything it
 // cannot trust: non-canonical names, symlinks, unreadable, future-schema or
 // unknown-adapter sessions. Prune reports unsupported session records.
 //
-// It works in this order: stop if writing is not allowed; watch the root; if the
+// It works in this order: watch the root; if the
 // root is missing or not a directory, reconcile with nothing wanted and stop; if
 // it cannot be read, stop WITHOUT reconciling (characterized, not endorsed: the
 // old registrations stay); scan the targets; reconcile; then send the notices.
 func (o *exitObserver) sync(ctx context.Context) {
-	if !o.canWrite() {
-		return
-	}
 	o.watchRoot()
 	info, err := os.Lstat(o.root)
 	if err != nil || !info.IsDir() {
@@ -308,37 +264,24 @@ func (o *exitObserver) processExited(ctx context.Context, ref procwatch.Identity
 // watches and delivers their ended notices. Consumption removes the records, so
 // several servers observing one exit never deliver twice.
 func (o *exitObserver) notice(ctx context.Context, id string) {
-	if !o.canWrite() {
-		return
-	}
 	s := o.service
 	subject, watches, err := s.consumeIfExited(id)
 	if err != nil {
-		if o.stopOnUpgrade(err) {
-			return
-		}
 		s.Store.logEvent(slog.LevelDebug, "watch.observer_skipped", eventData{Actor: id, Err: err})
 		return
 	}
 	if len(watches) == 0 {
 		return
 	}
-	if !o.canWrite() {
-		return
-	}
 	s.Store.logEvent(slog.LevelInfo, "watch.exit_observed", eventData{Actor: subject.ID})
 	if err := s.deliverEnded(ctx, subject, watches); err != nil {
-		if o.stopOnUpgrade(err) {
-			return
-		}
 		s.Store.logEvent(slog.LevelWarn, "watch.observer_delivery_failed", eventData{Actor: subject.ID, Err: err})
 	}
 }
 
 // consumeIfExited repeats the exit decision on a fresh read under the journal
 // lock, so a session that re-registered since the scan is not reported as ended,
-// and then consumes its due watches. locked rechecks the format fence before
-// recovery or consumption, even if it changed since the observer's preflight.
+// and then consumes its due watches.
 func (s *Service) consumeIfExited(id string) (model.Session, []Watch, error) {
 	var subject model.Session
 	var watches []Watch
@@ -359,12 +302,7 @@ func (s *Service) consumeIfExited(id string) (model.Session, []Watch, error) {
 
 // claimObservation reports whether this server should sweep now. A recent
 // stamp suppresses duplicate sweeps; ordinary stamp IO failures still sweep.
-// A format-fence error suppresses the sweep without touching the stamp.
-func (s Store) claimObservation(interval time.Duration, now time.Time) (bool, error) {
-	// Do not create journal infrastructure or the stamp under a future marker.
-	if err := s.CheckWriteCompatibility(); err != nil {
-		return false, err
-	}
+func (s Store) claimObservation(interval time.Duration, now time.Time) bool {
 	claimed := false
 	err := s.locked(func() error {
 		path := filepath.Join(s.Dir, observerStampName)
@@ -382,8 +320,5 @@ func (s Store) claimObservation(interval time.Duration, now time.Time) (bool, er
 		_ = os.Chtimes(path, now, now)
 		return nil
 	})
-	if err != nil && !IsUpgradeRequired(err) {
-		return true, nil
-	}
-	return claimed, err
+	return claimed || err != nil
 }

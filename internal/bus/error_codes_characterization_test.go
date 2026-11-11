@@ -3,7 +3,6 @@ package bus_test
 import (
 	"context"
 	"maps"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -127,49 +126,6 @@ func sendOK(t *testing.T, store bus.Store, from, to agent) model.Message {
 		t.Fatal(err)
 	}
 	return msg
-}
-
-// TestNewerStateFormatFencesWritesButNotReads pins the whole-state fence as the
-// caller sees it: representative writes report unsupported_schema and upgrade-required,
-// reads keep working, and nothing changes on disk.
-func TestNewerStateFormatFencesWritesButNotReads(t *testing.T) {
-	store := newStore(t, nativeAdapter("alpha"), nativeAdapter("beta"))
-	from, to := register(t, store, "alpha"), register(t, store, "beta")
-	marker := readJSONFile(t, filepath.Join(store.Dir, "state-formats.json"))
-	formats := marker["formats"].(map[string]any)
-	formats["messages"] = 99
-	writeJSONFile(t, filepath.Join(store.Dir, "state-formats.json"), marker)
-	before := snapshot(t, store.Dir)
-
-	writes := map[string]func() error{
-		"Send": func() error {
-			return send(store, bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "hi"})
-		},
-		"Register": func() error { _, _, err := store.Register("alpha", newUUID(t), "/workspace", nil); return err },
-		"Update":   func() error { return store.Update(to.ID, model.StateBusy, false) },
-		"Prune":    func() error { _, err := store.Prune(false, nil); return err },
-	}
-	for name, write := range writes {
-		err := write()
-		if model.ErrorCodeOf(err) != "unsupported_schema" || !bus.IsUpgradeRequired(err) {
-			t.Fatalf("%s: code %q upgrade-required %v (%v), want %q and true", name, model.ErrorCodeOf(err), bus.IsUpgradeRequired(err), err, "unsupported_schema")
-		}
-	}
-	if err := store.CheckWriteCompatibility(); !bus.IsUpgradeRequired(err) {
-		t.Fatalf("CheckWriteCompatibility = %v, want upgrade required", err)
-	}
-	if sessions, err := store.List(); err != nil || len(sessions) != 2 {
-		t.Fatalf("List under the fence = %d sessions, %v", len(sessions), err)
-	}
-	if _, err := store.Messages(to.ID, to.Key); err != nil {
-		t.Fatalf("Messages under the fence: %v", err)
-	}
-	if after := snapshot(t, store.Dir); !maps.Equal(before, after) {
-		t.Fatal("a fenced write changed the state")
-	}
-	if _, err := os.Stat(filepath.Join(store.Dir, "transactions")); !os.IsNotExist(err) {
-		t.Fatal("a fenced operation created a directory", err)
-	}
 }
 
 // TestUpdateOfAnUnknownSessionIsASilentNoOp pins a deliberate leniency: a

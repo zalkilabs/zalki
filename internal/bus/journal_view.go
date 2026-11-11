@@ -26,30 +26,28 @@ type journalScope struct {
 }
 
 // WithJournalRead runs fn under the exclusive journal lock, not a shared read
-// lock. When the writer format is compatible, pending event and reply recovery
-// runs before fn and may write to the journal. An incompatible format permits
-// reads without recovery only when no pending event intent requires recovery.
-// The view is read-only even when recovery writes; fn must not re-enter the
-// Store lock.
+// lock. Pending event and reply recovery always runs before fn and may write to
+// the journal. The view is read-only even when recovery writes; fn must not
+// re-enter the Store lock.
 func WithJournalRead(store Store, fn func(JournalView) error) error {
 	return withJournalView(store, true, fn)
 }
 
-// WithJournalWrite takes the exclusive journal lock, checks writer compatibility
-// and recovers pending events and replies before invoking fn. The view provides
-// core reads; fn may update files owned by its package without re-entering the
-// Store lock. A write reached through an injected callback started by bus must
-// validate its borrowed view with WithWriteScope.
+// WithJournalWrite takes the exclusive journal lock and recovers pending events
+// and replies before invoking fn. The view provides core reads; fn may update
+// files owned by its package without re-entering the Store lock. A write
+// reached through an injected callback started by bus must validate its
+// borrowed view with WithWriteScope.
 func WithJournalWrite(store Store, fn func(JournalView) error) error {
 	return withJournalView(store, false, fn)
 }
 
 func withJournalView(store Store, readOnly bool, fn func(JournalView) error) error {
-	return store.lockedMode(func() error {
+	return store.locked(func() error {
 		scope := &journalScope{store: &store, writable: !readOnly}
 		defer scope.expire()
 		return fn(JournalView{scope: scope})
-	}, readOnly)
+	})
 }
 
 func (s *journalScope) expire() {

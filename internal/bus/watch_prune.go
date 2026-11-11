@@ -59,19 +59,28 @@ func watchNameID(name string) (string, bool) {
 	return kind + ":" + native, true
 }
 
+// watchTargetGone reports whether the watched target's session is deleted by
+// this run or has no record.
+func (r *pruneRun) watchTargetGone(dirName, target string) (bool, error) {
+	if r.deleted[target] {
+		return true, nil
+	}
+	_, err := os.Lstat(filepath.Join(r.store.Dir, "sessions", dirName+".json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	return false, err
+}
+
 func (r *pruneRun) pruneTargetWatches(root, dirName, target string) error {
 	dir := filepath.Join(root, dirName)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
-	orphan := r.deleted[target]
-	if !orphan {
-		if _, err := os.Lstat(filepath.Join(r.store.Dir, "sessions", dirName+".json")); errors.Is(err, os.ErrNotExist) {
-			orphan = true
-		} else if err != nil {
-			return err
-		}
+	orphan, err := r.watchTargetGone(dirName, target)
+	if err != nil {
+		return err
 	}
 	remaining := 0
 	for _, entry := range entries {
@@ -80,7 +89,7 @@ func (r *pruneRun) pruneTargetWatches(root, dirName, target string) error {
 			remaining++
 			continue
 		}
-		if futureRecord(filepath.Join(dir, name), recordSchema) || (!orphan && !watchIsStale(filepath.Join(dir, name), target, r.now)) {
+		if !orphan && !watchIsStale(filepath.Join(dir, name), target, r.now) {
 			remaining++
 			continue
 		}
@@ -105,15 +114,14 @@ func (r *pruneRun) pruneTargetWatches(root, dirName, target string) error {
 	return nil
 }
 
-// watchIsStale mirrors consumeWatches: a watch that cannot be read, has an
-// unparsable or past expiry, or names a different target would be discarded
-// there. Unlike consume it never returns an error for a bad record, because
-// prune is the cleanup path for them. A record with a newer schema is kept: it
-// was written by a newer build for a live target and is not corrupt.
+// watchIsStale mirrors consumeWatches: a watch that cannot be read (also one
+// with an unsupported schema), has an unparsable or past expiry, or names a
+// different target would be discarded there. Unlike consume it never returns an
+// error for a bad record, because prune is the cleanup path for them.
 func watchIsStale(path, target string, now time.Time) bool {
 	var watch Watch
 	if err := readRecord(path, &watch, &watch.Schema); err != nil {
-		return model.ErrorCodeOf(err) != model.CodeUnsupportedSchema
+		return true
 	}
 	expires, err := time.Parse(time.RFC3339Nano, watch.ExpiresAt)
 	return err != nil || !expires.After(now) || watch.Target != target

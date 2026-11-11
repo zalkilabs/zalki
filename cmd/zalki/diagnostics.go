@@ -86,10 +86,6 @@ func newPruneCommand(opts *commandOptions) *cobra.Command {
 // Notice delivery is best effort; journal observation failures remain fatal.
 func noticeExitedSessions(cmd *cobra.Command, service *bus.Service) error {
 	err := service.NoticeExitedSessions(cmd.Context())
-	if bus.IsUpgradeRequired(err) {
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: upgrade zalki to write this state; read-only results remain available.")
-		return nil
-	}
 	var delivery *bus.NoticeDeliveryError
 	if !errors.As(err, &delivery) {
 		return err

@@ -17,23 +17,21 @@ import (
 // Odd results are characterized, not endorsed.
 //
 // sync does this, in this order:
-//  1. canWrite: a fenced observer, or a journal marker from a newer build,
-//     ends the call. Nothing is watched, read or delivered.
-//  2. If there is an exit source and the root was usable, watch the watches
+//  1. If there is an exit source and the root was usable, watch the watches
 //     directory. A failure is logged and ignored.
-//  3. Lstat the root. If it is missing or is not a directory, reconcile with
+//  2. Lstat the root. If it is missing or is not a directory, reconcile with
 //     NOTHING wanted (every owner process is unwatched) and return.
-//  4. Read the root. If that fails, return WITHOUT reconciling: the owner
+//  3. Read the root. If that fails, return WITHOUT reconciling: the owner
 //     processes watched before stay watched.
-//  5. For each entry: skip names that are not a canonical <kind>_<uuid>
+//  4. For each entry: skip names that are not a canonical <kind>_<uuid>
 //     directory; watch the directory BEFORE reading it (so a watch added in
 //     between raises an event), even if it turns out to be empty; skip an
 //     empty or unreadable directory; load the session (an unreadable one is
 //     skipped); a retired session, or one whose owner exited, is queued for a
 //     notice; otherwise its owner process (pid > 1) is wanted.
-//  6. Reconcile: the source watches exactly the wanted owner processes.
-//  7. For each queued target: stop if the context is done, else send its notice.
-//     Step 6 happens before any notice is sent.
+//  5. Reconcile: the source watches exactly the wanted owner processes.
+//  6. For each queued target: stop if the context is done, else send its notice.
+//     Step 5 happens before any notice is sent.
 
 // newSyncObserver is an observer for one service, over the given source.
 func newSyncObserver(service Service, source procwatch.Source) *exitObserver {
@@ -52,20 +50,6 @@ type refusingDirSource struct {
 func (r *refusingDirSource) WatchDir(path string) error {
 	r.attempts = append(r.attempts, path)
 	return errors.New("directory watch refused")
-}
-
-func TestSyncDoesNothingForAFencedObserver(t *testing.T) {
-	service := newTestService(t)
-	counter := &noticeCounter{}
-	service.Deliver = counter.hook
-	exitedWatchedTarget(t, service)
-	fake := newFakeExitSource()
-	o := newSyncObserver(service, fake)
-	o.fenced = true
-	o.sync(context.Background())
-	if len(fake.dirs) != 0 || len(fake.procs) != 0 || counter.count() != 0 {
-		t.Fatalf("a fenced observer watched %v %v or delivered %d notices", fake.dirs, fake.procs, counter.count())
-	}
 }
 
 func TestSyncWithAMissingRootUnwatchesEveryOwner(t *testing.T) {
