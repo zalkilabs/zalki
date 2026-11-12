@@ -117,7 +117,9 @@ func TestPluginInboxReadRegrantAndReinstallDoNotRefreshOldSnapshot(t *testing.T)
 	if err := x.f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{InboxRead: true}); err != nil {
+	// The sender stays in accept_from: only a sender the plugin may still
+	// hear from is offered (see TestInboxOffersOnlyCurrentSenders).
+	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{InboxRead: true, InboxFrom: []string{x.from.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {

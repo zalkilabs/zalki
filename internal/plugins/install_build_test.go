@@ -405,3 +405,107 @@ func TestRunInstallBuildLeavesTheOwnersGoTelemetryAlone(t *testing.T) {
 		t.Fatalf("the owner's telemetry mode changed: %q %v", raw, err)
 	}
 }
+
+func TestGoArtifactMustBeTheBuildOutput(t *testing.T) {
+	ok := strings.Replace(goodManifest, `"build":["go","build","-o","plugin","."]`, `"build":["go","build","-o=plugin","."]`, 1)
+	if _, err := parseInstallManifest([]byte(ok)); err != nil {
+		t.Fatal("-o=NAME refused", err)
+	}
+	for name, raw := range map[string]string{
+		"prebuilt artifact": strings.Replace(goodManifest, `"artifact":"plugin"`, `"artifact":"tools/helper"`, 1),
+		"trailing space":    strings.Replace(goodManifest, `"artifact":"plugin"`, `"artifact":"plugin "`, 1),
+		"no -o":             strings.Replace(goodManifest, `["go","build","-o","plugin","."]`, `["go","build","."]`, 1),
+		"two -o":            strings.Replace(goodManifest, `["go","build","-o","plugin","."]`, `["go","build","-o","plugin","-o=plugin","."]`, 1),
+	} {
+		if _, err := parseInstallManifest([]byte(raw)); err == nil || !strings.Contains(err.Error(), "the artifact must be the one -o output of the build") {
+			t.Error(name, "accepted", err)
+		}
+	}
+}
+
+// fakeGoTool is a go tool that only records that it ran.
+func fakeGoTool(t *testing.T) (InstallTool, string) {
+	t.Helper()
+	marker := filepath.Join(t.TempDir(), "ran")
+	fake := filepath.Join(t.TempDir(), "go")
+	if err := os.WriteFile(fake, []byte("#!/bin/sh\n: > '"+marker+"'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	sum, err := hashInstallTool(fake)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return InstallTool{Path: fake, SHA256: sum}, marker
+}
+
+func goFolder(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	files["go.mod"] = "module example.com/p\n\ngo 1.26\n"
+	for name, body := range files {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+func TestRunInstallBuildRefusesAPrebuiltOutput(t *testing.T) {
+	tool, marker := fakeGoTool(t)
+	dir := goFolder(t, map[string]string{"main.go": "package main\n\nfunc main() {}\n", "plugin": "#!/bin/sh\n"})
+	err := RunInstallBuild(t.Context(), tool, []string{"go", "build", "-o", "plugin", "."}, dir, filepath.Join(t.TempDir(), "log"))
+	if err == nil || !strings.Contains(err.Error(), `build: "plugin" already exists in the folder`) {
+		t.Fatal("a prebuilt output was accepted", err)
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatal("the go tool ran", err)
+	}
+}
+
+func TestRunInstallBuildRefusesFilesGoWouldAssembleOrLink(t *testing.T) {
+	tool, marker := fakeGoTool(t)
+	for _, name := range []string{"x.s", "x.S", "asm/y.sx", "c.c", "c.cc", "c.cpp", "c.cxx", "c.c++", "o.m", "h.h", "h.hh", "h.hpp", "h.hxx", "f.f", "f.F", "f.for", "f.f90", "w.swig", "w.swigcxx", "rsrc.syso", "UP.SYSO"} {
+		dir := goFolder(t, map[string]string{"main.go": "package main\n\nfunc main() {}\n", name: "x"})
+		err := RunInstallBuild(t.Context(), tool, []string{"go", "build", "-o", "plugin", "."}, dir, filepath.Join(t.TempDir(), "log"))
+		if err == nil || !strings.Contains(err.Error(), "build: "+strconv.Quote(name)+" is not allowed; go plugins may contain only Go source, go.mod and embedded data") {
+			t.Error(name, "accepted", err)
+		}
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatal("the go tool ran", err)
+	}
+	dir := goFolder(t, map[string]string{"main.go": "package main\n\nfunc main() {}\n", "page.html": "<p>", "assets/data.json": "{}", "README.md": "x"})
+	if err := RunInstallBuild(t.Context(), tool, []string{"go", "build", "-o", "plugin", "."}, dir, filepath.Join(t.TempDir(), "log")); err != nil {
+		t.Fatal("Go source with embedded data was refused", err)
+	}
+}
+
+// TestAssemblyIncludeCannotReadOutsideTheCopy is the reported case: an
+// assembly file that includes a file outside the folder. The real go tool must
+// not run, and the build log must not hold the outside file's text.
+func TestAssemblyIncludeCannotReadOutsideTheCopy(t *testing.T) {
+	tool, err := ResolveInstallTool("go")
+	if err != nil {
+		t.Skip("go is not on PATH")
+	}
+	outside := filepath.Join(t.TempDir(), "outside.txt")
+	if err := os.WriteFile(outside, []byte("OUTSIDE_MARKER_TOKEN line two\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	dir := goFolder(t, map[string]string{
+		"main.go": "package main\n\nfunc main() {}\n",
+		"x.s":     "#include \"" + outside + "\"\n",
+	})
+	log := filepath.Join(t.TempDir(), "log")
+	err = RunInstallBuild(t.Context(), tool, []string{"go", "build", "-o", "plugin", "."}, dir, log)
+	if err == nil || !strings.Contains(err.Error(), `build: "x.s" is not allowed`) {
+		t.Fatal("the assembly file was built", err)
+	}
+	if raw, _ := os.ReadFile(log); strings.Contains(string(raw), "OUTSIDE_MARKER_TOKEN") {
+		t.Fatal("the build read a file outside the copy", string(raw))
+	}
+}

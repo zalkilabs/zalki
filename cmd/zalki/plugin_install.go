@@ -151,20 +151,31 @@ func (p *pluginInstaller) header() string {
 	fmt.Fprintf(&b, "Read the copied source: %s\n", plainText(p.source.Dir))
 	fmt.Fprintf(&b, "Purpose (author claim): %s\n", plainText(m.Purpose))
 	if len(m.Build) > 0 {
-		args := make([]string, 0, len(m.Build))
-		for _, arg := range m.Build {
-			args = append(args, strconv.Quote(arg))
-		}
-		fmt.Fprintf(&b, "Build: [%s]\n", strings.Join(args, ", "))
+		fmt.Fprintf(&b, "Build: %s\n", quotedList(m.Build))
 		fmt.Fprintf(&b, "Tool: %s (go launcher; its hash is checked for changes, the compiler is not pinned)\n", plainText(p.tool.Path))
 		b.WriteString("Build env: only PATH from your environment; private caches, GOTOOLCHAIN=local, GOENV=off, GOWORK=off, -buildvcs=false, -mod=readonly (vendor/ is ignored), cgo off, no network (GOPROXY=off), 2 CPUs. go.mod may use only the standard library. VCS folders such as .git are not copied.\n")
 	} else {
 		b.WriteString("Build: none (ready-made executable)\n")
 	}
 	fmt.Fprintf(&b, "Artifact: %s, pinned by SHA256 after the build\n", plainText(m.Artifact))
+	if len(m.Args) > 0 {
+		fmt.Fprintf(&b, "Run arguments: %s\n", quotedList(m.Args))
+	} else {
+		b.WriteString("Run arguments: none\n")
+	}
 	b.WriteString("Publisher proof: none (local folder)\n")
 	b.WriteString(installWarning + "\n")
 	return b.String()
+}
+
+// quotedList shows each item quoted, so spaces and control characters are
+// visible: ["go", "build", "-o", "plugin", "."].
+func quotedList(items []string) string {
+	quoted := make([]string, 0, len(items))
+	for _, item := range items {
+		quoted = append(quoted, strconv.Quote(item))
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
 // sessions lists live sessions; Store.List already leaves out retired and exited ones.

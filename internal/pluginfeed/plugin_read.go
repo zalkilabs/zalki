@@ -106,15 +106,53 @@ func (s pluginFiles) readPluginMessageAt(view bus.JournalView, before *PluginFee
 		return nil, "audit_unavailable", pluginReadFailure("audit_unavailable")
 	}
 	result := pluginReadResult{Request: request, Code: pluginReadAuthorization(p, before, session)}
-	if result.Code == "ok" {
+	// A terminal binding code (revoked, stale) still wins, so the child stops.
+	// Otherwise the limit applies to granted AND refused reads and writes no
+	// row, so a flood of refused reads cannot fill the audit.
+	if result.Code == "ok" || result.Code == "denied" {
 		for i := range rows {
 			if rows[i].Plugin == before.ID && now.Sub(rows[i].At) < time.Second {
 				return nil, "rate_limited", pluginReadFailure("rate_limited")
 			}
 		}
+	}
+	if result.Code == "ok" {
 		result.Message, result.Code = pluginNativeReadMessage(view, session, id)
 	}
 	return finishPluginReadResult(before, session, id, result, rows, now, s.savePluginReadAudit)
+}
+
+// maxRefusedReadRows caps the refused-read rows of one plugin in the shared
+// audit; a new refused row replaces that plugin's oldest refused rows. The
+// global 1000-row and size retention of the audit file is unchanged.
+const maxRefusedReadRows = 64
+
+// capRefusedReadRows makes room for row: when row is refused, it drops the
+// oldest refused rows of row's plugin until fewer than the maximum are left,
+// so after the append that plugin has at most the maximum. This also brings
+// an older, larger audit back under the cap. Other rows are kept.
+func capRefusedReadRows(rows []pluginReadAuditRow, row pluginReadAuditRow) []pluginReadAuditRow {
+	refused := func(r pluginReadAuditRow) bool {
+		return r.Plugin == row.Plugin && r.Outcome != "ok" && r.Outcome != "native_deferred"
+	}
+	if !refused(row) {
+		return rows
+	}
+	excess := -(maxRefusedReadRows - 1)
+	for _, r := range rows {
+		if refused(r) {
+			excess++
+		}
+	}
+	kept := make([]pluginReadAuditRow, 0, len(rows))
+	for _, r := range rows {
+		if excess > 0 && refused(r) {
+			excess--
+			continue
+		}
+		kept = append(kept, r)
+	}
+	return kept
 }
 
 // finishPluginReadResult audits the bounded result before returning any bytes.
@@ -133,7 +171,7 @@ func finishPluginReadResult(before *PluginFeedStatus, session, id string, result
 		responseBytes = len(raw)
 	}
 	row := pluginReadAuditRow{At: now, Plugin: before.ID, Request: result.Request, Session: session, Message: id, Revision: before.Capabilities.Revision, Outcome: result.Code, Bytes: responseBytes}
-	if err := save(append(rows, row), now); err != nil {
+	if err := save(append(capRefusedReadRows(rows, row), row), now); err != nil {
 		return nil, "audit_unavailable", pluginReadFailure("audit_unavailable")
 	}
 	if result.Code != "ok" && result.Code != "native_deferred" {
