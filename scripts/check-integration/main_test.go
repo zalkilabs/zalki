@@ -90,3 +90,33 @@ func TestRequiredIntegrationListsInstallCancelTests(t *testing.T) {
 		}
 	}
 }
+
+// Every required root must run and pass, and a skipped descendant must never
+// disappear behind a passing parent. Exercise the full list, including roots
+// in both cmd/ and internal/, without weakening the generic checker.
+func TestRequiredIntegrationRejectsSkipsForEveryRoot(t *testing.T) {
+	var report strings.Builder
+	encoder := json.NewEncoder(&report)
+	for _, target := range required {
+		for _, action := range []string{"run", "pass"} {
+			if err := encoder.Encode(map[string]string{"Action": action, "Test": target.name, "Package": target.importPath()}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := check(strings.NewReader(report.String()), required); err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range required {
+		for _, name := range []string{target.name, target.name + "/descendant"} {
+			data, err := json.Marshal(map[string]string{"Action": "skip", "Test": name, "Package": target.importPath()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			log := report.String() + string(data) + "\n"
+			if err := check(strings.NewReader(log), required); err == nil || !strings.Contains(err.Error(), "skipped") {
+				t.Fatalf("skip accepted for %s/%s: %v", target.pkg, name, err)
+			}
+		}
+	}
+}
