@@ -21,6 +21,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/adapters/cursor"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/config"
 	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -117,7 +118,7 @@ func TestLiveClients(t *testing.T) {
 	if len(targets) == 0 {
 		t.Fatal("set ZALKI_SMOKE_TARGETS to exact disposable-session IDs")
 	}
-	store := bus.Store{Dir: state, Registry: adapters.Builtin()}
+	store := configuredSmokeStore(t, state, workspace)
 	scenarios := strings.Split(os.Getenv("ZALKI_SMOKE_CASES"), ",")
 	if len(scenarios) == 1 && scenarios[0] == "" {
 		scenarios = []string{"fresh-registration", "idle-wake", "restart-recovery", "draft-preservation"}
@@ -338,4 +339,17 @@ func writeSmokeReport(path string, report liveSmokeReport) error {
 		return err
 	}
 	return fsutil.WriteAtomic(path, append(b, '\n'))
+}
+
+func configuredSmokeStore(t *testing.T, state, workspace string) bus.Store {
+	t.Helper()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := config.Load(config.Inputs{Home: home, Cwd: workspace, Flags: map[string]string{"state": state}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return bus.Store{Dir: state, Registry: adapters.BuiltinWithCodex(snapshot.Settings.CodexAllowQueueFallback.Value, snapshot.Paths.ConfigFile.Value)}
 }

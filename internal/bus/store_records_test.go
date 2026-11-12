@@ -142,13 +142,15 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 			}
 			before, _ := os.ReadFile(path)
 			var err error
+			want := model.CodeUnsupportedSchema
 			if kind == "message" {
 				_, err = store.Ack(v.ID, key, msg.ID)
+				want = model.CodeNotFound
 			} else {
 				err = store.Update(v.ID, model.StateBusy, false)
 			}
-			if model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
-				t.Fatal("future schema was accepted", err)
+			if model.ErrorCodeOf(err) != want {
+				t.Fatal("future record did not get the expected refusal", err)
 			}
 			if kind == "message" {
 				requireFutureMessageSkipped(t, store, v.ID, key)

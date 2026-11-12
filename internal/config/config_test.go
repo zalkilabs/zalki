@@ -267,7 +267,7 @@ func TestStrictConfigDiagnostics(t *testing.T) {
 		name, raw, located, repair string
 	}{
 		{"unknown", "{\n\n\"logging\": {\n\"x\":1}}", "line 4, key \"logging.x\": unknown key", "Allowed keys are file, level"},
-		{"unknown_root", `{"x":1}`, `key "x": unknown key`, "Allowed keys are logging, messages, prune"},
+		{"unknown_root", `{"x":1}`, `key "x": unknown key`, "Allowed keys are codex, logging, messages, prune"},
 		{"duplicate", "{\n\"logging\": {\n\"level\":\"info\",\n\"level\":\"debug\"}}", "line 4, key \"logging.level\": duplicate key", "Remove the duplicate key"},
 		{"escaped_duplicate", `{"messages":{"max_body_bytes":1,"max_\u0062ody_bytes":2}}`, "duplicate key", "Remove the duplicate key"},
 		{"case", `{"Logging":{}}`, "unknown key", "check the spelling"},

@@ -56,6 +56,14 @@ func TestConfigDefaultReviewFixture(t *testing.T) {
   },
   "file_exists": false,
   "settings": {
+    "codex": {
+      "allow_queue_fallback": {
+        "value": false,
+        "source": "default",
+        "origin": "default codex.allow_queue_fallback"
+      },
+      "queue_fallback_exposure": "Enabling queue fallback passes the full message envelope in process arguments, visible to other local users through ps and other local process inspection (normally up to 30 seconds)."
+    },
     "messages": {
       "max_body_bytes": {
         "value": 16384,

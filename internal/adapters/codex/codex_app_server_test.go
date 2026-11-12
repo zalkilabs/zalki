@@ -41,12 +41,12 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	root, listener := listenCodexControl(t)
 	defer listener.Close()
 	target := model.Session{Kind: "codex", NativeConfigDir: root}
-	capabilities := (Adapter{}).ReceiveCapabilities(target)
+	capabilities := New(true, "fixture.json").ReceiveCapabilities(target)
 	if capabilities.Delivery != "app_server_unverified_or_queue" || capabilities.BusyDelivery != model.DeliveryNextTurn || !capabilities.IdleWake {
 		t.Fatalf("socket was not advertised: %+v", capabilities)
 	}
 	var host agent.HealthHost
-	health, listenerHealth := (Adapter{}).Health(host, target)
+	health, listenerHealth := New(true, "fixture.json").Health(host, target)
 	if health != "app_server_socket_present" || listenerHealth != "" {
 		t.Fatalf("doctor health = %q %q", health, listenerHealth)
 	}
@@ -54,7 +54,7 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	if err := os.Chmod(socketPath, 0666); err != nil {
 		t.Fatal(err)
 	}
-	if got := (Adapter{}).ReceiveCapabilities(target); got.Delivery != "native_queue_next_turn" {
+	if got := New(true, "fixture.json").ReceiveCapabilities(target); got.Delivery != "native_queue_next_turn" {
 		t.Fatalf("group-accessible socket stayed eligible: %+v", got)
 	}
 	if err := os.Chmod(socketPath, 0600); err != nil {
@@ -63,11 +63,11 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	if err := os.Chmod(filepath.Join(root, codexControlDirName), 0755); err != nil {
 		t.Fatal(err)
 	}
-	capabilities = (Adapter{}).ReceiveCapabilities(target)
+	capabilities = New(true, "fixture.json").ReceiveCapabilities(target)
 	if capabilities.Delivery != "native_queue_next_turn" || capabilities.BusyDelivery != model.DeliveryNextTurn {
 		t.Fatalf("public control directory stayed eligible: %+v", capabilities)
 	}
-	health, _ = (Adapter{}).Health(host, target)
+	health, _ = New(true, "fixture.json").Health(host, target)
 	if health != "native_queue_only" {
 		t.Fatal(health)
 	}
@@ -92,7 +92,7 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			msg := model.Message{ID: newTestID(), From: "cursor:" + newTestID(), FromLabel: "Cursor", FromName: "Review", To: "codex:" + thread, Body: body, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
-			receipt := deliverCodex(ctx, msg, model.Session{Kind: "codex", ID: msg.To, NativeID: thread, NativeConfigDir: root})
+			receipt := New(true, "fixture.json").deliverCodex(ctx, msg, model.Session{Kind: "codex", ID: msg.To, NativeID: thread, NativeConfigDir: root})
 			if strings.Contains(receipt.Output+receipt.Error, body) {
 				t.Fatal("receipt exposed the message body")
 			}
@@ -129,12 +129,12 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			}
 			switch mode {
 			case "idle", "paged", "busy":
-				verified := (Adapter{}).ReceiveCapabilities(model.Session{Kind: "codex", NativeConfigDir: root})
+				verified := New(true, "fixture.json").ReceiveCapabilities(model.Session{Kind: "codex", NativeConfigDir: root})
 				if verified.Delivery != "app_server_tool_output" || verified.BusyDelivery != model.DeliveryBetweenTools {
 					t.Fatalf("verified server was not advertised: %+v", verified)
 				}
 			case "old", "home", "method-missing", "invalid-params":
-				unsupported := (Adapter{}).ReceiveCapabilities(model.Session{Kind: "codex", NativeConfigDir: root})
+				unsupported := New(true, "fixture.json").ReceiveCapabilities(model.Session{Kind: "codex", NativeConfigDir: root})
 				if unsupported.Delivery != "native_queue_next_turn" || unsupported.BusyDelivery != model.DeliveryNextTurn {
 					t.Fatalf("unusable server was advertised as direct delivery: %+v", unsupported)
 				}

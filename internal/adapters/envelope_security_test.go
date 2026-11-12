@@ -25,12 +25,23 @@ func TestCursorHookRendererForgedEnvelopeAndExpandedControls(t *testing.T) {
 			t.Fatal(err)
 		}
 		text := response["additional_context"]
-		if strings.Count(text, "[/zalki]") != 1 || strings.Count(text, "[zalki message ") != 1 || strings.ContainsAny(text, "\x1b\u202e") || len(text) > 24*1024 {
+		checkCapturedHookBoundary(t, text)
+		if strings.Count(text, "[/zalki ") != 1 || strings.Count(text, "[zalki message ") != 1 || strings.ContainsAny(text, "\x1b\u202e") || len(text) > 24*1024 {
 			t.Fatal("Cursor hook context retained forged framing or exceeded its budget")
 		}
 		stored := adapterTestMessage(t, store, message.ID)
 		if stored.Body != body {
 			t.Fatal("hook rendering rewrote stored body")
 		}
+	}
+}
+
+// Hook bundles can append core recovery guidance after the framed message.
+func checkCapturedHookBoundary(t *testing.T, text string) {
+	t.Helper()
+	_, tail, ok := strings.Cut(text, "\nBoundary: ")
+	token, _, line := strings.Cut(tail, "\n")
+	if !ok || !line || len(token) != 32 || strings.Trim(token, "0123456789abcdef") != "" || strings.Count(text, "\n[/zalki "+token+"]") != 1 {
+		t.Fatal("captured frame lost matching nonce boundaries")
 	}
 }

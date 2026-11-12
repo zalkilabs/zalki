@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,10 +23,16 @@ import (
 )
 
 // Adapter implements the Codex client.
-type Adapter struct{ agent.StandardHooks }
+type Adapter struct {
+	agent.StandardHooks
+	allowQueueFallback bool
+	configFile         string
+}
 
 // New returns the Codex adapter.
-func New() Adapter { return Adapter{} }
+func New(allow bool, configFile string) Adapter {
+	return Adapter{allowQueueFallback: allow, configFile: configFile}
+}
 
 // Configuration declares the Codex hook and MCP files. Hook patches use
 // install.HookConfig and install.HookCommand; the MCP declaration uses TOML.
@@ -43,12 +50,17 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 func (Adapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Notes: []string{
 		"A Codex backend can outlive its terminal.",
-		"Codex 0.164.0 or newer can receive tool output on a loaded thread without resuming or steering it. Between-tool delivery is advertised only after this process has verified that app-server. Otherwise the message waits on codex queue. An unconfirmed or ambiguous write is not retried.",
+		"Codex 0.164.0 or newer can receive tool output on a loaded thread without resuming or steering it. Between-tool delivery is advertised only after this process has verified that app-server. Otherwise delivery requires the owner to enable codex.allow_queue_fallback; queue passes message text in process arguments. An unconfirmed or ambiguous write is not retried.",
 	}}
 }
 
-func (Adapter) ReceiveCapabilities(v model.Session) model.ReceiveCapabilities {
-	c := model.ReceiveCapabilities{IdleWake: true, Delivery: "native_queue_next_turn", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: true}
+func (a Adapter) ReceiveCapabilities(v model.Session) model.ReceiveCapabilities {
+	c := model.ReceiveCapabilities{Delivery: "app_server_queue_off_config", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn, LifecycleHooks: true}
+	if a.allowQueueFallback {
+		c.IdleWake = true
+		c.Delivery = "native_queue_next_turn"
+		c.BusyDelivery = model.DeliveryNextTurn
+	}
 	root := codexConfigRoot(v)
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {
@@ -56,18 +68,23 @@ func (Adapter) ReceiveCapabilities(v model.Session) model.ReceiveCapabilities {
 	}
 	switch cachedCodexSupport(endpoint, root) {
 	case codexSupportVerified:
+		c.IdleWake = true
 		c.Delivery = "app_server_tool_output"
 		c.BusyDelivery = model.DeliveryBetweenTools
 	case codexSupportUnavailable:
 		return c
 	default:
-		c.Delivery = "app_server_unverified_or_queue"
+		if a.allowQueueFallback {
+			c.Delivery = "app_server_unverified_or_queue"
+		} else {
+			c.Delivery = "app_server_unverified_queue_off_config"
+		}
 	}
 	return c
 }
 
-func (Adapter) Deliver(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
-	return deliverCodex(ctx, msg, target)
+func (a Adapter) Deliver(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
+	return a.deliverCodex(ctx, msg, target)
 }
 
 func (Adapter) ConfigDir() string {
@@ -102,18 +119,27 @@ func (Adapter) HandleHook(s agent.HookHost, event agent.HookInput, id string, ou
 	return true, json.NewEncoder(output).Encode(map[string]bool{"continue": false})
 }
 
-func (Adapter) Health(_ agent.HealthHost, v model.Session) (string, string) {
+func (a Adapter) Health(_ agent.HealthHost, v model.Session) (string, string) {
 	root := codexConfigRoot(v)
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {
-		return "native_queue_only", ""
+		if a.allowQueueFallback {
+			return "native_queue_only", ""
+		}
+		return "app_server_required_queue_off_config", ""
 	}
 	switch cachedCodexSupport(endpoint, root) {
 	case codexSupportVerified:
 		return "app_server_tool_output", ""
 	case codexSupportUnavailable:
-		return "native_queue_only", ""
+		if a.allowQueueFallback {
+			return "native_queue_only", ""
+		}
+		return "app_server_required_queue_off_config", ""
 	default:
+		if !a.allowQueueFallback {
+			return "app_server_socket_present_queue_off_config", ""
+		}
 		return "app_server_socket_present", ""
 	}
 }
@@ -196,4 +222,17 @@ func failedReceipt(status model.DeliveryStatus, err error) model.Receipt {
 	receipt := model.NewReceipt(status)
 	receipt.Error = err.Error()
 	return receipt.WithCause(err)
+}
+
+// queueFallbackRefusal describes the owner-only exception without exposing a raw path.
+func (a Adapter) queueFallbackRefusal() model.Receipt {
+	path := a.configFile
+	if path == "" {
+		path = "the selected Zalki config file"
+	}
+	if runes := []rune(path); len(runes) > 256 {
+		path = string(runes[:256]) + "…"
+	}
+	err := model.NewError(model.CodeUnavailable, "%s", "Codex app-server delivery is unavailable for this session and the queue fallback is off. The owner can set codex.allow_queue_fallback=true in "+strconv.QuoteToASCII(path)+"; this exposes message text to other local users in process listings (up to 30 s). Agents must not change this setting.")
+	return failedReceipt(model.StatusNotSent, err)
 }

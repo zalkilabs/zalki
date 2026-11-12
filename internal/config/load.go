@@ -49,6 +49,9 @@ func captureInputs(input Inputs) Inputs {
 
 func fileValues(file fileSettings) map[string]string {
 	values := map[string]string{}
+	if file.Codex.AllowQueueFallback != nil {
+		values["codex.allow_queue_fallback"] = strconv.FormatBool(*file.Codex.AllowQueueFallback)
+	}
 	if file.Messages.MaxBodyBytes != nil {
 		values["messages.max_body_bytes"] = strconv.Itoa(*file.Messages.MaxBodyBytes)
 	}
@@ -82,6 +85,8 @@ func fileValue(content fileContent, file map[string]string, key, fallback string
 
 func resolveSettings(input Inputs, paths Paths, content fileContent, file map[string]string) (Settings, error) {
 	var result Settings
+	queueFallback := fileValue(content, file, "codex.allow_queue_fallback", "false")
+	result.CodexAllowQueueFallback = Value[bool]{Value: queueFallback.Value == "true", Source: queueFallback.Source, Origin: queueFallback.Origin}
 	body := fileValue(content, file, "messages.max_body_bytes", strconv.Itoa(model.MaxMessageBodyBytes))
 	bytes, err := strconv.Atoi(body.Value)
 	if err != nil || bytes < 1 || bytes > model.MaxMessageBodyBytes {

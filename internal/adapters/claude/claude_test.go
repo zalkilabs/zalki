@@ -87,12 +87,13 @@ func TestClaudeFrameSizeAndMissingEndpoint(t *testing.T) {
 		name     string
 		endpoint *model.Endpoint
 		body     string
+		label    string
 	}{
-		{"missing endpoint", nil, "hello"},
-		{"oversized unchanged HTML frame", endpoint, strings.Repeat("<", 16*1024)},
+		{"missing endpoint", nil, "hello", ""},
+		{"oversized envelope metadata", endpoint, "hello", strings.Repeat("<", 16*1024)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			receipt := adapter.Deliver(context.Background(), model.Message{ID: newTestID(), Body: test.body}, model.Session{Endpoint: test.endpoint})
+			receipt := adapter.Deliver(context.Background(), model.Message{ID: newTestID(), Body: test.body, FromLabel: test.label}, model.Session{Endpoint: test.endpoint})
 			if receipt.Status != model.StatusNotSent || receipt.Error == "" || receipt.At == "" {
 				t.Fatalf("invalid delivery was not rejected: %+v", receipt)
 			}

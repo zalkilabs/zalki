@@ -65,13 +65,17 @@ func (l PluginLaunch) pinDigest() (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func pluginExecutableSHA(path string) (string, error) {
-	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+func pluginExecutableSHA(path string) (string, error) { return pluginExecutableSHAObserved(path, nil) }
+
+func pluginExecutableSHAObserved(path string, observe func(*os.File)) (string, error) {
+	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return "", err
 	}
-	syscall.CloseOnExec(fd)
 	file := os.NewFile(uintptr(fd), path)
+	if observe != nil {
+		observe(file)
+	}
 	defer file.Close() //nolint:errcheck // Read-only executable hashing.
 	info, err := file.Stat()
 	if err != nil {

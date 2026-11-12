@@ -133,7 +133,7 @@ func (s codexSocket) unchanged() error {
 	return nil
 }
 
-func deliverCodex(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
+func (a Adapter) deliverCodex(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
 	id, err := model.UUID(target.NativeID)
 	if err != nil {
 		return failedReceipt(model.StatusNotSent, err)
@@ -146,6 +146,9 @@ func deliverCodex(ctx context.Context, msg model.Message, target model.Session) 
 		receipt := model.NewReceipt(model.StatusNotSent)
 		receipt.Error = errCodexUnavailable.Error()
 		return receipt.WithCause(ctx.Err())
+	}
+	if !a.allowQueueFallback {
+		return a.queueFallbackRefusal()
 	}
 	return queueCodex(ctx, msg, target)
 }

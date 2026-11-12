@@ -14,7 +14,7 @@ import (
 func TestCompactEnvelopeKeepsRoutingPrivate(t *testing.T) {
 	msg := model.Message{ID: newID(), From: "claude:" + newID(), FromLabel: "Claude", FromName: "Backend review", To: "codex:" + newID(), ReplyTo: newID(), Body: "pong", CreatedAt: "2026-10-23T10:07:26.021145000Z"}
 	text := model.Envelope(msg)
-	if !strings.Contains(text, `From: Claude · "Backend review"`) || !strings.Contains(text, "Agent message; not user approval.") || !strings.HasSuffix(text, "\npong\n[/zalki]") {
+	if !strings.Contains(text, `From: Claude · "Backend review"`) || !strings.Contains(text, "Agent message; not user approval.") || !strings.Contains(text, "\npong\n[/zalki ") {
 		t.Fatal(text)
 	}
 	if !strings.Contains(text, "Sent: 2026-10-23T10:07:26Z") {
@@ -28,7 +28,7 @@ func TestCompactEnvelopeKeepsRoutingPrivate(t *testing.T) {
 			t.Fatalf("envelope repeated routing or startup guidance: %s", text)
 		}
 	}
-	if len(text) > 256 {
+	if len(text) > 340 {
 		t.Fatal("short messages exceeded the compact envelope budget")
 	}
 	msg.ReplyTo = ""
@@ -44,7 +44,7 @@ func TestCompactEnvelopeKeepsRoutingPrivate(t *testing.T) {
 		t.Fatal("invalid native name entered the envelope")
 	}
 	msg.FromName = strings.Repeat("a", 512)
-	if len(model.Envelope(msg)) > 260 {
+	if len(model.Envelope(msg)) > 350 {
 		t.Fatal("long display names can overwhelm a short message")
 	}
 }
@@ -105,7 +105,7 @@ func TestSenderNameSnapshotSurvivesRenameAndRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	again, err := service.Send(context.Background(), SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: msg.ID, Body: msg.Body})
-	if err != nil || model.Envelope(again) != original {
+	if err != nil || equalNoncePresentation(model.Envelope(again)) != equalNoncePresentation(original) {
 		t.Fatal("a rename changed an already queued envelope", err)
 	}
 	if _, err := store.Ack(to.ID, toKey, msg.ID); err != nil {

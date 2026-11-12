@@ -11,7 +11,7 @@ import (
 // client settings while using different journal directories. Keep the inode
 // after unlocking so concurrent waiters always agree on the lock file.
 func lockInstallation(home string) (func(), error) {
-	fd, err := syscall.Open(filepath.Join(home, ".zalki-install.lock"), syscall.O_CREAT|syscall.O_RDWR|syscall.O_NOFOLLOW, 0600)
+	fd, err := syscall.Open(filepath.Join(home, ".zalki-install.lock"), syscall.O_CREAT|syscall.O_RDWR|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0600)
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,9 @@ import (
 )
 
 type fileSettings struct {
+	Codex struct {
+		AllowQueueFallback *bool `json:"allow_queue_fallback"`
+	} `json:"codex"`
 	Messages struct {
 		MaxBodyBytes *int `json:"max_body_bytes"`
 	} `json:"messages"`
@@ -24,7 +27,8 @@ type fileSettings struct {
 }
 
 var objectKeys = map[string][]string{
-	"":         {"logging", "messages", "prune"},
+	"":         {"codex", "logging", "messages", "prune"},
+	"codex":    {"allow_queue_fallback"},
 	"logging":  {"file", "level"},
 	"messages": {"max_body_bytes"},
 	"prune":    {"retired_older_than"},
@@ -117,6 +121,9 @@ func (content fileContent) scanValue(decoder *json.Decoder, path string) error {
 }
 
 func typeFix(key string) string {
+	if key == "codex.allow_queue_fallback" {
+		return "Use true or false for this key, or remove the optional key to inherit its default"
+	}
 	if key == "messages.max_body_bytes" {
 		return "Use an integer for this key, or remove the optional key to inherit its default"
 	}
