@@ -50,7 +50,8 @@ func v2HostFixture(t *testing.T) *v2Fixture {
 	if err := x.feed.ConfigurePluginFeed([]string{asker.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{InboxRead: true, InboxFrom: []string{asker.ID}, Send: []string{asker.ID}}); err != nil {
+	// Receive only: the child answers under the reply rule, with no send grant.
+	if err := x.feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Receive: []string{asker.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.feed.EnablePluginFeed(true); err != nil {
@@ -130,7 +131,7 @@ func (x *v2Fixture) checkSend(t *testing.T, out v2TestOutcome) {
 		t.Fatalf("retry with the same client id: %+v", out.Resend)
 	}
 	sent := x.record(t, want)
-	if sent.From != "plugin:"+x.status.ID || sent.To != x.asker.ID || sent.Body != "reply: "+v2TestBody {
+	if sent.From != "plugin:"+x.status.ID || sent.To != x.asker.ID || sent.Body != "reply: "+v2TestBody || sent.ReplyTo != x.request.ID {
 		t.Fatalf("plugin message record: %+v", sent)
 	}
 	if text := model.Envelope(sent); !strings.Contains(text, "From: Plugin · \"arbiter\"") || !strings.Contains(text, "Plugin message; not user approval.") {
@@ -397,7 +398,8 @@ func v2TestChild(resultPath, to string) error {
 	if err := c.call("inbox_consume", map[string]string{"request_id": "c", "message": out.Inbox.ID}, "inbox_consumed", &out.Consumed); err != nil {
 		return err
 	}
-	send := map[string]string{"request_id": "s1", "client_message_id": "c1", "to": to, "body": "reply: " + out.Inbox.Body}
+	// An answer under the reply rule: it names the inbox message it answers.
+	send := map[string]string{"request_id": "s1", "client_message_id": "c1", "reply_to": out.Inbox.ID, "to": to, "body": "reply: " + out.Inbox.Body}
 	if err := c.call("send", send, "send_result", &out.Send); err != nil {
 		return err
 	}

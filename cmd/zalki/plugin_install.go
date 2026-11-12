@@ -45,9 +45,9 @@ var installTerminal = func(in io.Reader) (installChoice, func()) {
 }
 
 type installFlags struct {
-	yes, allowUnsandboxed, inboxRead bool
-	tree                             string
-	grants                           pluginfeed.PluginInstallGrants
+	yes, allowUnsandboxed bool
+	tree                  string
+	grants                pluginfeed.PluginInstallGrants
 }
 
 func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
@@ -64,7 +64,6 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			flags.grants.InboxRead = flags.inboxRead
 			return (&pluginInstaller{cmd: cmd, store: service.Store, flags: flags}).run(args[0])
 		},
 	}
@@ -73,9 +72,8 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&flags.allowUnsandboxed, "allow-unsandboxed", false, "accept that the build and plugin run without a sandbox (with --yes)")
 	cmd.Flags().StringArrayVar(&flags.grants.Sessions, "session", nil, "exact session the plugin sees changes from (repeat; with --yes)")
 	cmd.Flags().StringArrayVar(&flags.grants.Read, "read", nil, "exact session whose received messages it may read, from any sender (repeat; with --yes)")
-	cmd.Flags().StringArrayVar(&flags.grants.Send, "send", nil, "exact session it may send messages to, shown as from this plugin (repeat; with --yes)")
-	cmd.Flags().StringArrayVar(&flags.grants.InboxFrom, "accept-from", nil, "exact session allowed to message it (repeat; with --yes)")
-	cmd.Flags().BoolVar(&flags.inboxRead, "inbox-read", false, "allow it to receive and consume the messages in its own inbox (with --yes)")
+	cmd.Flags().StringArrayVar(&flags.grants.Receive, "receive", nil, "exact session that may message it; it may answer that session (repeat; with --yes)")
+	cmd.Flags().StringArrayVar(&flags.grants.Send, "send", nil, "exact session it may send messages nobody asked for, shown as from this plugin (repeat; with --yes)")
 	return cmd
 }
 
@@ -94,7 +92,7 @@ func (p *pluginInstaller) say(format string, args ...any) {
 }
 
 func (p *pluginInstaller) run(folder string) (err error) {
-	if !p.flags.yes && (p.flags.tree != "" || p.flags.allowUnsandboxed || p.flags.grants.InboxRead || len(slices.Concat(p.flags.grants.Sessions, p.flags.grants.Read, p.flags.grants.Send, p.flags.grants.InboxFrom)) > 0) {
+	if !p.flags.yes && (p.flags.tree != "" || p.flags.allowUnsandboxed || len(slices.Concat(p.flags.grants.Sessions, p.flags.grants.Read, p.flags.grants.Send, p.flags.grants.Receive)) > 0) {
 		return errors.New("access, --tree-sha256 and --allow-unsandboxed flags need --yes; without --yes, choose on the review screen")
 	}
 	defer restoreSignalsOnCancel(p.cmd.Context())()
@@ -193,7 +191,7 @@ func (p *pluginInstaller) review() (pluginfeed.PluginInstallGrants, bool, error)
 	if err != nil {
 		return pluginfeed.PluginInstallGrants{}, false, err
 	}
-	screen := newInstallScreen(p.header(), p.source.Manifest.Requests, sessions)
+	screen := newInstallScreen(p.header(), p.source.Manifest.Access, sessions)
 	if p.flags.yes {
 		return p.reviewFlags(screen)
 	}
@@ -219,7 +217,7 @@ func (p *pluginInstaller) review() (pluginfeed.PluginInstallGrants, bool, error)
 
 // reviewFlags checks the non-interactive choices and prints the same plan.
 func (p *pluginInstaller) reviewFlags(screen *installScreen) (pluginfeed.PluginInstallGrants, bool, error) {
-	g, r := p.flags.grants, p.source.Manifest.Requests
+	g, r := p.flags.grants, p.source.Manifest.Access
 	switch {
 	case p.flags.tree != p.source.TreeSHA256:
 		return g, false, fmt.Errorf("--tree-sha256 does not match the folder snapshot %s; nothing was installed", p.source.TreeSHA256)
@@ -241,7 +239,6 @@ func (p *pluginInstaller) reviewFlags(screen *installScreen) (pluginfeed.PluginI
 			screen.selected[[2]int{i, j}] = true
 		}
 	}
-	screen.inboxOn = g.InboxRead
 	if notice := screen.check(); notice != "" {
 		return g, false, errors.New(notice + " Nothing was installed.")
 	}
@@ -250,8 +247,8 @@ func (p *pluginInstaller) reviewFlags(screen *installScreen) (pluginfeed.PluginI
 	return screen.grants(), true, nil
 }
 
-func unrequestedInstallFlags(g pluginfeed.PluginInstallGrants, r plugins.InstallRequests) bool {
-	return (len(g.Read) > 0 && !r.Read) || (len(g.Send) > 0 && !r.Send) || (len(g.InboxFrom) > 0 && !r.AcceptFrom) || (g.InboxRead && !r.InboxRead)
+func unrequestedInstallFlags(g pluginfeed.PluginInstallGrants, r plugins.InstallAccess) bool {
+	return (len(g.Read) > 0 && !r.Read) || (len(g.Send) > 0 && !r.Send) || (len(g.Receive) > 0 && !r.Receive)
 }
 
 func (p *pluginInstaller) finish(grants pluginfeed.PluginInstallGrants) error {
@@ -318,13 +315,10 @@ func describeInstallGrants(g pluginfeed.PluginInstallGrants) string {
 	for _, kind := range []struct {
 		label string
 		ids   []string
-	}{{"read bodies from", g.Read}, {"send as this plugin to", g.Send}, {"accept messages from", g.InboxFrom}} {
+	}{{"receive from and answer", g.Receive}, {"send as this plugin to", g.Send}, {"read bodies from", g.Read}} {
 		if len(kind.ids) > 0 {
 			parts = append(parts, fmt.Sprintf("%s %d session(s)", kind.label, len(kind.ids)))
 		}
-	}
-	if g.InboxRead {
-		parts = append(parts, "receive its own inbox")
 	}
 	return strings.Join(parts, ", ")
 }

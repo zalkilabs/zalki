@@ -70,6 +70,20 @@ func (s pluginFiles) checkPluginGrants(ids []string) error {
 	return nil
 }
 
+// decodePluginRecord decodes strictly. A record of an older Zalki gives
+// ErrOldPluginRecord with the fix, and p keeps only its installation ID.
+func decodePluginRecord(name string, raw []byte, p *pluginRecord) error {
+	err := bus.DecodeStrictRecordJSON(raw, p)
+	if err == nil {
+		return nil
+	}
+	if old := oldPluginRecord(name, raw); old != nil {
+		*p = pluginRecord{ID: oldPluginID(raw)}
+		return old
+	}
+	return err
+}
+
 func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
 	var p pluginRecord
 	if err := s.checkName(); err != nil {
@@ -88,7 +102,7 @@ func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
 	if err != nil {
 		return p, nil, err
 	}
-	if err := bus.DecodeStrictRecordJSON(raw, &p); err != nil {
+	if err := decodePluginRecord(s.name, raw, &p); err != nil {
 		return p, nil, err
 	}
 	if !p.validIdentityAndLaunch(s.name) {

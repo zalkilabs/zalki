@@ -36,5 +36,5 @@ func AdmitPluginInbox(view bus.JournalView, stateDir, to, sender, generation str
 
 func pluginInboxAdmissionAllowed(p pluginRecord, sender string) bool {
 	c := p.Capabilities
-	return p.Launch != nil && c != nil && c.Installation == p.ID && c.PinSHA256 == p.Launch.PinSHA256 && slices.Contains(c.InboxFrom, sender)
+	return p.Launch != nil && c != nil && c.Installation == p.ID && c.PinSHA256 == p.Launch.PinSHA256 && slices.Contains(c.Receive, sender)
 }

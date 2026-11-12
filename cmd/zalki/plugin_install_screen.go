@@ -22,12 +22,12 @@ type installKind struct {
 
 var installKinds = []struct {
 	installKind
-	requested func(plugins.InstallRequests) bool
+	requested func(plugins.InstallAccess) bool
 }{
-	{installKind{"changes", "see state and message status, no text", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Sessions }}, func(r plugins.InstallRequests) bool { return r.Feed }},
-	{installKind{"read", "read messages sent to it (from any sender)", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Read }}, func(r plugins.InstallRequests) bool { return r.Read }},
-	{installKind{"send", "send it messages as this plugin", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Send }}, func(r plugins.InstallRequests) bool { return r.Send }},
-	{installKind{"accept", "it may message this plugin", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.InboxFrom }}, func(r plugins.InstallRequests) bool { return r.AcceptFrom }},
+	{installKind{"changes", "see state and message status, no text", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Sessions }}, func(r plugins.InstallAccess) bool { return r.Status }},
+	{installKind{"receive", "it may message this plugin, and the plugin may answer it", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Receive }}, func(r plugins.InstallAccess) bool { return r.Receive }},
+	{installKind{"send", "send it messages nobody asked for, as this plugin", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Send }}, func(r plugins.InstallAccess) bool { return r.Send }},
+	{installKind{"read", "read messages sent to it (from any sender)", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Read }}, func(r plugins.InstallAccess) bool { return r.Read }},
 }
 
 // screenStyle is how the session rows are drawn.
@@ -66,18 +66,16 @@ func sessionLabel(session model.Session) string {
 
 // installScreen is the single review screen. Nothing starts selected.
 type installScreen struct {
-	header    string
-	kinds     []installKind
-	inboxRead bool // the manifest asked for inbox_read
-	sessions  []model.Session
-	selected  map[[2]int]bool
-	inboxOn   bool
-	row, col  int
-	notice    string
+	header   string
+	kinds    []installKind
+	sessions []model.Session
+	selected map[[2]int]bool
+	row, col int
+	notice   string
 }
 
-func newInstallScreen(header string, requests plugins.InstallRequests, sessions []model.Session) *installScreen {
-	s := &installScreen{header: header, inboxRead: requests.InboxRead, sessions: sessions, selected: map[[2]int]bool{}}
+func newInstallScreen(header string, requests plugins.InstallAccess, sessions []model.Session) *installScreen {
+	s := &installScreen{header: header, sessions: sessions, selected: map[[2]int]bool{}}
 	for _, kind := range installKinds {
 		if kind.requested(requests) {
 			s.kinds = append(s.kinds, kind.installKind)
@@ -86,12 +84,7 @@ func newInstallScreen(header string, requests plugins.InstallRequests, sessions 
 	return s
 }
 
-func (s *installScreen) rows() int {
-	if s.inboxRead {
-		return len(s.sessions) + 1
-	}
-	return len(s.sessions)
-}
+func (s *installScreen) rows() int { return len(s.sessions) }
 
 func (s *installScreen) grants() pluginfeed.PluginInstallGrants {
 	var g pluginfeed.PluginInstallGrants
@@ -101,7 +94,6 @@ func (s *installScreen) grants() pluginfeed.PluginInstallGrants {
 			*field = append(*field, s.sessions[key[0]].ID)
 		}
 	}
-	g.InboxRead = s.inboxOn
 	return g
 }
 
@@ -111,7 +103,7 @@ func (s *installScreen) check() string {
 	if len(g.Sessions) == 0 {
 		return "Select at least one session for changes."
 	}
-	ids := slices.Concat(g.Read, g.Send, g.InboxFrom)
+	ids := slices.Concat(g.Read, g.Send, g.Receive)
 	slices.Sort(ids)
 	if len(g.Sessions) > 16 || len(slices.Compact(ids)) > 16 {
 		return "Select at most 16 sessions per kind of access."
@@ -140,9 +132,6 @@ func (s *installScreen) render(style screenStyle) string {
 			}
 		}
 		fmt.Fprintf(&b, "%d. %s  %s\n", i+1, sessionLabel(session), plainText(session.ID))
-	}
-	if s.inboxRead && style != screenLines {
-		b.WriteString(s.mark(cursor && s.row == len(s.sessions)) + s.box(cursor && s.row == len(s.sessions), s.inboxOn) + "receive the messages sent to this plugin's own inbox\n")
 	}
 	if s.notice != "" {
 		b.WriteString(s.notice + "\n")
@@ -182,9 +171,7 @@ func (s *installScreen) key(k string) (bool, bool) {
 	case "right", "l":
 		s.col = min(s.col+1, len(s.kinds)-1)
 	case " ":
-		if s.row == len(s.sessions) {
-			s.inboxOn = !s.inboxOn
-		} else if s.row < len(s.sessions) {
+		if s.row < len(s.sessions) {
 			key := [2]int{s.row, s.col}
 			s.selected[key] = !s.selected[key]
 		}
@@ -254,13 +241,6 @@ func (s *installScreen) chooseLines(in io.Reader, out io.Writer) (bool, error) {
 		if err := s.askNumbers(lines, out, j, kind.label); err != nil {
 			return false, err
 		}
-	}
-	if s.inboxRead {
-		answer, err := askLine(lines, out, "Allow this plugin to receive the messages in its own inbox? [y/N] ")
-		if err != nil {
-			return false, err
-		}
-		s.inboxOn = answer == "y" || answer == "yes"
 	}
 	if s.notice = s.check(); s.notice != "" {
 		_, err := io.WriteString(out, s.notice+" Nothing was installed.\n")

@@ -130,7 +130,7 @@ func TestOldChildCannotSendAfterDisableAndEnable(t *testing.T) {
 	c, frames := pipeChild(t)
 	service := &bus.Service{Store: x.store, PluginSend: pluginfeed.BoundPluginSend(&x.status)}
 	h := &v2Host{ctx: t.Context(), feed: x.feed, service: service, binding: &x.status, child: c}
-	if h.handle(&v2Command{Send: &v2Send{RequestID: "old", ClientMessageID: "c1", To: x.asker.ID, Body: "hello"}}) == nil {
+	if h.handle(&v2Command{Send: &v2Send{RequestID: "old", ClientMessageID: "c1", ReplyTo: x.request.ID, To: x.asker.ID, Body: "hello"}}) == nil {
 		t.Fatal("the old child was not stopped")
 	}
 	if line := firstFrame(t, frames); !strings.Contains(line, `"stale_binding"`) {

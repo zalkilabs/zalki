@@ -71,7 +71,7 @@ func pluginInboxReadAuthorization(p pluginRecord, before *PluginFeedStatus) stri
 	if code := pluginBindingCode(p, before); code != "ok" {
 		return code
 	}
-	if !p.Capabilities.InboxRead {
+	if len(p.Capabilities.Receive) == 0 {
 		return "denied"
 	}
 	return "ok"

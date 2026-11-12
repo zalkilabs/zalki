@@ -20,7 +20,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
-const nativeInstallManifest = `{"name":"demo","language":"native","purpose":"test notices","build":null,"artifact":"bin/plugin","requests":{"feed":true,"read":true,"send":false,"inbox_read":true,"accept_from":false}}`
+const nativeInstallManifest = `{"name":"demo","language":"native","purpose":"test notices","build":null,"artifact":"bin/plugin","access":{"status":true,"receive":true,"send":false,"read":true}}`
 
 func writeInstallFolder(t *testing.T, manifest string, files map[string]string) string {
 	t.Helper()
@@ -120,7 +120,7 @@ func TestPluginInstallGoBuildEndToEnd(t *testing.T) {
 		t.Skip("go is not on PATH")
 	}
 	store, session := pluginOwnerFixture(t)
-	manifest := `{"name":"gonote","language":"go","purpose":"desktop notices","build":["go","build","-mod=readonly","-o","plugin","."],"artifact":"plugin","args":["--quiet"],"requests":{"feed":true,"read":false,"send":false,"inbox_read":false,"accept_from":false}}`
+	manifest := `{"name":"gonote","language":"go","purpose":"desktop notices","build":["go","build","-mod=readonly","-o","plugin","."],"artifact":"plugin","args":["--quiet"],"access":{"status":true,"receive":false,"send":false,"read":false}}`
 	folder := writeInstallFolder(t, manifest, map[string]string{
 		"go.mod":  "module example.com/gonote\n\ngo 1.22\n",
 		"main.go": "package main\n\nimport (\"io\"; \"os\")\n\nfunc main() { _, _ = io.Copy(io.Discard, os.Stdin) }\n",
@@ -192,8 +192,8 @@ func TestPluginInstallNativeAndCancelPaths(t *testing.T) {
 	store, session := pluginOwnerFixture(t)
 	folder := nativeInstallFolder(t)
 	assertInstallCancels(t, store.Dir, folder)
-	// Right+Space: read; Down+Space: own inbox; Left, Up, Space: changes; then y.
-	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, "\x1b[C \x1b[B \x1b[D\x1b[A y", folder)
+	// Space: changes; Right+Space: receive; Right+Space: read; then y.
+	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, " \x1b[C \x1b[C y", folder)
 	if err != nil {
 		t.Fatal(output, err)
 	}
@@ -208,7 +208,7 @@ func assertNativeChoices(t *testing.T, state, session, output string) {
 	t.Helper()
 	status := readInstallStatus(t, state, "demo")
 	c := status.Capabilities
-	if !status.Enabled || !slices.Equal(status.Sessions, []string{session}) || c == nil || !slices.Equal(c.Read, []string{session}) || !c.InboxRead || c.PinSHA256 != status.Launch.PinSHA256 || c.Installation != status.ID {
+	if !status.Enabled || !slices.Equal(status.Sessions, []string{session}) || c == nil || !slices.Equal(c.Read, []string{session}) || !slices.Equal(c.Receive, []string{session}) || c.PinSHA256 != status.Launch.PinSHA256 || c.Installation != status.ID {
 		t.Fatalf("choices not recorded exactly: %+v %+v", status, c)
 	}
 	if status.Install.Tool != "" || len(status.Install.Build) != 0 || status.Install.Build == nil {
@@ -221,7 +221,7 @@ func assertNativeChoices(t *testing.T, state, session, output string) {
 
 func assertInstallCancels(t *testing.T, state, folder string) {
 	t.Helper()
-	for _, input := range []string{"n", "\r y", "q", "\x03 y", "", "y n", "  y n", "\x1b[B y n"} {
+	for _, input := range []string{"n", "\r y", "q", "\x03 y", "", "y n", "  y n", "\x1b[C y n"} {
 		output, err := pluginInstallLocal(t, state, installRawKeys, input, folder)
 		if err != nil || !strings.Contains(output, "Cancelled. Nothing was installed.") {
 			t.Fatalf("input %q: %s %v", input, output, err)
@@ -236,7 +236,7 @@ func assertInstallCancels(t *testing.T, state, folder string) {
 func TestPluginInstallPlainLineFallback(t *testing.T) {
 	store, session := pluginOwnerFixture(t)
 	folder := nativeInstallFolder(t)
-	output, err := pluginInstallLocal(t, store.Dir, installPlainLines, "9\n1\n\nno\ny\n", folder)
+	output, err := pluginInstallLocal(t, store.Dir, installPlainLines, "9\n1\n\n\ny\n", folder)
 	if err != nil {
 		t.Fatal(output, err)
 	}
@@ -255,11 +255,11 @@ func TestPluginInstallPlainLineFallback(t *testing.T) {
 		t.Fatal(string(raw), err)
 	}
 	for input, want := range map[string]string{
-		"1\nn\nn\n":  "Cancelled. Nothing was installed.",
-		"\n\nn\ny\n": "Select at least one session for changes. Nothing was installed.",
-		"":           "Cancelled. Nothing was installed.",
-		"x\nx\nx\n":  "no valid session numbers for changes; nothing was installed",
-		"1\n\nn\ny":  "Cancelled. Nothing was installed.", // closed input after a final y is No
+		"1\nn\nn\n": "Cancelled. Nothing was installed.",
+		"\n\n\ny\n": "Select at least one session for changes. Nothing was installed.",
+		"":          "Cancelled. Nothing was installed.",
+		"x\nx\nx\n": "no valid session numbers for changes; nothing was installed",
+		"1\n\n\ny":  "Cancelled. Nothing was installed.", // closed input after a final y is No
 	} {
 		output, err := pluginInstallLocal(t, store.Dir, installPlainLines, input, folder)
 		if err != nil {
@@ -358,7 +358,6 @@ func TestPluginInstallNeedsTerminalOrExplicitYes(t *testing.T) {
 		{"Select at least one session for changes", []string{"--yes", "--allow-unsandboxed", "--tree-sha256", tree[1], folder}},
 		{"unknown session", []string{"--yes", "--allow-unsandboxed", "--tree-sha256", tree[1], "--session", other, folder}},
 		{"did not request", []string{"--yes", "--allow-unsandboxed", "--tree-sha256", tree[1], "--session", session.ID, "--send", session.ID, folder}},
-		{"did not request", []string{"--yes", "--allow-unsandboxed", "--tree-sha256", tree[1], "--session", session.ID, "--accept-from", session.ID, folder}},
 	}
 	for _, c := range refused {
 		output, err := pluginInstallLocal(t, store.Dir, installNoTerminal, "", c.args...)
@@ -367,11 +366,11 @@ func TestPluginInstallNeedsTerminalOrExplicitYes(t *testing.T) {
 		}
 		assertNothingInstalled(t, store.Dir)
 	}
-	output, err = pluginInstallLocal(t, store.Dir, installNoTerminal, "", "--yes", "--allow-unsandboxed", "--tree-sha256", tree[1], "--session", session.ID, "--inbox-read", folder)
+	output, err = pluginInstallLocal(t, store.Dir, installNoTerminal, "", "--yes", "--allow-unsandboxed", "--tree-sha256", tree[1], "--session", session.ID, "--receive", session.ID, folder)
 	if err != nil || !strings.Contains(output, "Accepted by --yes.") || !strings.Contains(output, "[x] changes") {
 		t.Fatal(output, err)
 	}
-	if c := readInstallStatus(t, store.Dir, "demo").Capabilities; c == nil || !c.InboxRead || len(c.Read) != 0 {
+	if c := readInstallStatus(t, store.Dir, "demo").Capabilities; c == nil || !slices.Equal(c.Receive, []string{session.ID}) || len(c.Read) != 0 {
 		t.Fatal("--yes granted more or less than asked", c)
 	}
 }
@@ -381,7 +380,7 @@ func TestPluginInstallBuildFailureKeepsOnlyLog(t *testing.T) {
 		t.Skip("go is not on PATH")
 	}
 	store, _ := pluginOwnerFixture(t)
-	manifest := `{"name":"broken","language":"go","purpose":"fails","build":["go","build","-o","plugin","./missing"],"artifact":"plugin","requests":{"feed":true,"read":false,"send":false,"inbox_read":false,"accept_from":false}}`
+	manifest := `{"name":"broken","language":"go","purpose":"fails","build":["go","build","-o","plugin","./missing"],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":false}}`
 	folder := writeInstallFolder(t, manifest, map[string]string{"go.mod": "module example.com/broken\n\ngo 1.22\n"})
 	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, " y", folder)
 	log := filepath.Join(store.Dir, "plugins", ".staging", "broken", "build.log")
@@ -461,7 +460,7 @@ func TestPluginInstallRefusesLinksAndBadInputs(t *testing.T) {
 }
 
 func TestPluginInstallScreenEscapesText(t *testing.T) {
-	screen := newInstallScreen("h\n", plugins.InstallRequests{Feed: true}, []model.Session{{ID: "codex:x", Name: "evil\x1b[2J\u202e"}})
+	screen := newInstallScreen("h\n", plugins.InstallAccess{Status: true}, []model.Session{{ID: "codex:x", Name: "evil\x1b[2J\u202e"}})
 	if out := screen.render(screenKeys); strings.Contains(out, "\x1b[2J") || strings.Contains(out, "\u202e") {
 		t.Fatalf("unescaped session name: %q", out)
 	}
@@ -475,7 +474,7 @@ func TestPluginInstallScreenLimitsAndNoSessions(t *testing.T) {
 	for i := range sessions {
 		sessions[i].ID = "codex:" + strings.Repeat("x", i+1)
 	}
-	screen := newInstallScreen("", plugins.InstallRequests{Feed: true}, sessions)
+	screen := newInstallScreen("", plugins.InstallAccess{Status: true}, sessions)
 	for i := range sessions {
 		screen.selected[[2]int{i, 0}] = true
 	}

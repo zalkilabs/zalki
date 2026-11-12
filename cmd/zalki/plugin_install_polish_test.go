@@ -13,7 +13,7 @@ import (
 
 func TestPluginInstallScreenStyles(t *testing.T) {
 	sessions := []model.Session{{ID: "codex:a"}, {ID: "codex:b", Name: "work"}}
-	screen := newInstallScreen("", plugins.InstallRequests{Feed: true, InboxRead: true}, sessions)
+	screen := newInstallScreen("", plugins.InstallAccess{Status: true}, sessions)
 	lines := screen.render(screenLines)
 	for _, want := range []string{"Access per session: changes = see state and message status, no text\n", "1. (no name)  codex:a\n", "2. work  codex:b\n"} {
 		if !strings.Contains(lines, want) {
@@ -23,7 +23,7 @@ func TestPluginInstallScreenStyles(t *testing.T) {
 	if strings.Contains(lines, "[ ]") || strings.Contains(lines, "own inbox") || strings.Contains(lines, "send =") || strings.Contains(lines, "read =") {
 		t.Fatalf("line mode shows boxes or unrequested kinds:\n%s", lines)
 	}
-	if keys := screen.render(screenKeys); !strings.Contains(keys, "  [ ] changes  2. work  codex:b") || !strings.Contains(keys, "own inbox") {
+	if keys := screen.render(screenKeys); !strings.Contains(keys, "  [ ] changes  2. work  codex:b") || strings.Contains(keys, "own inbox") {
 		t.Fatalf("checkbox screen lost its boxes:\n%s", keys)
 	}
 	if plan := screen.render(screenPlan); !strings.Contains(plan, "  [ ] changes  1. (no name)  codex:a") || strings.Contains(plan, "Arrows move") {
@@ -73,7 +73,7 @@ func TestPluginOwnerCommandsSayWhatTheyDid(t *testing.T) {
 		{[]string{"disable", "fake-notifier"}, "Disabled fake-notifier.\n"},
 		{[]string{"remove", "fake-notifier"}, "Removed fake-notifier.\n"},
 		{[]string{"add", "external", "--exec", exe}, "Added external (disabled).\n"},
-		{[]string{"grant", "external", "--inbox-read"}, "Recorded permissions for external.\n"},
+		{[]string{"grant", "external", "--receive", session.ID}, "Recorded permissions for external.\n"},
 		{[]string{"revoke", "external"}, "Revoked all permissions of external; it is disabled.\n"},
 	} {
 		raw, err := pluginOwnerLocal(t, store.Dir, step.args...)
@@ -95,7 +95,7 @@ func TestPluginInstallBuildFailureShowsRealLines(t *testing.T) {
 // The read grant opens every message sent to the session, whoever sent it, so
 // the owner-facing text must say so.
 func TestPluginInstallReadLabelNamesAnySender(t *testing.T) {
-	screen := newInstallScreen("", plugins.InstallRequests{Feed: true, Read: true}, []model.Session{{ID: "codex:a"}})
+	screen := newInstallScreen("", plugins.InstallAccess{Status: true, Read: true}, []model.Session{{ID: "codex:a"}})
 	if lines := screen.render(screenLines); !strings.Contains(lines, "read = read messages sent to it (from any sender)") {
 		t.Fatalf("read legend hides other senders:\n%s", lines)
 	}

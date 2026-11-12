@@ -12,7 +12,7 @@ func newPluginInboxReadCommand(opts *commandOptions) *cobra.Command {
 	var message string
 	cmd := &cobra.Command{
 		Use: "inbox-read NAME --message UUID", Short: "Read one stored plugin inbox message without acknowledging it",
-		Long: pluginTrustNotice + "\n\nOwner proxy: requires an explicit --inbox-read grant and a current checked installation; does not start a plugin. Exact message UUID only; no listing. Bodies are bounded and audited before output.", Args: cobra.ExactArgs(1),
+		Long: pluginTrustNotice + "\n\nOwner proxy: requires a receive grant and a current checked installation; does not start a plugin. Exact message UUID only; no listing. Bodies are bounded and audited before output.", Args: cobra.ExactArgs(1),
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			opts.logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 			return nil

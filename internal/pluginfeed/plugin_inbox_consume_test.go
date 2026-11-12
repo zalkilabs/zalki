@@ -91,17 +91,31 @@ func TestPluginInboxConsumeRefusesUnknownIDs(t *testing.T) {
 	}
 }
 
-func TestPluginInboxNeedsInboxReadGrant(t *testing.T) {
-	x := newInboxStorageFixture(t) // InboxFrom only, no InboxRead
+// Receive is one grant: a plugin that may receive also reads its inbox. A
+// plugin whose grants hold no receive list cannot read or consume its inbox.
+func TestPluginInboxNeedsReceiveGrant(t *testing.T) {
+	x := newInboxStorageFixture(t)
 	m, err := x.service.Send(context.Background(), x.request())
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := x.f.EnablePluginFeed(false); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Send: []string{x.from.ID}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.f.EnablePluginFeed(true); err != nil {
+		t.Fatal(err)
+	}
+	if x.status, err = x.f.PluginStatus(); err != nil {
+		t.Fatal(err)
+	}
 	if got, code := x.f.NextPluginInbox(&x.status); got != nil || code != "unauthorized" {
-		t.Fatalf("next without inbox_read = %+v, %q", got, code)
+		t.Fatalf("next without receive = %+v, %q", got, code)
 	}
 	if code := x.f.ConsumePluginInbox(&x.status, m.ID); code != "unauthorized" {
-		t.Fatalf("consume without inbox_read = %q", code)
+		t.Fatalf("consume without receive = %q", code)
 	}
 	if len(x.index(t).Entries) != 1 {
 		t.Fatal("a refused consume changed the index")
@@ -412,7 +426,7 @@ func TestPluginReadRefusesAnotherPluginsMail(t *testing.T) {
 // inbox_next and inbox_consume see only the plugin's own inbox.
 func TestPluginInboxNeverReturnsAnotherPluginsMail(t *testing.T) {
 	x := newInboxReadFixture(t, "")
-	other, status := addPlugin(t, x.f.store, "other", x.status.Launch.Executable, []string{x.from.ID}, PluginCapabilityGrants{InboxRead: true, InboxFrom: []string{x.from.ID}})
+	other, status := addPlugin(t, x.f.store, "other", x.status.Launch.Executable, []string{x.from.ID}, PluginCapabilityGrants{Receive: []string{x.from.ID}})
 	r := x.request()
 	r.To, r.Body = "plugin:"+status.ID, "PRIVATE_B"
 	b, err := x.service.Send(context.Background(), r)

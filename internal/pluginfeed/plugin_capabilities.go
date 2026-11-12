@@ -11,10 +11,11 @@ import (
 
 // PluginCapabilityGrants records separate owner-selected permissions, not effects.
 type PluginCapabilityGrants struct {
-	Read      []string `json:"read,omitempty"`
-	Send      []string `json:"send,omitempty"`
-	InboxRead bool     `json:"inbox_read,omitempty"`
-	InboxFrom []string `json:"inbox_from,omitempty"`
+	Read []string `json:"read,omitempty"`
+	Send []string `json:"send,omitempty"`
+	// Receive lists the sessions that may message the plugin. The plugin
+	// reads its own inbox, and may answer those senders under the reply rule.
+	Receive []string `json:"receive,omitempty"`
 }
 
 // PluginCapabilities binds recorded permissions to one installation and launch.
@@ -28,7 +29,7 @@ type PluginCapabilities struct {
 }
 
 func (g PluginCapabilityGrants) empty() bool {
-	return len(g.Read)+len(g.Send)+len(g.InboxFrom) == 0 && !g.InboxRead
+	return len(g.Read)+len(g.Send)+len(g.Receive) == 0
 }
 
 func (c *PluginCapabilities) clone() *PluginCapabilities {
@@ -38,17 +39,17 @@ func (c *PluginCapabilities) clone() *PluginCapabilities {
 	result := *c
 	result.Read = slices.Clone(c.Read)
 	result.Send = slices.Clone(c.Send)
-	result.InboxFrom = slices.Clone(c.InboxFrom)
+	result.Receive = slices.Clone(c.Receive)
 	return &result
 }
 
 func (s pluginFiles) checkCapabilityGrants(g PluginCapabilityGrants) error {
-	for _, ids := range [][]string{g.Read, g.Send, g.InboxFrom} {
+	for _, ids := range [][]string{g.Read, g.Send, g.Receive} {
 		if err := s.checkPluginGrants(ids); err != nil {
 			return err
 		}
 	}
-	ids := slices.Concat(g.Read, g.Send, g.InboxFrom)
+	ids := slices.Concat(g.Read, g.Send, g.Receive)
 	slices.Sort(ids)
 	return s.checkPluginGrants(slices.Compact(ids))
 }
@@ -69,7 +70,7 @@ func (s PluginFeed) GrantPluginCapabilities(g PluginCapabilityGrants) error {
 	if err := s.checkName(); err != nil {
 		return err
 	}
-	for _, ids := range []*[]string{&g.Read, &g.Send, &g.InboxFrom} {
+	for _, ids := range []*[]string{&g.Read, &g.Send, &g.Receive} {
 		*ids = slices.Clone(*ids)
 		slices.Sort(*ids)
 	}

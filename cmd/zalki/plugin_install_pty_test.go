@@ -107,7 +107,7 @@ func TestPluginInstallRealTerminalCtrlC(t *testing.T) {
 		steps      [][2]string
 		ctrlCAt    string
 	}{
-		{"line mode, native, at the final question", "dumb", false, [][2]string{{"Sessions for changes", "1\n"}, {"Sessions for read", "\n"}, {"own inbox?", "n\n"}}, "Install and enable"},
+		{"line mode, native, at the final question", "dumb", false, [][2]string{{"Sessions for changes", "1\n"}, {"Sessions for receive", "\n"}, {"Sessions for read", "\n"}}, "Install and enable"},
 		{"line mode, go, at the first prompt", "dumb", true, nil, "Sessions for changes"},
 		{"checkbox screen, native", "xterm-256color", false, nil, "Arrows move"},
 	} {
@@ -156,7 +156,7 @@ func TestPluginInstallRealTerminalSecondCtrlCKills(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	session := startPTYInstall(t, binary, store.Dir, nativeInstallFolder(t), "dumb")
 	deadline := time.After(20 * time.Second)
-	session.answer(t, deadline, [2]string{"Sessions for changes", "1\n"}, [2]string{"Sessions for read", "\n"}, [2]string{"own inbox?", "n\n"})
+	session.answer(t, deadline, [2]string{"Sessions for changes", "1\n"}, [2]string{"Sessions for receive", "\n"}, [2]string{"Sessions for read", "\n"})
 	session.waitFor(t, "Install and enable", deadline)
 	lock := holdStoreLock(t, store.Dir)
 	defer lock.Close()

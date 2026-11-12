@@ -37,26 +37,27 @@ var maxInstallBytes int64 = 200 << 20
 // installTimeout stops a build that runs too long; tests shorten it.
 var installTimeout = 10 * time.Minute
 
-// InstallRequests lists the kinds of access an author asks for. The owner
-// picks sessions; a kind that is not requested can never be granted.
-type InstallRequests struct {
-	Feed       bool `json:"feed"`
-	Read       bool `json:"read"`
-	Send       bool `json:"send"`
-	InboxRead  bool `json:"inbox_read"`
-	AcceptFrom bool `json:"accept_from"`
+// InstallAccess lists the kinds of access an author asks for. A kind that is
+// not declared can never be granted. Status and receive are standard access;
+// send (messages nobody asked for) and read (other sessions' message bodies)
+// are extended access.
+type InstallAccess struct {
+	Status  bool `json:"status"`
+	Receive bool `json:"receive"`
+	Send    bool `json:"send"`
+	Read    bool `json:"read"`
 }
 
 // InstallManifest is the author's description of a local plugin folder.
 // Purpose is an author claim, not an audit.
 type InstallManifest struct {
-	Name     string          `json:"name"`
-	Language string          `json:"language"`
-	Purpose  string          `json:"purpose"`
-	Build    []string        `json:"build"`
-	Artifact string          `json:"artifact"`
-	Args     []string        `json:"args"`
-	Requests InstallRequests `json:"requests"`
+	Name     string        `json:"name"`
+	Language string        `json:"language"`
+	Purpose  string        `json:"purpose"`
+	Build    []string      `json:"build"`
+	Artifact string        `json:"artifact"`
+	Args     []string      `json:"args"`
+	Access   InstallAccess `json:"access"`
 }
 
 // InstallSource is a private snapshot of a plugin folder.
@@ -84,7 +85,10 @@ func parseInstallManifest(raw []byte) (InstallManifest, error) {
 	if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
 		return m, installError("%s must be a JSON object", installManifestFile)
 	}
-	for _, key := range []string{"name", "language", "purpose", "build", "artifact", "requests"} {
+	if _, old := fields["requests"]; old {
+		return m, installError(`%s uses "requests"; replace it with "access": {"status": true, "receive": false, "send": false, "read": false}`, installManifestFile)
+	}
+	for _, key := range []string{"name", "language", "purpose", "build", "artifact", "access"} {
 		if _, ok := fields[key]; !ok {
 			return m, installError("%s needs the %q field", installManifestFile, key)
 		}
@@ -106,8 +110,8 @@ func (m InstallManifest) validate() error {
 		return installError("purpose must be plain text of at most 200 bytes")
 	case !plainManifestText(m.Artifact, 256) || m.Artifact == "" || !filepath.IsLocal(m.Artifact) || filepath.Clean(m.Artifact) != m.Artifact:
 		return installError("artifact must be a clean relative path inside the folder")
-	case !m.Requests.Feed:
-		return installError("requests.feed must be true: an installed plugin needs at least one session")
+	case !m.Access.Status:
+		return installError("access.status must be true: an installed plugin needs at least one session")
 	}
 	if err := m.validateBuild(); err != nil {
 		return err

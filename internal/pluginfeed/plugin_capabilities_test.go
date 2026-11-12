@@ -58,7 +58,7 @@ func TestPluginCapabilitiesRejectMalformedRecords(t *testing.T) {
 
 func TestPluginCapabilityRevocationFencesMetadataReceipt(t *testing.T) {
 	f, _, session := externalPinFixture(t)
-	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{Read: []string{session}, InboxRead: true}); err != nil {
+	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{Read: []string{session}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.EnablePluginFeed(true); err != nil {

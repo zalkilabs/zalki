@@ -19,7 +19,7 @@ func newPluginCommand(opts *commandOptions) *cobra.Command {
 	}
 	group.AddCommand(newPluginCapabilityCommand(opts, "grant"), newPluginCapabilityCommand(opts, "revoke"))
 	group.AddCommand(newPluginReadCommand(opts), newPluginInboxReadCommand(opts))
-	group.AddCommand(newPluginCheckCommand(opts), newPluginInstallCommand(opts))
+	group.AddCommand(newPluginCheckCommand(opts), newPluginInstallCommand(opts), newPluginListCommand(opts))
 	group.AddCommand(&cobra.Command{
 		Use: "run NAME", Short: "Run one foreground local notifier host", Long: pluginTrustNotice + "\n\nPlugins MUST exit on stdin EOF within the 2-second grace period and must not daemonize. Helpers must exit with the plugin or not inherit FD 3. Interactive terminal input is unsupported. Opt-in v1-read children may read exact granted inbox messages after a metadata ACK. v2 children may also receive their own inbox and send messages to granted sessions. The plugin runs as the owner; grants filter only what Zalki exposes.", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

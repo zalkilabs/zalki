@@ -100,7 +100,7 @@ func (i *PluginInstall) KeepBuildLog() { i.keepLog = true }
 // sweepPluginInstallFiles removes install leftovers of this name only. The
 // name is validated and the parents are checked, so links are never followed.
 func (s PluginFeed) sweepPluginInstallFiles() error {
-	if err := os.RemoveAll(s.pluginBinPath()); err != nil {
+	if err := errors.Join(os.RemoveAll(s.pluginBinPath()), removeIfPresent(s.replyLedgerPath())); err != nil {
 		return err
 	}
 	switch err := pluginDirectory(s.stagingRoot(), false); {
@@ -256,7 +256,7 @@ func (i *PluginInstall) Commit(artifact string, args []string, grants PluginInst
 	}()
 	grants.Sessions = slices.Clone(grants.Sessions)
 	slices.Sort(grants.Sessions)
-	for _, ids := range []*[]string{&grants.Read, &grants.Send, &grants.InboxFrom} {
+	for _, ids := range []*[]string{&grants.Read, &grants.Send, &grants.Receive} {
 		*ids = slices.Clone(*ids)
 		slices.Sort(*ids)
 	}
