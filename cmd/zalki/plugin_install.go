@@ -72,9 +72,9 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&flags.allowUnsandboxed, "allow-unsandboxed", false, "accept that the build and plugin run without a sandbox (with --yes)")
 	cmd.Flags().StringArrayVar(&flags.grants.Sessions, "session", nil, "exact session the plugin sees changes from (repeat; with --yes)")
 	cmd.Flags().StringArrayVar(&flags.grants.Read, "read", nil, "exact session whose received messages it may read, from any sender (repeat; with --yes)")
-	cmd.Flags().StringArrayVar(&flags.grants.Send, "send", nil, "exact session it may send to (repeat; with --yes)")
+	cmd.Flags().StringArrayVar(&flags.grants.Send, "send", nil, "exact session it may send messages to, shown as from this plugin (repeat; with --yes)")
 	cmd.Flags().StringArrayVar(&flags.grants.InboxFrom, "accept-from", nil, "exact session allowed to message it (repeat; with --yes)")
-	cmd.Flags().BoolVar(&flags.inboxRead, "inbox-read", false, "allow reading its own inbox (with --yes)")
+	cmd.Flags().BoolVar(&flags.inboxRead, "inbox-read", false, "allow it to receive and consume the messages in its own inbox (with --yes)")
 	return cmd
 }
 
@@ -305,13 +305,13 @@ func describeInstallGrants(g pluginfeed.PluginInstallGrants) string {
 	for _, kind := range []struct {
 		label string
 		ids   []string
-	}{{"read bodies from", g.Read}, {"send to", g.Send}, {"accept messages from", g.InboxFrom}} {
+	}{{"read bodies from", g.Read}, {"send as this plugin to", g.Send}, {"accept messages from", g.InboxFrom}} {
 		if len(kind.ids) > 0 {
 			parts = append(parts, fmt.Sprintf("%s %d session(s)", kind.label, len(kind.ids)))
 		}
 	}
 	if g.InboxRead {
-		parts = append(parts, "read its own inbox")
+		parts = append(parts, "receive its own inbox")
 	}
 	return strings.Join(parts, ", ")
 }

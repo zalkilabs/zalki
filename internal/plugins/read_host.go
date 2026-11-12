@@ -97,16 +97,20 @@ func (h *readHost) fail(code string) {
 	}
 }
 
-func (h *readHost) bindingCode() string {
-	current, err := h.feed.PluginStatus()
-	if err != nil || current.ID != h.binding.ID {
+func (h *readHost) bindingCode() string { return bindingCode(h.feed, h.binding) }
+
+// bindingCode compares the launch-time binding with the current record:
+// "" while it still holds, else the terminal code for the child.
+func bindingCode(feed pluginfeed.PluginFeed, binding *pluginfeed.PluginFeedStatus) string {
+	current, err := feed.PluginStatus()
+	if err != nil || current.ID != binding.ID {
 		return "stale_binding"
 	}
 	if !current.Enabled {
 		return "revoked"
 	}
-	a, b := h.binding.Capabilities, current.Capabilities
-	if a == nil || b == nil || h.binding.Launch == nil || current.Launch == nil || a.Installation != h.binding.ID || b.Installation != current.ID || a.PinSHA256 != h.binding.Launch.PinSHA256 || b.PinSHA256 != a.PinSHA256 || b.PinSHA256 != current.Launch.PinSHA256 || b.Revision != a.Revision {
+	a, b := binding.Capabilities, current.Capabilities
+	if a == nil || b == nil || binding.Launch == nil || current.Launch == nil || a.Installation != binding.ID || b.Installation != current.ID || a.PinSHA256 != binding.Launch.PinSHA256 || b.PinSHA256 != a.PinSHA256 || b.PinSHA256 != current.Launch.PinSHA256 || b.Revision != a.Revision {
 		return "stale_binding"
 	}
 	return ""

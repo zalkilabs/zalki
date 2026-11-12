@@ -24,6 +24,8 @@ type Service struct {
 	Runtime *RuntimeLease
 	// PluginInbox is the composition root's local inbox admission policy.
 	PluginInbox pluginInboxAdmit
+	// PluginSend is the composition root's plugin send-grant check.
+	PluginSend pluginSendAdmit
 	// Deliver overrides native-inbox transports in isolated tests.
 	Deliver func(context.Context, model.Message, model.Session) model.Receipt
 }

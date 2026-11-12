@@ -26,8 +26,8 @@ const helloTimeout = 10 * time.Second
 
 var errPartialFrameEOF = errors.New("plugin stream ended mid-frame")
 
-// errHelloVersion refuses any hello other than feed v1 or v1-read.
-var errHelloVersion = errors.New("plugin requires hello.version=v1 or v1-read; rebuild a v0 plugin against feed v1")
+// errHelloVersion refuses any hello other than feed v1, v1-read or v2.
+var errHelloVersion = errors.New("plugin requires hello.version=v1, v1-read or v2; rebuild a v0 plugin against feed v1")
 
 type hello struct {
 	Version string `json:"version"`

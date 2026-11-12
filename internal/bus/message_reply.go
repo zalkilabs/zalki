@@ -75,6 +75,9 @@ func (s Store) replyParent(actor, id string) (model.Message, error) {
 	if parent.Kind == model.NoticeKind {
 		return parent, model.NewError(model.CodeInvalidInput, "this is an automatic notice; use send_message to %s", parent.From)
 	}
+	if model.IsPluginInboxAddress(parent.From) {
+		return parent, model.NewError(model.CodeInvalidInput, "plugin messages take no replies; use send_message to %s", parent.From)
+	}
 	if !parent.Status.CanAcknowledge() {
 		return parent, model.NewError(model.CodeInvalidTransition, "cannot acknowledge a message that was not sent")
 	}

@@ -1,6 +1,7 @@
 package pluginfeed
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -10,6 +11,17 @@ import (
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
+
+// maxPluginInboxBodyJSON leaves room for the envelope in a 64 KiB frame.
+const maxPluginInboxBodyJSON = 60 << 10
+
+// pluginInboxBodyFits reports whether a body still fits one frame after JSON
+// escaping. Admission refuses a body that does not; inbox_next leaves such a
+// body out of an older record admitted before this check.
+func pluginInboxBodyFits(body string) bool {
+	raw, err := json.Marshal(body)
+	return err == nil && len(raw) <= maxPluginInboxBodyJSON
+}
 
 type pluginInboxEntry struct {
 	ID         string    `json:"id"`
@@ -82,6 +94,10 @@ func (s pluginFiles) reservePluginInbox(index pluginInboxIndex, message model.Me
 	if err != nil {
 		return err
 	}
+	// The child gets the body inside one 64 KiB frame; escaping can grow it.
+	if !pluginInboxBodyFits(message.Body) {
+		return model.NewError(model.CodeInvalidInput, "message is too large for a plugin inbox after JSON escaping")
+	}
 	if len(index.Entries) >= 1000 || total+size > 16<<20 {
 		return model.NewError(model.CodeRateLimited, "plugin inbox is full")
 	}
@@ -97,11 +113,7 @@ func (s pluginFiles) reservePluginInbox(index pluginInboxIndex, message model.Me
 	}
 	index.Quota = decision.Next
 	index.Entries = append(index.Entries, pluginInboxEntry{ID: message.ID, Sender: message.From, Generation: generation, Revision: revision, At: now, Bytes: size})
-	encoded, err := journal.EncodeJSON(index, 1<<20)
-	if err != nil {
-		return err
-	}
-	return journal.WriteAtomic(filepath.Join(s.pluginDataPath(), "inbox.json"), encoded)
+	return s.savePluginInboxIndex(index)
 }
 
 func validPluginInboxIndex(index pluginInboxIndex, installation string, now time.Time) bool {

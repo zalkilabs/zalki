@@ -127,7 +127,7 @@ func TestPluginInboxReadBodyAndEncodedResponseBounds(t *testing.T) {
 	for _, c := range []struct {
 		name, body string
 		ok         bool
-	}{{"full-16KiB", strings.Repeat("a", 16<<10), true}, {"escaped-over-32KiB", strings.Repeat("<", 16<<10), false}} {
+	}{{"full-16KiB", strings.Repeat("a", 16<<10), true}, {"escaped-over-32KiB", strings.Repeat("<", 6000), false}} {
 		t.Run(c.name, func(t *testing.T) {
 			x := newInboxReadFixture(t, c.body)
 			raw, err := x.f.ReadPluginInboxMessage(x.message.ID)

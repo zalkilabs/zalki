@@ -59,9 +59,17 @@ func Run(ctx context.Context, store bus.Store, binary, name string, output io.Wr
 	if err != nil {
 		return fmt.Errorf("plugin hello failed: %w", err)
 	}
+	return serve(ctx, store, feed, &status, c, output, ready, header)
+}
 
-	if !header.validHello() {
-		return runReadHost(ctx, feed, &status, c, output, ready, header)
+// serve runs the host for the version in the child's hello.
+func serve(ctx context.Context, store bus.Store, feed pluginfeed.PluginFeed, status *pluginfeed.PluginFeedStatus, c *child, output io.Writer, ready string, header frame) error {
+	switch {
+	case header.Hello != nil && header.Hello.Version == "v2":
+		service := &bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox, PluginSend: pluginfeed.BoundPluginSend(status)}
+		return runV2Host(ctx, feed, service, status, c, output, ready, header)
+	case !header.validHello():
+		return runReadHost(ctx, feed, status, c, output, ready, header)
 	}
 	return hostLoop(ctx, feed, c, output, ready)
 }
