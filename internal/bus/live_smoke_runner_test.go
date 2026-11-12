@@ -37,7 +37,8 @@ func TestLiveSmokeRunnerWithEmulatedClient(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "state")
 	t.Setenv("CODEX_HOME", filepath.Join(workspace, "codex"))
 	t.Setenv("CURSOR_CONFIG_DIR", filepath.Join(workspace, "cursor"))
-	store := bus.Store{Dir: state, Registry: adapters.Builtin()}
+	configFile := smokeQueueConfigFixture(t, workspace)
+	store := bus.Store{Dir: state, Registry: adapters.BuiltinWithCodex(true, configFile)}
 	target, key, err := store.Register("codex", smokeID(), workspace, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +55,7 @@ func TestLiveSmokeRunnerWithEmulatedClient(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, binary, "-test.run", "^TestLiveClients$", "-test.v")
-	command.Env = append(os.Environ(), "ZALKI_LIVE_SMOKE=1", "ZALKI_SMOKE_CASES=roundtrip", "ZALKI_SMOKE_STATE="+state,
+	command.Env = append(os.Environ(), "ZALKI_LIVE_SMOKE=1", "ZALKI_CONFIG="+configFile, "ZALKI_SMOKE_CASES=roundtrip", "ZALKI_SMOKE_STATE="+state,
 		"ZALKI_SMOKE_WORKSPACE="+workspace, "ZALKI_SMOKE_TARGETS="+target.ID, "ZALKI_TEST_PROCESS="+binary,
 		"ZALKI_TEST_CLIENT_HELPER=1", "ZALKI_TEST_CLIENT_KEY="+key, "ZALKI_TEST_CLIENT_ACTOR="+target.ID, "PATH="+binDir)
 	output, err := command.CombinedOutput()
@@ -109,8 +110,18 @@ func TestSmokeClientHelper(t *testing.T) {
 	if challenge == "" {
 		t.Fatal("missing smoke challenge")
 	}
-	service := bus.Service{Store: bus.Store{Dir: os.Getenv("ZALKI_SMOKE_STATE"), Registry: adapters.Builtin()}}
+	service := bus.Service{Store: configuredSmokeStore(t, os.Getenv("ZALKI_SMOKE_STATE"), os.Getenv("ZALKI_SMOKE_WORKSPACE"))}
 	if _, err := service.Reply(context.Background(), bus.ReplyRequest{Actor: os.Getenv("ZALKI_TEST_CLIENT_ACTOR"), Capability: os.Getenv("ZALKI_TEST_CLIENT_KEY"), MessageID: id, Body: challenge + ": Transport acceptance alone cannot prove that a model read the request."}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// This private emulated client fixture explicitly opts into body-bearing argv.
+func smokeQueueConfigFixture(t *testing.T, workspace string) string {
+	t.Helper()
+	path := filepath.Join(workspace, "zalki.json")
+	if err := os.WriteFile(path, []byte(`{"codex":{"allow_queue_fallback":true}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }

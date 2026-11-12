@@ -59,16 +59,5 @@ func (s Store) completedNativePrompt(actor, prompt string) (string, error) {
 
 // Compare with the stored message so work under the journal lock stays bounded.
 func sameNativePresentation(message model.Message, prompt string) bool {
-	expected := model.Envelope(message)
-	if prompt == expected {
-		return true
-	}
-	empty := message
-	empty.Body = ""
-	const footer = "\n[/zalki]"
-	prefix := strings.TrimSuffix(model.Envelope(empty), footer)
-	if len(prompt) < len(prefix)+len(footer) || !strings.HasPrefix(prompt, prefix) || !strings.HasSuffix(prompt, footer) {
-		return false
-	}
-	return prompt[len(prefix):len(prompt)-len(footer)] == message.Body
+	return model.MatchesEnvelope(message, prompt)
 }

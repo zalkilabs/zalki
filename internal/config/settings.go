@@ -33,9 +33,10 @@ type Paths struct {
 // Settings is an invocation snapshot. Duration values are typed for callers,
 // which can format them with time.Duration.String in inspection output.
 type Settings struct {
-	MaxBodyBytes Value[int]
-	LogLevel     Value[string]
-	LogFile      Value[string]
+	CodexAllowQueueFallback Value[bool]
+	MaxBodyBytes            Value[int]
+	LogLevel                Value[string]
+	LogFile                 Value[string]
 	// LogFileFromState preserves lazy initialization of the default state sink,
 	// including an explicitly empty log-file override.
 	LogFileFromState bool

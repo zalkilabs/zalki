@@ -49,7 +49,7 @@ func TestWatchFiresOnceOnStopAndSessionEnd(t *testing.T) {
 		t.Fatalf("stop delivered %d notices", len(delivered))
 	}
 	note := delivered[0]
-	if note.To != watcher.ID || note.From != target.ID || note.Kind != model.NoticeKind || note.FromLabel != "Zalki" || !strings.Contains(note.Body, "Zalki notice: reviewer ("+target.ID+") finished a turn at ") {
+	if note.To != watcher.ID || note.From != target.ID || note.Kind != model.NoticeKind || note.FromLabel != "Zalki" || !strings.Contains(note.Body, "Zalki notice: \"reviewer\" ("+target.ID+") finished a turn at ") {
 		t.Fatalf("notice: %+v", note)
 	}
 	frame := model.Envelope(note)

@@ -228,7 +228,7 @@ func checkInboxNativeMutators(t *testing.T, x inboxPublicFixture, who agent, id 
 	store := x.service.Store
 
 	result, err := store.Ack(who.ID, who.Key, id)
-	if model.ErrorCodeOf(err) != model.CodeUnauthorized || !reflect.DeepEqual(result, model.Message{}) {
+	if model.ErrorCodeOf(err) != model.CodeNotFound || !reflect.DeepEqual(result, model.Message{}) {
 		t.Fatal("failed plugin ACK returned message data")
 	}
 	result, err = x.service.Reply(context.Background(), bus.ReplyRequest{Actor: who.ID, Capability: who.Key, MessageID: id, Body: "not a plugin reply"})

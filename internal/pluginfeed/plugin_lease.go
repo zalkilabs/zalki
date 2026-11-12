@@ -13,11 +13,10 @@ import (
 // OpenPluginLease acquires a read-only empty private lease. Close it after child exit.
 // Read-only FD3 prevents accidental writes, not same-user reopening or LOCK_UN.
 func OpenPluginLease(path string) (*os.File, error) {
-	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_CREAT|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0600)
+	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_CREAT|syscall.O_CLOEXEC|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0600)
 	if err != nil {
 		return nil, err
 	}
-	syscall.CloseOnExec(fd)
 	file := os.NewFile(uintptr(fd), path)
 	if err := CheckPluginLeaseFD(fd); err != nil {
 		_ = file.Close()

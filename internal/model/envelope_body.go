@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -14,26 +15,55 @@ const (
 	displayShortened     = "\n[Display shortened; read the full body by message ID.]"
 )
 
-var bodyMarkers = strings.NewReplacer(
-	"[/zalki]", `\u005B/zalki]`,
-	"[zalki message", `\u005Bzalki message`,
-	"[zalki notice", `\u005Bzalki notice`,
-)
+var bodyMarker = regexp.MustCompile(`(?i)\[\s*(?:/\s*zalki|zalki\s+(?:message|notice))`)
 
-// V1 visibly escapes body markers and display controls, preserving ordinary text and raw storage.
-func envelopeBody(body string) string {
-	escaped := bodyMarkers.Replace(escapeBodyControls(body))
-	if escaped == body || len(escaped) <= envelopeDisplayBytes && jsonTextBytes(escaped) <= envelopeJSONBytes {
+// envelopeBody escapes display controls and marker delimiters without changing storage.
+func envelopeBody(body string) string { return envelopeBodyBudget(body, envelopeJSONBytes) }
+
+func envelopeBodyBudget(body string, jsonBudget int) string {
+	escaped := escapeBodyControls(body)
+	if len(escaped) <= envelopeDisplayBytes && jsonTextBytes(escaped) <= jsonBudget {
 		return escaped
 	}
-	return boundedEnvelopeBody(escaped, displayShortened)
+	return boundedEnvelopeBody(escaped, displayShortened, jsonBudget)
+}
+
+// markerStarts folds only a detection copy and maps each marker back to its delimiter.
+func markerStarts(body string) map[int]bool {
+	var folded strings.Builder
+	offsets := make([]int, 0, len(body))
+	for i, r := range body {
+		if unicode.Is(unicode.Cf, r) {
+			continue
+		}
+		if r >= '\uFF01' && r <= '\uFF5E' {
+			r -= 0xFEE0
+		}
+		if unicode.IsSpace(r) {
+			r = ' '
+		}
+		for range utf8.RuneLen(r) {
+			offsets = append(offsets, i)
+		}
+		folded.WriteRune(r)
+	}
+	starts := make(map[int]bool)
+	for _, match := range bodyMarker.FindAllStringIndex(folded.String(), -1) {
+		starts[offsets[match[0]]] = true
+	}
+	return starts
 }
 
 func escapeBodyControls(body string) string {
+	markers := markerStarts(body)
 	var out strings.Builder
-	for _, r := range body {
-		if r != '\n' && r != '\t' && (unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r)) {
-			fmt.Fprintf(&out, `\u%04X`, r)
+	for i, r := range body {
+		if markers[i] || r != '\n' && r != '\t' && (unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || r == '\u2028' || r == '\u2029') {
+			if r <= 0xFFFF {
+				fmt.Fprintf(&out, `\u%04X`, r)
+			} else {
+				fmt.Fprintf(&out, `\U%08X`, r)
+			}
 		} else {
 			out.WriteRune(r)
 		}
@@ -41,13 +71,13 @@ func escapeBodyControls(body string) string {
 	return out.String()
 }
 
-func boundedEnvelopeBody(body, suffix string) string {
+func boundedEnvelopeBody(body, suffix string, jsonBudget int) string {
 	var out strings.Builder
 	cost := jsonTextBytes(suffix)
 	for body != "" {
 		unit := displayUnit(body)
 		unitCost := jsonTextBytes(unit)
-		if out.Len()+len(unit)+len(suffix) > envelopeDisplayBytes || cost+unitCost > envelopeJSONBytes {
+		if out.Len()+len(unit)+len(suffix) > envelopeDisplayBytes || cost+unitCost > jsonBudget {
 			break
 		}
 		out.WriteString(unit)
@@ -58,17 +88,13 @@ func boundedEnvelopeBody(body, suffix string) string {
 }
 
 func displayUnit(body string) string {
-	for _, prefix := range []string{`\u005B/zalki]`, `\u005Bzalki message`, `\u005Bzalki notice`} {
-		if strings.HasPrefix(body, prefix) {
-			line, _, _ := strings.Cut(body, "\n")
-			if end := strings.IndexByte(line, ']'); end >= 0 {
-				return body[:end+1]
-			}
-			return body[:len(prefix)]
+	for _, escape := range []struct {
+		prefix string
+		width  int
+	}{{`\u`, 6}, {`\U`, 10}} {
+		if len(body) >= escape.width && strings.HasPrefix(body, escape.prefix) && strings.Trim(body[2:escape.width], "0123456789abcdefABCDEF") == "" {
+			return body[:escape.width]
 		}
-	}
-	if len(body) >= 6 && body[:2] == `\u` && strings.Trim(body[2:6], "0123456789abcdefABCDEF") == "" {
-		return body[:6]
 	}
 	_, size := utf8.DecodeRuneInString(body)
 	return body[:size]

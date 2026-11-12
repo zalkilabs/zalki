@@ -9,9 +9,9 @@ import (
 // OpenLockFile opens path read-write without following a symbolic link. When
 // create is true it creates a missing file with mode 0600; otherwise it opens
 // only an existing file. It returns the raw descriptor and syscall error,
-// without adding close-on-exec. The caller owns locking and descriptor cleanup.
+// with close-on-exec set atomically. The caller owns locking and descriptor cleanup.
 func OpenLockFile(path string, create bool) (int, error) {
-	flags := syscall.O_RDWR | syscall.O_NOFOLLOW
+	flags := syscall.O_RDWR | syscall.O_NOFOLLOW | syscall.O_CLOEXEC
 	var mode uint32
 	if create {
 		flags |= syscall.O_CREAT

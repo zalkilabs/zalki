@@ -186,7 +186,7 @@ func TestCollaborationCost(t *testing.T) {
 		}
 		// Includes the data envelope and activity timestamps. Transport details
 		// belong in diagnostics, not in every discovery row or its schema.
-		if len(response) > 150*len(output.Data) {
+		if len(response) > 150*len(output.Data)+discoveryQueueOffBytes(t, output.Data) {
 			t.Fatalf("discovery exceeded 150 bytes/agent: %d bytes for %d agents", len(response), len(output.Data))
 		}
 		// SDK/spec compatibility mirrors the JSON into text. Report the full
@@ -207,9 +207,28 @@ func TestCollaborationCost(t *testing.T) {
 			t.Fatal("authenticated discovery cost call failed", err)
 		}
 		markedResponse, _ := json.Marshal(marked.StructuredContent)
-		if len(markedResponse)-len(response) != len(`,"self":true`) || len(markedResponse) > 150*len(output.Data) {
+		if len(markedResponse)-len(response) != len(`,"self":true`) || len(markedResponse) > 150*len(output.Data)+discoveryQueueOffBytes(t, output.Data) {
 			t.Fatal("self marking added more than one compact marker")
 		}
 		t.Logf("authenticated_discovery: response_bytes=%d delta=%d bytes_per_agent=%.1f", len(markedResponse), len(markedResponse)-len(response), float64(len(markedResponse))/float64(len(output.Data)))
 	})
+}
+
+// Only the three required default-off wake overrides extend the prior budget.
+func discoveryQueueOffBytes(t *testing.T, agents []bus.AgentInfo) int {
+	t.Helper()
+	codex := 0
+	for _, agent := range agents {
+		if !strings.HasPrefix(agent.ID, "codex:") {
+			continue
+		}
+		if agent.IdleWake == nil || *agent.IdleWake {
+			t.Fatal("default-off Codex discovery omitted false idle_wake")
+		}
+		codex++
+	}
+	if codex != 3 {
+		t.Fatal("discovery fixture lost its three Codex sessions")
+	}
+	return codex * len(`,"idle_wake":false`)
 }

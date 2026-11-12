@@ -25,7 +25,7 @@ func TestRecordedCodexHookAndMetadataContract(t *testing.T) {
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	adapter := New()
+	adapter := New(false, "fixture.json")
 	var hook agent.HookInput
 	if err := json.Unmarshal(fixture.Hook, &hook); err != nil {
 		t.Fatal(err)

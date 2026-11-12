@@ -136,38 +136,7 @@ func awaitParentRelease(t *testing.T) {
 
 func TestJournalLockProcessBaseline(t *testing.T) {
 	if mode := os.Getenv("ZALKI_LOCK_BASELINE_MODE"); mode != "" {
-		path := os.Getenv("ZALKI_LOCK_BASELINE_PATH")
-		switch mode {
-		case "journal":
-			assertRawLockState(t, filepath.Join(path, "lock"), true)
-			fmt.Println("ready")
-			store := Store{Dir: path}
-			if err := store.locked(func() error {
-				assertRawLockState(t, filepath.Join(path, "lock"), true)
-				fmt.Println("acquired")
-				awaitParentRelease(t)
-				return nil
-			}); err != nil {
-				t.Fatal(err)
-			}
-		case "lifetime":
-			fd, err := strconv.Atoi(os.Getenv("ZALKI_LOCK_BASELINE_FD"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			linked, err := lockFileStillLinked(fd, path)
-			if err != nil || !linked {
-				t.Fatalf("exec child did not inherit the raw lifetime descriptor: linked=%v, %v", linked, err)
-			}
-			fmt.Println("ready")
-			awaitParentRelease(t)
-			if err := syscall.Close(fd); err != nil {
-				t.Fatal(err)
-			}
-		default:
-			t.Fatalf("unknown lock helper mode %q", mode)
-		}
-		fmt.Println("released")
+		journalLockProcessHelper(t, mode)
 		return
 	}
 
@@ -190,7 +159,7 @@ func TestJournalLockProcessBaseline(t *testing.T) {
 		assertRawLockState(t, filepath.Join(store.Dir, "lock"), false)
 	})
 
-	t.Run("raw lifetime descriptor survives exec and parent close", func(t *testing.T) {
+	t.Run("lifetime descriptor closes on exec and releases after parent close", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "listener.lock")
 		fd, err := acquireListenerLock(path, journal.OpenLockFile)
 		if err != nil {
@@ -202,20 +171,53 @@ func TestJournalLockProcessBaseline(t *testing.T) {
 			}
 		})
 		flags, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0)
-		if err != nil || flags != 0 {
-			t.Fatalf("raw listener descriptor flags = %d, %v; want literal 0 (no CLOEXEC)", flags, err)
+		if err != nil || flags != unix.FD_CLOEXEC {
+			t.Fatalf("raw listener descriptor flags = %d, %v; want CLOEXEC", flags, err)
 		}
-		// No ExtraFiles: characterize the existing raw descriptor inheritance.
+		// No ExtraFiles: an unrelated child must not retain this lifetime lock.
 		child := startJournalLockChild(t, "lifetime", path, fd)
 		expectLockChildLine(t, child, "ready")
 		if err := syscall.Close(fd); err != nil {
 			t.Fatal(err)
 		}
 		fd = -1
-		assertRawLockState(t, path, true)
+		assertRawLockState(t, path, false)
 		releaseLockChild(t, child)
 		expectLockChildLine(t, child, "released")
 		waitLockChild(t, child)
 		assertRawLockState(t, path, false)
 	})
+}
+
+func journalLockProcessHelper(t *testing.T, mode string) {
+	t.Helper()
+	path := os.Getenv("ZALKI_LOCK_BASELINE_PATH")
+	switch mode {
+	case "journal":
+		assertRawLockState(t, filepath.Join(path, "lock"), true)
+		fmt.Println("ready")
+		store := Store{Dir: path}
+		if err := store.locked(func() error {
+			assertRawLockState(t, filepath.Join(path, "lock"), true)
+			fmt.Println("acquired")
+			awaitParentRelease(t)
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	case "lifetime":
+		fd, err := strconv.Atoi(os.Getenv("ZALKI_LOCK_BASELINE_FD"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		linked, err := lockFileStillLinked(fd, path)
+		if linked || err != nil && !errors.Is(err, syscall.EBADF) {
+			t.Fatalf("exec child retained the lifetime descriptor or inspection failed: linked=%v, %v", linked, err)
+		}
+		fmt.Println("ready")
+		awaitParentRelease(t)
+	default:
+		t.Fatalf("unknown lock helper mode %q", mode)
+	}
+	fmt.Println("released")
 }

@@ -91,8 +91,8 @@ func checkOpenedLock(t *testing.T, shape, path string, fd int) {
 	if data, err := os.ReadFile(path); err != nil || string(data) != wantData {
 		t.Fatalf("lock content = %q, %v, want %q", data, err, wantData)
 	}
-	if flags, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0); err != nil || flags != 0 {
-		t.Fatalf("descriptor flags = %d, %v, want literal 0", flags, err)
+	if flags, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0); err != nil || flags != unix.FD_CLOEXEC {
+		t.Fatalf("descriptor flags = %d, %v, want CLOEXEC", flags, err)
 	}
 	if flags, err := unix.FcntlInt(uintptr(fd), unix.F_GETFL, 0); err != nil || flags&unix.O_ACCMODE != unix.O_RDWR {
 		t.Fatalf("open flags = %d, %v, want read-write", flags, err)

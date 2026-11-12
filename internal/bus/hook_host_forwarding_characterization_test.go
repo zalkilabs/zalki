@@ -178,7 +178,7 @@ func TestHookHostEmitPendingUsesBoundActor(t *testing.T) {
 				return
 			}
 			text, err := host.EmitPending(target.ID)
-			if err != nil || text != model.Envelope(msg)+"\n\n" {
+			if err != nil || !model.MatchesEnvelope(msg, strings.TrimSuffix(text, "\n\n")) {
 				t.Fatalf("context=%q error=%v, want bound actor's envelope", text, err)
 			}
 			current, err := host.store.message(msg.ID)

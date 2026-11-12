@@ -253,18 +253,14 @@ func (s Store) Ack(actor, key, id string) (result model.Message, resultErr error
 		if _, err := s.authenticate(actor, key); err != nil {
 			return err
 		}
-		var err error
-		msg, err = s.message(id)
-		if err != nil {
+		if _, err := model.UUID(id); err != nil {
 			return err
 		}
-		if model.IsPluginInboxAddress(msg.To) {
-			msg = model.Message{}
-			return model.NewError(model.CodeUnauthorized, "only the bound recipient can acknowledge")
+		loaded, err := s.message(id)
+		if err != nil || model.IsPluginInboxAddress(loaded.To) || loaded.To != actor {
+			return model.NewError(model.CodeNotFound, "message not found or not yours")
 		}
-		if msg.To != actor {
-			return model.NewError(model.CodeUnauthorized, "only the bound recipient can acknowledge")
-		}
+		msg = loaded
 		if !msg.Status.CanAcknowledge() {
 			return model.NewError(model.CodeInvalidTransition, "cannot acknowledge a message that was not sent")
 		}

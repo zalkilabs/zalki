@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
 )
@@ -29,14 +28,7 @@ func (e *SizeError) Error() string {
 // errors.Is(err, os.ErrNotExist) is true. Other failures are returned as the
 // standard library reported them.
 func ReadJSON(path string, limit int, target any) error {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return err
-	}
-	if !info.Mode().IsRegular() || info.Size() > int64(limit) {
-		return ErrInvalidFile
-	}
-	b, err := os.ReadFile(path) //nolint:gosec // G304: callers pass paths inside their validated journal directory
+	b, err := ReadBytes(path, limit)
 	if err != nil {
 		return err
 	}

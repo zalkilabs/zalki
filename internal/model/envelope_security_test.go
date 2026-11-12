@@ -17,7 +17,7 @@ func TestEnvelopeNeutralizesQuotedMarkersAndDisplayControls(t *testing.T) {
 		if !strings.Contains(got, want) && kind != NoticeKind {
 			t.Fatalf("unexpected message presentation: %q", got)
 		}
-		if strings.Count(got, "[/zalki]") != 1 || strings.Count(got, "[zalki message ")+strings.Count(got, "[zalki notice ") != 1 {
+		if strings.Count(got, "[/zalki ") != 1 || strings.Count(got, "[zalki message ")+strings.Count(got, "[zalki notice ") != 1 {
 			t.Fatalf("body introduced an envelope marker: %q", got)
 		}
 		if msg.Body != forgedEnvelopeBody {
@@ -34,21 +34,23 @@ func TestEnvelopeNeutralizesQuotedMarkersAndDisplayControls(t *testing.T) {
 			t.Fatal("display transformation is not idempotent")
 		}
 	}
-	if got := envelopeBody("[zalki\nmessage x]\n\tcode"); got != "[zalki\nmessage x]\n\tcode" {
+	if got := envelopeBody("[zalki\nmessage x]\n\tcode"); got != `\u005Bzalki`+"\nmessage x]\n\tcode" {
 		t.Fatalf("split marker or layout was changed: %q", got)
 	}
 }
 
 func TestEnvelopeOrdinaryBodiesRemainPristineAtCaps(t *testing.T) {
 	msg := Message{ID: "00000000-0000-4000-8000-000000000001", FromLabel: "Claude", FromName: "Fixture"}
-	empty := Envelope(msg)
-	for _, length := range []int{16 * 1024, 24*1024 - len(empty) - 3} {
-		body := strings.Repeat("x", length)
-		msg.Body = body
-		want := strings.Replace(empty, "\n\n\n[/zalki]", "\n\n"+body+"\n[/zalki]", 1)
-		if got := Envelope(msg); got != want {
+	for _, length := range []int{0, 1, 16 * 1024} {
+		msg.Body = strings.Repeat("x", length)
+		got := renderEnvelope(msg, testEnvelopeNonce)
+		if !strings.Contains(got, "\n\n"+msg.Body+"\n[/zalki "+testEnvelopeNonce+"]") {
 			t.Fatalf("ordinary %d-byte body changed", length)
 		}
+	}
+	msg.Body = strings.Repeat("x", 24*1024)
+	if got := Envelope(msg); !strings.Contains(got, displayShortened) || len(got) > 24*1024 {
+		t.Fatal("oversize ordinary display was not bounded")
 	}
 }
 

@@ -30,12 +30,18 @@ type commandOptions struct {
 	logFile    string
 	logger     *slog.Logger
 	registry   *agent.Registry
-	snapshot   *config.Snapshot
+	// A nil factory retains an explicitly injected registry in tests/fixtures.
+	registryFactory func(bool, string) *agent.Registry
+	snapshot        *config.Snapshot
+}
+
+func newCommandOptions(home string) *commandOptions {
+	return &commandOptions{home: home, registry: adapters.Builtin(), registryFactory: adapters.BuiltinWithCodex}
 }
 
 // A fresh command tree keeps flags and IO local to each invocation.
 func newRootCommand(home string) *cobra.Command {
-	opts := &commandOptions{home: home, registry: adapters.Builtin()}
+	opts := newCommandOptions(home)
 	root := &cobra.Command{
 		Use:           "zalki",
 		Short:         "Local messaging between Claude Code, Codex, and Cursor CLI sessions",
@@ -159,7 +165,11 @@ func (opts *commandOptions) service() (*bus.Service, error) {
 	if err := opts.loadConfig(); err != nil {
 		return nil, err
 	}
-	store, err := bus.NewStore(opts.snapshot.Paths.StateDir.Value, opts.registry, opts.logger)
+	registry := opts.registry
+	if opts.registryFactory != nil {
+		registry = opts.registryFactory(opts.snapshot.Settings.CodexAllowQueueFallback.Value, opts.snapshot.Paths.ConfigFile.Value)
+	}
+	store, err := bus.NewStore(opts.snapshot.Paths.StateDir.Value, registry, opts.logger)
 	if err != nil {
 		return nil, err
 	}

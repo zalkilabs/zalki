@@ -150,13 +150,17 @@ func ReadInstallManifest(dir string) (InstallManifest, error) {
 	return parseInstallManifest(raw)
 }
 
-func readInstallManifest(dir string) ([]byte, error) {
-	fd, err := syscall.Open(filepath.Join(dir, installManifestFile), syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+func readInstallManifest(dir string) ([]byte, error) { return readInstallManifestObserved(dir, nil) }
+
+func readInstallManifestObserved(dir string, observe func(*os.File)) ([]byte, error) {
+	fd, err := syscall.Open(filepath.Join(dir, installManifestFile), syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, installError("read %s: %w", installManifestFile, err)
 	}
-	syscall.CloseOnExec(fd)
 	file := os.NewFile(uintptr(fd), installManifestFile)
+	if observe != nil {
+		observe(file)
+	}
 	defer file.Close() //nolint:errcheck // Read-only manifest.
 	if info, err := file.Stat(); err != nil || !info.Mode().IsRegular() {
 		return nil, installError("%s must be a regular file", installManifestFile)

@@ -65,7 +65,7 @@ func TestCallerVisibleErrorCodes(t *testing.T) {
 			msg := sendOK(t, store, from, to)
 			_, err := store.Ack(from.ID, from.Key, msg.ID)
 			return err
-		}, "unauthorized"},
+		}, "not_found"},
 		{"acknowledge a message that does not exist", func(_ *testing.T, store bus.Store, _, to agent) error {
 			_, err := store.Ack(to.ID, to.Key, "11111111-1111-4111-8111-111111111111")
 			return err

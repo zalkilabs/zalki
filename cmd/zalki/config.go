@@ -11,6 +11,8 @@ import (
 	"github.com/zalkilabs/zalki/internal/config"
 )
 
+const codexQueueFallbackExposure = "Enabling queue fallback passes the full message envelope in process arguments, visible to other local users through ps and other local process inspection (normally up to 30 seconds)."
+
 func (opts *commandOptions) configInputs() config.Inputs {
 	flags := map[string]string{}
 	for _, name := range []string{"config", "state", "log-level", "log-file"} {
@@ -82,6 +84,10 @@ type configShowOutput struct {
 	} `json:"paths"`
 	FileExists bool `json:"file_exists"`
 	Settings   struct {
+		Codex struct {
+			AllowQueueFallback    config.Value[bool] `json:"allow_queue_fallback"`
+			QueueFallbackExposure string             `json:"queue_fallback_exposure"`
+		} `json:"codex"`
 		Messages struct {
 			MaxBodyBytes config.Value[int] `json:"max_body_bytes"`
 		} `json:"messages"`
@@ -100,6 +106,8 @@ func configOutput(snapshot config.Snapshot) configShowOutput {
 	output.Paths.ConfigFile = snapshot.Paths.ConfigFile
 	output.Paths.StateDir = snapshot.Paths.StateDir
 	output.FileExists = snapshot.FileExists
+	output.Settings.Codex.AllowQueueFallback = snapshot.Settings.CodexAllowQueueFallback
+	output.Settings.Codex.QueueFallbackExposure = codexQueueFallbackExposure
 	output.Settings.Messages.MaxBodyBytes = snapshot.Settings.MaxBodyBytes
 	output.Settings.Logging.Level = snapshot.Settings.LogLevel
 	output.Settings.Logging.File = snapshot.Settings.LogFile

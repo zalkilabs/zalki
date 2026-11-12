@@ -201,12 +201,18 @@ func (i *PluginInstall) Close() error {
 
 // copyPluginArtifact copies a staged regular file to <name>.bin/<sha256>.
 func (s PluginFeed) copyPluginArtifact(source string) (string, error) {
-	fd, err := syscall.Open(source, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	return copyPluginArtifactObserved(s, source, nil)
+}
+
+func copyPluginArtifactObserved(s PluginFeed, source string, observe func(*os.File)) (string, error) {
+	fd, err := syscall.Open(source, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return "", err
 	}
-	syscall.CloseOnExec(fd)
 	input := os.NewFile(uintptr(fd), source)
+	if observe != nil {
+		observe(input)
+	}
 	defer input.Close() //nolint:errcheck // Read-only artifact copy.
 	if info, err := input.Stat(); err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 {
 		return "", errors.Join(err, model.NewError(model.CodeInvalidInput, "plugin artifact must be a regular executable file, not a link"))
