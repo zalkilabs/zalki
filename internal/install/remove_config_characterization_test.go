@@ -183,11 +183,12 @@ func TestTamperedRecordPatchesAreRefusedWithExactMessages(t *testing.T) {
 				before := installationSnapshot(t, home)
 
 				_, err := install.Manage(configDeclare, install.Request{Action: action, Binary: "/bin/zalki", StateDir: state, HomeDir: home, Apply: true})
-				if err == nil || err.Error() != test.want {
-					t.Fatalf("error = %v, want %q", err, test.want)
+				want := recordActionFailure(action, recordPath, test.want)
+				if err == nil || err.Error() != want {
+					t.Fatalf("error = %v, want %q", err, want)
 				}
-				if strings.Contains(err.Error(), home) {
-					t.Errorf("a record error should not name a settings file: %q", err)
+				if strings.Contains(err.Error(), filepath.Join(home, ".cursor", "mcp.json")) {
+					t.Errorf("a record error should not blame the client settings file: %q", err)
 				}
 				if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
 					t.Fatal("a refused request changed files")

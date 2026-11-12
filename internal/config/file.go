@@ -6,10 +6,13 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"strings"
 	"syscall"
 )
 
 const maxConfigBytes = 64 * 1024
+
+var errConfigPermissions = errors.New("config permissions allow group or other access")
 
 func readConfig(path string) ([]byte, bool, error) {
 	file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0) //nolint:gosec // G304: caller-selected config path, checked through the opened descriptor.
@@ -28,7 +31,7 @@ func readConfig(path string) ([]byte, bool, error) {
 		return nil, false, fmt.Errorf("%s could not be inspected: %w. Check that this config file exists and is readable by the invoking user", path, err)
 	}
 	if err := checkPrivateFile(info, uint32(os.Getuid())); err != nil { //nolint:gosec // G115: Unix uid_t fits uint32.
-		return nil, false, fmt.Errorf("%s: %w", path, err)
+		return nil, false, configFileError(path, err)
 	}
 	raw, err := readBounded(file)
 	if err != nil {
@@ -46,7 +49,7 @@ func checkPrivateFile(info fs.FileInfo, uid uint32) error {
 		return errors.New("config belongs to another user. Choose a config file owned by the invoking user")
 	}
 	if info.Mode().Perm()&0077 != 0 {
-		return errors.New("config permissions allow group or other access. Run chmod 600 on this config file")
+		return errConfigPermissions
 	}
 	if info.Size() > maxConfigBytes {
 		return errors.New("config exceeds 65536 bytes. Reduce the config file to at most 65536 bytes")
@@ -63,4 +66,16 @@ func readBounded(reader io.Reader) ([]byte, error) {
 		return nil, errors.New("config exceeds 65536 bytes. Reduce the config file to at most 65536 bytes")
 	}
 	return raw, nil
+}
+
+// shellPath quotes one POSIX shell argument, including embedded apostrophes.
+func shellPath(path string) string {
+	return "'" + strings.ReplaceAll(path, "'", "'\"'\"'") + "'"
+}
+
+func configFileError(path string, err error) error {
+	if errors.Is(err, errConfigPermissions) {
+		return fmt.Errorf("%s: %w. Run chmod 600 %s", path, err, shellPath(path))
+	}
+	return fmt.Errorf("%s: %w", path, err)
 }

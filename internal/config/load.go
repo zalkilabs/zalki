@@ -19,14 +19,20 @@ func Load(input Inputs) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	result := Snapshot{Paths: paths}
 	raw, exists, err := readConfig(paths.ConfigFile.Value)
 	if err != nil {
-		return result, err
+		return Snapshot{Paths: paths}, err
 	}
-	result.FileExists = exists
+	return loadContent(input, paths, raw, exists)
+}
+
+// loadContent shares strict decoding and source resolution with the editor.
+// The selected path stays unchanged so relative values resolve against it.
+func loadContent(input Inputs, paths Paths, raw []byte, exists bool) (Snapshot, error) {
+	result := Snapshot{Paths: paths, FileExists: exists}
 	content := fileContent{path: paths.ConfigFile.Value, raw: raw, locations: map[string]int{}}
 	var file fileSettings
+	var err error
 	if exists {
 		file, err = decodeConfig(content)
 		if err != nil {

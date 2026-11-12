@@ -59,9 +59,6 @@ func (declare Declare) plan(request Request) (installationPlan, error) {
 		return plan, err
 	}
 	previous, known := manifest.previous(request.Action)
-	if request.Action == "upgrade" && !known {
-		return plan, errors.New("no installation record; run install --apply with the currently configured binary first")
-	}
 	if request.Action == "uninstall" && !known {
 		return plan, nil
 	}
@@ -154,7 +151,7 @@ func readInstallationManifest(request Request, declarations map[string]ConfigFil
 		err = manifest.record.validate(request, declarations, manifest.path)
 	}
 	if err != nil {
-		return manifest, err
+		return manifest, invalidRecord(request.Action, manifest.path, err)
 	}
 	pendingPath := filepath.Join(request.StateDir, pendingRecordName)
 	_, found, err := readRecord(pendingPath, &manifest.pending)
@@ -164,7 +161,14 @@ func readInstallationManifest(request Request, declarations map[string]ConfigFil
 	for _, record := range manifest.pending {
 		err = cmp.Or(err, record.validate(request, declarations, pendingPath))
 	}
-	return manifest, err
+	return manifest, invalidRecord(request.Action, pendingPath, err)
+}
+
+func invalidRecord(action, path string, err error) error {
+	if err == nil || action != "upgrade" {
+		return err
+	}
+	return fmt.Errorf("installation record %q is invalid: %w. Restore a valid record before retrying.", path, err) //nolint:revive // error-strings: the exact CLI diagnostic contract includes a final period.
 }
 
 // readRecord reads one record file into value. The file must belong to the

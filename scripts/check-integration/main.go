@@ -23,6 +23,8 @@ func (t requiredTest) importPath() string {
 }
 
 var required = []requiredTest{
+	{"cmd/zalki", "TestUpgradeWithoutInstallationRecordCLI"},
+	{"cmd/zalki", "TestConfigSetUnsetCLI"},
 	{"cmd/zalki", "TestDoctorCodexTrustIsOffline"},
 	{"adapters/codex", "TestCodexTransportPinsUUIDAndNeverUsesShell"},
 	{"adapters/codex", "TestCodexQueueUsesRecipientProfile"},
