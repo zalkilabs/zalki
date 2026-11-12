@@ -28,12 +28,13 @@ func envelopeBodyBudget(body string, jsonBudget int) string {
 	return boundedEnvelopeBody(escaped, displayShortened, jsonBudget)
 }
 
-// markerStarts folds only a detection copy and maps each marker back to its delimiter.
+// markerStarts folds only a detection copy. It maps each recognized marker's
+// delimiter and ignorable runes back to their original byte offsets.
 func markerStarts(body string) map[int]bool {
 	var folded strings.Builder
 	offsets := make([]int, 0, len(body))
 	for i, r := range body {
-		if unicode.Is(unicode.Cf, r) {
+		if markerIgnorable(r) {
 			continue
 		}
 		if r >= '\uFF01' && r <= '\uFF5E' {
@@ -49,9 +50,25 @@ func markerStarts(body string) map[int]bool {
 	}
 	starts := make(map[int]bool)
 	for _, match := range bodyMarker.FindAllStringIndex(folded.String(), -1) {
-		starts[offsets[match[0]]] = true
+		start, end := offsets[match[0]], len(body)
+		if match[1] < len(offsets) {
+			end = offsets[match[1]]
+		}
+		starts[start] = true
+		for i, r := range body[start:end] {
+			if markerIgnorable(r) {
+				starts[start+i] = true
+			}
+		}
 	}
 	return starts
+}
+
+// Other_Default_Ignorable_Code_Point includes fillers and reserved tag ranges
+// outside Cf and marks. Ignore these only when recognizing marker framing;
+// ordinary accents and emoji selectors outside a marker stay readable.
+func markerIgnorable(r rune) bool {
+	return unicode.In(r, unicode.Cf, unicode.Mn, unicode.Me, unicode.Other_Default_Ignorable_Code_Point)
 }
 
 func escapeBodyControls(body string) string {
