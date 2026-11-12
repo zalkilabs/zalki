@@ -183,7 +183,7 @@ func TestPruneFloodRefusesADirectoryThatIsNotPrivate(t *testing.T) {
 func assertPruneRefusesFloodDir(t *testing.T, store Store, dir, orphan string, dry bool) {
 	t.Helper()
 	report, err := store.Prune(dry, nil)
-	if err == nil || !strings.Contains(err.Error(), "state directory must be a private directory, not a symlink: "+dir) {
+	if err == nil || !strings.Contains(err.Error(), "state directory must be a private directory owned by you: "+dir) {
 		t.Fatalf("dry=%v: error = %v, want a private-directory refusal", dry, err)
 	}
 	if len(report.DeletedFlood) != 0 {

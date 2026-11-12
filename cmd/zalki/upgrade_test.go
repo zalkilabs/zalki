@@ -356,3 +356,21 @@ func waitForBrewPipeHolder(t *testing.T, pidFile string) *os.Process {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+func TestUpgradeConfigOnlyKeepsRecordedTargetAndSaysSo(t *testing.T) {
+	f := newUpgradeFixture(t, "", "")
+	other := filepath.Join(t.TempDir(), "claude-profile")
+	t.Setenv("CLAUDE_CONFIG_DIR", other)
+	out, diagnostic, err := execute(t, f.home, "", "upgrade", "--config-only", "--state", f.state)
+	note := "Kept " + filepath.Join(f.home, ".claude.json") + " (CLAUDE_CONFIG_DIR points elsewhere; to move, run zalki uninstall, then zalki install)\n"
+	if err != nil || out != "Configuration refreshed\n" || !strings.Contains(diagnostic, note) {
+		t.Fatalf("kept-target note: out=%q diagnostic=%q err=%v", out, diagnostic, err)
+	}
+	if _, err := os.Stat(other); !os.IsNotExist(err) {
+		t.Fatal("upgrade wrote into the profile the environment points to", err)
+	}
+	out, _, err = execute(t, f.home, "", "upgrade", "--dry-run", "--state", f.state)
+	if err != nil || !strings.Contains(out, `"notes"`) || !strings.Contains(out, "CLAUDE_CONFIG_DIR points elsewhere") {
+		t.Fatal("dry-run does not show the kept target", out, err)
+	}
+}

@@ -16,6 +16,7 @@ func validateReservedTarget(target string, file ConfigFile, request Request) err
 		{"--config", request.ConfigFile, "config file"},
 		{"--state", request.StateDir, "state directory"},
 		{"--state", filepath.Join(request.StateDir, "installation.json"), "state directory"},
+		{"--state", filepath.Join(request.StateDir, pendingRecordName), "state directory"},
 	}
 	for _, item := range reserved {
 		if item.path == "" {
@@ -40,7 +41,7 @@ func validateBootstrapSelection(request Request) error {
 		return errors.New("--config requires an absolute path")
 	}
 	if request.ConfigFile != "" {
-		for _, statePath := range []string{request.StateDir, filepath.Join(request.StateDir, "installation.json")} {
+		for _, statePath := range []string{request.StateDir, filepath.Join(request.StateDir, "installation.json"), filepath.Join(request.StateDir, pendingRecordName)} {
 			same, err := sameTargetFile(request.ConfigFile, statePath)
 			if err != nil {
 				return err

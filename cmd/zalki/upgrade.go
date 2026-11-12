@@ -163,8 +163,14 @@ func manageConfiguration(opts *commandOptions, binary string, apply bool) (insta
 }
 
 func refreshConfiguration(cmd *cobra.Command, opts *commandOptions, binary string) error {
-	if _, err := manageConfiguration(opts, binary, true); err != nil {
+	report, err := manageConfiguration(opts, binary, true)
+	if err != nil {
 		return err
+	}
+	for _, note := range report.Notes {
+		if _, err := fmt.Fprintln(cmd.ErrOrStderr(), note); err != nil {
+			return err
+		}
 	}
 	opts.logger.InfoContext(cmd.Context(), "upgrade.configuration_refreshed")
 	return nil

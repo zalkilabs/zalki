@@ -84,54 +84,64 @@ func TestInstallationCustomTargetsAndRecordedUninstall(t *testing.T) {
 	}
 }
 
-func TestInstallationMovesRecordedTargetsToProfile(t *testing.T) {
+func TestUpgradeKeepsRecordedTargetsAndUninstallInstallMoves(t *testing.T) {
 	clearConfigOverrides(t)
 	home, custom := t.TempDir(), t.TempDir()
 	state := filepath.Join(home, "state")
 	if _, err := install.Apply(declare, "/old/zalki", state, home); err != nil {
 		t.Fatal(err)
 	}
-	manifest := filepath.Join(state, "installation.json")
-	var record install.Installation
-	if err := readJSON(manifest, &record); err != nil {
-		t.Fatal(err)
-	}
 	t.Setenv("CODEX_HOME", filepath.Join(custom, "codex"))
 	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(custom, "claude"))
-	before := installationSnapshot(t, home)
 	if _, err := install.Manage(declare, install.Request{Action: "install", Binary: "/old/zalki", StateDir: state, HomeDir: home, Apply: true}); err == nil {
 		t.Fatal("install silently moved an existing integration")
 	}
-	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: false}); err != nil || !reflect.DeepEqual(before, installationSnapshot(t, home)) {
-		t.Fatal("migration preview changed files", err)
+	preview, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: false})
+	wantNotes := []string{
+		"Kept " + filepath.Join(home, ".claude.json") + " (CLAUDE_CONFIG_DIR points elsewhere; to move, run zalki uninstall, then zalki install)",
+		"Kept " + filepath.Join(home, ".claude/settings.json") + " (CLAUDE_CONFIG_DIR points elsewhere; to move, run zalki uninstall, then zalki install)",
+		"Kept " + filepath.Join(home, ".codex/config.toml") + " (CODEX_HOME points elsewhere; to move, run zalki uninstall, then zalki install)",
+		"Kept " + filepath.Join(home, ".codex/hooks.json") + " (CODEX_HOME points elsewhere; to move, run zalki uninstall, then zalki install)",
 	}
-	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
-		t.Fatal(err)
+	if err != nil || !reflect.DeepEqual(preview.Notes, wantNotes) {
+		t.Fatalf("upgrade notes: %q %v", preview.Notes, err)
 	}
-	for key := range record.Patches {
-		if strings.HasPrefix(key, ".cursor/") {
-			continue
+	report, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true})
+	if err != nil || !reflect.DeepEqual(report.Notes, wantNotes) {
+		t.Fatal("upgrade failed", report, err)
+	}
+	if len(installationSnapshot(t, custom)) != 0 {
+		t.Fatal("upgrade wrote to the profile the environment points to")
+	}
+	for _, rel := range []string{".claude.json", ".claude/settings.json", ".codex/config.toml", ".codex/hooks.json"} {
+		data, err := os.ReadFile(filepath.Join(home, rel))
+		if err != nil || !bytes.Contains(data, []byte("/new/zalki")) || bytes.Contains(data, []byte("/old/zalki")) {
+			t.Fatal("recorded target not upgraded in place", rel, err)
 		}
-		data, err := os.ReadFile(filepath.Join(home, key))
-		if err != nil || bytes.Contains(data, []byte("/old/zalki")) {
-			t.Fatal("old integration not removed", key, err)
-		}
 	}
-	before = installationSnapshot(t, home)
+	before := installationSnapshot(t, home)
 	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil || !reflect.DeepEqual(before, installationSnapshot(t, home)) {
-		t.Fatal("profile upgrade not idempotent", err)
+		t.Fatal("upgrade not idempotent", err)
 	}
-	// Move again, including old/new paths outside the default home.
-	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(custom, "claude-next"))
-	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+	moveByUninstallAndInstall(t, home, state, custom)
+}
+
+// moveByUninstallAndInstall is the documented move: uninstall, then install
+// in the new environment.
+func moveByUninstallAndInstall(t *testing.T, home, state, custom string) {
+	t.Helper()
+	if _, err := install.Manage(declare, install.Request{Action: "uninstall", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
 		t.Fatal(err)
 	}
-	data, _ := os.ReadFile(filepath.Join(custom, "claude", ".claude.json"))
-	if bytes.Contains(data, []byte("/new/zalki")) {
-		t.Fatal("old profile retained its managed MCP entry")
-	}
-	if _, err := os.Stat(filepath.Join(custom, "claude-next", ".claude.json")); err != nil {
+	if _, err := install.Apply(declare, "/new/zalki", state, home); err != nil {
 		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(custom, "claude", ".claude.json"))
+	if err != nil || !bytes.Contains(data, []byte("/new/zalki")) {
+		t.Fatal("install did not use the new profile", err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(home, ".claude.json")); bytes.Contains(data, []byte("zalki")) {
+		t.Fatal("uninstall left the old profile entry")
 	}
 }
 
@@ -176,7 +186,7 @@ func TestSetupRecordsCustomDestinations(t *testing.T) {
 	}
 }
 
-func TestProfileMigrationConflictPreservesBothProfiles(t *testing.T) {
+func TestUpgradeLeavesAnotherProfileUntouched(t *testing.T) {
 	clearConfigOverrides(t)
 	home, custom := t.TempDir(), t.TempDir()
 	state := filepath.Join(home, "state")
@@ -187,12 +197,18 @@ func TestProfileMigrationConflictPreservesBothProfiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(custom, ".claude.json"), []byte(`{"mcpServers":{"zalki":{"command":"user-managed"}}}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	beforeHome, beforeCustom := installationSnapshot(t, home), installationSnapshot(t, custom)
-	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err == nil {
-		t.Fatal("overwrote a conflicting profile entry")
+	beforeCustom := installationSnapshot(t, custom)
+	if _, err := install.Manage(declare, install.Request{Action: "upgrade", Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err != nil {
+		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(beforeHome, installationSnapshot(t, home)) || !reflect.DeepEqual(beforeCustom, installationSnapshot(t, custom)) {
-		t.Fatal("refused migration partially changed configuration")
+	if !reflect.DeepEqual(beforeCustom, installationSnapshot(t, custom)) {
+		t.Fatal("upgrade changed the user's other profile")
+	}
+	if _, err := install.Apply(declare, "/new/zalki", state, home); err == nil {
+		t.Fatal("install moved the integration over a conflicting profile entry")
+	}
+	if !reflect.DeepEqual(beforeCustom, installationSnapshot(t, custom)) {
+		t.Fatal("refused install changed the other profile")
 	}
 }
 

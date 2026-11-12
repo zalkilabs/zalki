@@ -73,7 +73,7 @@ func decodeSettingsToMerge(existing []byte) (map[string]any, error) {
 	if len(existing) == 0 {
 		return current, nil
 	}
-	if err := json.Unmarshal(existing, &current); err != nil {
+	if err := decodeSettings(existing, &current); err != nil {
 		return nil, err
 	}
 	if current == nil {
@@ -99,10 +99,13 @@ func mergePatchKey(current map[string]any, key string, value any) error {
 // mergeSchemaVersion sets the Cursor hook schema version. It refuses another
 // version that is already there.
 func mergeSchemaVersion(current map[string]any, version any) error {
-	if old, exists := current["version"]; exists && old != float64(1) {
+	old, exists := current["version"]
+	if exists && !equalJSON(old, 1) {
 		return errors.New("unsupported existing Cursor hook schema version")
 	}
-	current["version"] = version
+	if !exists {
+		current["version"] = version
+	}
 	return nil
 }
 
