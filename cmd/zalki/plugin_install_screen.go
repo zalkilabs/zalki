@@ -26,7 +26,7 @@ var installKinds = []struct {
 }{
 	{installKind{"changes", "see state and message status, no text", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Sessions }}, func(r plugins.InstallRequests) bool { return r.Feed }},
 	{installKind{"read", "read messages sent to it (from any sender)", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Read }}, func(r plugins.InstallRequests) bool { return r.Read }},
-	{installKind{"send", "send messages to it", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Send }}, func(r plugins.InstallRequests) bool { return r.Send }},
+	{installKind{"send", "send it messages as this plugin", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Send }}, func(r plugins.InstallRequests) bool { return r.Send }},
 	{installKind{"accept", "it may message this plugin", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.InboxFrom }}, func(r plugins.InstallRequests) bool { return r.AcceptFrom }},
 }
 
@@ -142,7 +142,7 @@ func (s *installScreen) render(style screenStyle) string {
 		fmt.Fprintf(&b, "%d. %s  %s\n", i+1, sessionLabel(session), plainText(session.ID))
 	}
 	if s.inboxRead && style != screenLines {
-		b.WriteString(s.mark(cursor && s.row == len(s.sessions)) + s.box(cursor && s.row == len(s.sessions), s.inboxOn) + "read messages stored in this plugin's own inbox\n")
+		b.WriteString(s.mark(cursor && s.row == len(s.sessions)) + s.box(cursor && s.row == len(s.sessions), s.inboxOn) + "receive the messages sent to this plugin's own inbox\n")
 	}
 	if s.notice != "" {
 		b.WriteString(s.notice + "\n")
@@ -256,7 +256,7 @@ func (s *installScreen) chooseLines(in io.Reader, out io.Writer) (bool, error) {
 		}
 	}
 	if s.inboxRead {
-		answer, err := askLine(lines, out, "Allow reading this plugin's own inbox? [y/N] ")
+		answer, err := askLine(lines, out, "Allow this plugin to receive the messages in its own inbox? [y/N] ")
 		if err != nil {
 			return false, err
 		}

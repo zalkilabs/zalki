@@ -2,6 +2,7 @@ package bus
 
 import (
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -96,4 +97,31 @@ func existingPluginInboxMessage(store Store, request SendRequest) (model.Message
 		return model.Message{}, false, nil
 	}
 	return model.Message{}, false, err
+}
+
+// AckPluginInboxMessage records that a plugin consumed one message of its own
+// inbox, the same way a native recipient acknowledges. It needs the live write
+// scope. A message that is already acknowledged is not an error.
+func (v JournalView) AckPluginInboxMessage(stateDir, installation, id string) error {
+	store, done, err := v.acquire(&stateDir)
+	if err != nil {
+		return model.NewError(model.CodeUnauthorized, "plugin write requires its live journal scope")
+	}
+	defer done()
+	msg, _, err := currentMessage(store, id)
+	if err != nil && !errors.Is(err, os.ErrNotExist) && !errors.Is(err, journal.ErrInvalidFile) {
+		return err
+	}
+	if err != nil || msg.Kind != "" || msg.To != "plugin:"+installation || !msg.Status.CanAcknowledge() {
+		return model.NewError(model.CodeNotFound, "plugin inbox message not found")
+	}
+	if msg.AcknowledgedAt != "" {
+		return nil
+	}
+	msg.AcknowledgedAt = model.Timestamp()
+	if err := store.saveMessage(msg); err != nil {
+		return err
+	}
+	store.logEvent(slog.LevelInfo, "message.acknowledged", messageEvent(msg))
+	return nil
 }

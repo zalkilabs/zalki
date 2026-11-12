@@ -202,7 +202,13 @@ func nativeInboxMessage(store Store, session, id string) (model.Message, string)
 	if message.Held || !message.Status.CanAcknowledge() {
 		return model.Message{}, "unavailable"
 	}
-	if _, err := store.sessionRecordPath(message.From); err != nil {
+	// A plugin reads only mail from a native session. A plugin-sent message
+	// stays with its recipient: plugins never read each other's mail, and the
+	// refusal looks like any other unreadable message.
+	if model.IsPluginInboxAddress(message.From) {
+		return model.Message{}, "unavailable"
+	}
+	if _, err := store.sessionPath(message.From); err != nil {
 		return model.Message{}, "unavailable"
 	}
 	view := inboxView(message, target, false)

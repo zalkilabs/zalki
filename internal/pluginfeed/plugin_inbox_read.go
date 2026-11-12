@@ -67,6 +67,20 @@ func (s pluginFiles) readPluginInboxAt(view bus.JournalView, before *PluginFeedS
 }
 
 func pluginInboxReadAuthorization(p pluginRecord, before *PluginFeedStatus) string {
+	if code := pluginBindingCode(p, before); code != "ok" {
+		return code
+	}
+	if !p.Capabilities.InboxRead {
+		return "denied"
+	}
+	return "ok"
+}
+
+// pluginBindingCode compares the current record with the binding the host
+// checked at launch: same installation, still enabled, same pin and the same
+// grant revision. The caller holds the Store lock and has checked that the
+// binding's Launch and Capabilities are set.
+func pluginBindingCode(p pluginRecord, before *PluginFeedStatus) string {
 	c := p.Capabilities
 	switch {
 	case p.ID != before.ID:
@@ -75,8 +89,6 @@ func pluginInboxReadAuthorization(p pluginRecord, before *PluginFeedStatus) stri
 		return "revoked"
 	case p.Launch == nil || c == nil || c.Installation != p.ID || c.PinSHA256 != p.Launch.PinSHA256 || c.PinSHA256 != before.Launch.PinSHA256 || c.Revision != before.Capabilities.Revision:
 		return "stale_binding"
-	case !c.InboxRead:
-		return "denied"
 	default:
 		return "ok"
 	}

@@ -159,7 +159,8 @@ func (c *child) stop(cause error) error {
 		return nil
 	}
 	if c.readMode.Load() {
-		return errors.New("plugin v1-read failed")
+		// Its stderr may hold message text, so it is not shown.
+		return errors.New("plugin request host failed")
 	}
 	return fmt.Errorf("%w; child stderr: %s", cause, plainStderr(c.stderr))
 }

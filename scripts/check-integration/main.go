@@ -51,6 +51,7 @@ var required = []requiredTest{
 	{"cmd/zalki", "TestPluginInstallRealTerminalSecondCtrlCKills"},
 	{"cmd/zalki", "TestPluginInstallSignalCancels"},
 	{"cmd/zalki", "TestPluginInstallSecondSignalKills"},
+	{"plugins", "TestV2HostRoundTripWithRealChild"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {
