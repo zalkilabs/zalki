@@ -81,7 +81,7 @@ func fakeGoFolder(t *testing.T, script string) string {
 	}
 	t.Setenv("PATH", bin+":/usr/bin:/bin")
 	manifest := `{"name":"demo","language":"go","purpose":"cancel test","build":["go","build","-o","plugin","."],"artifact":"plugin","requests":{"feed":true,"read":true,"send":false,"inbox_read":false,"accept_from":false}}`
-	return writeInstallFolder(t, manifest, map[string]string{"main.go": "package main\n\nfunc main() {}\n"})
+	return writeInstallFolder(t, manifest, map[string]string{"main.go": "package main\n\nfunc main() {}\n", "go.mod": "module example.com/demo\n\ngo 1.22\n"})
 }
 
 func assertInstallCancelled(t *testing.T, state, output string, err error) {
@@ -170,8 +170,8 @@ func TestPluginInstallCancelBeforeBuildAndCommit(t *testing.T) {
 func TestPluginInstallCancelDuringBuildKeepsNoLog(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	mark := filepath.Join(t.TempDir(), "build-started")
-	t.Setenv("ZALKI_TEST_BUILD_MARK", mark)
-	folder := fakeGoFolder(t, `: > "$ZALKI_TEST_BUILD_MARK"; exec sleep 30`)
+	// The build gets only PATH from the environment, so the path is in the script.
+	folder := fakeGoFolder(t, `: > '`+mark+`'; exec sleep 30`)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	go func() {

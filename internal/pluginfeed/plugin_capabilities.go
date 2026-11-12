@@ -3,7 +3,6 @@ package pluginfeed
 import (
 	"crypto/sha256"
 	"slices"
-	"strings"
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
@@ -47,11 +46,6 @@ func (s pluginFiles) checkCapabilityGrants(g PluginCapabilityGrants) error {
 	for _, ids := range [][]string{g.Read, g.Send, g.InboxFrom} {
 		if err := s.checkPluginGrants(ids); err != nil {
 			return err
-		}
-		for _, id := range ids {
-			if strings.HasPrefix(id, "plugin:") {
-				return model.NewError(model.CodeInvalidInput, "capability targets require native session addresses")
-			}
 		}
 	}
 	ids := slices.Concat(g.Read, g.Send, g.InboxFrom)

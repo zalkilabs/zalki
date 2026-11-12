@@ -34,6 +34,8 @@ func TestParseInstallManifestRules(t *testing.T) {
 		"wrong type":      strings.Replace(goodManifest, `"name":"demo"`, `"name":1`, 1),
 		"python":          strings.Replace(goodManifest, `"language":"go"`, `"language":"python"`, 1),
 		"go without go":   strings.Replace(goodManifest, `["go",`, `["make",`, 1),
+		"go run":          strings.Replace(goodManifest, `["go","build",`, `["go","run",`, 1),
+		"go gcflags":      strings.Replace(goodManifest, `["go","build",`, `["go","build","-gcflags=x",`, 1),
 		"go null build":   strings.Replace(goodManifest, `["go","build","-o","plugin","."]`, `null`, 1),
 		"native build":    strings.Replace(goodManifest, `"language":"go"`, `"language":"native"`, 1),
 		"escape artifact": strings.Replace(goodManifest, `"artifact":"plugin"`, `"artifact":"../plugin"`, 1),
