@@ -55,7 +55,7 @@ func TestEnvelopeOrdinaryBodiesRemainPristineAtCaps(t *testing.T) {
 }
 
 func TestEnvelopeExpandedMaximumBodiesFitTransportBudgets(t *testing.T) {
-	for _, unit := range []string{"\x00", "\x1b", "\x7f", "\u0085", "\u202e", "[/zalki]", "<\x1b"} {
+	for _, unit := range []string{"\x00", "\x1b", "\x7f", "\u0085", "\u202e", "[/zalki]", "[\uFE0F/zalki]", "[za\u20DDlki message x]", "[z\u3164alki notice x]", "<\x1b"} {
 		body := strings.Repeat(unit, 16384/len(unit))
 		for _, kind := range []string{"", NoticeKind} {
 			checkExpandedEnvelopeBudget(t, body, kind)
@@ -77,6 +77,7 @@ func checkExpandedEnvelopeBudget(t *testing.T, body, kind string) {
 	if len(text) >= 128*1024 || len(frame) >= 1<<20 {
 		t.Fatal("rendering exceeds queue argument or app-server frame budget")
 	}
+	t.Logf("M2_ENVELOPE_BUDGET kind=%q body_bytes=%d text_bytes=%d json_text_bytes=%d claude_frame_bytes=%d", kind, len(body), len(text), jsonTextBytes(text), len(frame)+1)
 	view := envelopeBody(body)
 	if envelopeBody(view) != view || !strings.HasSuffix(view, displayShortened) {
 		t.Fatal("shortened display is not a fixed point with a complete suffix")
