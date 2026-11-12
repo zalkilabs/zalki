@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const goodManifest = `{"name":"demo","language":"go","purpose":"p","build":["go","build","-o","plugin","."],"artifact":"plugin","requests":{"feed":true,"read":false,"send":false,"inbox_read":false,"accept_from":false}}`
+const goodManifest = `{"name":"demo","language":"go","purpose":"p","build":["go","build","-o","plugin","."],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":false}}`
 
 func TestParseInstallManifestRules(t *testing.T) {
 	m, err := parseInstallManifest([]byte(goodManifest))
@@ -42,7 +42,10 @@ func TestParseInstallManifestRules(t *testing.T) {
 		"abs artifact":    strings.Replace(goodManifest, `"artifact":"plugin"`, `"artifact":"/bin/sh"`, 1),
 		"dirty artifact":  strings.Replace(goodManifest, `"artifact":"plugin"`, `"artifact":"a/./plugin"`, 1),
 		"empty artifact":  strings.Replace(goodManifest, `"artifact":"plugin"`, `"artifact":""`, 1),
-		"no feed":         strings.Replace(goodManifest, `"feed":true`, `"feed":false`, 1),
+		"no status":       strings.Replace(goodManifest, `"status":true`, `"status":false`, 1),
+		"old requests":    strings.Replace(goodManifest, `"access":{"status":true,"receive":false,"send":false,"read":false}`, `"requests":{"feed":true,"read":false,"send":false,"inbox_read":false,"accept_from":false}`, 1),
+		"old inbox key":   strings.Replace(goodManifest, `"receive":false`, `"inbox_read":false`, 1),
+		"unknown access":  strings.Replace(goodManifest, `"read":false}`, `"read":false,"spawn":true}`, 1),
 		"control purpose": strings.Replace(goodManifest, `"purpose":"p"`, `"purpose":"a\u001bb"`, 1),
 		"bidi purpose":    strings.Replace(goodManifest, `"purpose":"p"`, `"purpose":"a\u202eb"`, 1),
 		"long purpose":    strings.Replace(goodManifest, `"purpose":"p"`, `"purpose":"`+strings.Repeat("a", 201)+`"`, 1),

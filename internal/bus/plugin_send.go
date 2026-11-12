@@ -14,11 +14,17 @@ import (
 type PluginSendRequest struct {
 	Installation, Name        string
 	ClientMessageID, To, Body string
+	// ReplyTo names the message this send answers. Empty means a send that
+	// nobody asked for, which needs the extended send grant.
+	ReplyTo string
 }
 
 // pluginSendAdmit checks the send grant for one exact recipient. It runs under
 // the journal lock before any session lookup, so a refusal reveals nothing.
-type pluginSendAdmit func(view JournalView, stateDir, installation, to string) error
+// messageID is the ID the send will have. The returned record runs in the same
+// lock BEFORE a new message is stored (never for a retry of a stored one), so
+// a failed count stores nothing: the limit fails closed.
+type pluginSendAdmit func(view JournalView, stateDir, installation, to, replyTo, messageID string) (record func() error, err error)
 
 // pluginMessageID maps one client ID to one record forever. Messages are never
 // deleted, so a retry with the same client ID can never send twice.
@@ -34,7 +40,7 @@ func (s *Service) SendFromPlugin(ctx context.Context, request PluginSendRequest)
 			s.Store.logEvent(slog.LevelWarn, "message.send_failed", eventData{Actor: "plugin:" + request.Installation, Recipient: request.To, Err: err})
 		}
 	}()
-	if !model.IsCanonicalUUID(request.Installation) || !model.ValidKind(request.Name) || !validClientMessageID(request.ClientMessageID) {
+	if !model.IsCanonicalUUID(request.Installation) || !model.ValidKind(request.Name) || !validClientMessageID(request.ClientMessageID) || (request.ReplyTo != "" && !model.IsCanonicalUUID(request.ReplyTo)) {
 		return model.Message{}, model.NewError(model.CodeInvalidInput, "invalid plugin send request")
 	}
 	if err := model.ValidateMessageBody(request.Body, ""); err != nil {
@@ -48,10 +54,18 @@ func (s *Service) SendFromPlugin(ctx context.Context, request PluginSendRequest)
 	var target model.Session
 	var fresh bool
 	err = WithJournalWrite(s.Store, func(view JournalView) error {
-		if err := admit(view, s.Store.Dir, request.Installation, request.To); err != nil {
+		id := pluginMessageID(request.Installation, request.ClientMessageID)
+		record, err := admit(view, s.Store.Dir, request.Installation, request.To, request.ReplyTo, id)
+		if err != nil {
 			return err
 		}
-		var err error
+		if _, lookupErr := s.Store.message(id); lookupErr != nil {
+			// A new message: count it first. A count whose message then fails
+			// is spent; a retry with the same ID is recognised and not counted again.
+			if err := record(); err != nil {
+				return err
+			}
+		}
 		msg, target, fresh, err = reservePluginMessage(s.Store, request)
 		return err
 	})
@@ -71,7 +85,7 @@ func reservePluginMessage(s Store, request PluginSendRequest) (message model.Mes
 	id := pluginMessageID(request.Installation, request.ClientMessageID)
 	old, err := s.message(id)
 	if err == nil {
-		if old.From != from || old.To != request.To || old.Body != request.Body || old.ReplyTo != "" || old.Kind != "" {
+		if old.From != from || old.To != request.To || old.Body != request.Body || old.ReplyTo != request.ReplyTo || old.Kind != "" {
 			return message, target, false, model.NewError(model.CodeConflict, "client message ID already used with different contents")
 		}
 		return old, target, false, nil
@@ -95,7 +109,7 @@ func reservePluginMessage(s Store, request PluginSendRequest) (message model.Mes
 	if err := validateReservationTarget(s, target, from, ""); err != nil {
 		return message, target, false, err
 	}
-	message = model.Message{Schema: recordSchema, ID: id, From: from, FromName: request.Name, FromLabel: model.PluginLabel, To: target.ID, Body: request.Body, TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusAttempting}
+	message = model.Message{Schema: recordSchema, ID: id, From: from, FromName: request.Name, FromLabel: model.PluginLabel, To: target.ID, Body: request.Body, ReplyTo: request.ReplyTo, TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusAttempting}
 	if err := prepareReservation(s, &message, target); err != nil {
 		return message, target, false, err
 	}

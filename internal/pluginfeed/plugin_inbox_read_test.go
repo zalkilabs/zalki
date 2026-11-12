@@ -27,7 +27,7 @@ func newInboxReadFixture(t *testing.T, body string) inboxReadFixture {
 	if err := x.f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{InboxRead: true, InboxFrom: []string{x.from.ID}}); err != nil {
+	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{x.from.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {

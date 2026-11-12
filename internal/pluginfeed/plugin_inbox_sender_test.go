@@ -19,7 +19,7 @@ func regrantInbox(t *testing.T, f PluginFeed, from ...string) PluginFeedStatus {
 	if err := f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{InboxRead: true, InboxFrom: from}); err != nil {
+	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: from}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.EnablePluginFeed(true); err != nil {
@@ -59,10 +59,10 @@ func TestInboxOffersOnlyCurrentSenders(t *testing.T) {
 	}
 }
 
-// TestInboxDropsEntriesOfAReplacedRegistration: X re-registers, so its old
-// entry can never be offered. It leaves the index; the message file stays
-// byte for byte.
-func TestInboxDropsEntriesOfAReplacedRegistration(t *testing.T) {
+// Inbox validity is by the sender's identity: a re-registered sender keeps its
+// entry. A sender whose session record is gone loses it from the index, and
+// the message file stays byte for byte.
+func TestInboxEntriesFollowTheSenderIdentity(t *testing.T) {
 	x := newInboxReadFixture(t, "")
 	path := filepath.Join(x.f.store.Dir, "messages", x.message.ID+".json")
 	before, err := os.ReadFile(path)
@@ -73,8 +73,14 @@ func TestInboxDropsEntriesOfAReplacedRegistration(t *testing.T) {
 	if err != nil || again.ID != x.from.ID || again.Generation == x.from.Generation {
 		t.Fatal("re-registration did not give a new generation", again, err)
 	}
+	if m := x.next(t); m == nil || m.ID != x.message.ID {
+		t.Fatal("a re-registered sender lost its entry", m)
+	}
+	if err := os.Remove(filepath.Join(x.f.store.Dir, "sessions", strings.ReplaceAll(x.from.ID, ":", "_")+".json")); err != nil {
+		t.Fatal(err)
+	}
 	if m := x.next(t); m != nil {
-		t.Fatal("an entry of a replaced registration was offered", m)
+		t.Fatal("an entry of a gone sender was offered", m)
 	}
 	if len(x.index(t).Entries) != 0 {
 		t.Fatal("the dead entry stayed in the index")

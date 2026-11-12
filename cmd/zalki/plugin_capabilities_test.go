@@ -55,12 +55,12 @@ func TestPluginCapabilityOwnerCLIReplacementStatusAndRevoke(t *testing.T) {
 	if initial.Capabilities != nil {
 		t.Fatal("metadata scope implicitly granted body or message permissions")
 	}
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--read", session, "--send", session, "--accept-from", session, "--inbox-read")
+	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--read", session, "--send", session, "--receive", session)
 	first := readCapabilityOwnerStatus(t, binary, store.Dir)
 	c := assertCapabilityOwnerFullGrant(t, &first, session)
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--inbox-read")
+	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--receive", session)
 	second := readCapabilityOwnerStatus(t, binary, store.Dir)
-	if second.Capabilities == nil || !second.Capabilities.InboxRead || len(second.Capabilities.Read)+len(second.Capabilities.Send)+len(second.Capabilities.InboxFrom) != 0 {
+	if second.Capabilities == nil || !slices.Equal(second.Capabilities.Receive, []string{session}) || len(second.Capabilities.Read)+len(second.Capabilities.Send) != 0 {
 		t.Fatal("grant did not replace omitted permissions", second)
 	}
 	if second.Capabilities.Revision == c.Revision {
@@ -86,7 +86,7 @@ func TestPluginCapabilityOwnerCLIMetadataConfigurePreservesGrants(t *testing.T) 
 	if before.Capabilities != nil {
 		t.Fatal("metadata scope implicitly granted body or message permissions")
 	}
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--read", session, "--inbox-read")
+	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--read", session)
 	granted := readCapabilityOwnerStatus(t, binary, store.Dir)
 	const other = "codex:00000000-0000-4000-8000-000000000002"
 	capabilityCLIOK(t, binary, store.Dir, "configure", "external", "--session", other)
@@ -119,7 +119,7 @@ func TestPluginCapabilityOwnerCLIPinAndReaddFence(t *testing.T) {
 	if stale.CapabilitiesBound == nil || *stale.CapabilitiesBound {
 		t.Fatal("repin silently rebound old grants", stale)
 	}
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--inbox-read")
+	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--receive", session)
 	rebound := readCapabilityOwnerStatus(t, binary, store.Dir)
 	assertCapabilityOwnerRebound(t, &rebound, before.Capabilities.Revision)
 	capabilityCLIOK(t, binary, store.Dir, "remove", "external")
@@ -150,7 +150,7 @@ func TestPluginCapabilityOwnerCLIRejectsMalformedAndOverLimit(t *testing.T) {
 	if status := readCapabilityOwnerStatus(t, binary, store.Dir); status.Capabilities != nil {
 		t.Fatal("rejected selection wrote capabilities", status)
 	}
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--inbox-read")
+	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--receive", session)
 	path := filepath.Join(store.Dir, "plugins", "external.json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -184,7 +184,7 @@ func capabilityNativeAddress(i int) string {
 func assertCapabilityOwnerFullGrant(t *testing.T, status *capabilityOwnerStatus, session string) *pluginfeed.PluginCapabilities {
 	t.Helper()
 	c := status.Capabilities
-	if c == nil || status.Launch == nil || c.Version != 1 || c.Installation != status.ID || c.PinSHA256 != status.Launch.PinSHA256 || c.Revision == "" || !c.InboxRead || !slices.Equal(c.Read, []string{session}) || !slices.Equal(c.Send, []string{session}) || !slices.Equal(c.InboxFrom, []string{session}) || status.CapabilitiesBound == nil || !*status.CapabilitiesBound {
+	if c == nil || status.Launch == nil || c.Version != 1 || c.Installation != status.ID || c.PinSHA256 != status.Launch.PinSHA256 || c.Revision == "" || !slices.Equal(c.Read, []string{session}) || !slices.Equal(c.Send, []string{session}) || !slices.Equal(c.Receive, []string{session}) || status.CapabilitiesBound == nil || !*status.CapabilitiesBound {
 		t.Fatal("status lost the owner grant or binding", status)
 	}
 	return c

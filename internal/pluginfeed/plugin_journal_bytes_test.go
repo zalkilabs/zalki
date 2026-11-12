@@ -60,7 +60,7 @@ func seedPluginJournalBytes(f PluginFeed, view bus.JournalView, now time.Time) e
 	}
 	launch := &PluginLaunch{Executable: "/fixture/plugin", Args: []string{"literal <>&"}, SHA256: strings.Repeat("a", 64), PinSHA256: strings.Repeat("b", 64)}
 	capability := &PluginCapabilities{Version: 1, Installation: byteFixturePlugin, PinSHA256: launch.PinSHA256, Revision: byteFixtureGrant,
-		PluginCapabilityGrants: PluginCapabilityGrants{Read: []string{byteFixtureActor}, InboxRead: true, InboxFrom: []string{byteFixtureActor}}}
+		PluginCapabilityGrants: PluginCapabilityGrants{Read: []string{byteFixtureActor}, Receive: []string{byteFixtureActor}}}
 	if err := f.savePluginIdentity(byteFixturePlugin); err != nil {
 		return err
 	}
@@ -121,8 +121,9 @@ func auditPluginJournalBytes(t *testing.T, f PluginFeed, before *PluginFeedStatu
 func assertPluginJournalBytes(t *testing.T, name string, raw []byte) {
 	t.Helper()
 	// Captured with production files at 149740f before the journal boundary.
+	// installation: captured again when receive replaced inbox_from/inbox_read.
 	want := map[string]string{
-		"installation":  "22cc4b86b83f09f3b48f8f73f1c0da2604b8976bdfabfeb6f421f33d328a1539",
+		"installation":  "cd36d91174d5ae6a285ef1c1e13147050e6145b6e2be71a218c742c81c687a30",
 		"identity hint": "6427652d690a10e557e0354e70a402d50ebe7180f4bbc03bb7bc0848ff2e235b",
 		"inbox index":   "cceb38d7cf3a91fdbdb108ef088ddb973d2f04710a7a826c9b6e6df1fcd5eb83",
 		"native audit":  "0b4d819ba006f36622a358b79086dd851025931a6699a509b8239c63de4a91d0",

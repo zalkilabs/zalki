@@ -28,7 +28,7 @@ func newInboxStorageFixture(t *testing.T) inboxStorageFixture {
 	t.Helper()
 	f, _, _ := externalPinFixture(t)
 	from, key := register(t, f.store, "cursor")
-	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{InboxFrom: []string{from.ID}}); err != nil {
+	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{from.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.EnablePluginFeed(true); err != nil {
@@ -397,7 +397,7 @@ func mutateInboxCapabilities(p *pluginRecord, x inboxStorageFixture, name string
 	case "no-capabilities":
 		p.Capabilities = nil
 	case "read-only":
-		p.Capabilities.InboxFrom = nil
+		p.Capabilities.Receive = nil
 		p.Capabilities.Read = []string{x.from.ID}
 	case "foreign-installation":
 		p.Capabilities.Installation = model.NewUUID()
@@ -409,7 +409,7 @@ func mutateInboxCapabilities(p *pluginRecord, x inboxStorageFixture, name string
 	case "ungranted":
 		other := x.from
 		other.ID = "cursor:00000000-0000-4000-8000-000000000099"
-		p.Capabilities.InboxFrom = []string{other.ID}
+		p.Capabilities.Receive = []string{other.ID}
 	}
 }
 

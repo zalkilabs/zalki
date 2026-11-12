@@ -10,7 +10,7 @@ import (
 )
 
 func TestPluginInboxReadAuthorityAndSnapshotFences(t *testing.T) {
-	for _, kind := range []string{"disabled", "owner-disable", "owner-revoke", "no-capabilities", "read-only", "send-only", "inbox-from-only", "foreign-installation", "foreign-pin", "changed-launch-pin", "replaced-installation", "checked-installation", "checked-pin", "checked-revision"} {
+	for _, kind := range []string{"disabled", "owner-disable", "owner-revoke", "no-capabilities", "read-only", "send-only", "foreign-installation", "foreign-pin", "changed-launch-pin", "replaced-installation", "checked-installation", "checked-pin", "checked-revision"} {
 		t.Run(kind, func(t *testing.T) { checkInboxReadAuthority(t, kind) })
 	}
 }
@@ -18,11 +18,12 @@ func checkInboxReadAuthority(t *testing.T, kind string) {
 	t.Helper()
 	x := newInboxReadFixture(t, "")
 	before := x.status
-	if kind == "read-only" || kind == "send-only" || kind == "inbox-from-only" {
+	// Grants without receive cannot open the plugin's own inbox.
+	if kind == "read-only" || kind == "send-only" {
 		if err := x.f.EnablePluginFeed(false); err != nil {
 			t.Fatal(err)
 		}
-		g := PluginCapabilityGrants{InboxFrom: []string{x.from.ID}}
+		var g PluginCapabilityGrants
 		if kind == "read-only" {
 			g.Read = []string{x.from.ID}
 		}
@@ -119,7 +120,7 @@ func TestPluginInboxReadRegrantAndReinstallDoNotRefreshOldSnapshot(t *testing.T)
 	}
 	// The sender stays in accept_from: only a sender the plugin may still
 	// hear from is offered (see TestInboxOffersOnlyCurrentSenders).
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{InboxRead: true, InboxFrom: []string{x.from.ID}}); err != nil {
+	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{x.from.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {
@@ -146,7 +147,7 @@ func TestPluginInboxReadRegrantAndReinstallDoNotRefreshOldSnapshot(t *testing.T)
 	if err = x.f.ConfigurePluginFeed(old.Sessions); err != nil {
 		t.Fatal(err)
 	}
-	if err = x.f.GrantPluginCapabilities(PluginCapabilityGrants{InboxRead: true}); err != nil {
+	if err = x.f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{x.from.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err = x.f.EnablePluginFeed(true); err != nil {

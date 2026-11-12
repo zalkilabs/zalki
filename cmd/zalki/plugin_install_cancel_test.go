@@ -80,7 +80,7 @@ func fakeGoFolder(t *testing.T, script string) string {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin+":/usr/bin:/bin")
-	manifest := `{"name":"demo","language":"go","purpose":"cancel test","build":["go","build","-o","plugin","."],"artifact":"plugin","requests":{"feed":true,"read":true,"send":false,"inbox_read":false,"accept_from":false}}`
+	manifest := `{"name":"demo","language":"go","purpose":"cancel test","build":["go","build","-o","plugin","."],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":true}}`
 	return writeInstallFolder(t, manifest, map[string]string{"main.go": "package main\n\nfunc main() {}\n", "go.mod": "module example.com/demo\n\ngo 1.22\n"})
 }
 
@@ -101,10 +101,10 @@ func TestPluginInstallCtrlCAtPromptsCancels(t *testing.T) {
 		parts   []string
 		prompts int // session prompts shown: none may follow the cancel
 	}{
-		{"native, line mode, first prompt", false, installPlainLines, []string{"^C", "1\n\nn\ny\n"}, 1},
-		{"native, line mode, later prompt", false, installPlainLines, []string{"1\n", "^C", "\nn\ny\n"}, 2},
-		{"native, line mode, final question", false, installPlainLines, []string{"1\n\nn\n", "^C", "y\n"}, 2},
-		{"native, line mode, Ctrl-C with the answer", false, installPlainLines, []string{"1\n\nn\n", "^C:y\n"}, 2},
+		{"native, line mode, first prompt", false, installPlainLines, []string{"^C", "1\n\n\ny\n"}, 1},
+		{"native, line mode, later prompt", false, installPlainLines, []string{"1\n", "^C", "\n\ny\n"}, 2},
+		{"native, line mode, final question", false, installPlainLines, []string{"1\n\n\n", "^C", "y\n"}, 3},
+		{"native, line mode, Ctrl-C with the answer", false, installPlainLines, []string{"1\n\n\n", "^C:y\n"}, 3},
 		{"native, raw keys", false, installRawKeys, []string{" ", "^C", "y"}, 0},
 		{"native, line mode, nobody types after Ctrl-C", false, installPlainLines, []string{"1\n", "block"}, 2},
 		{"go, line mode", true, installPlainLines, []string{"1\n", "^C", "\ny\n"}, 2},

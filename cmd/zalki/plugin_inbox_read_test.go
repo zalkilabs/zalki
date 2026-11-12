@@ -45,7 +45,7 @@ func newInboxReadCLIFixture(t *testing.T) inboxReadCLIFixture {
 	}
 	capabilityCLIOK(t, binary, store.Dir, "add", "external", "--exec", executable)
 	capabilityCLIOK(t, binary, store.Dir, "configure", "external", "--session", author.ID)
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--accept-from", author.ID, "--inbox-read")
+	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--receive", author.ID)
 	capabilityCLIOK(t, binary, store.Dir, "enable", "external")
 	status, err := pluginfeed.NewPluginFeed(store, "external").PluginStatus()
 	if err != nil {
@@ -146,7 +146,7 @@ func TestPluginInboxReadActualCLIRequiresExactScopeAndTrustNotice(t *testing.T) 
 		assertInboxReadCLIFailure(t, x, out, diagnostic, err)
 	}
 	out, diagnostic, err := x.run(t, "inbox-read", "--help")
-	if err != nil || len(diagnostic) != 0 || !bytes.Contains(out, []byte(pluginTrustNotice)) || !bytes.Contains(out, []byte("does not start a plugin")) || !bytes.Contains(out, []byte("requires an explicit --inbox-read grant")) {
+	if err != nil || len(diagnostic) != 0 || !bytes.Contains(out, []byte(pluginTrustNotice)) || !bytes.Contains(out, []byte("does not start a plugin")) || !bytes.Contains(out, []byte("requires a receive grant")) {
 		t.Fatal("owner read help hid trust or permission scope", err)
 	}
 }

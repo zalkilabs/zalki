@@ -99,7 +99,7 @@ func newMCPInboxFixture(t *testing.T) (*bus.Service, model.Session, string, mode
 	if err := feed.ConfigurePluginFeed([]string{author.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{InboxFrom: []string{author.ID}}); err != nil {
+	if err := feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Receive: []string{author.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := feed.EnablePluginFeed(true); err != nil {

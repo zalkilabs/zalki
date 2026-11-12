@@ -134,8 +134,7 @@ func TestPluginReadSeparateAuthorityAndFreshBinding(t *testing.T) {
 		}},
 		{"no-capabilities", "stale_binding", func(p *pluginRecord) { p.Capabilities = nil }},
 		{"send-only", "denied", func(p *pluginRecord) { p.Capabilities.Send = p.Capabilities.Read; p.Capabilities.Read = nil }},
-		{"inbox-read-only", "denied", func(p *pluginRecord) { p.Capabilities.Read = nil; p.Capabilities.InboxRead = true }},
-		{"inbox-from-only", "denied", func(p *pluginRecord) { p.Capabilities.InboxFrom = p.Capabilities.Read; p.Capabilities.Read = nil }},
+		{"receive-only", "denied", func(p *pluginRecord) { p.Capabilities.Receive = p.Capabilities.Read; p.Capabilities.Read = nil }},
 		{"other-read", "denied", func(p *pluginRecord) { p.Capabilities.Read = []string{p.Sessions[0]} }},
 	}
 	for _, row := range cases {

@@ -68,25 +68,43 @@ func (s PluginFeed) ConsumePluginInbox(before *PluginFeedStatus, id string) stri
 // BoundPluginSend returns the send check for the child launched with binding.
 // It runs under the journal lock before any session lookup or write: the
 // record must still match the binding (installation, enabled, pin, grant
-// revision), and the grants must name the exact recipient.
-func BoundPluginSend(binding *PluginFeedStatus) func(view bus.JournalView, stateDir, installation, to string) error {
-	return func(view bus.JournalView, stateDir, installation, to string) error {
-		return view.WithWriteScope(stateDir, func() error {
+// revision). A reply (replyTo set) must pass the reply rule; any other send
+// needs the extended send grant for the exact recipient. The returned record
+// step counts a new reply in the same lock.
+func BoundPluginSend(binding *PluginFeedStatus) func(view bus.JournalView, stateDir, installation, to, replyTo, messageID string) (func() error, error) {
+	return func(view bus.JournalView, stateDir, installation, to, replyTo, messageID string) (func() error, error) {
+		var record func() error
+		err := view.WithWriteScope(stateDir, func() error {
 			if binding == nil || binding.ID != installation || binding.Launch == nil || binding.Capabilities == nil {
 				return model.NewError(model.CodeUnauthorized, "plugin send denied")
 			}
-			_, p, err := pluginInboxTarget(stateDir, "plugin:"+installation)
-			if err != nil || pluginBindingCode(p, binding) != "ok" || !pluginSendAllowed(p, to) {
+			f, p, err := pluginInboxTarget(stateDir, "plugin:"+installation)
+			if err != nil || pluginBindingCode(p, binding) != "ok" || !pluginGrantsBound(p) {
 				return model.NewError(model.CodeUnauthorized, "plugin send denied")
 			}
+			if replyTo == "" {
+				if !slices.Contains(p.Capabilities.Send, to) {
+					return model.NewError(model.CodeUnauthorized, "plugin send denied")
+				}
+				record = func() error { return nil }
+				return nil
+			}
+			count, err := f.checkReply(view, p, to, replyTo, messageID, replyClock())
+			if err != nil {
+				return err
+			}
+			record = func() error { return view.WithWriteScope(stateDir, count) }
 			return nil
 		})
+		return record, err
 	}
 }
 
-func pluginSendAllowed(p pluginRecord, to string) bool {
+// pluginGrantsBound: enabled, launched, and the grants belong to this exact
+// installation and pin.
+func pluginGrantsBound(p pluginRecord) bool {
 	c := p.Capabilities
-	return p.Enabled && p.Launch != nil && c != nil && c.Installation == p.ID && c.PinSHA256 == p.Launch.PinSHA256 && slices.Contains(c.Send, to)
+	return p.Enabled && p.Launch != nil && c != nil && c.Installation == p.ID && c.PinSHA256 == p.Launch.PinSHA256
 }
 
 // pluginInboxCode checks the bound installation under the Store lock.
@@ -144,17 +162,18 @@ func (s pluginFiles) nextPluginInboxAt(view bus.JournalView, installation string
 	return result, "ok"
 }
 
-// inboxEntryState decides whether an inbox entry may be offered now. "ok":
-// the sender is in the current accept_from list and still has the
-// registration it sent from. "held": the sender is not granted now; the entry
-// stays and comes back after a re-grant. "dead": the sender's registration
-// was replaced or removed, so the entry can never be offered again.
+// inboxEntryState decides whether an inbox entry may be offered now, by the
+// sender's identity (actor ID), not its registration generation. "ok": the
+// sender is in the current receive list. "held": it is not granted now; the
+// entry stays and comes back after a re-grant. "dead": the sender's session
+// record is gone, so the entry can never be offered again. The stored
+// generation is information for the plugin only.
 func inboxEntryState(view bus.JournalView, c *PluginCapabilities, entry pluginInboxEntry) string {
-	generation, err := view.SessionGeneration(entry.Sender)
+	_, err := view.SessionGeneration(entry.Sender)
 	switch {
-	case errors.Is(err, os.ErrNotExist) || err == nil && generation != entry.Generation:
+	case errors.Is(err, os.ErrNotExist):
 		return "dead"
-	case err != nil || c == nil || !slices.Contains(c.InboxFrom, entry.Sender):
+	case err != nil || c == nil || !slices.Contains(c.Receive, entry.Sender):
 		return "held"
 	default:
 		return "ok"

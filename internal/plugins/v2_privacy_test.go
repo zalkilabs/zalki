@@ -21,7 +21,7 @@ import (
 func (x *v2Fixture) pluginMail(t *testing.T) (model.Message, pluginfeed.PluginFeed, pluginfeed.PluginFeedStatus) {
 	t.Helper()
 	service := bus.Service{Store: x.store, PluginSend: pluginfeed.BoundPluginSend(&x.status)}
-	m, err := service.SendFromPlugin(context.Background(), bus.PluginSendRequest{Installation: x.status.ID, Name: x.status.Name, ClientMessageID: "private", To: x.asker.ID, Body: "PRIVATE_SEND_BODY"})
+	m, err := service.SendFromPlugin(context.Background(), bus.PluginSendRequest{Installation: x.status.ID, Name: x.status.Name, ClientMessageID: "private", ReplyTo: x.request.ID, To: x.asker.ID, Body: "PRIVATE_SEND_BODY"})
 	if err != nil {
 		t.Fatal(err)
 	}

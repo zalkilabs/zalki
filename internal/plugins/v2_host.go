@@ -44,8 +44,10 @@ type v2Consume struct {
 type v2Send struct {
 	RequestID       string `json:"request_id"`
 	ClientMessageID string `json:"client_message_id"`
-	To              string `json:"to"`
-	Body            string `json:"body"`
+	// ReplyTo names the inbox message this send answers (the reply rule).
+	ReplyTo string `json:"reply_to,omitempty"`
+	To      string `json:"to"`
+	Body    string `json:"body"`
 }
 
 type v2Result struct {
@@ -280,7 +282,7 @@ func (h *v2Host) next(r *v2Next) *v2Result {
 
 func (h *v2Host) sendMessage(r *v2Send) *v2Result {
 	result := &v2Result{RequestID: r.RequestID, ClientMessageID: r.ClientMessageID}
-	m, err := h.service.SendFromPlugin(h.ctx, bus.PluginSendRequest{Installation: h.binding.ID, Name: h.binding.Name, ClientMessageID: r.ClientMessageID, To: r.To, Body: r.Body})
+	m, err := h.service.SendFromPlugin(h.ctx, bus.PluginSendRequest{Installation: h.binding.ID, Name: h.binding.Name, ClientMessageID: r.ClientMessageID, ReplyTo: r.ReplyTo, To: r.To, Body: r.Body})
 	result.Code = v2Code(err)
 	if err == nil {
 		result.Message, result.Status = m.ID, string(m.Status)
@@ -292,6 +294,9 @@ func (h *v2Host) sendMessage(r *v2Send) *v2Result {
 func v2Code(err error) string {
 	if err == nil {
 		return "ok"
+	}
+	if code := pluginfeed.PluginSendCode(err); code != "" {
+		return code
 	}
 	switch model.ErrorCodeOf(err) {
 	case model.CodeUnauthorized:

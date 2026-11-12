@@ -90,7 +90,7 @@ func TestPluginReadOwnerCLIRequiredScopeAndHelp(t *testing.T) {
 		t.Fatal("help hid owner/host limits", string(raw), err)
 	}
 	capabilityCLIOK(t, binary, store.Dir, "disable", "external")
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--send", m.To, "--inbox-read", "--accept-from", m.From)
+	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--send", m.To, "--receive", m.From)
 	capabilityCLIOK(t, binary, store.Dir, "enable", "external")
 	raw, err = pluginOwnerCLI(t, binary, store.Dir, "read", "external", "--session", m.To, "--message", m.ID)
 	if err == nil || bytes.Contains(raw, []byte("PRIVATE-B1-CLI-BODY")) {
