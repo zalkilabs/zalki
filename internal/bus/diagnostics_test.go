@@ -13,6 +13,31 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
+func TestDiagnosticSessionScanCompleteness(t *testing.T) {
+	store := fixtureStore(t)
+	t.Setenv("PATH", t.TempDir())
+	report, err := store.Diagnostics(t.Context())
+	if err != nil || !report.SessionScanComplete || len(report.Sessions) != 0 {
+		t.Fatal("D12_EMPTY_COMPLETE_SCAN", err, report)
+	}
+	from, _, _, _ := registerPair(t, store, "codex", "cursor")
+	path, err := store.sessionPath(from.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("{broken"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	report, err = store.Diagnostics(t.Context())
+	if err != nil || report.SessionScanComplete {
+		t.Fatal("D12_SKIPPED_SCAN_IS_INCOMPLETE", err, report)
+	}
+	raw, err := json.Marshal(report)
+	if err != nil || bytes.Contains(raw, []byte("SessionScanComplete")) || bytes.Contains(raw, []byte("session_scan_complete")) {
+		t.Fatal("D12_COMPLETENESS_FIELD_PRIVATE", err)
+	}
+}
+
 func TestPrunePreservesQuietAndUnknownOwnersAndMessageJournal(t *testing.T) {
 	p := selfProcess(t)
 	store := fixtureStore(t)
