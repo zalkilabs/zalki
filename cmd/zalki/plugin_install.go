@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -152,10 +153,11 @@ func (p *pluginInstaller) header() string {
 	if len(m.Build) > 0 {
 		args := make([]string, 0, len(m.Build))
 		for _, arg := range m.Build {
-			args = append(args, plainText(arg))
+			args = append(args, strconv.Quote(arg))
 		}
-		fmt.Fprintf(&b, "Build: %s\n", strings.Join(args, " "))
-		fmt.Fprintf(&b, "Tool: %s\n", plainText(p.tool.Path))
+		fmt.Fprintf(&b, "Build: [%s]\n", strings.Join(args, ", "))
+		fmt.Fprintf(&b, "Tool: %s (go launcher; its hash is checked for changes, the compiler is not pinned)\n", plainText(p.tool.Path))
+		b.WriteString("Build env: only PATH from your environment; private caches, GOTOOLCHAIN=local, GOENV=off, GOWORK=off, -buildvcs=false, -mod=readonly (vendor/ is ignored), cgo off, no network (GOPROXY=off), 2 CPUs. go.mod may use only the standard library. VCS folders such as .git are not copied.\n")
 	} else {
 		b.WriteString("Build: none (ready-made executable)\n")
 	}

@@ -129,7 +129,7 @@ func TestPluginInstallGoBuildEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(output, err)
 	}
-	for _, want := range []string{"Install gonote", "Build: go build -mod=readonly -o plugin .\r\nTool: /", "Access per session: changes = see state and message status, no text\r\n", "Publisher proof: none", "no sandbox", "Building...", "Installed and enabled gonote. Access: changes from 1 session(s). Not running yet"} {
+	for _, want := range []string{"Install gonote", "Build: [\"go\", \"build\", \"-mod=readonly\", \"-o\", \"plugin\", \".\"]\r\nTool: /", "(go launcher; its hash is checked for changes, the compiler is not pinned)\r\nBuild env: only PATH from your environment; private caches, GOTOOLCHAIN=local, GOENV=off, GOWORK=off, -buildvcs=false, -mod=readonly (vendor/ is ignored), cgo off, no network (GOPROXY=off), 2 CPUs. go.mod may use only the standard library. VCS folders such as .git are not copied.\r\n", "Access per session: changes = see state and message status, no text\r\n", "Publisher proof: none", "no sandbox", "Building...", "Installed and enabled gonote. Access: changes from 1 session(s). Not running yet"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output lacks %q:\n%s", want, output)
 		}

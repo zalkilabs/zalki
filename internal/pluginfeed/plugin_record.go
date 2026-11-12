@@ -56,6 +56,9 @@ func (s pluginFiles) checkPluginGrants(ids []string) error {
 		if err := model.ValidateSessionAddress(id); err != nil {
 			return err
 		}
+		if model.IsPluginInboxAddress(id) {
+			return model.NewError(model.CodeInvalidInput, "plugin grants require native session addresses")
+		}
 		if i > 0 && ids[i-1] >= id {
 			return model.NewError(model.CodeInvalidInput, "plugin grants must be unique and sorted")
 		}

@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -128,9 +129,7 @@ func (m InstallManifest) validate() error {
 func (m InstallManifest) validateBuild() error {
 	switch m.Language {
 	case "go":
-		if len(m.Build) == 0 || m.Build[0] != "go" {
-			return installError(`language "go" needs a build command that starts with "go"`)
-		}
+		return validateGoBuild(m.Build)
 	case "native":
 		if m.Build != nil {
 			return installError(`language "native" needs "build": null`)
@@ -139,6 +138,78 @@ func (m InstallManifest) validateBuild() error {
 		return installError(`language must be "go" or "native"`)
 	}
 	return nil
+}
+
+// goBuildFlags are the only single build arguments allowed after "go build".
+var goBuildFlags = []string{"-trimpath", "-mod=readonly", "-p=1", "-p=2", "-ldflags=-s -w"}
+
+// goBuildPairs are the flags allowed with their value in the next argument.
+var goBuildPairs = map[string]func(string) bool{
+	"-o":       plainBuildOutput,
+	"-ldflags": func(v string) bool { return v == "-s -w" },
+}
+
+// validateGoBuild allows only "go build" with the flags above and packages
+// inside the copy. A flag such as -gcflags, -toolexec, -C or -overlay could
+// write, read or run something outside the reviewed copy, so every other
+// argument is refused. The error names the first refused argument.
+func validateGoBuild(argv []string) error {
+	if len(argv) < 2 || argv[0] != "go" || argv[1] != "build" {
+		return installError(`language "go" needs a build command that starts with "go build"`)
+	}
+	for i := 2; i < len(argv); i++ {
+		arg := argv[i]
+		valid, ok := goBuildPairs[arg]
+		switch {
+		case slices.Contains(goBuildFlags, arg), localGoPackage(arg):
+		case strings.HasPrefix(arg, "-o=") && plainBuildOutput(strings.TrimPrefix(arg, "-o=")):
+		case ok && i+1 < len(argv) && valid(argv[i+1]):
+			i++
+		default:
+			return installError("build: %s is not allowed; use only -trimpath, -mod=readonly, -p=1 or -p=2, -o NAME, -ldflags \"-s -w\" and . or ./path", strconv.Quote(arg))
+		}
+	}
+	return nil
+}
+
+// plainBuildOutput accepts one plain file name in the copy, with no folder.
+func plainBuildOutput(name string) bool {
+	return filepath.IsLocal(name) && !strings.ContainsAny(name, `/\`) && !strings.HasPrefix(name, "-")
+}
+
+// localGoPackage accepts "." and "./dir/sub" inside the copy. Import paths,
+// file arguments, "..." patterns and versions are refused: they can name code
+// outside the reviewed copy.
+func localGoPackage(arg string) bool {
+	rel, ok := strings.CutPrefix(arg, "./")
+	return arg == "." || ok && filepath.IsLocal(rel) && filepath.Clean(rel) == rel &&
+		!strings.Contains(rel, "..") && !strings.ContainsAny(rel, "@\\") && !strings.HasPrefix(rel, "-") && !strings.HasSuffix(rel, ".go")
+}
+
+// goBuildArgs adds two flags to a go build: -buildvcs=false, so the build
+// never runs git on the copy, and -mod=readonly, so a vendor folder is never
+// used and the build stays with the standard library.
+func goBuildArgs(argv []string) []string {
+	if len(argv) > 1 && argv[0] == "go" && argv[1] == "build" {
+		return slices.Concat([]string{"build", "-buildvcs=false", "-mod=readonly"}, argv[2:])
+	}
+	return argv[1:]
+}
+
+// goBuildEnv is the whole build environment. Nothing else from the owner's
+// environment is kept: no toolchain switch, no "go env -w" file, no GOFLAGS,
+// no workspace, no helper commands (GOCACHEPROG, GOAUTH), no cgo, no network
+// and at most two CPUs. Caches live in the private build folder.
+func goBuildEnv(build string) []string {
+	return []string{
+		"PATH=" + os.Getenv("PATH"),
+		"HOME=" + filepath.Join(build, "home"),
+		"TMPDIR=" + filepath.Join(build, "tmp"),
+		"GOCACHE=" + filepath.Join(build, "cache"),
+		"GOMODCACHE=" + filepath.Join(build, "mod"),
+		"GOPATH=" + filepath.Join(build, "gopath"),
+		"GOTOOLCHAIN=local", "GOENV=off", "GOFLAGS=", "GOWORK=off", "CGO_ENABLED=0", "GOPROXY=off", "GOSUMDB=off", "GOMAXPROCS=2",
+	}
 }
 
 // ReadInstallManifest reads and checks the manifest from a folder without following a link.
@@ -187,6 +258,9 @@ func ResolveInstallSource(path string) (string, error) {
 	return abs, nil
 }
 
+// vcsFolders are not copied, at any depth.
+var vcsFolders = []string{".git", ".hg", ".svn", ".bzr"}
+
 type snapshot struct {
 	target string
 	files  int
@@ -232,6 +306,43 @@ func SnapshotInstallSource(source, staging string) (InstallSource, error) {
 	return result, err
 }
 
+// goModDirectives are the only go.mod directives a go plugin may use. Any
+// require, replace, exclude, retract, tool or ignore could bring in code that
+// is not in the reviewed copy, even with no network.
+var goModDirectives = []string{"module", "go", "toolchain", "godebug"}
+
+// checkGoModule requires a go.mod at the root of the copy, so Go never uses
+// one from a parent folder, and allows only standard-library builds.
+func checkGoModule(dir string) error {
+	path := filepath.Join(dir, "go.mod")
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Size() > 64<<10 {
+		return installError("plugins must use only the Go standard library: the folder needs a go.mod file of at most 64 KiB at its root")
+	}
+	raw, err := os.ReadFile(path) //nolint:gosec // G304: the go.mod of our own staged copy.
+	if err != nil {
+		return err
+	}
+	inBlock := false
+	for _, line := range strings.Split(string(raw), "\n") {
+		line, _, _ = strings.Cut(line, "//")
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "":
+		case inBlock:
+			inBlock = line != ")"
+		default:
+			directive := line[:len(line)-len(strings.TrimLeftFunc(line, unicode.IsLetter))]
+			if !slices.Contains(goModDirectives, directive) {
+				return installError("plugins must use only the Go standard library: go.mod has a %s directive", strconv.Quote(cmp.Or(directive, line)))
+			}
+			rest := strings.TrimSpace(line[len(directive):])
+			inBlock = strings.HasPrefix(rest, "(") && !strings.HasSuffix(rest, ")")
+		}
+	}
+	return nil
+}
+
 // copyDir records and creates one folder, then copies its entries in name
 // order (the same order as filepath.WalkDir).
 func (s *snapshot) copyDir(dir *os.Root, rel string) error {
@@ -248,6 +359,9 @@ func (s *snapshot) copyDir(dir *os.Root, rel string) error {
 	}
 	slices.Sort(names)
 	for _, name := range names {
+		if slices.Contains(vcsFolders, name) {
+			continue // VCS metadata can name helper commands; the build does not need it
+		}
 		if err := s.copyEntry(dir, name, filepath.Join(rel, name)); err != nil {
 			return err
 		}
@@ -414,7 +528,8 @@ func (l *installLog) Write(p []byte) (int, error) {
 }
 
 // RunInstallBuild runs the literal build argv in the staged copy without a
-// shell. It uses the owner's environment and has no sandbox. Output goes to log.
+// shell, with goBuildEnv and caches in a private folder next to log that is
+// removed afterwards. It has no sandbox. Output goes to log.
 func RunInstallBuild(ctx context.Context, tool InstallTool, argv []string, dir, log string) error {
 	output, err := os.OpenFile(log, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) //nolint:gosec // G304: our own staging log.
 	if err != nil {
@@ -426,9 +541,22 @@ func RunInstallBuild(ctx context.Context, tool InstallTool, argv []string, dir, 
 	if sum, err := hashInstallTool(tool.Path); err != nil || sum != tool.SHA256 {
 		return errors.Join(err, installError("build tool %s changed after the review; nothing was built", strconv.Quote(tool.Path)), output.Close())
 	}
+	build, err := os.MkdirTemp(filepath.Dir(log), ".build-")
+	if err == nil {
+		err = errors.Join(os.Mkdir(filepath.Join(build, "home"), 0700), os.Mkdir(filepath.Join(build, "tmp"), 0700))
+	}
+	if err != nil {
+		return errors.Join(err, output.Close())
+	}
+	defer os.RemoveAll(build) //nolint:errcheck // Best effort: the staging folder is removed later anyway.
+	if len(argv) > 1 && argv[0] == "go" && argv[1] == "build" {
+		if err := checkGoModule(dir); err != nil {
+			return errors.Join(err, output.Close())
+		}
+	}
 	capped := &installLog{file: output, left: maxInstallLog, stop: cancel}
-	cmd := exec.CommandContext(ctx, tool.Path, argv[1:]...) //nolint:gosec // G204: the owner approved this literal argv.
-	cmd.Dir, cmd.Stdout, cmd.Stderr = dir, capped, capped
+	cmd := exec.CommandContext(ctx, tool.Path, goBuildArgs(argv)...) //nolint:gosec // G204: the owner approved this literal argv.
+	cmd.Dir, cmd.Stdout, cmd.Stderr, cmd.Env = dir, capped, capped, goBuildEnv(build)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
 	// Wait stops waiting for held output pipes this long after the leader exits.
