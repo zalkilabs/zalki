@@ -203,7 +203,7 @@ func (h *v2Host) tick() error {
 		}
 		return nil
 	}
-	d, err := h.feed.NextPluginFeed()
+	d, err := h.feed.NextPluginFeed(h.binding)
 	if err != nil {
 		return h.terminal(bindingCode(h.feed, h.binding))
 	}

@@ -155,17 +155,11 @@ func pluginNativeReadMessage(view bus.JournalView, session, id string) (*pluginR
 }
 
 func pluginReadAuthorization(p pluginRecord, before *PluginFeedStatus, session string) string {
-	c := p.Capabilities
-	switch {
-	case p.ID != before.ID:
-		return "stale_binding"
-	case !p.Enabled:
-		return "revoked"
-	case p.Launch == nil || c == nil || c.Installation != p.ID || c.PinSHA256 != p.Launch.PinSHA256 || c.PinSHA256 != before.Launch.PinSHA256 || c.Revision != before.Capabilities.Revision:
-		return "stale_binding"
-	case !slices.Contains(c.Read, session):
-		return "denied"
-	default:
-		return "ok"
+	if code := pluginBindingCode(p, before); code != "ok" {
+		return code
 	}
+	if !slices.Contains(p.Capabilities.Read, session) {
+		return "denied"
+	}
+	return "ok"
 }

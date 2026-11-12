@@ -47,7 +47,7 @@ func enableFeed(t *testing.T, s bus.Store, ids ...string) {
 
 func feedNext(t *testing.T, s bus.Store) PluginDelivery {
 	t.Helper()
-	d, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed()
+	d, err := nextFeed(NewPluginFeed(s, "fake-notifier"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestPluginFeedGrantChangesAndDisable(t *testing.T) {
 	if err := NewPluginFeed(s, "fake-notifier").AckPluginFeed(old); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("disabled receipt remained valid", err)
 	}
-	if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); model.ErrorCodeOf(err) != model.CodeUnauthorized {
+	if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("disabled feed dispatched", err)
 	}
 	enableFeed(t, s, b.ID)
@@ -263,7 +263,7 @@ func TestPluginFeedGapDirectorySyncFailure(t *testing.T) {
 	for range 3 {
 		testCoveredUpdate(t, s, v.ID)
 	}
-	live := pluginDirectorySyncCut(t, s, func() error { _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); return err })
+	live := pluginDirectorySyncCut(t, s, func() error { _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); return err })
 	if live.GapID == "" || live.GapReason != "retention" {
 		t.Fatal("gap watermark was published without a pending notice", live)
 	}
@@ -317,7 +317,7 @@ func TestPluginFeedInvalidPrivateRecord(t *testing.T) {
 		if _, err := NewPluginFeed(s, "fake-notifier").PluginStatus(); err == nil {
 			t.Fatal("invalid private record was accepted")
 		}
-		if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); err == nil {
+		if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); err == nil {
 			t.Fatal("invalid private record was dispatched")
 		}
 	}
@@ -421,7 +421,7 @@ func TestPluginFeedRejectsBrokenRecordsWithoutAdvancing(t *testing.T) {
 		if err := journal.WriteAtomic(path, broken); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); err == nil {
+		if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); err == nil {
 			t.Fatal("accepted corrupt source event")
 		}
 		if next := feedRecord(t, s); next.Position != p.Position {
@@ -579,7 +579,7 @@ func TestPluginFeedInvalidGrantsAndPosition(t *testing.T) {
 			if _, err := NewPluginFeed(s, "fake-notifier").PluginStatus(); err == nil {
 				t.Fatal("hand-edited record was accepted")
 			}
-			if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); err == nil {
+			if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); err == nil {
 				t.Fatal("hand-edited record was dispatched")
 			}
 			if !bytes.Equal(raw, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {
@@ -599,7 +599,7 @@ func TestPluginFeedRejectsZeroFirstMetadata(t *testing.T) {
 	if err := writeJSON(filepath.Join(s.Dir, eventMetaPath), head); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); !errors.Is(err, journal.ErrInvalidBatch) {
+	if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); !errors.Is(err, journal.ErrInvalidBatch) {
 		t.Fatal("nonempty zero-first metadata reached loss arithmetic", err)
 	}
 	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {
@@ -625,7 +625,7 @@ func TestPluginFeedBoundsValidOversizeEvent(t *testing.T) {
 	if err := journal.WriteAtomic(path, large); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); !errors.Is(err, journal.ErrInvalidFile) {
+	if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); !errors.Is(err, journal.ErrInvalidFile) {
 		t.Fatal("valid oversized event was not refused by the bounded reader", err)
 	}
 	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {
@@ -652,7 +652,7 @@ func TestPluginFeedPendingGapRequiresDirectoryConfirmation(t *testing.T) {
 		testCoveredUpdate(t, s, v.ID)
 	}
 	denyPluginDirectoryRead(t, s)
-	if _, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); !errors.Is(err, os.ErrPermission) {
+	if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); !errors.Is(err, os.ErrPermission) {
 		t.Fatal("expected post-rename gap sync failure", err)
 	}
 	visible := feedRecord(t, s)
@@ -660,7 +660,7 @@ func TestPluginFeedPendingGapRequiresDirectoryConfirmation(t *testing.T) {
 		t.Fatal("cut did not publish the pending gap")
 	}
 	prior := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
-	if d, err := NewPluginFeed(s, "fake-notifier").NextPluginFeed(); !errors.Is(err, os.ErrPermission) || d.ID != "" {
+	if d, err := nextFeed(NewPluginFeed(s, "fake-notifier")); !errors.Is(err, os.ErrPermission) || d.ID != "" {
 		t.Fatal("unconfirmed pending gap was offered after failed directory sync", d, err)
 	}
 	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {

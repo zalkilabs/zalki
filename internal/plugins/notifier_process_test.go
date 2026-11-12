@@ -379,7 +379,7 @@ func seedFullOutbox(t *testing.T, path string) {
 
 func TestPluginCommandBinaryFullOutboxRecovery(t *testing.T) {
 	store, session := hostStore(t)
-	gap, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+	gap, err := nextFeed(pluginfeed.NewPluginFeed(store, "fake-notifier"))
 	if err != nil || gap.Gap != "enabled" {
 		t.Fatal("initial gap", gap, err)
 	}
@@ -389,7 +389,7 @@ func TestPluginCommandBinaryFullOutboxRecovery(t *testing.T) {
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	pending, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+	pending, err := nextFeed(pluginfeed.NewPluginFeed(store, "fake-notifier"))
 	if err != nil || pending.Event == nil {
 		t.Fatal("missing pending state change", pending, err)
 	}
@@ -402,7 +402,7 @@ func TestPluginCommandBinaryFullOutboxRecovery(t *testing.T) {
 	if raw, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(raw), "outbox is full") {
 		t.Fatal("full outbox did not fail explicitly", string(raw), err)
 	}
-	again, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+	again, err := nextFeed(pluginfeed.NewPluginFeed(store, "fake-notifier"))
 	if err != nil || again.ID != pending.ID {
 		t.Fatal("failed notification advanced core cursor", again, err)
 	}
@@ -445,7 +445,7 @@ func runReferenceUntilConsumed(t *testing.T, store bus.Store, binary string) {
 		}
 	})
 	eventually(t, func() bool {
-		d, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+		d, err := nextFeed(pluginfeed.NewPluginFeed(store, "fake-notifier"))
 		return err == nil && d.ID == ""
 	})
 	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {

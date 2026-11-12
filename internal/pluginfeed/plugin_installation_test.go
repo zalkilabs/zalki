@@ -21,11 +21,11 @@ func TestNamedPluginIsolationAndReceiptFence(t *testing.T) {
 	if err := s.Update(v.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	x, err := a.NextPluginFeed()
+	x, err := nextFeed(a)
 	if err != nil || x.Event == nil {
 		t.Fatal(x, err)
 	}
-	y, err := b.NextPluginFeed()
+	y, err := nextFeed(b)
 	if err != nil || y.ID != x.ID {
 		t.Fatal("independent feeds missed the same event", y, err)
 	}
@@ -35,7 +35,7 @@ func TestNamedPluginIsolationAndReceiptFence(t *testing.T) {
 	if err := a.AckPluginFeed(x); err != nil {
 		t.Fatal(err)
 	}
-	if next, err := b.NextPluginFeed(); err != nil || next.ID != y.ID {
+	if next, err := nextFeed(b); err != nil || next.ID != y.ID {
 		t.Fatal("one plugin advanced another", next, err)
 	}
 	if err := b.AckPluginFeed(y); err != nil {
@@ -87,7 +87,7 @@ func TestNamedPluginRejectsInvalidNamesWithoutState(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			s := bus.Store{Dir: filepath.Join(t.TempDir(), "absent")}
 			f := NewPluginFeed(s, name)
-			for _, call := range []func() error{f.AddPlugin, f.RemovePlugin, func() error { return f.ConfigurePluginFeed(nil) }, func() error { return f.EnablePluginFeed(true) }, func() error { _, err := f.NextPluginFeed(); return err }, func() error { return f.AckPluginFeed(PluginDelivery{}) }, func() error { _, err := f.PluginStatus(); return err }} {
+			for _, call := range []func() error{f.AddPlugin, f.RemovePlugin, func() error { return f.ConfigurePluginFeed(nil) }, func() error { return f.EnablePluginFeed(true) }, func() error { _, err := nextFeed(f); return err }, func() error { return f.AckPluginFeed(PluginDelivery{}) }, func() error { _, err := f.PluginStatus(); return err }} {
 				if err := call(); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 					t.Fatal("accepted invalid name", err)
 				}
@@ -179,7 +179,7 @@ func installedNamedFeed(t *testing.T, s bus.Store, name string, ids ...string) P
 	if err := feed.EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
-	gap, err := feed.NextPluginFeed()
+	gap, err := nextFeed(feed)
 	if err != nil || gap.Gap != "enabled" {
 		t.Fatal(gap, err)
 	}
@@ -200,7 +200,7 @@ func assertNamedPluginGrantIsolation(t *testing.T, s bus.Store, a, b PluginFeed,
 	if err := a.EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
-	gap, err := a.NextPluginFeed()
+	gap, err := nextFeed(a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,14 +210,14 @@ func assertNamedPluginGrantIsolation(t *testing.T, s bus.Store, a, b PluginFeed,
 	if err := s.Update(foreign, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	own, err := a.NextPluginFeed()
+	own, err := nextFeed(a)
 	if err != nil || own.Event == nil || own.Event.Session.ID != foreign {
 		t.Fatal("per-name grants were lost", own, err)
 	}
 	if err := a.AckPluginFeed(own); err != nil {
 		t.Fatal(err)
 	}
-	if skipped, err := b.NextPluginFeed(); err != nil || skipped.ID != "" {
+	if skipped, err := nextFeed(b); err != nil || skipped.ID != "" {
 		t.Fatal("one plugin exposed another's grant", skipped, err)
 	}
 
@@ -262,7 +262,7 @@ func prepareNamedPluginRemoval(t *testing.T, f PluginFeed, id string) PluginDeli
 	if err := f.EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
-	old, err := f.NextPluginFeed()
+	old, err := nextFeed(f)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -362,7 +362,7 @@ func TestHostPendingGapSurvivesAnotherLossAndRestart(t *testing.T) {
 func pendingGapRestart(t *testing.T, reason string) {
 	t.Helper()
 	store, session := hostStore(t)
-	initial, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+	initial, err := nextFeed(pluginfeed.NewPluginFeed(store, "fake-notifier"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -370,7 +370,7 @@ func pendingGapRestart(t *testing.T, reason string) {
 		t.Fatal(err)
 	}
 	seedLaterHistory(t, store, session, "retention")
-	gap, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+	gap, err := nextFeed(pluginfeed.NewPluginFeed(store, "fake-notifier"))
 	if err != nil || gap.Gap != "retention" {
 		t.Fatal(gap, err)
 	}
@@ -401,7 +401,7 @@ func pendingGapRestart(t *testing.T, reason string) {
 		t.Fatal(err)
 	}
 	eventually(t, func() bool {
-		d, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+		d, err := nextFeed(pluginfeed.NewPluginFeed(store, "fake-notifier"))
 		return err == nil && d.ID == ""
 	})
 }
@@ -463,7 +463,7 @@ func TestHostConsumesOneOfferAndHonorsDisable(t *testing.T) {
 		t.Fatal(err)
 	}
 	eventually(t, func() bool {
-		d, err := pluginfeed.NewPluginFeed(store, "fake-notifier").NextPluginFeed()
+		d, err := nextFeed(pluginfeed.NewPluginFeed(store, "fake-notifier"))
 		return err == nil && d.ID == ""
 	})
 	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {
@@ -737,4 +737,10 @@ func TestPlainStderr(t *testing.T) {
 			t.Errorf("plainStderr(%q) = %q, want %q", in, got, want)
 		}
 	}
+}
+
+// nextFeed selects the next feed event for a launch that starts now.
+func nextFeed(f pluginfeed.PluginFeed) (pluginfeed.PluginDelivery, error) {
+	status, _ := f.PluginStatus() // a load error comes back from NextPluginFeed too
+	return f.NextPluginFeed(&status)
 }
