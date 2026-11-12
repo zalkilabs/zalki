@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -210,6 +211,39 @@ func goBuildEnv(build string) []string {
 		"GOPATH=" + filepath.Join(build, "gopath"),
 		"GOTOOLCHAIN=local", "GOENV=off", "GOFLAGS=", "GOWORK=off", "CGO_ENABLED=0", "GOPROXY=off", "GOSUMDB=off", "GOMAXPROCS=2",
 	}
+}
+
+// goTelemetryOff writes Go's telemetry mode file "off" in the private HOME
+// (the os.UserConfigDir of that HOME). Without it the go command writes
+// counter files and starts a telemetry process in its own session, which
+// outlives the build and writes into the build folder after it is removed.
+func goTelemetryOff(home string) error {
+	config := filepath.Join(home, ".config")
+	if runtime.GOOS == "darwin" {
+		config = filepath.Join(home, "Library", "Application Support")
+	}
+	dir := filepath.Join(config, "go", "telemetry")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "mode"), []byte("off\n"), 0600)
+}
+
+// removeBuildFolder removes the private build folder. It tries twice, in
+// case a late writer adds a file while RemoveAll runs, and then names the
+// folder instead of leaving files behind without a word.
+func removeBuildFolder(build string) error {
+	var cause error
+	for range 2 {
+		if cause = os.RemoveAll(build); cause == nil {
+			_, cause = os.Lstat(build)
+			if errors.Is(cause, os.ErrNotExist) {
+				return nil
+			}
+			cause = cmp.Or(cause, errors.New("a file was added during the removal"))
+		}
+	}
+	return installError("could not remove the private build folder %s: %w", strconv.Quote(build), cause)
 }
 
 // ReadInstallManifest reads and checks the manifest from a folder without following a link.
@@ -530,7 +564,7 @@ func (l *installLog) Write(p []byte) (int, error) {
 // RunInstallBuild runs the literal build argv in the staged copy without a
 // shell, with goBuildEnv and caches in a private folder next to log that is
 // removed afterwards. It has no sandbox. Output goes to log.
-func RunInstallBuild(ctx context.Context, tool InstallTool, argv []string, dir, log string) error {
+func RunInstallBuild(ctx context.Context, tool InstallTool, argv []string, dir, log string) (err error) {
 	output, err := os.OpenFile(log, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) //nolint:gosec // G304: our own staging log.
 	if err != nil {
 		return err
@@ -542,13 +576,14 @@ func RunInstallBuild(ctx context.Context, tool InstallTool, argv []string, dir, 
 		return errors.Join(err, installError("build tool %s changed after the review; nothing was built", strconv.Quote(tool.Path)), output.Close())
 	}
 	build, err := os.MkdirTemp(filepath.Dir(log), ".build-")
-	if err == nil {
-		err = errors.Join(os.Mkdir(filepath.Join(build, "home"), 0700), os.Mkdir(filepath.Join(build, "tmp"), 0700))
-	}
 	if err != nil {
 		return errors.Join(err, output.Close())
 	}
-	defer os.RemoveAll(build) //nolint:errcheck // Best effort: the staging folder is removed later anyway.
+	defer func() { err = errors.Join(err, removeBuildFolder(build)) }()
+	err = errors.Join(os.Mkdir(filepath.Join(build, "home"), 0700), os.Mkdir(filepath.Join(build, "tmp"), 0700), goTelemetryOff(filepath.Join(build, "home")))
+	if err != nil {
+		return errors.Join(err, output.Close())
+	}
 	if len(argv) > 1 && argv[0] == "go" && argv[1] == "build" {
 		if err := checkGoModule(dir); err != nil {
 			return errors.Join(err, output.Close())

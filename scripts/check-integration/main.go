@@ -52,6 +52,8 @@ var required = []requiredTest{
 	{"cmd/zalki", "TestPluginInstallSignalCancels"},
 	{"cmd/zalki", "TestPluginInstallSecondSignalKills"},
 	{"plugins", "TestV2HostRoundTripWithRealChild"},
+	{"cmd/zalki", "TestPluginInstallBuildFailureKeepsOnlyLog"},
+	{"plugins", "TestRunInstallBuildTurnsGoTelemetryOff"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

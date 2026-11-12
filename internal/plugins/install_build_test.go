@@ -1,10 +1,12 @@
 package plugins
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -281,5 +283,125 @@ func TestRunInstallBuildIgnoresAVendorFolder(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "plugin")); !os.IsNotExist(err) {
 		t.Fatal("a plugin was built from vendored code", err)
+	}
+}
+
+// TestRunInstallBuildTurnsGoTelemetryOff asks the real go command for its
+// telemetry mode and folder inside the build environment. With "off" it
+// writes no counters and starts no telemetry process, which would run in its
+// own session and write into the build folder after the build.
+func TestRunInstallBuildTurnsGoTelemetryOff(t *testing.T) {
+	tool, err := ResolveInstallTool("go")
+	if err != nil {
+		t.Skip("go is not on PATH")
+	}
+	staging := t.TempDir()
+	log := filepath.Join(staging, "log")
+	if err := RunInstallBuild(t.Context(), tool, []string{"go", "env", "GOTELEMETRY", "GOTELEMETRYDIR"}, t.TempDir(), log); err != nil {
+		t.Fatal(err, TailInstallLog(log, 5))
+	}
+	lines := strings.Split(TailInstallLog(log, 2), "\n")
+	if len(lines) != 2 || lines[0] != "off" || !strings.HasPrefix(lines[1], filepath.Join(staging, ".build-")) {
+		t.Fatalf("go telemetry in the build: %q", lines)
+	}
+	if left, _ := filepath.Glob(filepath.Join(staging, ".build-*")); len(left) != 0 {
+		t.Fatal("private build folder left behind", left)
+	}
+}
+
+// TestRemoveBuildFolderReportsWhatItCannotRemove keeps a file that cannot be
+// deleted (its folder has no write bit) and checks that the error names the
+// build folder, and that it joins with an earlier build error.
+func TestRemoveBuildFolderReportsWhatItCannotRemove(t *testing.T) {
+	// A user such as root may delete in a folder without the write bit. Probe
+	// with a separate copy of the setup first; normal users cannot.
+	probe := lockedBuildFolder(t)
+	if os.RemoveAll(probe) == nil {
+		t.Skip("this user can delete files in a folder without the write bit, so the cleanup error cannot be produced")
+	}
+	build := lockedBuildFolder(t)
+	err := errors.Join(errors.New("build failed"), removeBuildFolder(build))
+	if err == nil || !strings.Contains(err.Error(), "build failed") || !strings.Contains(err.Error(), "could not remove the private build folder "+strconv.Quote(build)+": ") || !errors.Is(err, os.ErrPermission) {
+		t.Fatal("cleanup failure not reported with its cause", err)
+	}
+	if err := os.Chmod(filepath.Join(build, "home", "locked"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := removeBuildFolder(build); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(build); !os.IsNotExist(err) {
+		t.Fatal("build folder still there", err)
+	}
+}
+
+// lockedBuildFolder makes a build folder whose home/locked/late file sits in
+// a folder without the write bit. Cleanup restores the bit.
+func lockedBuildFolder(t *testing.T) string {
+	t.Helper()
+	build := filepath.Join(t.TempDir(), ".build-x")
+	locked := filepath.Join(build, "home", "locked")
+	if err := os.MkdirAll(locked, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(locked, "late"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(locked, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0700) })
+	return build
+}
+
+// TestRunInstallBuildJoinsBuildAndCleanupErrors lets the build fail and also
+// leave a folder it cannot remove: both errors must reach the owner.
+func TestRunInstallBuildJoinsBuildAndCleanupErrors(t *testing.T) {
+	if os.RemoveAll(lockedBuildFolder(t)) == nil {
+		t.Skip("this user can delete files in a folder without the write bit, so the cleanup error cannot be produced")
+	}
+	tool, err := ResolveInstallTool("sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	staging := t.TempDir()
+	t.Cleanup(func() {
+		locked, _ := filepath.Glob(filepath.Join(staging, ".build-*", "home", "x"))
+		for _, dir := range locked {
+			_ = os.Chmod(dir, 0700)
+		}
+	})
+	err = RunInstallBuild(t.Context(), tool, []string{"sh", "-c", `mkdir -p "$HOME/x/y" && chmod 500 "$HOME/x"; exit 23`}, t.TempDir(), filepath.Join(staging, "log"))
+	if err == nil || !strings.Contains(err.Error(), "exit status 23") || !strings.Contains(err.Error(), "could not remove the private build folder") || !errors.Is(err, os.ErrPermission) {
+		t.Fatal("build and cleanup errors not both reported", err)
+	}
+}
+
+// TestRunInstallBuildLeavesTheOwnersGoTelemetryAlone sets a fake owner HOME
+// with telemetry "on" and checks that the build changes nothing there.
+func TestRunInstallBuildLeavesTheOwnersGoTelemetryAlone(t *testing.T) {
+	tool, err := ResolveInstallTool("go")
+	if err != nil {
+		t.Skip("go is not on PATH")
+	}
+	owner := t.TempDir()
+	t.Setenv("HOME", owner)
+	config, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mode := filepath.Join(config, "go", "telemetry", "mode")
+	if err := os.MkdirAll(filepath.Dir(mode), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mode, []byte("on 2026-01-01"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	log := filepath.Join(t.TempDir(), "log")
+	if err := RunInstallBuild(t.Context(), tool, []string{"go", "env", "GOTELEMETRY"}, t.TempDir(), log); err != nil || TailInstallLog(log, 1) != "off" {
+		t.Fatal("build telemetry", TailInstallLog(log, 3), err)
+	}
+	if raw, err := os.ReadFile(mode); err != nil || string(raw) != "on 2026-01-01" {
+		t.Fatalf("the owner's telemetry mode changed: %q %v", raw, err)
 	}
 }
