@@ -95,7 +95,7 @@ func TestPrivateDirectoryRejectionsKeepTheirTextAndPrecedeLockCreation(t *testin
 			}
 			called := false
 			err := store.locked(func() error { called = true; return nil })
-			want := "state directory must be a private directory, not a symlink: " + store.Dir
+			want := "state directory must be a private directory owned by you: " + store.Dir
 			if shape == "regular file" {
 				// MkdirAll fails first, before the custom private-directory check.
 				pathError, ok := err.(*os.PathError)                                                                                                                                                                            //nolint:errorlint // Pin the direct PathError produced by MkdirAll, with no additional wrapper.

@@ -24,6 +24,7 @@ func TestReservedTargetsResolveMissingPathsAndState(t *testing.T) {
 		{"missing config through parent alias", filepath.Join(realDir, "future", "client.json"), filepath.Join(alias, "future", "client.json"), filepath.Join(home, "state"), "--config"},
 		{"state directory", filepath.Join(alias, "future"), "", filepath.Join(realDir, "future"), "--state"},
 		{"installation manifest", filepath.Join(alias, "future", "installation.json"), "", filepath.Join(realDir, "future"), "--state"},
+		{"pending record", filepath.Join(alias, "future", "installation.pending.json"), "", filepath.Join(realDir, "future"), "--state"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			err := validateReservedTarget(test.target, file, Request{ConfigFile: test.config, StateDir: test.state, HomeDir: home})
@@ -37,5 +38,8 @@ func TestReservedTargetsResolveMissingPathsAndState(t *testing.T) {
 	}
 	if err := validateReservedTarget(filepath.Join(home, "client.json"), file, Request{ConfigFile: filepath.Join(alias, "future", "installation.json"), StateDir: filepath.Join(realDir, "future"), HomeDir: home}); err == nil || !strings.Contains(err.Error(), "--config points at Zalki state") {
 		t.Fatal("configuration could be overwritten by the installation manifest", err)
+	}
+	if err := validateReservedTarget(filepath.Join(home, "client.json"), file, Request{ConfigFile: filepath.Join(alias, "future", "installation.pending.json"), StateDir: filepath.Join(realDir, "future"), HomeDir: home}); err == nil || !strings.Contains(err.Error(), "--config points at Zalki state") {
+		t.Fatal("configuration could be the pending installation record", err)
 	}
 }

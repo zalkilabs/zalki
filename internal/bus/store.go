@@ -2,13 +2,12 @@ package bus
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -36,17 +35,7 @@ func privateDir(path string) error {
 	if err := os.MkdirAll(path, 0700); err != nil {
 		return err
 	}
-	info, err := os.Lstat(path)
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() || info.Mode().Perm()&0077 != 0 {
-		return fmt.Errorf("state directory must be a private directory, not a symlink: %s", path)
-	}
-	if info.Sys().(*syscall.Stat_t).Uid != uint32(os.Getuid()) { //nolint:gosec // G115: getuid returns a Unix uid_t, which fits uint32.
-		return errors.New("state directory is owned by a different user")
-	}
-	return nil
+	return fsutil.CheckPrivateDir(path)
 }
 
 // readLocked takes the journal lock for a read. It is the same as locked: it

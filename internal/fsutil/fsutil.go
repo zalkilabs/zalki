@@ -2,9 +2,11 @@
 package fsutil
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // WriteExclusive creates path with mode 0600 and fails if it already exists.
@@ -57,4 +59,22 @@ func SyncDir(path string) error {
 // SafeRelativePath reports whether path is a clean relative path that stays below its root.
 func SafeRelativePath(path string) bool {
 	return path != "" && path != "." && !filepath.IsAbs(path) && filepath.Clean(path) == path && path != ".." && !strings.HasPrefix(path, ".."+string(filepath.Separator))
+}
+
+// CheckPrivateDir checks that path is a directory, not a link, owned by the
+// current user and closed to group and others. It never creates the directory.
+func CheckPrivateDir(path string) error {
+	return checkPrivateDirOwner(path, os.Getuid())
+}
+
+func checkPrivateDirOwner(path string, uid int) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !info.IsDir() || info.Mode().Perm()&0077 != 0 || !ok || int64(stat.Uid) != int64(uid) {
+		return fmt.Errorf("state directory must be a private directory owned by you: %s", path)
+	}
+	return nil
 }

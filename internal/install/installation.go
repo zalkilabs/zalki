@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -37,6 +39,7 @@ type Report struct {
 	Action string   `json:"action"`
 	DryRun bool     `json:"dry_run"`
 	Paths  []string `json:"paths"`
+	Notes  []string `json:"notes,omitempty"`
 }
 
 // Declare returns the configuration files the compiled-in adapters own for a binary and state directory.
@@ -50,15 +53,9 @@ func Manage(declare Declare, request Request) (Report, error) {
 	if err != nil || !request.Apply {
 		return plan.report, err
 	}
-	if request.Action == "uninstall" {
-		_, exists, err := configBytes(filepath.Join(request.StateDir, "installation.json"))
-		if err != nil {
-			return plan.report, err
-		}
-		if !exists {
-			plan.report.DryRun = false
-			return plan.report, nil
-		}
+	if request.Action == "uninstall" && len(plan.edits) == 0 && plan.pendingPath == "" {
+		plan.report.DryRun = false
+		return plan.report, nil
 	}
 	unlock, err := lockInstallation(request.HomeDir)
 	if err != nil {
@@ -70,7 +67,49 @@ func Manage(declare Declare, request Request) (Report, error) {
 	if err != nil {
 		return plan.report, err
 	}
-	return plan.report, applyConfigEdits(plan.edits)
+	return plan.report, plan.apply()
+}
+
+// apply writes the pending list, then the client files and the record, and
+// then removes the pending list. After a failed write the list stays, even
+// when the rollback worked: the next upgrade or uninstall accepts the entries
+// of every record in it, and only its success removes it.
+func (plan installationPlan) apply() error {
+	if err := plan.writePending(); err != nil {
+		return err
+	}
+	if err := applyConfigEdits(plan.edits); err != nil {
+		return err
+	}
+	if plan.pending != nil || plan.clearStale {
+		return removePendingRecord(plan.pendingPath)
+	}
+	return nil
+}
+
+func (plan installationPlan) writePending() error {
+	if plan.pending == nil {
+		return nil
+	}
+	// The pending list covers a process crash between writes, not a power
+	// loss. A new state directory is still synced into its parent.
+	state := filepath.Dir(plan.pendingPath)
+	if _, err := os.Lstat(state); errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(state, 0700); err != nil {
+			return err
+		}
+		if err := fsutil.SyncDir(filepath.Dir(state)); err != nil {
+			return err
+		}
+	}
+	return fsutil.WriteAtomic(plan.pendingPath, plan.pending)
+}
+
+func removePendingRecord(path string) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return fsutil.SyncDir(filepath.Dir(path))
 }
 
 func (record installation) validateTargets(declarations map[string]ConfigFile, manifest string) error {
@@ -97,10 +136,60 @@ func (record installation) validateTargets(declarations map[string]ConfigFile, m
 	return nil
 }
 
+// equalJSON reports whether a and b encode the same JSON value. Numbers are
+// compared by value, so a user's 5.0 or 5e0 equals the 5 zalki wrote, while
+// the file keeps its own spelling.
 func equalJSON(a, b any) bool {
-	x, _ := json.Marshal(a)
-	y, _ := json.Marshal(b)
-	return bytes.Equal(x, y)
+	x, errX := decodedJSON(a)
+	y, errY := decodedJSON(b)
+	return errX == nil && errY == nil && sameJSON(x, y)
+}
+
+// decodedJSON turns any value into the generic JSON form with json.Number.
+func decodedJSON(value any) (any, error) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	var result any
+	err = decodeSettings(data, &result)
+	return result, err
+}
+
+func sameJSON(a, b any) bool {
+	switch x := a.(type) {
+	case json.Number:
+		y, ok := b.(json.Number)
+		return ok && sameNumber(x, y)
+	case map[string]any:
+		y, ok := b.(map[string]any)
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for key, value := range x {
+			if other, found := y[key]; !found || !sameJSON(value, other) {
+				return false
+			}
+		}
+		return true
+	case []any:
+		y, ok := b.([]any)
+		return ok && slices.EqualFunc(x, y, sameJSON)
+	default:
+		return a == b // string, bool or nil
+	}
+}
+
+// sameNumber compares two JSON numbers with 256 bits of precision: exact for
+// any integer up to 2^256 and for the decimals a settings file holds, and
+// cheap even for a huge exponent.
+func sameNumber(x, y json.Number) bool {
+	if x == y {
+		return true
+	}
+	f, okF := new(big.Float).SetPrec(256).SetString(string(x))
+	g, okG := new(big.Float).SetPrec(256).SetString(string(y))
+	return okF && okG && f.Cmp(g) == 0
 }
 
 // validateInstallationPatch checks a patch read from an installation record.
@@ -182,26 +271,35 @@ func managedMCPName(servers map[string]any) (string, error) {
 // caller reads the patch from an installation record that was validated when
 // it was loaded (see readInstallationManifest), so the shape of patch is not
 // checked again here.
-func removeConfig(before []byte, patch map[string]any) ([]byte, error) {
+func removeConfig(before []byte, patches ...map[string]any) ([]byte, error) {
 	var current map[string]any
-	if err := json.Unmarshal(before, &current); err != nil || current == nil {
+	if err := decodeSettings(before, &current); err != nil || current == nil {
 		return nil, errors.New("settings must be a JSON object")
 	}
-	for key, value := range patch {
-		if err := removePatchKey(current, key, value); err != nil {
-			return nil, err
+	var servers []any
+	for _, patch := range patches {
+		if owned, ok := patch["mcpServers"].(map[string]any); ok {
+			servers = append(servers, owned[zalkiMCPServer])
+		}
+	}
+	for _, patch := range patches {
+		for key, value := range patch {
+			if err := removePatchKey(current, key, value, servers); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return encodeSettings(current)
 }
 
 // removePatchKey removes what one top-level key of a recorded patch added.
-func removePatchKey(current map[string]any, key string, value any) error {
+// servers lists every zalki MCP entry that one of the patches recorded.
+func removePatchKey(current map[string]any, key string, value any, servers []any) error {
 	switch key {
 	case "version": // Cursor schema version is shared with unrelated hooks.
 		return nil
 	case "mcpServers":
-		return removeManagedMCPServer(current, value.(map[string]any))
+		return removeManagedMCPServer(current, servers)
 	case "hooks":
 		return removeOwnedHooks(current, value.(map[string]any))
 	default:
@@ -209,8 +307,9 @@ func removePatchKey(current map[string]any, key string, value any) error {
 	}
 }
 
-// removeManagedMCPServer deletes the zalki MCP server unless the user edited it.
-func removeManagedMCPServer(current, owned map[string]any) error {
+// removeManagedMCPServer deletes the zalki MCP server when it equals one of
+// the owned entries. Any other entry was edited by the user and is refused.
+func removeManagedMCPServer(current map[string]any, owned []any) error {
 	if current["mcpServers"] == nil {
 		return nil
 	}
@@ -222,7 +321,7 @@ func removeManagedMCPServer(current, owned map[string]any) error {
 	if !exists {
 		return nil
 	}
-	if !equalJSON(found, owned[zalkiMCPServer]) {
+	if !containsJSON(owned, found) {
 		return fmt.Errorf("managed %s MCP entry was edited; review it before removing or upgrading", zalkiMCPServer)
 	}
 	delete(servers, zalkiMCPServer)
@@ -277,10 +376,27 @@ func containsJSON(list []any, wanted any) bool {
 	return false
 }
 
+// decodeSettings reads one JSON value from a client settings file. Numbers
+// stay json.Number, so a large integer or a float such as 1.50 is written back
+// with the same digits.
+func decodeSettings(data []byte, v any) error {
+	if !json.Valid(data) {
+		return json.Unmarshal(data, v) // reports the *json.SyntaxError
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	return decoder.Decode(v)
+}
+
 // encodeSettings writes a settings object in the format the installer uses.
+// It keeps the user's "&", "<" and ">" as they are. Keys are sorted.
 func encodeSettings(current map[string]any) ([]byte, error) {
-	data, err := json.MarshalIndent(current, "", "  ")
-	return append(data, '\n'), err
+	var b bytes.Buffer
+	encoder := json.NewEncoder(&b)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	err := encoder.Encode(current)
+	return b.Bytes(), err
 }
 
 func addMCPFragment(before []byte, fragment string) ([]byte, error) {
@@ -305,19 +421,28 @@ func addMCPFragment(before []byte, fragment string) ([]byte, error) {
 	return after, nil
 }
 
-func removeMCPFragment(before []byte, fragment string) ([]byte, error) {
-	name, wanted, err := mcpFragmentTable(fragment)
-	if err != nil {
-		return nil, err
+// removeMCPFragment removes the zalki table when it equals one of the owned
+// fragments and that fragment is in the file exactly once.
+func removeMCPFragment(before []byte, fragments ...string) ([]byte, error) {
+	var name, fragment string
+	var current map[string]any
+	for _, owned := range fragments {
+		tableName, wanted, err := mcpFragmentTable(owned)
+		if err != nil {
+			return nil, err
+		}
+		if current, err = mcpNamedTable(before, tableName); err != nil {
+			return nil, err
+		}
+		if current == nil {
+			return before, nil
+		}
+		if equalJSON(current, wanted) && strings.Count(string(before), owned) == 1 {
+			name, fragment = tableName, owned
+			break
+		}
 	}
-	current, err := mcpNamedTable(before, name)
-	if err != nil {
-		return nil, err
-	}
-	if current == nil {
-		return before, nil
-	}
-	if !equalJSON(current, wanted) || strings.Count(string(before), fragment) != 1 {
+	if fragment == "" {
 		return nil, errors.New("managed zalki MCP table was edited; review it before removing or upgrading")
 	}
 	after := []byte(strings.Replace(string(before), fragment, "", 1))
