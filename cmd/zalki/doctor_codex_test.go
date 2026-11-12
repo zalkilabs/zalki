@@ -59,8 +59,19 @@ func writeCodexFixture(t *testing.T, path, content string) {
 	}
 }
 
+// Positive fixtures use canonical spelling; the diagnostic deliberately rejects
+// symbolic parents because their spelling can change persisted source keys.
+func codexDiagnosticTestDir(t *testing.T) string {
+	t.Helper()
+	path, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func TestCodexBoundedFilesAndTOML(t *testing.T) {
-	root := t.TempDir()
+	root := codexDiagnosticTestDir(t)
 	path := filepath.Join(root, "config.toml")
 	if _, reason := readCodexHookStates(path); reason != "missing_file" {
 		t.Fatal("D06_MISSING_FILE", reason)
@@ -201,7 +212,7 @@ func TestCodexSessionObservation(t *testing.T) {
 }
 
 func TestCodexDiagnosticOfflineAndSafeJSON(t *testing.T) {
-	home := t.TempDir()
+	home := codexDiagnosticTestDir(t)
 	state := filepath.Join(home, "state")
 	root := filepath.Join(home, ".codex")
 	t.Setenv("CODEX_HOME", root)
@@ -352,7 +363,7 @@ func TestCodexDiagnosticRootPrecedence(t *testing.T) {
 // Doctor may use the existing bounded --version probe, but trust diagnostics
 // must not launch app-server or change either native settings file.
 func TestDoctorCodexTrustIsOffline(t *testing.T) {
-	home := t.TempDir()
+	home := codexDiagnosticTestDir(t)
 	state := filepath.Join(home, "state")
 	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {
 		t.Setenv(name, "")
