@@ -47,7 +47,7 @@ func (opts *commandOptions) resolvedPaths() (config.Paths, error) {
 
 func newConfigCommand(opts *commandOptions) *cobra.Command {
 	group := &cobra.Command{
-		Use: "config", Short: "Inspect JSON settings and resolved paths",
+		Use: "config", Short: "Inspect or edit private JSON settings and resolved paths",
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			opts.logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 			return nil
@@ -74,6 +74,7 @@ func newConfigCommand(opts *commandOptions) *cobra.Command {
 			return encoder.Encode(configOutput(*opts.snapshot))
 		},
 	})
+	group.AddCommand(newConfigEditCommand(opts, false), newConfigEditCommand(opts, true))
 	return group
 }
 

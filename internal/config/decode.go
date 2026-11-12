@@ -88,12 +88,8 @@ func (content fileContent) scanObject(decoder *json.Decoder, parent string) erro
 		}
 		offset := int(before) + bytes.IndexByte(content.raw[before:decoder.InputOffset()], '"')
 		content.locations[path] = offset
-		if seen[key] {
-			return content.atKey(path, "duplicate key", "Remove the duplicate key so each key appears once")
-		}
-		seen[key] = true
-		if !slices.Contains(objectKeys[parent], key) {
-			return content.atKey(path, "unknown key", "Remove it or check the spelling. Allowed keys are "+strings.Join(objectKeys[parent], ", "))
+		if err := content.checkObjectKey(parent, path, key, seen); err != nil {
+			return err
 		}
 		if err := content.scanValue(decoder, path); err != nil {
 			return err
@@ -102,6 +98,20 @@ func (content fileContent) scanObject(decoder *json.Decoder, parent string) erro
 	_, err = decoder.Token()
 	if err != nil {
 		return content.syntax(err)
+	}
+	return nil
+}
+
+func (content fileContent) checkObjectKey(parent, path, key string, seen map[string]bool) error {
+	if protectedKey(key) {
+		return errOwnerOnly
+	}
+	if seen[key] {
+		return content.atKey(path, "duplicate key", "Remove the duplicate key so each key appears once")
+	}
+	seen[key] = true
+	if !slices.Contains(objectKeys[parent], key) {
+		return content.atKey(path, "unknown key", "Remove it or check the spelling. Allowed keys are "+strings.Join(objectKeys[parent], ", "))
 	}
 	return nil
 }

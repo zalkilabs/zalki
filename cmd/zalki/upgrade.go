@@ -113,18 +113,7 @@ func runUpgrade(cmd *cobra.Command, opts *commandOptions, f upgradeFlags) error 
 		return previewUpgrade(cmd, opts, where.Binary, cask, configOnly)
 	}
 	if !configOnly {
-		if !cask {
-			return errors.New("zalki was not installed with Homebrew, so it cannot upgrade its own binary; " +
-				"install the new version the way you installed this one, then run `zalki upgrade --config-only`")
-		}
-		brew, err := findBrew(prefix)
-		if err != nil {
-			return err
-		}
-		if err := runBrewUpgrade(cmd.Context(), brew); err != nil {
-			return err
-		}
-		return finishWithNewBinary(cmd, opts, where.Binary)
+		return upgradeInstalledBinary(cmd, opts, where, prefix, cask)
 	}
 	if err := refreshConfiguration(cmd, opts, where.Binary); err != nil {
 		return err
@@ -135,6 +124,26 @@ func runUpgrade(cmd *cobra.Command, opts *commandOptions, f upgradeFlags) error 
 	}
 	_, err = fmt.Fprintln(cmd.OutOrStdout(), message)
 	return err
+}
+
+func upgradeInstalledBinary(cmd *cobra.Command, opts *commandOptions, where binaryLocation, prefix string, cask bool) error {
+	if !cask {
+		return errors.New("zalki was not installed with Homebrew, so it cannot upgrade its own binary; " +
+			"install the new version the way you installed this one, then run `zalki upgrade --config-only`")
+	}
+	brew, err := findBrew(prefix)
+	if err != nil {
+		return err
+	}
+	// Validate ownership and client conflicts before changing the binary.
+	// The new binary replans under the installer lock before applying.
+	if _, err := manageConfiguration(opts, where.Binary, false); err != nil {
+		return err
+	}
+	if err := runBrewUpgrade(cmd.Context(), brew); err != nil {
+		return err
+	}
+	return finishWithNewBinary(cmd, opts, where.Binary)
 }
 
 func previewUpgrade(cmd *cobra.Command, opts *commandOptions, binary string, cask, configOnly bool) error {

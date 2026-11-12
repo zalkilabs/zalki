@@ -180,7 +180,7 @@ func TestPatchValidationWithSeveralFaults(t *testing.T) {
 	t.Run("an empty patch is the only patch refused for being empty", func(t *testing.T) {
 		home, state, _ := tamperedPatchHome(t, `{}`)
 		_, err := install.Manage(configDeclare, install.Request{Action: "upgrade", Binary: "/bin/zalki", StateDir: state, HomeDir: home, Apply: true})
-		if err == nil || err.Error() != empty {
+		if err == nil || err.Error() != recordFailure(filepath.Join(state, "installation.json"), empty) {
 			t.Fatalf("error = %v, want %q", err, empty)
 		}
 	})
