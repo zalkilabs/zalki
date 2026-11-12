@@ -1,6 +1,8 @@
 package pluginfeed
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"time"
@@ -109,6 +111,10 @@ func (s pluginFiles) nextPluginInboxAt(view bus.JournalView, installation string
 	if err != nil {
 		return nil, "unavailable"
 	}
+	p, _, err := s.loadPlugin()
+	if err != nil {
+		return nil, "unavailable"
+	}
 	var result *PluginInboxMessage
 	kept := make([]pluginInboxEntry, 0, len(index.Entries))
 	for _, entry := range index.Entries {
@@ -116,8 +122,12 @@ func (s pluginFiles) nextPluginInboxAt(view bus.JournalView, installation string
 		if err == nil && consumedPluginInboxRecord(&m, installation, entry) {
 			continue
 		}
+		state := inboxEntryState(view, p.Capabilities, entry)
+		if state == "dead" {
+			continue // only the index entry goes; the message record stays stored
+		}
 		kept = append(kept, entry)
-		if result == nil && err == nil && pluginInboxRecordMatches(&m, installation, entry, size) {
+		if result == nil && state == "ok" && err == nil && pluginInboxRecordMatches(&m, installation, entry, size) {
 			result = &PluginInboxMessage{ID: m.ID, From: m.From, SenderGeneration: entry.Generation, To: m.To, CreatedAt: m.CreatedAt, Body: m.Body}
 		}
 	}
@@ -132,6 +142,23 @@ func (s pluginFiles) nextPluginInboxAt(view bus.JournalView, installation string
 		return result, "too_large"
 	}
 	return result, "ok"
+}
+
+// inboxEntryState decides whether an inbox entry may be offered now. "ok":
+// the sender is in the current accept_from list and still has the
+// registration it sent from. "held": the sender is not granted now; the entry
+// stays and comes back after a re-grant. "dead": the sender's registration
+// was replaced or removed, so the entry can never be offered again.
+func inboxEntryState(view bus.JournalView, c *PluginCapabilities, entry pluginInboxEntry) string {
+	generation, err := view.SessionGeneration(entry.Sender)
+	switch {
+	case errors.Is(err, os.ErrNotExist) || err == nil && generation != entry.Generation:
+		return "dead"
+	case err != nil || c == nil || !slices.Contains(c.InboxFrom, entry.Sender):
+		return "held"
+	default:
+		return "ok"
+	}
 }
 
 // Caller holds Store flock. The record ACK comes first: a crash before the

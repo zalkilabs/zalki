@@ -175,6 +175,17 @@ func currentMessage(store Store, id string) (model.Message, int, error) {
 	return message, len(raw), nil
 }
 
+// SessionGeneration returns the current registration generation of a session.
+// A session that was never registered or was removed gives os.ErrNotExist.
+func (v JournalView) SessionGeneration(id string) (generation string, err error) {
+	err = v.use(func(store Store) error {
+		session, readErr := store.session(id)
+		generation = session.Generation
+		return readErr
+	})
+	return generation, err
+}
+
 // NativeInboxMessage projects a record against its current native recipient.
 // The caller owns authorization and the audit that precedes any body release.
 func (v JournalView) NativeInboxMessage(session, id string) (message model.Message, outcome string) {

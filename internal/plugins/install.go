@@ -130,7 +130,12 @@ func (m InstallManifest) validate() error {
 func (m InstallManifest) validateBuild() error {
 	switch m.Language {
 	case "go":
-		return validateGoBuild(m.Build)
+		if err := validateGoBuild(m.Build); err != nil {
+			return err
+		}
+		if name, n := goBuildOutput(m.Build); n != 1 || name != m.Artifact {
+			return installError("build: the artifact must be the one -o output of the build (%s)", strconv.Quote(m.Artifact))
+		}
 	case "native":
 		if m.Build != nil {
 			return installError(`language "native" needs "build": null`)
@@ -171,6 +176,21 @@ func validateGoBuild(argv []string) error {
 		}
 	}
 	return nil
+}
+
+// goBuildOutput returns the -o name of a go build argv and how many -o flags
+// it has.
+func goBuildOutput(argv []string) (name string, count int) {
+	for i := 2; i < len(argv); i++ {
+		switch {
+		case argv[i] == "-o" && i+1 < len(argv):
+			name, count = argv[i+1], count+1
+			i++
+		case strings.HasPrefix(argv[i], "-o="):
+			name, count = strings.TrimPrefix(argv[i], "-o="), count+1
+		}
+	}
+	return name, count
 }
 
 // plainBuildOutput accepts one plain file name in the copy, with no folder.
@@ -344,6 +364,39 @@ func SnapshotInstallSource(source, staging string) (InstallSource, error) {
 // require, replace, exclude, retract, tool or ignore could bring in code that
 // is not in the reviewed copy, even with no network.
 var goModDirectives = []string{"module", "go", "toolchain", "godebug"}
+
+// goToolFileTypes are file types that go build compiles, assembles or links
+// besides Go source. An assembly file can #include a file outside the copy,
+// and a .syso object is linked in as it is, so none is allowed.
+var goToolFileTypes = []string{".s", ".sx", ".c", ".cc", ".cpp", ".cxx", ".c++", ".m", ".h", ".hh", ".hpp", ".hxx", ".f", ".for", ".f90", ".swig", ".swigcxx", ".syso"}
+
+// checkGoSourceFiles refuses the first such file in the copy. The match
+// ignores case, so .S and .F are refused too.
+func checkGoSourceFiles(dir string) error {
+	return filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		if slices.Contains(goToolFileTypes, strings.ToLower(filepath.Ext(path))) {
+			rel, _ := filepath.Rel(dir, path)
+			return installError("build: %s is not allowed; go plugins may contain only Go source, go.mod and embedded data", strconv.Quote(rel))
+		}
+		return nil
+	})
+}
+
+// checkBuildOutputFree refuses a copy that already holds the -o file, so the
+// pinned artifact is always the one the build wrote.
+func checkBuildOutputFree(dir string, argv []string) error {
+	name, _ := goBuildOutput(argv)
+	if name == "" {
+		return nil // the manifest check already requires exactly one -o
+	}
+	if _, err := os.Lstat(filepath.Join(dir, name)); !errors.Is(err, os.ErrNotExist) {
+		return installError("build: %s already exists in the folder; the artifact must come from the build", strconv.Quote(name))
+	}
+	return nil
+}
 
 // checkGoModule requires a go.mod at the root of the copy, so Go never uses
 // one from a parent folder, and allows only standard-library builds.
@@ -585,7 +638,7 @@ func RunInstallBuild(ctx context.Context, tool InstallTool, argv []string, dir, 
 		return errors.Join(err, output.Close())
 	}
 	if len(argv) > 1 && argv[0] == "go" && argv[1] == "build" {
-		if err := checkGoModule(dir); err != nil {
+		if err := errors.Join(checkGoModule(dir), checkGoSourceFiles(dir), checkBuildOutputFree(dir, argv)); err != nil {
 			return errors.Join(err, output.Close())
 		}
 	}

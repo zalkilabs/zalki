@@ -43,6 +43,9 @@ func (s *Service) Send(ctx context.Context, request SendRequest) (result model.M
 	if err := model.ValidateMessageBody(body, key); err != nil {
 		return model.Message{}, err
 	}
+	if reservedMessageID(id) {
+		return model.Message{}, model.NewError(model.CodeInvalidInput, "message_id uses a reserved version (8)")
+	}
 	if model.IsPluginInboxAddress(to) {
 		return submitPluginInbox(s.Store, request, s.PluginInbox)
 	}
@@ -171,4 +174,11 @@ func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result model
 		return msg, err
 	}
 	return s.deliverReserved(ctx, msg, target)
+}
+
+// reservedMessageID reports a UUID of version 8, the version of every id the
+// server derives itself (replies and plugin sends). A sender may not choose
+// one, so it cannot take such an id before the server does.
+func reservedMessageID(id string) bool {
+	return len(id) == 36 && id[14] == '8'
 }

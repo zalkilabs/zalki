@@ -145,6 +145,13 @@ func (s pluginFiles) ownPluginInboxMessage(view bus.JournalView, installation, i
 	if found == nil {
 		return nil, "denied"
 	}
+	p, _, err := s.loadPlugin()
+	if err != nil {
+		return nil, "unavailable"
+	}
+	if inboxEntryState(view, p.Capabilities, *found) != "ok" {
+		return nil, "unavailable"
+	}
 	m, size, err := view.CurrentMessage(id)
 	if err != nil || !pluginInboxRecordMatches(&m, installation, *found, size) {
 		return nil, "denied"
