@@ -1,6 +1,7 @@
 package pluginfeed
 
 import (
+	"slices"
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -81,17 +82,52 @@ func pluginInboxReadAuthorization(p pluginRecord, before *PluginFeedStatus) stri
 // grant revision. The caller holds the Store lock and has checked that the
 // binding's Launch and Capabilities are set.
 func pluginBindingCode(p pluginRecord, before *PluginFeedStatus) string {
-	c := p.Capabilities
+	if code := launchBindingCode(p, before); code != "ok" {
+		return code
+	}
+	if c := p.Capabilities; p.Launch == nil || c == nil || c.Installation != p.ID || c.PinSHA256 != p.Launch.PinSHA256 {
+		return "stale_binding"
+	}
+	return "ok"
+}
+
+// launchBindingCode compares the record with the launch snapshot of a running
+// child: "ok" while the child may still act, "revoked" when the plugin is
+// disabled, else "stale_binding". Every enable gives a new epoch, and grants
+// change only while disabled, so a child never adopts newer grants.
+func launchBindingCode(p pluginRecord, launch *PluginFeedStatus) string {
 	switch {
-	case p.ID != before.ID:
+	case launch == nil || p.ID != launch.ID:
 		return "stale_binding"
 	case !p.Enabled:
 		return "revoked"
-	case p.Launch == nil || c == nil || c.Installation != p.ID || c.PinSHA256 != p.Launch.PinSHA256 || c.PinSHA256 != before.Launch.PinSHA256 || c.Revision != before.Capabilities.Revision:
+	case p.Epoch != launch.Epoch || !slices.Equal(p.Sessions, launch.Sessions) || !samePin(p.Launch, launch.Launch) || !sameRevision(p.Capabilities, launch.Capabilities):
 		return "stale_binding"
 	default:
 		return "ok"
 	}
+}
+
+func samePin(a, b *PluginLaunch) bool {
+	return a == nil && b == nil || a != nil && b != nil && a.PinSHA256 == b.PinSHA256
+}
+
+func sameRevision(a, b *PluginCapabilities) bool {
+	return a == nil && b == nil || a != nil && b != nil && a.Revision == b.Revision
+}
+
+// PluginBindingCode reports whether a running child with this launch snapshot
+// may still use its capabilities: "ok", "revoked" or "stale_binding".
+func (s PluginFeed) PluginBindingCode(launch *PluginFeedStatus) string {
+	code := "stale_binding"
+	_ = bus.WithJournalRead(s.store, func(bus.JournalView) error { // a failed read keeps "stale_binding"
+		p, _, err := s.loadPlugin()
+		if err == nil {
+			code = pluginBindingCode(p, launch)
+		}
+		return err
+	})
+	return code
 }
 
 func (s pluginFiles) ownPluginInboxMessage(view bus.JournalView, installation, id string, now time.Time) (*pluginReadMessage, string) {

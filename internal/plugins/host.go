@@ -71,20 +71,29 @@ func serve(ctx context.Context, store bus.Store, feed pluginfeed.PluginFeed, sta
 	case !header.validHello():
 		return runReadHost(ctx, feed, status, c, output, ready, header)
 	}
-	return hostLoop(ctx, feed, c, output, ready)
+	return hostLoop(ctx, feed, status, c, output, ready)
 }
 
-func hostLoop(ctx context.Context, feed pluginfeed.PluginFeed, c *child, output io.Writer, readyMessage string) error {
+// launchEnded is the result of a v1 host whose launch no longer holds: a
+// disabled plugin stops quietly, a newer enable or grant asks for a restart.
+func launchEnded(feed pluginfeed.PluginFeed, launch *pluginfeed.PluginFeedStatus) error {
+	if current, err := feed.PluginStatus(); err == nil && current.Enabled {
+		return fmt.Errorf("plugin grants changed while it ran; start it again with zalki plugins run %s", launch.Name)
+	}
+	return nil
+}
+
+func hostLoop(ctx context.Context, feed pluginfeed.PluginFeed, launch *pluginfeed.PluginFeedStatus, c *child, output io.Writer, readyMessage string) error {
 	ready := false
 	for ctx.Err() == nil {
 		if err := c.idle(); err != nil {
 			return err
 		}
-		d, err := feed.NextPluginFeed()
+		d, err := feed.NextPluginFeed(launch)
 		if err != nil {
 			var domain *model.Error
 			if errors.As(err, &domain) && domain.Code == model.CodeUnauthorized {
-				return nil
+				return launchEnded(feed, launch)
 			}
 			return err
 		}

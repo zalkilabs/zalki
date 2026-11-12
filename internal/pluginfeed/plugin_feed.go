@@ -71,7 +71,9 @@ func pluginOffer(id, gap string, event *model.Event, raw []byte, after pluginPos
 
 // NextPluginFeed offers one event or a durable gap. At most 64 records (256KiB)
 // are examined per call. No plugin work or callbacks execute under this lock.
-func (s PluginFeed) NextPluginFeed() (PluginDelivery, error) {
+// launch is the snapshot the running child started with; a newer enable or
+// grant gives "plugin launch is stale" and no offer.
+func (s PluginFeed) NextPluginFeed(launch *PluginFeedStatus) (PluginDelivery, error) {
 	var delivery PluginDelivery
 	err := s.write(func(view bus.JournalView) error {
 		p, raw, err := s.loadPlugin()
@@ -80,6 +82,11 @@ func (s PluginFeed) NextPluginFeed() (PluginDelivery, error) {
 		}
 		if !p.Enabled {
 			return model.NewError(model.CodeUnauthorized, "plugin is disabled")
+		}
+		// Checked under the same lock that picks the event: the event is
+		// one this exact launch may see.
+		if launchBindingCode(p, launch) != "ok" {
+			return model.NewError(model.CodeUnauthorized, "plugin launch is stale")
 		}
 		head, err := view.EventWindow()
 		if err != nil {

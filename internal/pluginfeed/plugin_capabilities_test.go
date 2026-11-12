@@ -64,7 +64,7 @@ func TestPluginCapabilityRevocationFencesMetadataReceipt(t *testing.T) {
 	if err := f.EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
-	offer, err := f.NextPluginFeed()
+	offer, err := nextFeed(f)
 	if err != nil || offer.ID == "" {
 		t.Fatal(offer, err)
 	}

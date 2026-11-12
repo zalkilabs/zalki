@@ -76,7 +76,7 @@ func (x pluginReadFixture) audit(t *testing.T, now time.Time) []pluginReadAuditR
 
 func TestPluginReadExactOldInboxIsNonConsumingAndAudited(t *testing.T) {
 	x := newPluginReadFixture(t, "cursor")
-	offer, err := x.f.NextPluginFeed()
+	offer, err := nextFeed(x.f)
 	if err != nil {
 		t.Fatal(err)
 	}

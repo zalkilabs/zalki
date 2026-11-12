@@ -102,16 +102,8 @@ func (h *readHost) bindingCode() string { return bindingCode(h.feed, h.binding) 
 // bindingCode compares the launch-time binding with the current record:
 // "" while it still holds, else the terminal code for the child.
 func bindingCode(feed pluginfeed.PluginFeed, binding *pluginfeed.PluginFeedStatus) string {
-	current, err := feed.PluginStatus()
-	if err != nil || current.ID != binding.ID {
-		return "stale_binding"
-	}
-	if !current.Enabled {
-		return "revoked"
-	}
-	a, b := binding.Capabilities, current.Capabilities
-	if a == nil || b == nil || binding.Launch == nil || current.Launch == nil || a.Installation != binding.ID || b.Installation != current.ID || a.PinSHA256 != binding.Launch.PinSHA256 || b.PinSHA256 != a.PinSHA256 || b.PinSHA256 != current.Launch.PinSHA256 || b.Revision != a.Revision {
-		return "stale_binding"
+	if code := feed.PluginBindingCode(binding); code != "ok" {
+		return code
 	}
 	return ""
 }
@@ -148,7 +140,7 @@ func (h *readHost) loop(out io.Writer, ready string) error {
 }
 
 func (h *readHost) offer() error {
-	d, err := h.feed.NextPluginFeed()
+	d, err := h.feed.NextPluginFeed(h.binding)
 	if err != nil {
 		return h.terminal(h.bindingCode())
 	}

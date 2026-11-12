@@ -30,6 +30,9 @@ type pluginRecord struct {
 	GapReason    string                `json:"gap_reason,omitempty"`
 	Capabilities *PluginCapabilities   `json:"capabilities,omitempty"`
 	Install      *PluginInstallReceipt `json:"install,omitempty"`
+	// Epoch is new on every enable. A running child keeps the epoch of its
+	// launch, so it never adopts grants that changed after it started.
+	Epoch string `json:"epoch,omitempty"`
 }
 
 // PluginFeedStatus describes a named installation, without claiming a live child.
@@ -44,6 +47,7 @@ type PluginFeedStatus struct {
 	LastGap      string                `json:"last_gap,omitempty"`
 	Capabilities *PluginCapabilities   `json:"capabilities,omitempty"`
 	Install      *PluginInstallReceipt `json:"install,omitempty"`
+	Epoch        string                `json:"epoch,omitempty"`
 }
 
 func (s pluginFiles) pluginPath() string { return filepath.Join(s.pluginDir(), s.name+".json") }
@@ -192,6 +196,7 @@ func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [
 				return err
 			}
 			p.setGap(head, "enabled")
+			p.Epoch = model.NewUUID()
 		}
 		p.Enabled = enabled
 		_, err = s.savePlugin(p)
@@ -207,7 +212,7 @@ func (s PluginFeed) PluginStatus() (PluginFeedStatus, error) {
 	var status PluginFeedStatus
 	err := bus.WithJournalRead(s.store, func(bus.JournalView) error {
 		p, _, err := s.loadPlugin()
-		status = PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Sessions: slices.Clone(p.Sessions), GapPending: p.GapID != "", LastGap: p.GapReason, Capabilities: p.Capabilities.clone(), Install: p.Install}
+		status = PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Sessions: slices.Clone(p.Sessions), GapPending: p.GapID != "", LastGap: p.GapReason, Capabilities: p.Capabilities.clone(), Install: p.Install, Epoch: p.Epoch}
 		return err
 	})
 	return status, err

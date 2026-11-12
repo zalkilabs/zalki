@@ -345,7 +345,7 @@ func TestPluginOwnerStatusDoesNotClaimAHostIsRunning(t *testing.T) {
 	if err != nil || json.Unmarshal(raw, &status) != nil {
 		t.Fatal("status failed", string(raw), err)
 	}
-	wanted := []string{"data_dir", "enabled", "gap_pending", "id", "last_gap", "max_events", "outbox", "plugin", "sessions"}
+	wanted := []string{"data_dir", "enabled", "epoch", "gap_pending", "id", "last_gap", "max_events", "outbox", "plugin", "sessions"}
 	keys := make([]string, 0, len(status))
 	for key := range status {
 		keys = append(keys, key)

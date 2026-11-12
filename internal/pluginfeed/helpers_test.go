@@ -25,3 +25,9 @@ func register(t *testing.T, store bus.Store, kind string) (model.Session, string
 	}
 	return session, key
 }
+
+// nextFeed selects the next feed event for a launch that starts now.
+func nextFeed(f PluginFeed) (PluginDelivery, error) {
+	status, _ := f.PluginStatus() // a load error comes back from NextPluginFeed too
+	return f.NextPluginFeed(&status)
+}
