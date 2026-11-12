@@ -59,6 +59,14 @@ func applyConfiguration(cmd *cobra.Command, opts *commandOptions) error {
 		}
 	}
 	_, err = fmt.Fprintln(cmd.OutOrStdout(), "Existing settings were preserved and backed up. Review/trust integrations in each configured client, then launch normally. Check doctor for adapter and listener requirements.")
+	if err != nil {
+		return err
+	}
+	return printCodexTrustNotice(cmd)
+}
+
+func printCodexTrustNotice(cmd *cobra.Command) error {
+	_, err := fmt.Fprintln(cmd.OutOrStdout(), "Codex: open /hooks and trust the zalki hooks, then send a message in each thread")
 	return err
 }
 

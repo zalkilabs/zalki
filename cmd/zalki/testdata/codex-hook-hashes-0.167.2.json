@@ -1,0 +1,516 @@
+{
+  "version": "0.167.2",
+  "platform": "darwin-arm64",
+  "fixtures": [
+    {
+      "label": "default",
+      "event": "SessionStart",
+      "group_index": 0,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'"
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 600,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:eb24cc86c244d02aea91dfe5edcf14f21d530334337cc8bc3b18e0f7b410e4aa",
+      "source_derived_hash": "sha256:eb24cc86c244d02aea91dfe5edcf14f21d530334337cc8bc3b18e0f7b410e4aa",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "config-command",
+      "event": "SessionStart",
+      "group_index": 1,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only' --config /fixture/zalki.toml"
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only' --config /fixture/zalki.toml",
+            "timeout": 600,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only' --config /fixture/zalki.toml\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:14c9125d9c94819fb87ad010c703aebec8b1da071f915f9ad8e0dd1289746fe9",
+      "source_derived_hash": "sha256:14c9125d9c94819fb87ad010c703aebec8b1da071f915f9ad8e0dd1289746fe9",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "explicit-600",
+      "event": "SessionStart",
+      "group_index": 2,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'",
+        "timeout": 600
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 600,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:eb24cc86c244d02aea91dfe5edcf14f21d530334337cc8bc3b18e0f7b410e4aa",
+      "source_derived_hash": "sha256:eb24cc86c244d02aea91dfe5edcf14f21d530334337cc8bc3b18e0f7b410e4aa",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "minimum-timeout",
+      "event": "SessionStart",
+      "group_index": 3,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'",
+        "timeout": 0
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 1,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":1,\"type\":\"command\"}]}",
+      "native_hash": "sha256:570dfce749be67fadf2a7b8fa27fe043cb06bd8556a8edcb3eca67625adbe3bc",
+      "source_derived_hash": "sha256:570dfce749be67fadf2a7b8fa27fe043cb06bd8556a8edcb3eca67625adbe3bc",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "end-default",
+      "event": "SessionEnd",
+      "group_index": 0,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'"
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_end",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 1,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_end\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":1,\"type\":\"command\"}]}",
+      "native_hash": "sha256:8e11e01d5852f31b115dbbf9cd6701f4d9eb63f3e8c2dc98e88ffbdfd5e8f5bb",
+      "source_derived_hash": "sha256:8e11e01d5852f31b115dbbf9cd6701f4d9eb63f3e8c2dc98e88ffbdfd5e8f5bb",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "end-clamp",
+      "event": "SessionEnd",
+      "group_index": 1,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'",
+        "timeout": 300
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_end",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 3,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_end\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":3,\"type\":\"command\"}]}",
+      "native_hash": "sha256:ab80e6dc35b30de31459af88487d6e60d2cec5204224ddde2f9d32ac9087071f",
+      "source_derived_hash": "sha256:ab80e6dc35b30de31459af88487d6e60d2cec5204224ddde2f9d32ac9087071f",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "interrupt-default",
+      "event": "Interrupt",
+      "group_index": 0,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'"
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "interrupt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 1,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"interrupt\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":1,\"type\":\"command\"}]}",
+      "native_hash": "sha256:f6316c60971ec8c330872c8c85df93b88b12d5369cf9905b14e04142de65f8b8",
+      "source_derived_hash": "sha256:f6316c60971ec8c330872c8c85df93b88b12d5369cf9905b14e04142de65f8b8",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "end-async",
+      "event": "SessionEnd",
+      "group_index": 2,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'",
+        "async": true
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_end",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 1,
+            "async": true
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_end\",\"hooks\":[{\"async\":true,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":1,\"type\":\"command\"}]}",
+      "native_hash": "sha256:c7ef4515ae10ea349aa9371116ac6bc0603ead9b0bfd61f2642beeb19af3dc21",
+      "source_derived_hash": "sha256:c7ef4515ae10ea349aa9371116ac6bc0603ead9b0bfd61f2642beeb19af3dc21",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "async",
+      "event": "SessionStart",
+      "group_index": 4,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'",
+        "async": true
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 600,
+            "async": true
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":true,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:2dd05622f15dc8a7e1514741cc851fff5532a6e457bf8b971fc534b14e21bb8c",
+      "source_derived_hash": "sha256:2dd05622f15dc8a7e1514741cc851fff5532a6e457bf8b971fc534b14e21bb8c",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "status",
+      "event": "SessionStart",
+      "group_index": 5,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'",
+        "statusMessage": "zalki"
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 600,
+            "async": false,
+            "statusMessage": "zalki"
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"statusMessage\":\"zalki\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:520c75cf9608deccbb6e1bb82194b7e99f9bdc20ad96b1a6d71330807082bbcb",
+      "source_derived_hash": "sha256:520c75cf9608deccbb6e1bb82194b7e99f9bdc20ad96b1a6d71330807082bbcb",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "context-default",
+      "event": "SessionStart",
+      "group_index": 6,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'",
+        "additionalContextLimit": 2500
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 600,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:eb24cc86c244d02aea91dfe5edcf14f21d530334337cc8bc3b18e0f7b410e4aa",
+      "source_derived_hash": "sha256:eb24cc86c244d02aea91dfe5edcf14f21d530334337cc8bc3b18e0f7b410e4aa",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "context-unlimited",
+      "event": "SessionStart",
+      "group_index": 7,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'",
+        "additionalContextLimit": 0
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 600,
+            "async": false,
+            "additionalContextLimit": 0
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"additionalContextLimit\":0,\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:21b8fc404738d6174adbb7be033dacd7b96943fafc29a7e4f3caf0a4fe1be670",
+      "source_derived_hash": "sha256:21b8fc404738d6174adbb7be033dacd7b96943fafc29a7e4f3caf0a4fe1be670",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "context-ignored",
+      "event": "Stop",
+      "group_index": 0,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'",
+        "additionalContextLimit": 15
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "stop",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 600,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"stop\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:06f0d4204374aabc0e0985f2972df1cac6a09bba8c1ae49dd4bef15232eddbef",
+      "source_derived_hash": "sha256:06f0d4204374aabc0e0985f2972df1cac6a09bba8c1ae49dd4bef15232eddbef",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "matcher",
+      "event": "SessionStart",
+      "group_index": 8,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'"
+      },
+      "matcher": "startup|resume",
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 600,
+            "async": false
+          }
+        ],
+        "matcher": "startup|resume"
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":600,\"type\":\"command\"}],\"matcher\":\"startup|resume\"}",
+      "native_hash": "sha256:7b8c251edd547c7b8aba47ee99fe4ef408243fd396583b2fe6c654605ea060e3",
+      "source_derived_hash": "sha256:7b8c251edd547c7b8aba47ee99fe4ef408243fd396583b2fe6c654605ea060e3",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "matcher-ignored",
+      "event": "UserPromptSubmit",
+      "group_index": 0,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'"
+      },
+      "matcher": "ignored",
+      "normalized_identity": {
+        "event_name": "user_prompt_submit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 600,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"user_prompt_submit\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:9192d879fcf20be150010fbb25d4cb387b3c631559840988576cedbbcdb36707",
+      "source_derived_hash": "sha256:9192d879fcf20be150010fbb25d4cb387b3c631559840988576cedbbcdb36707",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "windows-ignored",
+      "event": "SessionStart",
+      "group_index": 9,
+      "handler": {
+        "type": "command",
+        "command": "printf 'zalki contract probe only'",
+        "commandWindows": "ignored on macOS"
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'zalki contract probe only'",
+            "timeout": 600,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"printf 'zalki contract probe only'\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:eb24cc86c244d02aea91dfe5edcf14f21d530334337cc8bc3b18e0f7b410e4aa",
+      "source_derived_hash": "sha256:eb24cc86c244d02aea91dfe5edcf14f21d530334337cc8bc3b18e0f7b410e4aa",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "html",
+      "event": "SessionStart",
+      "group_index": 10,
+      "handler": {
+        "type": "command",
+        "command": "printf '<>&'"
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '<>&'",
+            "timeout": 600,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"printf '<>&'\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:333c4e316669f37ef4570846d023f27d57c4a770c84a96b55f03576da5c08c37",
+      "source_derived_hash": "sha256:333c4e316669f37ef4570846d023f27d57c4a770c84a96b55f03576da5c08c37",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "unicode",
+      "event": "SessionStart",
+      "group_index": 11,
+      "handler": {
+        "type": "command",
+        "command": "printf 'é ❤️   '"
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'é ❤️   '",
+            "timeout": 600,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"printf 'é ❤️   '\",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:9a96d6b0b436eb81b5ed0eef442946ab3b069ff3fc4e63a8c1b4c88fc58e1436",
+      "source_derived_hash": "sha256:9a96d6b0b436eb81b5ed0eef442946ab3b069ff3fc4e63a8c1b4c88fc58e1436",
+      "match": true,
+      "trust_status": "untrusted"
+    },
+    {
+      "label": "space-preserved",
+      "event": "SessionStart",
+      "group_index": 12,
+      "handler": {
+        "type": "command",
+        "command": "  printf 'zalki contract probe only'  "
+      },
+      "matcher": null,
+      "normalized_identity": {
+        "event_name": "session_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "  printf 'zalki contract probe only'  ",
+            "timeout": 600,
+            "async": false
+          }
+        ]
+      },
+      "canonical_json": "{\"event_name\":\"session_start\",\"hooks\":[{\"async\":false,\"command\":\"  printf 'zalki contract probe only'  \",\"timeout\":600,\"type\":\"command\"}]}",
+      "native_hash": "sha256:4945d07f21feaee57f5f00426e91b55b9597cae34f0b97905311a575e4299d38",
+      "source_derived_hash": "sha256:4945d07f21feaee57f5f00426e91b55b9597cae34f0b97905311a575e4299d38",
+      "match": true,
+      "trust_status": "untrusted"
+    }
+  ],
+  "hook_calls": 0,
+  "trust_writes": 0,
+  "real_owner_app_server_calls": 0
+}

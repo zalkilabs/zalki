@@ -46,7 +46,8 @@ func newDoctorCommand(opts *commandOptions) *cobra.Command {
 			return encodeOutput(cmd, map[string]any{"state": service.Store.Dir,
 				"agents":  report.Agents,
 				"runtime": report.Runtime, "runtimes": report.Runtimes, "untracked_processes": report.UntrackedProcesses,
-				"sessions": report.Sessions, "notes": report.Notes})
+				"sessions": report.Sessions, "notes": report.Notes,
+				"codex_hooks": diagnoseCodexHooks(opts, report)})
 		},
 	}
 }

@@ -39,7 +39,7 @@ func configTargets(home string) []string {
 	}
 }
 
-const installAppliedNote = "Existing settings were preserved and backed up. Review/trust integrations in each configured client, then launch normally. Check doctor for adapter and listener requirements.\n"
+const installAppliedNote = "Existing settings were preserved and backed up. Review/trust integrations in each configured client, then launch normally. Check doctor for adapter and listener requirements.\n" + codexNoticeForTest
 
 // cliSnapshot reads every file under dir except the command logs, which change
 // on every command.

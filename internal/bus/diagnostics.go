@@ -13,12 +13,13 @@ import (
 )
 
 type DiagnosticReport struct {
-	Agents             []AgentDiagnostic         `json:"agents"`
-	Runtime            RuntimeInfo               `json:"runtime"`
-	Runtimes           []RuntimeInfo             `json:"runtimes"`
-	UntrackedProcesses []model.ProcessRef        `json:"untracked_processes"`
-	Sessions           []model.SessionDiagnostic `json:"sessions"`
-	Notes              []string                  `json:"notes"`
+	SessionScanComplete bool                      `json:"-"`
+	Agents              []AgentDiagnostic         `json:"agents"`
+	Runtime             RuntimeInfo               `json:"runtime"`
+	Runtimes            []RuntimeInfo             `json:"runtimes"`
+	UntrackedProcesses  []model.ProcessRef        `json:"untracked_processes"`
+	Sessions            []model.SessionDiagnostic `json:"sessions"`
+	Notes               []string                  `json:"notes"`
 }
 
 type AgentDiagnostic struct {
@@ -46,6 +47,7 @@ func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
 		var err error
 		var issues []SessionIssue
 		sessions, issues, err = s.scanSessions()
+		report.SessionScanComplete = err == nil && len(issues) == 0
 		if len(issues) > 0 {
 			report.Notes = append(report.Notes, fmt.Sprintf("Skipped %d unreadable or unsupported session records.", len(issues)))
 		}
