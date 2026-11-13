@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"regexp"
 	"strings"
 	"sync"
@@ -127,10 +128,17 @@ func TestCursorRecoveryCompletedStopAndAbortBoundaries(t *testing.T) {
 
 func startRecoveryListener(t *testing.T, store bus.Store, actor, key string) (func(), *wakeOutput) {
 	t.Helper()
+	return startRecoveryListenerRun(t, func(ctx context.Context, output io.Writer) error {
+		return listenCursorWithStore(ctx, store, actor, key, output)
+	})
+}
+
+func startRecoveryListenerRun(t *testing.T, run func(context.Context, io.Writer) error) (func(), *wakeOutput) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	out := &wakeOutput{ready: make(chan struct{})}
 	done := make(chan error, 1)
-	go func() { done <- listenCursorWithStore(ctx, store, actor, key, out) }()
+	go func() { done <- run(ctx, out) }()
 	select {
 	case err := <-done:
 		cancel()

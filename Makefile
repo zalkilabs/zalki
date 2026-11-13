@@ -26,8 +26,8 @@ vet:
 	go vet ./...
 
 # Any command that fails (a finding, a tool error) stops make with a non-zero exit.
-# - noctx runs on production code only: the tests still have 12 calls without a
-#   context (a later test-only change can move them to CommandContext).
+# - noctx runs separately on production code; test subprocess calls also use
+#   CommandContext.
 # - The gocognit budget is a ratchet: no production function above 30. Lower it
 #   over time. make lint-strict keeps reporting at 20 (.golangci.yml), so the
 #   checkpoint numbers stay comparable with the old baseline.
