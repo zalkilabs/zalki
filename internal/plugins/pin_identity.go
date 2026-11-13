@@ -48,7 +48,7 @@ func pinnedIdentity(path string) (fileIdentity, error) {
 	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 {
 		return fileIdentity{}, model.NewError(model.CodeConflict, "plugin launch changed; disable and enable to pin it again")
 	}
-	return fileIdentity{dev: uint64(stat.Dev), ino: stat.Ino, size: stat.Size, mode: info.Mode(), changed: changedNS(stat)}, nil //nolint:gosec // G115: a device number is never negative.
+	return fileIdentity{dev: deviceNumber(stat), ino: stat.Ino, size: stat.Size, mode: info.Mode(), changed: changedNS(stat)}, nil
 }
 
 // stillPinned reports whether the started file is the one that was verified.
