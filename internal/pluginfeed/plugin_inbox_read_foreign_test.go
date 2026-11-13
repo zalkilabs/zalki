@@ -61,10 +61,10 @@ func secondInboxReadOwner(t *testing.T, x inboxReadFixture) (PluginFeed, PluginF
 	if err := f.AddExternalPlugin(x.status.Launch.Executable, x.status.Launch.Args); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.ConfigurePluginFeed([]string{x.from.ID}); err != nil {
+	if err := f.ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{x.from.ID}}); err != nil {
+	if err := f.GrantPluginAccess(PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.EnablePluginFeed(true); err != nil {

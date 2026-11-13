@@ -30,7 +30,7 @@ type pluginReadAudit struct {
 
 func (s pluginFiles) loadPluginReadAudit(now time.Time) ([]pluginReadAuditRow, error) {
 	return s.loadPluginReadAuditFile("plugin-read-audit.json", now, func(row pluginReadAuditRow) error {
-		return s.checkCapabilityGrants(PluginCapabilityGrants{Read: []string{row.Session}})
+		return s.checkAccess(PluginAccess{Read: []string{row.Session}})
 	})
 }
 
@@ -95,5 +95,5 @@ func (s pluginFiles) savePluginReadAuditFile(name string, rows []pluginReadAudit
 
 // Audit outcomes describe authorization, not proof that stdout was delivered.
 func validPluginReadAuditRow(row *pluginReadAuditRow) bool {
-	return !row.At.IsZero() && model.IsCanonicalUUID(row.Plugin) && model.IsCanonicalUUID(row.Request) && model.IsCanonicalUUID(row.Message) && model.IsCanonicalUUID(row.Revision) && row.Bytes >= 0 && row.Bytes <= 32<<10 && slices.Contains([]string{"ok", "native_deferred", "denied", "revoked", "stale_binding", "stale_target", "unavailable", "too_large"}, row.Outcome)
+	return !row.At.IsZero() && model.IsCanonicalUUID(row.Plugin) && model.IsCanonicalUUID(row.Request) && model.IsCanonicalUUID(row.Message) && validPluginSHA(row.Revision) && row.Bytes >= 0 && row.Bytes <= 32<<10 && slices.Contains([]string{"ok", "native_deferred", "denied", "revoked", "stale_binding", "stale_target", "unavailable", "too_large"}, row.Outcome)
 }

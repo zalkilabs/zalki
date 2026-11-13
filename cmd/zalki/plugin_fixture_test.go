@@ -11,7 +11,8 @@ import (
 
 // feedFixtureScript is a feed-only plugin on the one plugin wire, written in
 // plain sh so tests need no build: it says hello, then stores every offered
-// event frame as events/ID.json in its data folder and ACKs every offer. The
+// event frame as events/ID.json in its data folder (written beside it, then
+// renamed in, so events/ never shows a partial file) and ACKs every offer. The
 // child gets HOME only (no PATH), so every tool has an absolute path.
 const feedFixtureScript = `#!/bin/sh
 printf '{"hello":{"wire":"zalki-plugin/1","requires":["feed"]}}\n'
@@ -24,7 +25,7 @@ while IFS= read -r line; do
 	id=$(printf '%s\n' "$line" | /usr/bin/sed -n 's/^{"id":"\([0-9a-f-]*\)".*/\1/p')
 	[ -n "$id" ] || exit 3
 	case "$line" in
-	*'"event"'*) printf '%s\n' "$line" > "events/$id.tmp" && /bin/mv "events/$id.tmp" "events/$id.json" ;;
+	*'"event"'*) printf '%s\n' "$line" > "$id.tmp" && /bin/mv "$id.tmp" "events/$id.json" ;;
 	esac
 	printf '{"ack":"%s"}\n' "$id"
 done

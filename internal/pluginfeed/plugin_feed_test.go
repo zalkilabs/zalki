@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -26,13 +27,19 @@ func installFeed(t *testing.T, s bus.Store) {
 		if err := feed.AddExternalPlugin(testExecutable(t), nil); err != nil {
 			t.Fatal(err)
 		}
+		if err := feed.GrantPluginAccess(PluginAccess{Status: true}); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
-func enableFeed(t *testing.T, s bus.Store, ids ...string) {
+func enableFeed(t *testing.T, s bus.Store) {
 	t.Helper()
 	installFeed(t, s)
-	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed(ids); err != nil {
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewPluginFeed(s, "fake-notifier").GrantPluginAccess(PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(true); err != nil {
@@ -77,7 +84,7 @@ func TestPluginFeedNowReplayAndPrivateReceipt(t *testing.T) {
 		t.Fatal(err)
 	}
 	installFeed(t, s)
-	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed([]string{v.ID}); err != nil {
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
 	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(true); err != nil {
@@ -131,7 +138,7 @@ func assertPluginMetadataOnly(t *testing.T, d PluginDelivery, private ...string)
 func TestPluginFeedRejectsForgedAndStaleReceipts(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
-	enableFeed(t, s, v.ID)
+	enableFeed(t, s)
 	if err := s.Update(v.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +172,7 @@ func TestPluginFeedExplicitGrantBounds(t *testing.T) {
 	s := fixtureStore(t)
 	a, _ := register(t, s, "codex")
 	status, err := NewPluginFeed(s, "fake-notifier").PluginStatus()
-	if err != nil || status.Enabled || len(status.Sessions) != 0 {
+	if err != nil || status.Enabled || status.Scope != "" || !status.Access.empty() {
 		t.Fatal("plugin is not disabled by default", status, err)
 	}
 	if _, err := os.Stat(NewPluginFeed(s, "fake-notifier").pluginPath()); !os.IsNotExist(err) {
@@ -175,18 +182,24 @@ func TestPluginFeedExplicitGrantBounds(t *testing.T) {
 		t.Fatal("enabled an absent installation", err)
 	}
 	installFeed(t, s)
+	if err := NewPluginFeed(s, "fake-notifier").RevokePluginAccess(); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(true); err == nil {
+		t.Fatal("enabled an installation without access")
+	}
 	tooMany := make([]string, 17)
 	for i := range tooMany {
 		tooMany[i] = "codex:" + model.NewUUID()
 	}
 	invalid := [][]string{{"*"}, {"codex:../escape"}, {strings.ToUpper(a.ID)}, {a.ID, a.ID}, tooMany}
 	for _, ids := range invalid {
-		if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed(ids); err == nil {
-			t.Fatal("accepted invalid scope", ids)
+		if err := NewPluginFeed(s, "fake-notifier").GrantPluginAccess(PluginAccess{Read: ids}); err == nil {
+			t.Fatal("accepted invalid named sessions", ids)
 		}
 	}
-	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed(tooMany[:16]); err != nil {
-		t.Fatal("16 valid grants rejected", err)
+	if err := NewPluginFeed(s, "fake-notifier").GrantPluginAccess(PluginAccess{Read: tooMany[:16]}); err != nil {
+		t.Fatal("16 valid named sessions rejected", err)
 	}
 }
 
@@ -194,8 +207,8 @@ func TestPluginFeedGrantChangesAndDisable(t *testing.T) {
 	s := fixtureStore(t)
 	a, _ := register(t, s, "codex")
 	b, _ := register(t, s, "codex")
-	enableFeed(t, s, a.ID)
-	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed([]string{b.ID}); model.ErrorCodeOf(err) != model.CodeConflict {
+	enableFeed(t, s)
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginScope("all"); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("scope changed during execution", err)
 	}
 	if err := s.Update(a.ID, model.StateBusy, false); err != nil {
@@ -211,7 +224,7 @@ func TestPluginFeedGrantChangesAndDisable(t *testing.T) {
 	if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("disabled feed dispatched", err)
 	}
-	enableFeed(t, s, b.ID)
+	enableFeed(t, s)
 	if err := NewPluginFeed(s, "fake-notifier").AckPluginFeed(old); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("old receipt crossed a new enable/scope", err)
 	}
@@ -221,18 +234,15 @@ func TestPluginFeedGrantChangesAndDisable(t *testing.T) {
 	if err := s.Update(b.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	d := feedNext(t, s)
-	if d.Event == nil || d.Event.Session.ID != b.ID {
-		t.Fatal("foreign session escaped filtering", d)
-	}
-	feedAck(t, s, d)
+	// Scope all: every live session is a member, in journal order.
+	expectSessionEvents(t, s, a.ID, b.ID)
 	next, _, err := s.Register("codex", b.NativeID, b.CWD, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	d = feedNext(t, s)
+	d := feedNext(t, s)
 	if d.Event == nil || d.Event.Type != "session.registered" || d.Event.Session.Generation != next.Generation {
-		t.Fatal("explicit session grant failed across registration", d)
+		t.Fatal("a member was lost across registration", d)
 	}
 }
 
@@ -258,7 +268,7 @@ func pluginDirectorySyncCut(t *testing.T, s bus.Store, action func() error) plug
 func TestPluginFeedGapDirectorySyncFailure(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
-	enableFeed(t, s, v.ID)
+	enableFeed(t, s)
 	prior := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
 	for range 3 {
 		testCoveredUpdate(t, s, v.ID)
@@ -281,7 +291,7 @@ func TestPluginFeedGapDirectorySyncFailure(t *testing.T) {
 func TestPluginFeedAckDirectorySyncFailure(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
-	enableFeed(t, s, v.ID)
+	enableFeed(t, s)
 	if err := s.Update(v.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
@@ -303,8 +313,8 @@ func TestPluginFeedAckDirectorySyncFailure(t *testing.T) {
 
 func TestPluginFeedInvalidPrivateRecord(t *testing.T) {
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
-	enableFeed(t, s, v.ID)
+	register(t, s, "codex")
+	enableFeed(t, s)
 	good := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
 	for _, raw := range [][]byte{
 		[]byte(`{"enabled":true}`), []byte(`{"unknown":1}`),
@@ -325,9 +335,9 @@ func TestPluginFeedInvalidPrivateRecord(t *testing.T) {
 
 func TestPluginFeedBoundedForeignScan(t *testing.T) {
 	s := fixtureStore(t)
-	a, _ := register(t, s, "codex")
+	register(t, s, "codex")
 	b, _ := register(t, s, "codex")
-	enableFeed(t, s, a.ID)
+	enableFeed(t, s)
 	start := feedRecord(t, s).Position.Sequence
 	for i := range 130 {
 		state := model.StateBusy
@@ -338,6 +348,7 @@ func TestPluginFeedBoundedForeignScan(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	forgetSession(t, s, b.ID) // its events stay in the journal; it is no member now
 	before := eventState(t, s)
 	for _, offset := range []uint64{64, 128, 130} {
 		if d := feedNext(t, s); d.ID != "" || d.Event != nil {
@@ -355,7 +366,7 @@ func TestPluginFeedBoundedForeignScan(t *testing.T) {
 func TestPluginFeedRetentionGapIsDurableUntilACK(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
-	enableFeed(t, s, v.ID)
+	enableFeed(t, s)
 	for range 3 {
 		testCoveredUpdate(t, s, v.ID)
 	}
@@ -378,7 +389,7 @@ func TestPluginFeedRetentionGapIsDurableUntilACK(t *testing.T) {
 func TestPluginFeedEmptyEpochAndSequenceLimit(t *testing.T) {
 	s := fixtureStore(t)
 	id := model.NewUUID()
-	enableFeed(t, s, "codex:"+id)
+	enableFeed(t, s)
 	if d := feedNext(t, s); d.ID != "" {
 		t.Fatal("empty journal generated a new gap", d)
 	}
@@ -410,7 +421,7 @@ func TestPluginFeedEmptyEpochAndSequenceLimit(t *testing.T) {
 func TestPluginFeedRejectsBrokenRecordsWithoutAdvancing(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
-	enableFeed(t, s, v.ID)
+	enableFeed(t, s)
 	if err := s.Update(v.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
@@ -454,7 +465,7 @@ func checkPluginPendingGapAfterLoss(t *testing.T, reason string) {
 	t.Helper()
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
-	enableFeed(t, s, v.ID)
+	enableFeed(t, s)
 	for range 3 {
 		testCoveredUpdate(t, s, v.ID)
 	}
@@ -488,7 +499,7 @@ func TestPluginFeedReceiptAfterFilteredProgress(t *testing.T) {
 	s := fixtureStore(t)
 	a, _ := register(t, s, "codex")
 	b, _ := register(t, s, "codex")
-	enableFeed(t, s, a.ID)
+	enableFeed(t, s)
 	if err := s.Update(a.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
@@ -498,6 +509,7 @@ func TestPluginFeedReceiptAfterFilteredProgress(t *testing.T) {
 	if err := s.Update(b.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
+	forgetSession(t, s, b.ID)
 	if d := feedNext(t, other); d.ID != "" {
 		t.Fatal("foreign event was offered", d)
 	}
@@ -525,7 +537,7 @@ func TestPluginFeedEmptyEnableFirstEventReplay(t *testing.T) {
 	s := fixtureStore(t)
 	id := model.NewUUID()
 	installFeed(t, s)
-	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed([]string{"codex:" + id}); err != nil {
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
 	if err := NewPluginFeed(s, "fake-notifier").EnablePluginFeed(true); err != nil {
@@ -554,45 +566,63 @@ func TestPluginFeedEmptyEnableFirstEventReplay(t *testing.T) {
 
 func TestPluginFeedInvalidGrantsAndPosition(t *testing.T) {
 	cases := map[string]func(*pluginRecord){
-		"unsorted":               func(p *pluginRecord) { p.Sessions[0], p.Sessions[1] = p.Sessions[1], p.Sessions[0] },
-		"duplicate":              func(p *pluginRecord) { p.Sessions[1] = p.Sessions[0] },
+		"unsorted":               func(p *pluginRecord) { p.Access.Read = []string{p.Access.Read[1], p.Access.Read[0]} },
+		"duplicate":              func(p *pluginRecord) { p.Access.Read[1] = p.Access.Read[0] },
 		"bad_epoch":              func(p *pluginRecord) { p.Position.Epoch = "invalid" },
-		"empty_grants":           func(p *pluginRecord) { p.Sessions = nil },
+		"empty_grants":           func(p *pluginRecord) { p.Access = PluginAccess{} },
 		"sequence_without_epoch": func(p *pluginRecord) { p.Position = pluginPosition{Sequence: 1} },
 		"bad_gap_id":             func(p *pluginRecord) { p.GapID = "invalid" },
+		"stale_revision":         func(p *pluginRecord) { p.Scope = "none" },
 	}
 	for name, change := range cases {
-		t.Run(name, func(t *testing.T) {
-			s := fixtureStore(t)
-			a, _ := register(t, s, "codex")
-			b, _ := register(t, s, "codex")
-			enableFeed(t, s, a.ID, b.ID)
-			p := feedRecord(t, s)
-			change(&p)
-			raw, err := journal.EncodeJSON(p, 16<<10)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := journal.WriteAtomic(NewPluginFeed(s, "fake-notifier").pluginPath(), raw); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := NewPluginFeed(s, "fake-notifier").PluginStatus(); err == nil {
-				t.Fatal("hand-edited record was accepted")
-			}
-			if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); err == nil {
-				t.Fatal("hand-edited record was dispatched")
-			}
-			if !bytes.Equal(raw, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {
-				t.Fatal("refusing a record changed it")
-			}
-		})
+		t.Run(name, func(t *testing.T) { checkHandEditedRecord(t, change, name != "stale_revision") })
+	}
+}
+
+// checkHandEditedRecord edits a valid enabled record and checks that it is
+// refused, not dispatched and not changed. With rehash, only the edited field
+// is wrong; without, the stored revision is stale too.
+func checkHandEditedRecord(t *testing.T, change func(*pluginRecord), rehash bool) {
+	t.Helper()
+	s := fixtureStore(t)
+	a, _ := register(t, s, "codex")
+	b, _ := register(t, s, "codex")
+	enableFeed(t, s)
+	f := NewPluginFeed(s, "fake-notifier")
+	read := []string{a.ID, b.ID}
+	slices.Sort(read)
+	for _, step := range []func() error{func() error { return f.EnablePluginFeed(false) }, func() error { return f.GrantPluginAccess(PluginAccess{Status: true, Read: read}) }, func() error { return f.EnablePluginFeed(true) }} {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	p := feedRecord(t, s)
+	change(&p)
+	if rehash {
+		p.Revision = pluginRevision(p)
+	}
+	raw, err := journal.EncodeJSON(p, 16<<10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := journal.WriteAtomic(f.pluginPath(), raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.PluginStatus(); err == nil {
+		t.Fatal("hand-edited record was accepted")
+	}
+	if _, err := nextFeed(f); err == nil {
+		t.Fatal("hand-edited record was dispatched")
+	}
+	if !bytes.Equal(raw, readCommitFile(t, f.pluginPath())) {
+		t.Fatal("refusing a record changed it")
 	}
 }
 
 func TestPluginFeedRejectsZeroFirstMetadata(t *testing.T) {
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
-	enableFeed(t, s, v.ID)
+	register(t, s, "codex")
+	enableFeed(t, s)
 	prior := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
 	head := eventState(t, s)
 	head.First = 0
@@ -610,7 +640,7 @@ func TestPluginFeedRejectsZeroFirstMetadata(t *testing.T) {
 func TestPluginFeedBoundsValidOversizeEvent(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
-	enableFeed(t, s, v.ID)
+	enableFeed(t, s)
 	if err := s.Update(v.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
@@ -647,7 +677,7 @@ func denyPluginDirectoryRead(t *testing.T, s bus.Store) {
 func TestPluginFeedPendingGapRequiresDirectoryConfirmation(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
-	enableFeed(t, s, v.ID)
+	enableFeed(t, s)
 	for range 3 {
 		testCoveredUpdate(t, s, v.ID)
 	}
@@ -685,9 +715,11 @@ func TestPluginFeedEnableRetryConfirmsDirectory(t *testing.T) {
 func checkPluginEnableRetry(t *testing.T, enabled bool) {
 	t.Helper()
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
 	installFeed(t, s)
-	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginFeed([]string{v.ID}); err != nil {
+	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewPluginFeed(s, "fake-notifier").GrantPluginAccess(PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	if !enabled {
@@ -713,5 +745,26 @@ func checkPluginEnableRetry(t *testing.T, enabled bool) {
 	}
 	if p := feedRecord(t, s); p.Enabled != enabled {
 		t.Fatal("confirmed enable/disable state differs", p)
+	}
+}
+
+// forgetSession removes a session record, so the session is no member while
+// its earlier events stay in the journal.
+func forgetSession(t *testing.T, s bus.Store, id string) {
+	t.Helper()
+	if err := os.Remove(filepath.Join(s.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// expectSessionEvents takes one offer per session, in order, and acks it.
+func expectSessionEvents(t *testing.T, s bus.Store, ids ...string) {
+	t.Helper()
+	for _, want := range ids {
+		d := feedNext(t, s)
+		if d.Event == nil || d.Event.Session.ID != want {
+			t.Fatal("a member's event is missing or out of order", want, d)
+		}
+		feedAck(t, s, d)
 	}
 }

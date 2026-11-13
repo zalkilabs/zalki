@@ -24,7 +24,7 @@ type signalFixtureHost struct {
 
 func signalFixture(t *testing.T) (pluginfeed.PluginFeed, string, string) {
 	t.Helper()
-	store, session := hostStore(t)
+	store, _ := hostStore(t)
 	binary, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -34,7 +34,10 @@ func signalFixture(t *testing.T) (pluginfeed.PluginFeed, string, string) {
 	if err := feed.AddExternalPlugin(binary, []string{"host-fake-child"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := feed.ConfigurePluginFeed([]string{session.ID}); err != nil {
+	if err := feed.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := feed.EnablePluginFeed(true); err != nil {

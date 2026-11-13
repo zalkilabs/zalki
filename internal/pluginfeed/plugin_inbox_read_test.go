@@ -27,7 +27,7 @@ func newInboxReadFixture(t *testing.T, body string) inboxReadFixture {
 	if err := x.f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{x.from.ID}}); err != nil {
+	if err := x.f.GrantPluginAccess(PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {
@@ -116,7 +116,7 @@ func TestPluginInboxReadExactIsNonConsumingAndAudited(t *testing.T) {
 		t.Fatal("missing one audited release")
 	}
 	row := log.Rows[0]
-	if row.Plugin != x.status.ID || row.Session != x.message.To || row.Message != x.message.ID || row.Request != result.Request || row.Revision != x.status.Capabilities.Revision || row.Outcome != "ok" || row.Bytes != len(raw) {
+	if row.Plugin != x.status.ID || row.Session != x.message.To || row.Message != x.message.ID || row.Request != result.Request || row.Revision != x.status.Revision || row.Outcome != "ok" || row.Bytes != len(raw) {
 		t.Fatal("audit did not precede the matching response")
 	}
 	// A fresh owner proxy must respect persistent rate state, without ACK or replay.

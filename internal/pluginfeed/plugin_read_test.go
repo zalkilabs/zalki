@@ -31,7 +31,7 @@ func newPluginReadFixture(t *testing.T, kind string) pluginReadFixture {
 	if err := saveTestMessage(f.store, m); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{Read: []string{target.ID}}); err != nil {
+	if err := f.GrantPluginAccess(PluginAccess{Status: true, Read: []string{target.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.EnablePluginFeed(true); err != nil {
@@ -124,36 +124,18 @@ func TestPluginReadSeparateAuthorityAndFreshBinding(t *testing.T) {
 		edit          func(*pluginRecord)
 	}{
 		{"disabled", "revoked", func(p *pluginRecord) { p.Enabled = false }},
-		{"installation", "stale_binding", func(p *pluginRecord) { p.ID = model.NewUUID(); p.Capabilities.Installation = p.ID }},
-		{"revision", "stale_binding", func(p *pluginRecord) { p.Capabilities.Revision = model.NewUUID() }},
-		{"capability-pin", "stale_binding", func(p *pluginRecord) { p.Capabilities.PinSHA256 = strings.Repeat("a", 64) }},
+		{"installation", "stale_binding", func(p *pluginRecord) { p.ID = model.NewUUID() }},
+		{"owner change", "stale_binding", func(p *pluginRecord) { p.Access.Receive = !p.Access.Receive }},
+		{"scope change", "stale_binding", func(p *pluginRecord) { p.Scope = "none" }},
 		{"launch-pin", "stale_binding", func(p *pluginRecord) { p.Launch.PinSHA256 = strings.Repeat("b", 64) }},
-		{"paired-pin", "stale_binding", func(p *pluginRecord) {
-			p.Launch.PinSHA256 = strings.Repeat("c", 64)
-			p.Capabilities.PinSHA256 = p.Launch.PinSHA256
-		}},
-		{"no-capabilities", "stale_binding", func(p *pluginRecord) { p.Capabilities = nil }},
-		{"send-only", "denied", func(p *pluginRecord) { p.Capabilities.Send = p.Capabilities.Read; p.Capabilities.Read = nil }},
-		{"receive-only", "denied", func(p *pluginRecord) { p.Capabilities.Receive = p.Capabilities.Read; p.Capabilities.Read = nil }},
-		{"other-read", "denied", func(p *pluginRecord) { p.Capabilities.Read = []string{p.Sessions[0]} }},
+		// The rows below are checked with a fresh launch of the edited record,
+		// so only the read grant decides.
+		{"no-read", "denied", func(p *pluginRecord) { p.Access.Read = nil }},
+		{"send-only", "denied", func(p *pluginRecord) { p.Access.Send = p.Access.Read; p.Access.Read = nil }},
+		{"other-read", "denied", func(p *pluginRecord) { p.Access.Read = []string{"codex:00000000-0000-4000-8000-000000000009"} }},
 	}
 	for _, row := range cases {
-		t.Run(row.name, func(t *testing.T) {
-			x := newPluginReadFixture(t, "cursor")
-			p, _, err := x.f.loadPlugin()
-			if err != nil {
-				t.Fatal(err)
-			}
-			row.edit(&p)
-			if _, err := x.f.savePlugin(p); err != nil {
-				t.Fatal(err)
-			}
-			x.assertDenied(t, &x.before, row.outcome)
-			rows := x.audit(t, x.now)
-			if len(rows) != 1 || rows[0].Outcome != row.outcome || rows[0].Bytes != 0 {
-				t.Fatal("denial audit wrong", rows)
-			}
-		})
+		t.Run(row.name, func(t *testing.T) { checkPluginReadEditDenied(t, row.edit, row.outcome) })
 	}
 	for _, action := range []string{"revoke", "regrant", "readd"} {
 		t.Run(action, func(t *testing.T) { pluginReadTransitionFence(t, action) })
@@ -192,7 +174,14 @@ func TestPluginReadRecipientGenerationAndRecordFences(t *testing.T) {
 			if err := saveTestMessage(x.f.store, x.message); err != nil {
 				t.Fatal(err)
 			}
-			x.assertDenied(t, &x.before, row.outcome)
+			before := x.before
+			var err error
+			if row.outcome == "denied" {
+				if before, err = x.f.PluginStatus(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			x.assertDenied(t, &before, row.outcome)
 		})
 	}
 	for _, contents := range []string{"{private body secret", `{"schema":99}`, `{"schema":1,"body":"private body secret","unknown":true}`} {
@@ -275,7 +264,7 @@ func TestPluginReadPersistentRateAndClockRollback(t *testing.T) {
 	if _, err := x.read(t, &x.before, x.target.ID, x.message.ID, x.now.Add(time.Second)); err != nil {
 		t.Fatal("rate window did not reopen", err)
 	}
-	if err := x.f.RevokePluginCapabilities(); err != nil {
+	if err := x.f.RevokePluginAccess(); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := x.read(t, &x.before, x.target.ID, x.message.ID, x.now.Add(time.Second))
@@ -298,7 +287,7 @@ func TestPluginReadRejectsInvalidSelectorsAndDefaultAuthority(t *testing.T) {
 		t.Fatal("metadata grant implied read authority", len(raw), err)
 	}
 	// Public preflight and under-lock auth both remain fail closed.
-	if err := x.f.RevokePluginCapabilities(); err != nil {
+	if err := x.f.RevokePluginAccess(); err != nil {
 		t.Fatal(err)
 	}
 	raw, err = x.f.ReadPluginMessage(x.target.ID, x.message.ID)
@@ -337,7 +326,7 @@ func TestPluginReadAuditFailureDeniesBeforeRelease(t *testing.T) {
 
 func TestPluginReadAuditRetentionAndValidation(t *testing.T) {
 	x := newPluginReadFixture(t, "cursor")
-	base := pluginReadAuditRow{At: x.now.Add(-time.Hour), Plugin: x.before.ID, Request: model.NewUUID(), Session: x.target.ID, Message: x.message.ID, Revision: x.before.Capabilities.Revision, Outcome: "ok", Bytes: 200}
+	base := pluginReadAuditRow{At: x.now.Add(-time.Hour), Plugin: x.before.ID, Request: model.NewUUID(), Session: x.target.ID, Message: x.message.ID, Revision: x.before.Revision, Outcome: "ok", Bytes: 200}
 	rows := make([]pluginReadAuditRow, 1001)
 	for i := range rows {
 		rows[i] = base
@@ -421,7 +410,7 @@ func pluginReadTransitionFence(t *testing.T, action string) {
 	t.Helper()
 
 	x := newPluginReadFixture(t, "cursor")
-	if err := x.f.RevokePluginCapabilities(); err != nil {
+	if err := x.f.RevokePluginAccess(); err != nil {
 		t.Fatal(err)
 	}
 	outcome := "revoked"
@@ -432,13 +421,13 @@ func pluginReadTransitionFence(t *testing.T, action string) {
 		if err := x.f.AddExternalPlugin(x.executable, []string{"$HOME", "literal space"}); err != nil {
 			t.Fatal(err)
 		}
-		if err := x.f.ConfigurePluginFeed([]string{x.target.ID}); err != nil {
+		if err := x.f.ConfigurePluginScope("all"); err != nil {
 			t.Fatal(err)
 		}
 		outcome = "stale_binding"
 	}
 	if action != "revoke" {
-		if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Read: []string{x.target.ID}}); err != nil {
+		if err := x.f.GrantPluginAccess(PluginAccess{Status: true, Read: []string{x.target.ID}}); err != nil {
 			t.Fatal(err)
 		}
 		if err := x.f.EnablePluginFeed(true); err != nil {
@@ -461,7 +450,7 @@ func assertPluginReadExactResult(t *testing.T, raw []byte, err error, x *pluginR
 func assertPluginReadSuccessAudit(t *testing.T, x *pluginReadFixture, result *pluginReadResult, size int) {
 	t.Helper()
 	rows := x.audit(t, time.Now().UTC())
-	if len(rows) != 1 || rows[0].Request != result.Request || rows[0].Plugin != x.before.ID || rows[0].Revision != x.before.Capabilities.Revision || rows[0].Session != x.target.ID || rows[0].Message != x.message.ID || rows[0].Outcome != "ok" || rows[0].Bytes != size {
+	if len(rows) != 1 || rows[0].Request != result.Request || rows[0].Plugin != x.before.ID || rows[0].Revision != x.before.Revision || rows[0].Session != x.target.ID || rows[0].Message != x.message.ID || rows[0].Outcome != "ok" || rows[0].Bytes != size {
 		t.Fatal("durable audit missing or wrong", rows)
 	}
 }
@@ -595,10 +584,10 @@ func pluginReadFixedDenial(t *testing.T, x *pluginReadFixture, now time.Time) (s
 
 func TestPluginReadBoundSnapshotCannotRefreshRegrant(t *testing.T) {
 	x := newPluginReadFixture(t, "cursor")
-	if err := x.f.RevokePluginCapabilities(); err != nil {
+	if err := x.f.RevokePluginAccess(); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Read: []string{x.target.ID}}); err != nil {
+	if err := x.f.GrantPluginAccess(PluginAccess{Status: true, Read: []string{x.target.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {
@@ -626,5 +615,32 @@ func TestPluginReadBoundErrorRequestMatchesAudit(t *testing.T) {
 	rows := x.audit(t, time.Now().UTC())
 	if len(rows) != 1 || rows[0].Request != result.Request || rows[0].Message != missing || rows[0].Outcome != code || rows[0].Bytes != 0 {
 		t.Fatal("bound error was not same audited request", rows)
+	}
+}
+
+// checkPluginReadEditDenied edits the record, then reads. A "denied" row is
+// read with a fresh launch of the edited record, so only the read grant
+// decides; other rows keep the old launch, so the binding decides.
+func checkPluginReadEditDenied(t *testing.T, edit func(*pluginRecord), outcome string) {
+	t.Helper()
+	x := newPluginReadFixture(t, "cursor")
+	p, _, err := x.f.loadPlugin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	edit(&p)
+	if _, err := x.f.savePlugin(p); err != nil {
+		t.Fatal(err)
+	}
+	before := x.before
+	if outcome == "denied" {
+		if before, err = x.f.PluginStatus(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	x.assertDenied(t, &before, outcome)
+	rows := x.audit(t, x.now)
+	if len(rows) != 1 || rows[0].Outcome != outcome || rows[0].Bytes != 0 {
+		t.Fatal("denial audit wrong", rows)
 	}
 }

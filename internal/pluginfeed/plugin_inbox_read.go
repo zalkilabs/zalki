@@ -1,7 +1,6 @@
 package pluginfeed
 
 import (
-	"slices"
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -19,7 +18,7 @@ func (s PluginFeed) ReadPluginInboxMessage(id string) ([]byte, error) {
 	if err != nil {
 		return nil, pluginReadFailure("unavailable")
 	}
-	if before.ID == "" || before.Launch == nil || before.Capabilities == nil {
+	if before.ID == "" || before.Launch == nil || !before.Access.Receive {
 		return nil, pluginReadFailure("denied")
 	}
 	if err = before.Launch.Verify(); err != nil {
@@ -68,40 +67,28 @@ func (s pluginFiles) readPluginInboxAt(view bus.JournalView, before *PluginFeedS
 }
 
 func pluginInboxReadAuthorization(p pluginRecord, before *PluginFeedStatus) string {
-	if code := pluginBindingCode(p, before); code != "ok" {
-		return code
-	}
-	if len(p.Capabilities.Receive) == 0 {
-		return "denied"
-	}
-	return "ok"
-}
-
-// pluginBindingCode compares the current record with the binding the host
-// checked at launch: same installation, still enabled, same pin and the same
-// grant revision. The caller holds the Store lock and has checked that the
-// binding's Launch and Capabilities are set.
-func pluginBindingCode(p pluginRecord, before *PluginFeedStatus) string {
 	if code := launchBindingCode(p, before); code != "ok" {
 		return code
 	}
-	if c := p.Capabilities; p.Launch == nil || c == nil || c.Installation != p.ID || c.PinSHA256 != p.Launch.PinSHA256 {
-		return "stale_binding"
+	if !p.Access.Receive {
+		return "denied"
 	}
 	return "ok"
 }
 
 // launchBindingCode compares the record with the launch snapshot of a running
 // child: "ok" while the child may still act, "revoked" when the plugin is
-// disabled, else "stale_binding". Every enable gives a new epoch, and grants
-// change only while disabled, so a child never adopts newer grants.
+// disabled, else "stale_binding". Every enable gives a new epoch, and access
+// changes only while disabled, so a child never adopts newer access. The
+// revision covers every owner decision and no session membership, so a
+// session starting or stopping never stops a child.
 func launchBindingCode(p pluginRecord, launch *PluginFeedStatus) string {
 	switch {
-	case launch == nil || p.ID != launch.ID:
+	case launch == nil || p.ID != launch.ID || p.Launch == nil:
 		return "stale_binding"
 	case !p.Enabled:
 		return "revoked"
-	case p.Epoch != launch.Epoch || !slices.Equal(p.Sessions, launch.Sessions) || !samePin(p.Launch, launch.Launch) || !sameRevision(p.Capabilities, launch.Capabilities):
+	case p.Epoch != launch.Epoch || p.Revision != launch.Revision || !samePin(p.Launch, launch.Launch):
 		return "stale_binding"
 	default:
 		return "ok"
@@ -112,25 +99,14 @@ func samePin(a, b *PluginLaunch) bool {
 	return a == nil && b == nil || a != nil && b != nil && a.PinSHA256 == b.PinSHA256
 }
 
-func sameRevision(a, b *PluginCapabilities) bool {
-	return a == nil && b == nil || a != nil && b != nil && a.Revision == b.Revision
-}
-
 // PluginBindingCode reports whether a running child with this launch snapshot
-// may still run: "ok", "revoked" or "stale_binding". A launch with message
-// grants must still hold them, bound to this installation and pin. A
-// feed-only launch is checked by its launch binding alone, which also stops
-// it when grants appear after it started.
+// may still run: "ok", "revoked" or "stale_binding".
 func (s PluginFeed) PluginBindingCode(launch *PluginFeedStatus) string {
 	code := "stale_binding"
 	_ = bus.WithJournalRead(s.store, func(bus.JournalView) error { // a failed read keeps "stale_binding"
 		p, _, err := s.loadPlugin()
-		switch {
-		case err != nil:
-		case launch != nil && launch.Capabilities == nil:
+		if err == nil {
 			code = launchBindingCode(p, launch)
-		default:
-			code = pluginBindingCode(p, launch)
 		}
 		return err
 	})
@@ -156,7 +132,7 @@ func (s pluginFiles) ownPluginInboxMessage(view bus.JournalView, installation, i
 	if err != nil {
 		return nil, "unavailable"
 	}
-	if inboxEntryState(view, p.Capabilities, *found) != "ok" {
+	if inboxEntryState(view, p, *found) != "ok" {
 		return nil, "unavailable"
 	}
 	m, size, err := view.CurrentMessage(id)

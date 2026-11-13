@@ -130,7 +130,7 @@ func (s pluginFiles) checkReply(view bus.JournalView, p pluginRecord, to, parent
 	if now.Sub(created) >= replyWindow {
 		return nil, errReplyExpired // a retry of a refused reply is refused again; no quota is used
 	}
-	if !slices.Contains(p.Capabilities.Receive, to) {
+	if !mayAnswer(view, p, to) {
 		return nil, errOutOfScope
 	}
 	if counted {
@@ -145,6 +145,12 @@ func (s pluginFiles) checkReply(view bus.JournalView, p pluginRecord, to, parent
 		ledger.Parents[parentID] = entry
 		return s.saveReplyLedger(ledger)
 	}, nil
+}
+
+// mayAnswer is the reply rule's scope part: receive access, and the session
+// is a member now (scope all, live).
+func mayAnswer(view bus.JournalView, p pluginRecord, to string) bool {
+	return p.Access.Receive && standardMember(view, p, to)
 }
 
 // replyParentTime checks that parentID was sent to THIS installation by a

@@ -47,8 +47,8 @@ exit 17
 		t.Fatal(err)
 	}
 	capabilityCLIOK(t, binary, store.Dir, "add", "reader", "--exec", executable, "--", result, session.ID, id)
-	capabilityCLIOK(t, binary, store.Dir, "configure", "reader", "--session", session.ID)
-	capabilityCLIOK(t, binary, store.Dir, "grant", "reader", "--read", session.ID)
+	capabilityCLIOK(t, binary, store.Dir, "configure", "reader", "--scope", "all")
+	capabilityCLIOK(t, binary, store.Dir, "grant", "reader", "--status", "--read", session.ID)
 	capabilityCLIOK(t, binary, store.Dir, "enable", "reader")
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

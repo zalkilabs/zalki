@@ -4,40 +4,16 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"slices"
 	"strconv"
 	"strings"
 	"unicode"
 
-	"github.com/zalkilabs/zalki/internal/model"
-	"github.com/zalkilabs/zalki/internal/pluginfeed"
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
-// installKind is one kind of access the manifest asked for, per session.
-type installKind struct {
-	label, help string
-	field       func(*pluginfeed.PluginInstallGrants) *[]string
-}
-
-var installKinds = []struct {
-	installKind
-	requested func(plugins.InstallAccess) bool
-}{
-	{installKind{"changes", "see state and message status, no text", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Sessions }}, func(r plugins.InstallAccess) bool { return r.Status }},
-	{installKind{"receive", "it may message this plugin, and the plugin may answer it", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Receive }}, func(r plugins.InstallAccess) bool { return r.Receive }},
-	{installKind{"send", "send it messages nobody asked for, as this plugin", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Send }}, func(r plugins.InstallAccess) bool { return r.Send }},
-	{installKind{"read", "read messages sent to it (from any sender)", func(g *pluginfeed.PluginInstallGrants) *[]string { return &g.Read }}, func(r plugins.InstallAccess) bool { return r.Read }},
-}
-
-// screenStyle is how the session rows are drawn.
-type screenStyle int
-
-const (
-	screenKeys  screenStyle = iota // checkbox screen with a cursor
-	screenPlan                     // the --yes plan: boxes show what was accepted
-	screenLines                    // line mode: numbered rows, the questions follow
-)
+// installQuestion is the one question of the install screen. Nothing is
+// installed unless the owner answers y.
+const installQuestion = "Install for all sessions? [y/N] "
 
 // plainText shows owner-facing text safely: anything not printable is quoted.
 func plainText(value string) string {
@@ -56,133 +32,75 @@ func plainLines(value string) string {
 	return strings.Join(lines, "\n")
 }
 
-// sessionLabel names a session for the owner; an unnamed one says so.
-func sessionLabel(session model.Session) string {
-	if session.Name == "" {
-		return "(no name)"
+// installAccessLine says what the plugin gets in every live session.
+func installAccessLine(requests plugins.InstallAccess) string {
+	var kinds []string
+	if requests.Status {
+		kinds = append(kinds, "changes = see state and message status, no text")
 	}
-	return plainText(session.Name)
+	if requests.Receive {
+		kinds = append(kinds, "receive = sessions may message this plugin, and it may answer them")
+	}
+	return "Access in every live session: " + strings.Join(kinds, "; ") + "\n"
 }
 
-// installScreen is the single review screen. Nothing starts selected.
-type installScreen struct {
-	header   string
-	kinds    []installKind
-	sessions []model.Session
-	selected map[[2]int]bool
-	row, col int
-	notice   string
+// extendedInstallError refuses send and read at install: they need the new
+// install screen. It names the owner-terminal commands that give them now.
+func extendedInstallError(name string, requests plugins.InstallAccess) error {
+	grant := "zalki plugins grant " + name
+	if requests.Status {
+		grant += " --status"
+	}
+	if requests.Receive {
+		grant += " --receive"
+	}
+	if requests.Send {
+		grant += " --send SESSION_ID"
+	}
+	if requests.Read {
+		grant += " --read SESSION_ID"
+	}
+	return fmt.Errorf("plugin install: extended access (send/read) needs the new install screen; not available in this build. To give it now, build the plugin yourself and run in your own terminal:\n"+
+		"  zalki plugins add %[1]s --exec /absolute/path/to/the/built/plugin\n"+
+		"  zalki plugins configure %[1]s --scope all\n"+
+		"  %[2]s\n"+
+		"  zalki plugins enable %[1]s", name, grant)
 }
 
-func newInstallScreen(header string, requests plugins.InstallAccess, sessions []model.Session) *installScreen {
-	s := &installScreen{header: header, sessions: sessions, selected: map[[2]int]bool{}}
-	for _, kind := range installKinds {
-		if kind.requested(requests) {
-			s.kinds = append(s.kinds, kind.installKind)
-		}
+// askInstallRaw shows the screen and reads one key: y installs, any other
+// key, Enter or closed input cancels.
+func askInstallRaw(in io.Reader, out io.Writer, screen string) (bool, error) {
+	if _, err := io.WriteString(out, "\x1b[H\x1b[2J"+strings.ReplaceAll(screen+installQuestion, "\n", "\r\n")); err != nil {
+		return false, err
 	}
-	return s
+	k := readInstallKey(bufio.NewReader(in))
+	if _, err := io.WriteString(out, "\r\n"); err != nil {
+		return false, err
+	}
+	return k == "y" || k == "Y", nil
 }
 
-func (s *installScreen) rows() int { return len(s.sessions) }
-
-func (s *installScreen) grants() pluginfeed.PluginInstallGrants {
-	var g pluginfeed.PluginInstallGrants
-	for key, on := range s.selected {
-		if on {
-			field := s.kinds[key[1]].field(&g)
-			*field = append(*field, s.sessions[key[0]].ID)
-		}
+// askInstallLines is the plain fallback when raw keys are unavailable.
+func askInstallLines(in io.Reader, out io.Writer, screen string) (bool, error) {
+	if _, err := io.WriteString(out, screen); err != nil {
+		return false, err
 	}
-	return g
+	answer, err := askLine(bufio.NewReader(in), out, installQuestion)
+	return answer == "y" || answer == "yes", err
 }
 
-// check returns a plain reason when the current choices cannot be installed.
-func (s *installScreen) check() string {
-	g := s.grants()
-	if len(g.Sessions) == 0 {
-		return "Select at least one session for changes."
+func askLine(lines *bufio.Reader, out io.Writer, prompt string) (string, error) {
+	if _, err := io.WriteString(out, prompt); err != nil {
+		return "", err
 	}
-	ids := slices.Concat(g.Read, g.Send, g.Receive)
-	slices.Sort(ids)
-	if len(g.Sessions) > 16 || len(slices.Compact(ids)) > 16 {
-		return "Select at most 16 sessions per kind of access."
+	line, err := lines.ReadString('\n')
+	if cancelled(err) {
+		return "", errInstallCancelled
 	}
-	return ""
-}
-
-func (s *installScreen) render(style screenStyle) string {
-	var b strings.Builder
-	b.WriteString(s.header)
-	legend := make([]string, 0, len(s.kinds))
-	for _, kind := range s.kinds {
-		legend = append(legend, kind.label+" = "+kind.help)
+	if err != nil {
+		line = "" // Closed input means no, even after a partial line.
 	}
-	b.WriteString("Access per session: " + strings.Join(legend, "; ") + "\n")
-	cursor := style == screenKeys
-	if cursor {
-		b.WriteString("Arrows move, Space changes a choice, y installs, n or Enter cancels.\n")
-	}
-	for i, session := range s.sessions {
-		if style != screenLines {
-			b.WriteString(s.mark(cursor && s.row == i))
-			for j, kind := range s.kinds {
-				on := s.selected[[2]int{i, j}]
-				b.WriteString(s.box(cursor && s.row == i && s.col == j, on) + kind.label + "  ")
-			}
-		}
-		fmt.Fprintf(&b, "%d. %s  %s\n", i+1, sessionLabel(session), plainText(session.ID))
-	}
-	if s.notice != "" {
-		b.WriteString(s.notice + "\n")
-	}
-	b.WriteString("Install and enable with these choices? [y/N] ")
-	return b.String()
-}
-
-func (s *installScreen) mark(here bool) string {
-	if here {
-		return "> "
-	}
-	return "  "
-}
-
-func (s *installScreen) box(focus, on bool) string {
-	text := "[ ]"
-	if on {
-		text = "[x]"
-	}
-	if focus {
-		return "\x1b[7m" + text + "\x1b[0m "
-	}
-	return text + " "
-}
-
-// key applies one key. It returns done and whether the owner said yes.
-func (s *installScreen) key(k string) (bool, bool) {
-	s.notice = ""
-	switch k {
-	case "up", "k":
-		s.row = max(s.row-1, 0)
-	case "down", "j":
-		s.row = min(s.row+1, s.rows()-1)
-	case "left", "h":
-		s.col = max(s.col-1, 0)
-	case "right", "l":
-		s.col = min(s.col+1, len(s.kinds)-1)
-	case " ":
-		if s.row < len(s.sessions) {
-			key := [2]int{s.row, s.col}
-			s.selected[key] = !s.selected[key]
-		}
-	case "y", "Y":
-		if s.notice = s.check(); s.notice == "" {
-			return true, true
-		}
-	case "n", "N", "q", "enter", "ctrl-c":
-		return true, false
-	}
-	return false, false
+	return strings.ToLower(strings.TrimSpace(line)), nil
 }
 
 // readInstallKey decodes one key from raw terminal input.
@@ -210,97 +128,4 @@ func readInstallKey(r *bufio.Reader) string {
 		return "eof"
 	}
 	return map[byte]string{'A': "up", 'B': "down", 'C': "right", 'D': "left"}[c]
-}
-
-// chooseRaw runs the checkbox screen on raw key input.
-func (s *installScreen) chooseRaw(in io.Reader, out io.Writer) (bool, error) {
-	keys := bufio.NewReader(in)
-	for {
-		if _, err := io.WriteString(out, "\x1b[H\x1b[2J"+strings.ReplaceAll(s.render(screenKeys), "\n", "\r\n")); err != nil {
-			return false, err
-		}
-		k := readInstallKey(keys)
-		if k == "eof" { // Closed input means no, and the screen is never redrawn again.
-			_, err := io.WriteString(out, "\r\n")
-			return false, err
-		}
-		if done, yes := s.key(k); done {
-			_, err := io.WriteString(out, "\r\n")
-			return yes, err
-		}
-	}
-}
-
-// chooseLines is the plain fallback when raw keys are unavailable.
-func (s *installScreen) chooseLines(in io.Reader, out io.Writer) (bool, error) {
-	lines := bufio.NewReader(in)
-	if _, err := io.WriteString(out, strings.TrimSuffix(s.render(screenLines), "Install and enable with these choices? [y/N] ")); err != nil {
-		return false, err
-	}
-	for j, kind := range s.kinds {
-		if err := s.askNumbers(lines, out, j, kind.label); err != nil {
-			return false, err
-		}
-	}
-	if s.notice = s.check(); s.notice != "" {
-		_, err := io.WriteString(out, s.notice+" Nothing was installed.\n")
-		return false, err
-	}
-	answer, err := askLine(lines, out, "Install and enable with these choices? [y/N] ")
-	return answer == "y" || answer == "yes", err
-}
-
-func askLine(lines *bufio.Reader, out io.Writer, prompt string) (string, error) {
-	if _, err := io.WriteString(out, prompt); err != nil {
-		return "", err
-	}
-	line, err := lines.ReadString('\n')
-	if cancelled(err) {
-		return "", errInstallCancelled
-	}
-	if err != nil {
-		line = "" // Closed input means no, even after a partial line.
-	}
-	return strings.ToLower(strings.TrimSpace(line)), nil
-}
-
-func (s *installScreen) askNumbers(lines *bufio.Reader, out io.Writer, col int, label string) error {
-	for range 3 {
-		answer, err := askLine(lines, out, "Sessions for "+label+" (enter session numbers, e.g. 1,3; empty for none): ")
-		if err != nil {
-			return err
-		}
-		if picked, ok := s.parseNumbers(answer); ok {
-			for _, row := range picked {
-				s.selected[[2]int{row, col}] = true
-			}
-			return nil
-		}
-		if _, err := io.WriteString(out, s.numberHelp()); err != nil {
-			return err
-		}
-	}
-	return fmt.Errorf("no valid session numbers for %s; nothing was installed", label)
-}
-
-func (s *installScreen) numberHelp() string {
-	if len(s.sessions) == 1 {
-		return "Use a number from the list (1).\n"
-	}
-	return fmt.Sprintf("Use numbers from the list (1-%d), separated by commas.\n", len(s.sessions))
-}
-
-func (s *installScreen) parseNumbers(answer string) ([]int, bool) {
-	var rows []int
-	for part := range strings.SplitSeq(answer, ",") {
-		if part = strings.TrimSpace(part); part == "" {
-			continue
-		}
-		n, err := strconv.Atoi(part)
-		if err != nil || n < 1 || n > len(s.sessions) {
-			return nil, false
-		}
-		rows = append(rows, n-1)
-	}
-	return rows, true
 }

@@ -13,7 +13,7 @@ import (
 )
 
 func TestExternalPluginOwnerAddAndStatusMismatch(t *testing.T) {
-	store, session := pluginOwnerFixture(t)
+	store, _ := pluginOwnerFixture(t)
 	file := filepath.Join(t.TempDir(), "plugin")
 	if err := os.WriteFile(file, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
 		t.Fatal(err)
@@ -23,7 +23,10 @@ func TestExternalPluginOwnerAddAndStatusMismatch(t *testing.T) {
 	if raw, err := pluginOwnerLocal(t, store.Dir, command...); err != nil {
 		t.Fatal(string(raw), err)
 	}
-	if raw, err := pluginOwnerLocal(t, store.Dir, "configure", "external", "--session", session.ID); err != nil {
+	if raw, err := pluginOwnerLocal(t, store.Dir, "configure", "external", "--scope", "all"); err != nil {
+		t.Fatal(string(raw), err)
+	}
+	if raw, err := pluginOwnerLocal(t, store.Dir, "grant", "external", "--status"); err != nil {
 		t.Fatal(string(raw), err)
 	}
 	status := readExternalOwnerStatus(t, store.Dir)

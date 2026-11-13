@@ -11,23 +11,23 @@ import (
 // An old record (inbox_from/inbox_read) is refused with the exact fix; list
 // still shows it, and remove deletes it.
 func TestPluginListAndOldRecord(t *testing.T) {
-	store, session := pluginOwnerFixture(t)
+	store, _ := pluginOwnerFixture(t)
 	exe := filepath.Join(t.TempDir(), "external")
 	if err := os.WriteFile(exe, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"add", "ext", "--exec", exe}, {"configure", "ext", "--session", session.ID}, {"grant", "ext", "--receive", session.ID}} {
+	for _, args := range [][]string{{"add", "ext", "--exec", exe}, {"configure", "ext", "--scope", "all"}, {"grant", "ext", "--status", "--receive"}} {
 		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
 			t.Fatal(args, string(raw), err)
 		}
 	}
 	raw, err := pluginOwnerLocal(t, store.Dir, "list")
-	if err != nil || string(raw) != "ext  disabled  changes from 1, receive from 1, send to 0, read from 0 session(s)\n" {
+	if err != nil || string(raw) != "ext  disabled  scope all; status, receive; send to 0, read from 0 session(s)\n" {
 		t.Fatalf("list: %q %v", raw, err)
 	}
 	writeOldPluginRecord(t, filepath.Join(store.Dir, "plugins", "ext.json"))
 	fix := "ext: plugin record from an older Zalki. Run: zalki plugins remove ext && zalki plugins install FOLDER"
-	assertOldRecordRefused(t, store.Dir, fix, session.ID)
+	assertOldRecordRefused(t, store.Dir, fix)
 	if raw, err := pluginOwnerLocal(t, store.Dir, "list"); err != nil || !strings.HasPrefix(string(raw), "ext  old record, remove it: "+fix) {
 		t.Fatalf("list of an old record: %q %v", raw, err)
 	}
@@ -40,7 +40,7 @@ func TestPluginListAndOldRecord(t *testing.T) {
 }
 
 // writeOldPluginRecord turns a record into the shape an older Zalki wrote:
-// inbox_from and inbox_read in place of receive.
+// no scope, a session list and inbox_from/inbox_read in place of receive.
 func writeOldPluginRecord(t *testing.T, path string) {
 	t.Helper()
 	record, err := os.ReadFile(path)
@@ -51,9 +51,12 @@ func writeOldPluginRecord(t *testing.T, path string) {
 	if err := json.Unmarshal(record, &fields); err != nil {
 		t.Fatal(err)
 	}
-	c := fields["capabilities"].(map[string]any)
-	c["inbox_from"], c["inbox_read"] = c["receive"], true
-	delete(c, "receive")
+	// The shape before rule scope: a session list and the old grant keys.
+	for _, key := range []string{"scope", "access", "revision"} {
+		delete(fields, key)
+	}
+	fields["sessions"] = []string{}
+	fields["capabilities"] = map[string]any{"inbox_from": []string{}, "inbox_read": true}
 	old, err := json.Marshal(fields)
 	if err != nil {
 		t.Fatal(err)
@@ -63,9 +66,9 @@ func writeOldPluginRecord(t *testing.T, path string) {
 	}
 }
 
-func assertOldRecordRefused(t *testing.T, state, fix, session string) {
+func assertOldRecordRefused(t *testing.T, state, fix string) {
 	t.Helper()
-	for _, args := range [][]string{{"status", "ext"}, {"enable", "ext"}, {"grant", "ext", "--receive", session}} {
+	for _, args := range [][]string{{"status", "ext"}, {"enable", "ext"}, {"grant", "ext", "--status", "--receive"}} {
 		if raw, err := pluginOwnerLocal(t, state, args...); err == nil || err.Error() != fix {
 			t.Fatalf("%v on an old record: %v %s", args, err, raw)
 		}

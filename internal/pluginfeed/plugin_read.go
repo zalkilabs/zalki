@@ -2,7 +2,6 @@ package pluginfeed
 
 import (
 	"encoding/json"
-	"slices"
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -50,7 +49,7 @@ func (s PluginFeed) ReadPluginMessage(session, id string) ([]byte, error) {
 	if err != nil {
 		return nil, pluginReadFailure("unavailable")
 	}
-	if before.ID == "" || before.Launch == nil || before.Capabilities == nil {
+	if before.ID == "" || before.Launch == nil || len(before.Access.Read) == 0 {
 		return nil, pluginReadFailure("denied")
 	}
 	if err := before.Launch.Verify(); err != nil {
@@ -72,7 +71,7 @@ func (s PluginFeed) ReadPluginMessageBound(before *PluginFeedStatus, session, id
 	if validPluginReadInput(s, session, id) {
 		code = "denied"
 		readErr = pluginReadFailure(code)
-		if before != nil && before.ID != "" && before.Launch != nil && before.Capabilities != nil {
+		if before != nil && before.ID != "" && before.Launch != nil && len(before.Access.Read) > 0 {
 			if err := s.write(func(view bus.JournalView) error {
 				raw, code, readErr = s.readPluginMessageAt(view, before, session, id, request, time.Now().UTC())
 				return nil
@@ -91,7 +90,7 @@ func (s PluginFeed) ReadPluginMessageBound(before *PluginFeedStatus, session, id
 
 func validPluginReadInput(s PluginFeed, session, id string) bool {
 	canonical, err := model.UUID(id)
-	return err == nil && canonical == id && len(session)+len(id) <= 4096 && s.checkName() == nil && s.checkCapabilityGrants(PluginCapabilityGrants{Read: []string{session}}) == nil
+	return err == nil && canonical == id && len(session)+len(id) <= 4096 && s.checkName() == nil && s.checkAccess(PluginAccess{Read: []string{session}}) == nil
 }
 
 // Caller holds Store flock. The clock parameter also makes race/retention
@@ -105,7 +104,7 @@ func (s pluginFiles) readPluginMessageAt(view bus.JournalView, before *PluginFee
 	if err != nil {
 		return nil, "audit_unavailable", pluginReadFailure("audit_unavailable")
 	}
-	result := pluginReadResult{Request: request, Code: pluginReadAuthorization(p, before, session)}
+	result := pluginReadResult{Request: request, Code: pluginReadAuthorization(view, p, before, session)}
 	// A terminal binding code (revoked, stale) still wins, so the child stops.
 	// Otherwise the limit applies to granted AND refused reads and writes no
 	// row, so a flood of refused reads cannot fill the audit.
@@ -170,7 +169,7 @@ func finishPluginReadResult(before *PluginFeedStatus, session, id string, result
 	if result.Code == "ok" || result.Code == "native_deferred" {
 		responseBytes = len(raw)
 	}
-	row := pluginReadAuditRow{At: now, Plugin: before.ID, Request: result.Request, Session: session, Message: id, Revision: before.Capabilities.Revision, Outcome: result.Code, Bytes: responseBytes}
+	row := pluginReadAuditRow{At: now, Plugin: before.ID, Request: result.Request, Session: session, Message: id, Revision: before.Revision, Outcome: result.Code, Bytes: responseBytes}
 	if err := save(append(capRefusedReadRows(rows, row), row), now); err != nil {
 		return nil, "audit_unavailable", pluginReadFailure("audit_unavailable")
 	}
@@ -192,11 +191,13 @@ func pluginNativeReadMessage(view bus.JournalView, session, id string) (*pluginR
 	return result, outcome
 }
 
-func pluginReadAuthorization(p pluginRecord, before *PluginFeedStatus, session string) string {
-	if code := pluginBindingCode(p, before); code != "ok" {
+// pluginReadAuthorization: the launch still holds, and session is in the
+// exact read grant and a member now (live). Plugin and owner reads both use it.
+func pluginReadAuthorization(view bus.JournalView, p pluginRecord, before *PluginFeedStatus, session string) string {
+	if code := launchBindingCode(p, before); code != "ok" {
 		return code
 	}
-	if !slices.Contains(p.Capabilities.Read, session) {
+	if !extendedMember(view, p, p.Access.Read, session) {
 		return "denied"
 	}
 	return "ok"

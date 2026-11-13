@@ -121,5 +121,5 @@ func validPluginInboxIndex(index pluginInboxIndex, installation string, now time
 }
 
 func validPluginInboxEntry(view bus.JournalView, entry pluginInboxEntry, now time.Time) bool {
-	return view.CheckSessionKind(entry.Sender) == nil && model.IsCanonicalUUID(entry.ID) && model.IsCanonicalUUID(entry.Generation) && model.IsCanonicalUUID(entry.Revision) && !entry.At.IsZero() && !entry.At.After(now) && entry.Bytes >= 1 && entry.Bytes <= bus.MaxMessageRecordBytes
+	return view.CheckSessionKind(entry.Sender) == nil && model.IsCanonicalUUID(entry.ID) && model.IsCanonicalUUID(entry.Generation) && validPluginSHA(entry.Revision) && !entry.At.IsZero() && !entry.At.After(now) && entry.Bytes >= 1 && entry.Bytes <= bus.MaxMessageRecordBytes
 }

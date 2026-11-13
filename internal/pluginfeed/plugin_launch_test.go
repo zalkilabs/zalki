@@ -25,7 +25,10 @@ func externalPinFixture(t *testing.T) (PluginFeed, string, string) {
 	if err := f.AddExternalPlugin(path, []string{"$HOME", "literal space"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.ConfigurePluginFeed([]string{v.ID}); err != nil {
+	if err := f.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.GrantPluginAccess(PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	return f, path, v.ID
@@ -133,12 +136,12 @@ func TestExternalPluginPinCannotCrossReconfigureOrReadd(t *testing.T) {
 }
 
 func pinAcrossGrantsSubtest(t *testing.T) {
-	f, _, id := externalPinFixture(t)
+	f, _, _ := externalPinFixture(t)
 	pin, prior, err := f.preparePluginPin()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := f.ConfigurePluginFeed([]string{id, "codex:" + model.NewUUID()}); err != nil {
+	if err := f.ConfigurePluginScope("none"); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.enablePluginFeed(true, pin, prior); model.ErrorCodeOf(err) != model.CodeConflict {
@@ -151,7 +154,7 @@ func pinAcrossGrantsSubtest(t *testing.T) {
 }
 
 func pinAcrossReaddSubtest(t *testing.T) {
-	f, path, id := externalPinFixture(t)
+	f, path, _ := externalPinFixture(t)
 	pin, prior, err := f.preparePluginPin()
 	if err != nil {
 		t.Fatal(err)
@@ -162,7 +165,7 @@ func pinAcrossReaddSubtest(t *testing.T) {
 	if err := f.AddExternalPlugin(path, pin.Args); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.ConfigurePluginFeed([]string{id, "codex:" + model.NewUUID()}); err != nil {
+	if err := f.ConfigurePluginScope("none"); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.enablePluginFeed(true, pin, prior); model.ErrorCodeOf(err) != model.CodeConflict {
@@ -228,6 +231,9 @@ func rewritePluginLaunchRecord(t *testing.T, f PluginFeed, edit func(*PluginLaun
 		t.Fatal(p, err)
 	}
 	edit(p.Launch)
+	// The revision is an unkeyed hash: whoever can write the record can
+	// recompute it. The pin is a drift check, not authenticity.
+	p.Revision = pluginRevision(p)
 	raw, err := journal.EncodeJSON(p, 16<<10)
 	if err != nil {
 		t.Fatal(err)

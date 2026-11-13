@@ -11,7 +11,7 @@ import (
 )
 
 func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
-	var sessions []string
+	var scope string
 	var executable string
 	cmd := &cobra.Command{
 		Long: pluginTrustNotice,
@@ -39,7 +39,7 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 			case "remove":
 				return pluginDone(cmd, feed.RemovePlugin(), "Removed %s.", name)
 			case "configure":
-				return pluginDone(cmd, feed.ConfigurePluginFeed(sessions), "Configured %s: %d session(s).", name, len(sessions))
+				return pluginDone(cmd, feed.ConfigurePluginScope(scope), "Configured %s: scope %s.", name, plainText(scope))
 			case "enable":
 				return pluginDone(cmd, feed.EnablePluginFeed(true), "Enabled %s.", name)
 			case "disable":
@@ -50,7 +50,7 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 		},
 	}
 	if action == "configure" {
-		cmd.Flags().StringArrayVar(&sessions, "session", nil, "explicit canonical session ID (repeat up to 16 times)")
+		cmd.Flags().StringVar(&scope, "scope", "", "all: standard access (status, receive) applies to every live session; none: to no session")
 	}
 	if action == "add" {
 		cmd.Flags().StringVar(&executable, "exec", "", "absolute executable; arguments after -- are literal and visible in process listings")
@@ -74,9 +74,8 @@ func printPluginStatus(cmd *cobra.Command, store bus.Store, name string) error {
 	}
 	value := struct {
 		pluginfeed.PluginFeedStatus
-		PinMatches        *bool  `json:"pin_matches,omitempty"`
-		PinError          string `json:"pin_error,omitempty"`
-		CapabilitiesBound *bool  `json:"capabilities_bound,omitempty"`
+		PinMatches *bool  `json:"pin_matches,omitempty"`
+		PinError   string `json:"pin_error,omitempty"`
 	}{PluginFeedStatus: status}
 	if status.Launch != nil {
 		err := status.Launch.Verify()
@@ -85,10 +84,6 @@ func printPluginStatus(cmd *cobra.Command, store bus.Store, name string) error {
 		if err != nil {
 			value.PinError = err.Error()
 		}
-	}
-	if c := status.Capabilities; c != nil {
-		bound := c.Installation == status.ID && status.Launch != nil && c.PinSHA256 == status.Launch.PinSHA256
-		value.CapabilitiesBound = &bound
 	}
 	return json.NewEncoder(cmd.OutOrStdout()).Encode(value)
 }

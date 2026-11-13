@@ -14,10 +14,10 @@ func TestNamedPluginIsolationAndReceiptFence(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
 	foreign, _ := register(t, s, "codex")
-	a := installedNamedFeed(t, s, "alpha", v.ID)
-	b := installedNamedFeed(t, s, "beta", v.ID)
+	a := installedNamedFeed(t, s, "alpha")
+	b := installedNamedFeed(t, s, "beta")
 
-	assertNamedPluginGrantIsolation(t, s, a, b, v.ID, foreign.ID)
+	assertNamedPluginGrantIsolation(t, s, a, b, foreign.ID)
 	if err := s.Update(v.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestNamedPluginIsolationAndReceiptFence(t *testing.T) {
 
 func TestNamedPluginRemovalReaddAndPersistentData(t *testing.T) {
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
+	register(t, s, "codex")
 	f := NewPluginFeed(s, "alpha")
 	if err := f.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func TestNamedPluginRemovalReaddAndPersistentData(t *testing.T) {
 	if err := os.WriteFile(sentinel, []byte("keep"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	old := prepareNamedPluginRemoval(t, f, v.ID)
+	old := prepareNamedPluginRemoval(t, f)
 	assertNamedPluginPersistentData(t, f, before.ID, sentinel)
 	assertNamedPluginLeaseProtectsRemoval(t, f)
 	if err := f.RemovePlugin(); err != nil {
@@ -76,10 +76,10 @@ func TestNamedPluginRemovalReaddAndPersistentData(t *testing.T) {
 	if err := f.RemovePlugin(); err != nil {
 		t.Fatal("remove retry failed", err)
 	}
-	if err := f.ConfigurePluginFeed([]string{v.ID}); model.ErrorCodeOf(err) != model.CodeNotFound {
+	if err := f.ConfigurePluginScope("all"); model.ErrorCodeOf(err) != model.CodeNotFound {
 		t.Fatal("configure recreated removed plugin", err)
 	}
-	assertNamedPluginReaddFences(t, f, before.ID, v.ID, old)
+	assertNamedPluginReaddFences(t, f, before.ID, old)
 }
 
 func TestNamedPluginRejectsInvalidNamesWithoutState(t *testing.T) {
@@ -87,7 +87,7 @@ func TestNamedPluginRejectsInvalidNamesWithoutState(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			s := bus.Store{Dir: filepath.Join(t.TempDir(), "absent")}
 			f := NewPluginFeed(s, name)
-			for _, call := range []func() error{func() error { return f.AddExternalPlugin("/bin/sh", nil) }, f.RemovePlugin, func() error { return f.ConfigurePluginFeed(nil) }, func() error { return f.EnablePluginFeed(true) }, func() error { _, err := nextFeed(f); return err }, func() error { return f.AckPluginFeed(PluginDelivery{}) }, func() error { _, err := f.PluginStatus(); return err }} {
+			for _, call := range []func() error{func() error { return f.AddExternalPlugin("/bin/sh", nil) }, f.RemovePlugin, func() error { return f.ConfigurePluginScope("all") }, func() error { return f.EnablePluginFeed(true) }, func() error { _, err := nextFeed(f); return err }, func() error { return f.AckPluginFeed(PluginDelivery{}) }, func() error { _, err := f.PluginStatus(); return err }} {
 				if err := call(); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 					t.Fatal("accepted invalid name", err)
 				}
@@ -156,7 +156,7 @@ func TestNamedPluginConfigureDoesNotRecreateRemovedInstallation(t *testing.T) {
 	if err := f.RemovePlugin(); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.ConfigurePluginFeed([]string{"codex:" + model.NewUUID()}); model.ErrorCodeOf(err) != model.CodeNotFound {
+	if err := f.ConfigurePluginScope("all"); model.ErrorCodeOf(err) != model.CodeNotFound {
 		t.Fatal("configure recreated removed installation", err)
 	}
 	if _, err := os.Lstat(f.pluginPath()); !errors.Is(err, os.ErrNotExist) {
@@ -167,13 +167,16 @@ func TestNamedPluginConfigureDoesNotRecreateRemovedInstallation(t *testing.T) {
 	}
 }
 
-func installedNamedFeed(t *testing.T, s bus.Store, name string, ids ...string) PluginFeed {
+func installedNamedFeed(t *testing.T, s bus.Store, name string) PluginFeed {
 	t.Helper()
 	feed := NewPluginFeed(s, name)
 	if err := feed.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := feed.ConfigurePluginFeed(ids); err != nil {
+	if err := feed.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.GrantPluginAccess(PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := feed.EnablePluginFeed(true); err != nil {
@@ -189,12 +192,13 @@ func installedNamedFeed(t *testing.T, s bus.Store, name string, ids ...string) P
 	return feed
 }
 
-func assertNamedPluginGrantIsolation(t *testing.T, s bus.Store, a, b PluginFeed, id, foreign string) {
+func assertNamedPluginGrantIsolation(t *testing.T, s bus.Store, a, b PluginFeed, foreign string) {
 	t.Helper()
+	setScope(t, b, "none")
 	if err := a.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.ConfigurePluginFeed([]string{id, foreign}); err != nil {
+	if err := a.ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.EnablePluginFeed(true); err != nil {
@@ -218,12 +222,12 @@ func assertNamedPluginGrantIsolation(t *testing.T, s bus.Store, a, b PluginFeed,
 		t.Fatal(err)
 	}
 	if skipped, err := nextFeed(b); err != nil || skipped.ID != "" {
-		t.Fatal("one plugin exposed another's grant", skipped, err)
+		t.Fatal("a plugin with scope none saw a session", skipped, err)
 	}
-
+	setScope(t, b, "all")
 }
 
-func assertNamedPluginReaddFences(t *testing.T, f PluginFeed, previousID, id string, old PluginDelivery) {
+func assertNamedPluginReaddFences(t *testing.T, f PluginFeed, previousID string, old PluginDelivery) {
 	t.Helper()
 	if err := f.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
@@ -232,7 +236,10 @@ func assertNamedPluginReaddFences(t *testing.T, f PluginFeed, previousID, id str
 	if err != nil || after.ID == previousID || after.Enabled {
 		t.Fatal("re-add reused identity or enabled state", after, err)
 	}
-	if err := f.ConfigurePluginFeed([]string{id}); err != nil {
+	if err := f.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.GrantPluginAccess(PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.EnablePluginFeed(true); err != nil {
@@ -254,9 +261,12 @@ func assertNamedPluginPersistentData(t *testing.T, f PluginFeed, id, sentinel st
 	}
 }
 
-func prepareNamedPluginRemoval(t *testing.T, f PluginFeed, id string) PluginDelivery {
+func prepareNamedPluginRemoval(t *testing.T, f PluginFeed) PluginDelivery {
 	t.Helper()
-	if err := f.ConfigurePluginFeed([]string{id}); err != nil {
+	if err := f.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.GrantPluginAccess(PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.EnablePluginFeed(true); err != nil {
@@ -273,4 +283,18 @@ func prepareNamedPluginRemoval(t *testing.T, f PluginFeed, id string) PluginDeli
 		t.Fatal(err)
 	}
 	return old
+}
+
+// setScope changes an enabled plugin's scope (disable, configure, enable)
+// and acks the new gap.
+func setScope(t *testing.T, f PluginFeed, scope string) {
+	t.Helper()
+	for _, step := range []func() error{func() error { return f.EnablePluginFeed(false) }, func() error { return f.ConfigurePluginScope(scope) }, func() error { return f.EnablePluginFeed(true) }} {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if gap, err := nextFeed(f); err != nil || f.AckPluginFeed(gap) != nil {
+		t.Fatal("new scope: gap", gap, err)
+	}
 }

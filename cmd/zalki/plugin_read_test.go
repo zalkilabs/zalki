@@ -25,7 +25,7 @@ func pluginReadOwnerFixture(t *testing.T) (string, bus.Store, model.Message) {
 		t.Fatal(err)
 	}
 	capabilityCLIOK(t, binary, store.Dir, "add", "external", "--exec", executable)
-	capabilityCLIOK(t, binary, store.Dir, "configure", "external", "--session", session.ID)
+	capabilityCLIOK(t, binary, store.Dir, "configure", "external", "--scope", "all")
 	m := model.Message{Schema: 1, ID: "10000000-0000-4000-8000-000000000002", From: session.ID, To: session.ID, TargetGeneration: session.Generation, Body: "PRIVATE-B1-CLI-BODY <>&\nsecret", CreatedAt: "2000-01-01T00:00:00Z", AcknowledgedAt: "2000-01-02T00:00:00Z", Status: model.StatusSubmitted}
 	raw, err := journal.EncodeJSON(m, 128<<10)
 	if err != nil {
@@ -34,7 +34,7 @@ func pluginReadOwnerFixture(t *testing.T) (string, bus.Store, model.Message) {
 	if err := journal.WriteAtomic(filepath.Join(store.Dir, "messages", m.ID+".json"), raw); err != nil {
 		t.Fatal(err)
 	}
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--read", session.ID)
+	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--status", "--read", session.ID)
 	capabilityCLIOK(t, binary, store.Dir, "enable", "external")
 	return binary, store, m
 }
@@ -90,7 +90,7 @@ func TestPluginReadOwnerCLIRequiredScopeAndHelp(t *testing.T) {
 		t.Fatal("help hid owner/host limits", string(raw), err)
 	}
 	capabilityCLIOK(t, binary, store.Dir, "disable", "external")
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--send", m.To, "--receive", m.From)
+	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--status", "--send", m.To, "--receive")
 	capabilityCLIOK(t, binary, store.Dir, "enable", "external")
 	raw, err = pluginOwnerCLI(t, binary, store.Dir, "read", "external", "--session", m.To, "--message", m.ID)
 	if err == nil || bytes.Contains(raw, []byte("PRIVATE-B1-CLI-BODY")) {

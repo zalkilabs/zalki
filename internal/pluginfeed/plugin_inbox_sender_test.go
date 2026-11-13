@@ -12,50 +12,33 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// regrantInbox sets the accept_from list (disable, grant, enable) and
-// returns the status of a new launch.
-func regrantInbox(t *testing.T, f PluginFeed, from ...string) PluginFeedStatus {
-	t.Helper()
-	if err := f.EnablePluginFeed(false); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: from}); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.EnablePluginFeed(true); err != nil {
-		t.Fatal(err)
-	}
-	status, err := f.PluginStatus()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return status
-}
-
-// TestInboxOffersOnlyCurrentSenders: X sends, then Y sends. With X's grant
-// removed, inbox_next skips X's message (it stays) and returns Y's. With X
-// granted again, X's message comes back first.
-func TestInboxOffersOnlyCurrentSenders(t *testing.T) {
+// TestInboxOffersOnlyCurrentMembers: X sends, then Y sends. With X retired,
+// inbox_next skips X's message (it stays) and returns Y's, and the owner
+// read refuses X's. When X registers again, X's message comes back first.
+func TestInboxOffersOnlyCurrentMembers(t *testing.T) {
 	x := newInboxReadFixture(t, "")
 	y, yKey := register(t, x.f.store, "cursor")
-	x.status = regrantInbox(t, x.f, x.from.ID, y.ID)
 	ySent, err := x.service.Send(context.Background(), sendFrom(x, y.ID, yKey))
 	if err != nil {
 		t.Fatal(err)
 	}
-	x.status = regrantInbox(t, x.f, y.ID)
+	if err := x.f.store.Update(x.from.ID, model.StateRetired, true); err != nil {
+		t.Fatal(err)
+	}
 	if m := x.next(t); m == nil || m.ID != ySent.ID {
-		t.Fatal("a sender without the grant was offered, or the inbox stalled", m)
+		t.Fatal("a retired sender was offered, or the inbox stalled", m)
 	}
 	if len(x.index(t).Entries) != 2 {
-		t.Fatal("the ungranted sender's entry was dropped")
+		t.Fatal("the retired sender's entry was dropped")
 	}
 	if raw, err := x.f.ReadPluginInboxMessage(x.message.ID); len(raw) != 0 || err == nil {
-		t.Fatal("the owner read offered an ungranted sender's message", err)
+		t.Fatal("the owner read offered a retired sender's message", err)
 	}
-	x.status = regrantInbox(t, x.f, x.from.ID, y.ID)
+	if _, _, err := x.f.store.Register("cursor", strings.TrimPrefix(x.from.ID, "cursor:"), "/workspace", nil); err != nil {
+		t.Fatal(err)
+	}
 	if m := x.next(t); !x.isFirst(m) {
-		t.Fatal("the re-granted sender's message did not come back", m)
+		t.Fatal("the member's message did not come back", m)
 	}
 }
 

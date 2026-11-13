@@ -48,6 +48,8 @@ type InstallAccess struct {
 	Read    bool `json:"read"`
 }
 
+func (a InstallAccess) any() bool { return a.Status || a.Receive || a.Send || a.Read }
+
 // InstallManifest is the author's description of a local plugin folder.
 // Purpose is an author claim, not an audit.
 type InstallManifest struct {
@@ -141,8 +143,8 @@ func (m InstallManifest) validate() error {
 		return installError("purpose must be plain text of at most 200 bytes")
 	case !plainManifestText(m.Artifact, 256) || m.Artifact == "" || !filepath.IsLocal(m.Artifact) || filepath.Clean(m.Artifact) != m.Artifact:
 		return installError("artifact must be a clean relative path inside the folder")
-	case !m.Access.Status:
-		return installError("access.status must be true: an installed plugin needs at least one session")
+	case !m.Access.any():
+		return installError("access must ask for at least one of status, receive, send or read")
 	}
 	if err := m.validateBuild(); err != nil {
 		return err

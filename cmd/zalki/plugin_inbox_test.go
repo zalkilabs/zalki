@@ -28,8 +28,8 @@ func TestPluginInboxActualCLIStoredOnlyAndFailurePrivacy(t *testing.T) {
 		t.Fatal(err)
 	}
 	capabilityCLIOK(t, binary, store.Dir, "add", "inbox-fixture", "--exec", executable)
-	capabilityCLIOK(t, binary, store.Dir, "configure", "inbox-fixture", "--session", author.ID)
-	capabilityCLIOK(t, binary, store.Dir, "grant", "inbox-fixture", "--receive", author.ID)
+	capabilityCLIOK(t, binary, store.Dir, "configure", "inbox-fixture", "--scope", "all")
+	capabilityCLIOK(t, binary, store.Dir, "grant", "inbox-fixture", "--status", "--receive")
 	capabilityCLIOK(t, binary, store.Dir, "enable", "inbox-fixture")
 	status, err := pluginfeed.NewPluginFeed(store, "inbox-fixture").PluginStatus()
 	if err != nil {

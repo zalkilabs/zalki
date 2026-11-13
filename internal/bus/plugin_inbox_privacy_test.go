@@ -42,10 +42,10 @@ func newInboxPublicFixture(t *testing.T) inboxPublicFixture {
 	if err = feed.AddExternalPlugin(executable, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err = feed.ConfigurePluginFeed([]string{author.ID}); err != nil {
+	if err = feed.ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
-	if err = feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Receive: []string{author.ID}}); err != nil {
+	if err = feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err = feed.EnablePluginFeed(true); err != nil {
@@ -151,7 +151,7 @@ func TestPluginInboxNativeReadGrantDoesNotBecomeSentAccess(t *testing.T) {
 	if err := x.feed.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Read: []string{x.author.ID}, Receive: []string{x.author.ID}}); err != nil {
+	if err := x.feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true, Read: []string{x.author.ID}, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.feed.EnablePluginFeed(true); err != nil {

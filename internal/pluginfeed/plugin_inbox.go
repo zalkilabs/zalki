@@ -1,7 +1,6 @@
 package pluginfeed
 
 import (
-	"slices"
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -17,7 +16,7 @@ func AdmitPluginInbox(view bus.JournalView, stateDir, to, sender, generation str
 		if err != nil {
 			return err
 		}
-		if !pluginInboxAdmissionAllowed(p, sender) {
+		if !pluginInboxAdmissionAllowed(view, p, sender) {
 			return model.NewError(model.CodeUnauthorized, "plugin inbox admission denied")
 		}
 		reserve = func(message model.Message, now time.Time) error {
@@ -26,7 +25,7 @@ func AdmitPluginInbox(view bus.JournalView, stateDir, to, sender, generation str
 				if err != nil {
 					return err
 				}
-				return f.reservePluginInbox(index, message, generation, p.Capabilities.Revision, now)
+				return f.reservePluginInbox(index, message, generation, p.Revision, now)
 			})
 		}
 		return nil
@@ -34,7 +33,8 @@ func AdmitPluginInbox(view bus.JournalView, stateDir, to, sender, generation str
 	return reserve, err
 }
 
-func pluginInboxAdmissionAllowed(p pluginRecord, sender string) bool {
-	c := p.Capabilities
-	return p.Launch != nil && c != nil && c.Installation == p.ID && c.PinSHA256 == p.Launch.PinSHA256 && slices.Contains(c.Receive, sender)
+// pluginInboxAdmissionAllowed: the plugin has receive access and the sender
+// is a member now (scope all, live session).
+func pluginInboxAdmissionAllowed(view bus.JournalView, p pluginRecord, sender string) bool {
+	return p.Launch != nil && p.Access.Receive && standardMember(view, p, sender)
 }

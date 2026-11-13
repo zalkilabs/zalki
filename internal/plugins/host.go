@@ -50,7 +50,7 @@ func Run(ctx context.Context, store bus.Store, name string, output io.Writer) (r
 	// A plugin with message grants may see message text, so its stderr is
 	// never shown, from the start: also when its hello fails or times out.
 	// A feed-only plugin sees no text; its stderr is shown.
-	c.readMode.Store(status.Capabilities != nil)
+	c.readMode.Store(status.Access.Receive || len(status.Access.Send)+len(status.Access.Read) > 0)
 	defer func() {
 		cause := resultErr
 		resultErr = c.stop(cause)

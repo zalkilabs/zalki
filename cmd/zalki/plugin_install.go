@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -20,7 +19,7 @@ import (
 // installWarning is the one warning on the install screen. It keeps every
 // statement of the build warning and of pluginTrustNotice in two lines.
 const installWarning = "Warning: no sandbox. The build runs now and the plugin runs later with your OS user access and normal environment; Zalki cannot undo what they do to your files.\n" +
-	"The plugin can read and change all your Zalki state. Your session choices filter only the Zalki feed, not file access. Install only code you trust."
+	"The plugin can read and change all your Zalki state. Access filters only what Zalki exposes, not file access. Install only code you trust."
 
 type installChoice int
 
@@ -47,7 +46,6 @@ var installTerminal = func(in io.Reader) (installChoice, func()) {
 type installFlags struct {
 	yes, allowUnsandboxed bool
 	tree, as              string
-	grants                pluginfeed.PluginInstallGrants
 }
 
 func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
@@ -57,7 +55,7 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 		Short: "Build, pin, grant and enable a local plugin folder after one review",
 		Long: "Install reads zalki-plugin.json in FOLDER, copies the folder to a private staging folder, and shows one review screen with one [y/N] question. After yes it builds the copy, pins the result, records the selected access and enables the plugin in one step. Failure installs nothing. Enabled does not mean running: start it with zalki plugins run NAME. NAME is the manifest name, or --as NAME to install one more instance of the same plugin with its own data, lease and access.\n\n" +
 			installWarning +
-			"\n\nWithout a terminal, --yes needs --tree-sha256, --allow-unsandboxed and explicit access flags. --yes never grants everything the plugin asks for.",
+			"\n\nThe plugin gets the standard access it asks for (changes, receive) in every live session (scope all). Extended access (send, read) is not installed here; the install says how to give it. Without a terminal, --yes needs --tree-sha256 and --allow-unsandboxed.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			service, err := opts.service()
@@ -71,10 +69,6 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&flags.yes, "yes", false, "install without the review screen; needs the flags below")
 	cmd.Flags().StringVar(&flags.tree, "tree-sha256", "", "expected snapshot hash of FOLDER (with --yes)")
 	cmd.Flags().BoolVar(&flags.allowUnsandboxed, "allow-unsandboxed", false, "accept that the build and plugin run without a sandbox (with --yes)")
-	cmd.Flags().StringArrayVar(&flags.grants.Sessions, "session", nil, "exact session the plugin sees changes from (repeat; with --yes)")
-	cmd.Flags().StringArrayVar(&flags.grants.Read, "read", nil, "exact session whose received messages it may read, from any sender (repeat; with --yes)")
-	cmd.Flags().StringArrayVar(&flags.grants.Receive, "receive", nil, "exact session that may message it; it may answer that session (repeat; with --yes)")
-	cmd.Flags().StringArrayVar(&flags.grants.Send, "send", nil, "exact session it may send messages nobody asked for, shown as from this plugin (repeat; with --yes)")
 	return cmd
 }
 
@@ -94,8 +88,8 @@ func (p *pluginInstaller) say(format string, args ...any) {
 }
 
 func (p *pluginInstaller) run(folder string) (err error) {
-	if !p.flags.yes && (p.flags.tree != "" || p.flags.allowUnsandboxed || len(slices.Concat(p.flags.grants.Sessions, p.flags.grants.Read, p.flags.grants.Send, p.flags.grants.Receive)) > 0) {
-		return errors.New("access, --tree-sha256 and --allow-unsandboxed flags need --yes; without --yes, choose on the review screen")
+	if !p.flags.yes && (p.flags.tree != "" || p.flags.allowUnsandboxed) {
+		return errors.New("--tree-sha256 and --allow-unsandboxed need --yes; without --yes, answer on the review screen")
 	}
 	defer restoreSignalsOnCancel(p.cmd.Context())()
 	p.say("Preparing...\n")
@@ -109,17 +103,20 @@ func (p *pluginInstaller) run(folder string) (err error) {
 	if p.name = manifest.Name; p.flags.as != "" {
 		p.name = p.flags.as
 	}
+	if manifest.Access.Send || manifest.Access.Read {
+		return extendedInstallError(p.name, manifest.Access)
+	}
 	if p.install, err = pluginfeed.NewPluginFeed(p.store, p.name).BeginPluginInstall(); err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, p.install.Close()) }()
-	if err := p.prepare(manifest.Name); err != nil {
+	if err := p.prepare(manifest); err != nil {
 		return err
 	}
-	grants, ok, err := p.review()
+	access, ok, err := p.review()
 	switch {
 	case err == nil && ok:
-		err = p.finish(grants)
+		err = p.finish(access)
 	case err == nil:
 		err = errInstallCancelled
 	}
@@ -131,13 +128,20 @@ func (p *pluginInstaller) run(folder string) (err error) {
 	return err
 }
 
-func (p *pluginInstaller) prepare(name string) error {
+// prepare copies the folder and checks the copy, which is what is built and
+// reviewed. The first read only gave the name; a manifest that changed its
+// name or access since then is refused, and send/read are refused on the copy.
+func (p *pluginInstaller) prepare(first plugins.InstallManifest) error {
 	var err error
 	if p.source, err = plugins.SnapshotInstallSource(p.folder, p.install.StagingDir()); err != nil {
 		return err
 	}
-	if p.source.Manifest.Name != name {
+	frozen := p.source.Manifest
+	if frozen.Name != first.Name || frozen.Access != first.Access {
 		return errors.New("plugin install: the folder changed while it was copied; nothing was installed")
+	}
+	if frozen.Access.Send || frozen.Access.Read {
+		return extendedInstallError(p.name, frozen.Access)
 	}
 	if len(p.source.Manifest.Build) > 0 {
 		p.tool, err = plugins.ResolveInstallTool(p.source.Manifest.Build[0])
@@ -181,27 +185,12 @@ func quotedList(items []string) string {
 	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
-// sessions lists live sessions; Store.List already leaves out retired and exited ones.
-func (p *pluginInstaller) sessions() ([]model.Session, error) {
-	all, err := p.store.List()
-	if err != nil {
-		return nil, err
-	}
-	slices.SortStableFunc(all, func(a, b model.Session) int { return strings.Compare(b.UpdatedAt, a.UpdatedAt) })
-	return all[:min(len(all), 50)], nil
-}
-
-func (p *pluginInstaller) review() (pluginfeed.PluginInstallGrants, bool, error) {
-	sessions, err := p.sessions()
-	if err != nil {
-		return pluginfeed.PluginInstallGrants{}, false, err
-	}
-	screen := newInstallScreen(p.header(), p.source.Manifest.Access, sessions)
+func (p *pluginInstaller) review() (pluginfeed.PluginAccess, bool, error) {
+	requests := p.source.Manifest.Access
+	access := pluginfeed.PluginAccess{Status: requests.Status, Receive: requests.Receive}
+	screen := p.header() + installAccessLine(requests)
 	if p.flags.yes {
-		return p.reviewFlags(screen)
-	}
-	if len(sessions) == 0 {
-		return pluginfeed.PluginInstallGrants{}, false, errors.New("no Zalki sessions are registered, so there is nothing to grant; nothing was installed")
+		return access, true, p.reviewFlags(screen)
 	}
 	in, out := p.cmd.InOrStdin(), p.cmd.OutOrStdout()
 	choice, restore := installTerminal(in)
@@ -209,54 +198,32 @@ func (p *pluginInstaller) review() (pluginfeed.PluginInstallGrants, bool, error)
 	// Ctrl-C, SIGTERM or SIGHUP cancel the context; the reader then stops waiting.
 	keys := newContextReader(p.cmd.Context(), in)
 	var yes bool
+	var err error
 	switch choice {
 	case installRawKeys:
-		yes, err = screen.chooseRaw(keys, out)
+		yes, err = askInstallRaw(keys, out, screen)
 	case installPlainLines:
-		yes, err = screen.chooseLines(keys, out)
+		yes, err = askInstallLines(keys, out, screen)
 	case installNoTerminal:
-		err = errors.New("plugins install needs a terminal for its review screen; use --yes with explicit flags instead")
+		err = errors.New("plugins install needs a terminal for its review screen; use --yes with --tree-sha256 and --allow-unsandboxed instead")
 	}
-	return screen.grants(), yes, err
+	return access, yes, err
 }
 
-// reviewFlags checks the non-interactive choices and prints the same plan.
-func (p *pluginInstaller) reviewFlags(screen *installScreen) (pluginfeed.PluginInstallGrants, bool, error) {
-	g, r := p.flags.grants, p.source.Manifest.Access
+// reviewFlags checks the non-interactive choices and prints the same screen.
+func (p *pluginInstaller) reviewFlags(screen string) error {
 	switch {
 	case p.flags.tree != p.source.TreeSHA256:
-		return g, false, fmt.Errorf("--tree-sha256 does not match the folder snapshot %s; nothing was installed", p.source.TreeSHA256)
+		return fmt.Errorf("--tree-sha256 does not match the folder snapshot %s; nothing was installed", p.source.TreeSHA256)
 	case !p.flags.allowUnsandboxed:
-		return g, false, errors.New("--yes needs --allow-unsandboxed: the build and plugin run without a sandbox")
-	case unrequestedInstallFlags(g, r):
-		return g, false, errors.New("an access flag asks for something the plugin did not request; nothing was installed")
+		return errors.New("--yes needs --allow-unsandboxed: the build and plugin run without a sandbox")
 	}
-	known := map[string]int{}
-	for i, session := range screen.sessions {
-		known[session.ID] = i
-	}
-	for j, kind := range screen.kinds {
-		for _, id := range *kind.field(&g) {
-			i, ok := known[id]
-			if !ok {
-				return g, false, fmt.Errorf("unknown session %s; nothing was installed", plainText(id))
-			}
-			screen.selected[[2]int{i, j}] = true
-		}
-	}
-	if notice := screen.check(); notice != "" {
-		return g, false, errors.New(notice + " Nothing was installed.")
-	}
-	p.say("%s", strings.TrimSuffix(screen.render(screenPlan), "Install and enable with these choices? [y/N] "))
+	p.say("%s", screen)
 	p.say("Accepted by --yes.\n")
-	return screen.grants(), true, nil
+	return nil
 }
 
-func unrequestedInstallFlags(g pluginfeed.PluginInstallGrants, r plugins.InstallAccess) bool {
-	return (len(g.Read) > 0 && !r.Read) || (len(g.Send) > 0 && !r.Send) || (len(g.Receive) > 0 && !r.Receive)
-}
-
-func (p *pluginInstaller) finish(grants pluginfeed.PluginInstallGrants) error {
+func (p *pluginInstaller) finish(access pluginfeed.PluginAccess) error {
 	m := p.source.Manifest
 	receipt := pluginfeed.PluginInstallReceipt{API: m.API, ID: m.ID, Version: m.Version, Source: p.folder, TreeSHA256: p.source.TreeSHA256, ManifestSHA256: p.source.ManifestSHA256, Build: m.Build, Artifact: m.Artifact, InstalledAt: model.Timestamp()}
 	ctx := p.cmd.Context()
@@ -293,10 +260,10 @@ func (p *pluginInstaller) finish(grants pluginfeed.PluginInstallGrants) error {
 	if ctx.Err() != nil {
 		return errInstallCancelled
 	}
-	if err := installCommitError(p.name)(p.install.Commit(artifact, m.Args, grants, receipt)); err != nil {
+	if err := installCommitError(p.name)(p.install.Commit(artifact, m.Args, access, receipt)); err != nil {
 		return err
 	}
-	p.say("Installed and enabled %s. Access: %s. Not running yet: start it with zalki plugins run %s\n", p.name, describeInstallGrants(grants), p.name)
+	p.say("Installed and enabled %s. Access: %s. Not running yet: start it with zalki plugins run %s\n", p.name, describeAccess("all", access), p.name)
 	return nil
 }
 
@@ -313,17 +280,4 @@ func installCommitError(name string) func(bool, error) error {
 			return fmt.Errorf("enabling failed: %w. Nothing was installed", err)
 		}
 	}
-}
-
-func describeInstallGrants(g pluginfeed.PluginInstallGrants) string {
-	parts := []string{fmt.Sprintf("changes from %d session(s)", len(g.Sessions))}
-	for _, kind := range []struct {
-		label string
-		ids   []string
-	}{{"receive from and answer", g.Receive}, {"send as this plugin to", g.Send}, {"read bodies from", g.Read}} {
-		if len(kind.ids) > 0 {
-			parts = append(parts, fmt.Sprintf("%s %d session(s)", kind.label, len(kind.ids)))
-		}
-	}
-	return strings.Join(parts, ", ")
 }

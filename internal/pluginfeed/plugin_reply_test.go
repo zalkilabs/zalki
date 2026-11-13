@@ -113,14 +113,16 @@ func TestPluginReplyWindowAndLimit(t *testing.T) {
 	}
 }
 
-// A sender that is no longer in the receive list gets no reply.
+// A sender that is no longer a member (retired) gets no reply.
 func TestPluginReplyNeedsTheSenderInScopeNow(t *testing.T) {
 	x := newReplyFixture(t)
-	other, _ := register(t, x.f.store, "cursor")
+	if err := x.f.store.Update(x.from.ID, model.StateRetired, true); err != nil {
+		t.Fatal(err) // the sender retires: it is no longer a member
+	}
 	if err := x.f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{other.ID}}); err != nil {
+	if err := x.f.GrantPluginAccess(PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {
@@ -143,7 +145,7 @@ func TestPluginUnsolicitedSendNeedsSendGrant(t *testing.T) {
 	if err := x.f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{x.from.ID}, Send: []string{x.from.ID}}); err != nil {
+	if err := x.f.GrantPluginAccess(PluginAccess{Status: true, Receive: true, Send: []string{x.from.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {
@@ -240,15 +242,17 @@ func failedCountedReply(t *testing.T, x replyFixture, clientID string) {
 }
 
 // A counted but never stored reply is no stored retry: when its sender left
-// the receive list, the retry is refused.
+// membership (retired), the retry is refused.
 func TestPluginReplyCountedButNotStoredRechecksScope(t *testing.T) {
 	x := newReplyFixture(t)
 	failedCountedReply(t, x, "c")
-	other, _ := register(t, x.f.store, "cursor")
+	if err := x.f.store.Update(x.from.ID, model.StateRetired, true); err != nil {
+		t.Fatal(err) // the sender retires: it is no longer a member
+	}
 	if err := x.f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{other.ID}}); err != nil {
+	if err := x.f.GrantPluginAccess(PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {

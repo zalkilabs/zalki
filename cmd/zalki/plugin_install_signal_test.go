@@ -34,9 +34,9 @@ type signalInstall struct {
 
 // startSignalInstall starts the real binary with --yes for one session.
 // Cleanup always kills zalki (its pid only) and waits for it.
-func startSignalInstall(t *testing.T, binary, state, session, folder string) *signalInstall {
+func startSignalInstall(t *testing.T, binary, state, folder string) *signalInstall {
 	t.Helper()
-	args := []string{"--state", state, "--log-level", "off", "plugins", "install", "--yes", "--allow-unsandboxed", "--session", session, "--tree-sha256"}
+	args := []string{"--state", state, "--log-level", "off", "plugins", "install", "--yes", "--allow-unsandboxed", "--tree-sha256"}
 	probe, _ := exec.CommandContext(t.Context(), binary, append(args, "0", folder)...).CombinedOutput()
 	tree := regexp.MustCompile(`snapshot ([0-9a-f]{64})`).FindSubmatch(probe)
 	if tree == nil {
@@ -99,9 +99,9 @@ func TestPluginInstallSignalCancels(t *testing.T) {
 	for _, c := range cancelSignalCases {
 		fds := openFDs(t)
 		t.Run(c.name, func(t *testing.T) {
-			store, session := pluginOwnerFixture(t)
+			store, _ := pluginOwnerFixture(t)
 			build := newGatedBuild(t, 200, "0") // never released: the cancel must stop it
-			run := startSignalInstall(t, binary, store.Dir, session.ID, build.folder)
+			run := startSignalInstall(t, binary, store.Dir, build.folder)
 			deadline := time.After(20 * time.Second)
 			run.waitFor(t, "Building...", deadline)
 			build.pid(t) // the build runs: the signal must stop it, not prevent it
@@ -128,11 +128,11 @@ func TestPluginInstallSecondSignalKills(t *testing.T) {
 	for _, c := range cancelSignalCases {
 		fds := openFDs(t)
 		t.Run(c.name, func(t *testing.T) {
-			store, session := pluginOwnerFixture(t)
+			store, _ := pluginOwnerFixture(t)
 			// The build waits at the gate, so the test can take the Store lock
 			// after zalki has read its sessions and before it commits.
 			build := newGatedBuild(t, 200, "0")
-			run := startSignalInstall(t, binary, store.Dir, session.ID, build.folder)
+			run := startSignalInstall(t, binary, store.Dir, build.folder)
 			deadline := time.After(20 * time.Second)
 			run.waitFor(t, "Building...", deadline)
 			lock := holdStoreLock(t, store.Dir)
@@ -296,9 +296,9 @@ func TestPluginInstallFakeBuildEndsAfterZalkiIsKilled(t *testing.T) {
 // (its pid only, never the build's group) once the build has started.
 func killZalkiAfterBuildStarts(t *testing.T, binary string, steps int, pidDelay string) *gatedBuild {
 	t.Helper()
-	store, session := pluginOwnerFixture(t)
+	store, _ := pluginOwnerFixture(t)
 	build := newGatedBuild(t, steps, pidDelay)
-	run := startSignalInstall(t, binary, store.Dir, session.ID, build.folder)
+	run := startSignalInstall(t, binary, store.Dir, build.folder)
 	run.waitFor(t, "Building...", time.After(20*time.Second))
 	build.waitStarted(t)
 	if err := run.process.Kill(); err != nil {

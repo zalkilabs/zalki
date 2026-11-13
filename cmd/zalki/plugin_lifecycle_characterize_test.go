@@ -69,14 +69,14 @@ func TestPluginLifecycleCharacterization(t *testing.T) {
 		files string
 		keys  string
 	}{
-		{[]string{"add", "ext", "--exec", file}, "ext.data/ ext.json ext.lock id-UUID.json", "enabled id launch name position sessions"},
-		{[]string{"configure", "ext", "--session", session.ID}, "ext.data/ ext.json ext.lock id-UUID.json", "enabled id launch name position sessions"},
-		{[]string{"grant", "ext", "--read", session.ID}, "ext.data/ ext.json ext.lock id-UUID.json", "capabilities enabled id launch name position sessions"},
-		{[]string{"enable", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "capabilities enabled epoch gap_id gap_reason id launch name position sessions"},
-		{[]string{"status", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "capabilities enabled epoch gap_id gap_reason id launch name position sessions"},
-		{[]string{"disable", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "capabilities enabled epoch gap_id gap_reason id launch name position sessions"},
-		{[]string{"revoke", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "enabled epoch gap_id gap_reason id launch name position sessions"},
-		{[]string{"configure", "ext", "--session", session.ID}, "ext.data/ ext.json ext.lock id-UUID.json", "enabled id launch name position sessions"},
+		{[]string{"add", "ext", "--exec", file}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name position revision scope"},
+		{[]string{"configure", "ext", "--scope", "all"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name position revision scope"},
+		{[]string{"grant", "ext", "--status", "--read", session.ID}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name position revision scope"},
+		{[]string{"enable", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
+		{[]string{"status", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
+		{[]string{"disable", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
+		{[]string{"revoke", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
+		{[]string{"configure", "ext", "--scope", "all"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
 		{[]string{"remove", "ext"}, "ext.lock", ""},
 	}
 	for _, step := range steps {
@@ -90,12 +90,12 @@ func TestPluginLifecycleCharacterization(t *testing.T) {
 		}
 	}
 	// Enabled installations refuse grant changes, configure and removal.
-	for _, args := range [][]string{{"add", "ext", "--exec", file}, {"configure", "ext", "--session", session.ID}, {"enable", "ext"}} {
+	for _, args := range [][]string{{"add", "ext", "--exec", file}, {"configure", "ext", "--scope", "all"}, {"grant", "ext", "--status"}, {"enable", "ext"}} {
 		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
 			t.Fatal(args, string(raw), err)
 		}
 	}
-	for _, args := range [][]string{{"configure", "ext", "--session", session.ID}, {"grant", "ext", "--read", session.ID}, {"remove", "ext"}, {"add", "ext", "--exec", file}} {
+	for _, args := range [][]string{{"configure", "ext", "--scope", "all"}, {"grant", "ext", "--status", "--read", session.ID}, {"remove", "ext"}, {"add", "ext", "--exec", file}} {
 		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err == nil {
 			t.Fatal("enabled installation accepted", args, string(raw))
 		}

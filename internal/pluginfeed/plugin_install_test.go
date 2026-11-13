@@ -28,7 +28,7 @@ func stagedTestArtifact(t *testing.T, install *PluginInstall) string {
 	return path
 }
 
-func installForTest(t *testing.T, s bus.Store, session string) PluginFeed {
+func installForTest(t *testing.T, s bus.Store) PluginFeed {
 	t.Helper()
 	f := NewPluginFeed(s, "demo")
 	install, err := f.BeginPluginInstall()
@@ -36,7 +36,7 @@ func installForTest(t *testing.T, s bus.Store, session string) PluginFeed {
 		t.Fatal(err)
 	}
 	defer install.Close()
-	if _, err := install.Commit(stagedTestArtifact(t, install), nil, PluginInstallGrants{Sessions: []string{session}}, testInstallReceipt()); err != nil {
+	if _, err := install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt()); err != nil {
 		t.Fatal(err)
 	}
 	return f
@@ -70,7 +70,7 @@ func TestPluginInstallCommitIsOneEnabledRecord(t *testing.T) {
 	if _, err := f.BeginPluginInstall(); err == nil {
 		t.Fatal("a second attempt got the name lease")
 	}
-	grants := PluginInstallGrants{Sessions: []string{v.ID}, PluginCapabilityGrants: PluginCapabilityGrants{Read: []string{v.ID}}}
+	grants := PluginAccess{Status: true, Read: []string{v.ID}}
 	if _, err := install.Commit(stagedTestArtifact(t, install), []string{"--x"}, grants, testInstallReceipt()); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestPluginInstallCommitIsOneEnabledRecord(t *testing.T) {
 func assertCommittedInstall(t *testing.T, s bus.Store, f PluginFeed) {
 	t.Helper()
 	p := feedRecordNamed(t, f)
-	if !p.Enabled || p.GapReason != "enabled" || p.Launch == nil || p.Install == nil || p.Capabilities == nil || p.Capabilities.PinSHA256 != p.Launch.PinSHA256 || p.Capabilities.Installation != p.ID || p.Install.ArtifactSHA256 != p.Launch.SHA256 {
+	if !p.Enabled || p.GapReason != "enabled" || p.Launch == nil || p.Install == nil || p.Scope != scopeAll || len(p.Access.Read) != 1 || p.Revision != pluginRevision(p) || p.Install.ArtifactSHA256 != p.Launch.SHA256 {
 		t.Fatalf("record not committed as one enabled installation: %+v", p)
 	}
 	if filepath.Dir(p.Launch.Executable) != f.pluginBinPath() || p.Launch.Verify() != nil {
@@ -129,7 +129,7 @@ func TestPluginInstallSwappedArtifactPublishesNothing(t *testing.T) {
 func swapInstalledArtifact(t *testing.T, hook *func()) {
 	t.Helper()
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
+	register(t, s, "codex")
 	f := NewPluginFeed(s, "demo")
 	install, err := f.BeginPluginInstall()
 	if err != nil {
@@ -146,7 +146,7 @@ func swapInstalledArtifact(t *testing.T, hook *func()) {
 		}
 	}
 	defer func() { *hook = func() {} }()
-	_, err = install.Commit(stagedTestArtifact(t, install), nil, PluginInstallGrants{Sessions: []string{v.ID}}, testInstallReceipt())
+	_, err = install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt())
 	if model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("swapped artifact was not refused", err)
 	}
@@ -158,7 +158,7 @@ func swapInstalledArtifact(t *testing.T, hook *func()) {
 
 func TestPluginInstallCommitFailuresPublishNothing(t *testing.T) {
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
+	register(t, s, "codex")
 	f := NewPluginFeed(s, "demo")
 	bad := testInstallReceipt()
 	bad.Source = "relative"
@@ -166,15 +166,15 @@ func TestPluginInstallCommitFailuresPublishNothing(t *testing.T) {
 		name    string
 		body    string
 		mode    os.FileMode
-		grants  PluginInstallGrants
+		grants  PluginAccess
 		receipt PluginInstallReceipt
 		args    []string
 	}{
-		{"no sessions", "#!/bin/sh\n", 0700, PluginInstallGrants{}, testInstallReceipt(), nil},
-		{"bad session", "#!/bin/sh\n", 0700, PluginInstallGrants{Sessions: []string{"nope"}}, testInstallReceipt(), nil},
-		{"not executable", "data", 0600, PluginInstallGrants{Sessions: []string{v.ID}}, testInstallReceipt(), nil},
-		{"bad receipt", "#!/bin/sh\n", 0700, PluginInstallGrants{Sessions: []string{v.ID}}, bad, nil},
-		{"too many args", "#!/bin/sh\n", 0700, PluginInstallGrants{Sessions: []string{v.ID}}, testInstallReceipt(), strings.Fields("1 2 3 4 5 6 7 8 9")},
+		{"no access", "#!/bin/sh\n", 0700, PluginAccess{}, testInstallReceipt(), nil},
+		{"bad session", "#!/bin/sh\n", 0700, PluginAccess{Read: []string{"nope"}}, testInstallReceipt(), nil},
+		{"not executable", "data", 0600, PluginAccess{Status: true}, testInstallReceipt(), nil},
+		{"bad receipt", "#!/bin/sh\n", 0700, PluginAccess{Status: true}, bad, nil},
+		{"too many args", "#!/bin/sh\n", 0700, PluginAccess{Status: true}, testInstallReceipt(), strings.Fields("1 2 3 4 5 6 7 8 9")},
 	}
 	for _, c := range cases {
 		install, err := f.BeginPluginInstall()
@@ -206,7 +206,7 @@ func TestPluginInstallCommitFailuresPublishNothing(t *testing.T) {
 	if err := os.Symlink(outside, link); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := install.Commit(link, nil, PluginInstallGrants{Sessions: []string{v.ID}}, testInstallReceipt()); err == nil {
+	if _, err := install.Commit(link, nil, PluginAccess{Status: true}, testInstallReceipt()); err == nil {
 		t.Fatal("linked artifact committed")
 	}
 	if err := install.Close(); err != nil {
@@ -220,8 +220,8 @@ func TestPluginInstallCommitFailuresPublishNothing(t *testing.T) {
 
 func TestPluginInstallRefusesExistingAndReservedNames(t *testing.T) {
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
-	f := installForTest(t, s, v.ID)
+	register(t, s, "codex")
+	f := installForTest(t, s)
 	if _, err := f.BeginPluginInstall(); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("existing installation not refused", err)
 	}
@@ -245,8 +245,8 @@ func TestPluginInstallRefusesExistingAndReservedNames(t *testing.T) {
 
 func TestPluginInstallSweepStaysInsideItsName(t *testing.T) {
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
-	f := installForTest(t, s, v.ID)
+	register(t, s, "codex")
+	f := installForTest(t, s)
 	other := NewPluginFeed(s, "other")
 	outside := t.TempDir()
 	keep := filepath.Join(outside, "keep")
@@ -310,7 +310,7 @@ func TestPluginInstallNeverFollowsLinkedStagingRoot(t *testing.T) {
 
 func TestPluginInstallRemoveClearsArtifactAndLog(t *testing.T) {
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
+	register(t, s, "codex")
 	f := NewPluginFeed(s, "demo")
 	install, err := f.BeginPluginInstall()
 	if err != nil {
@@ -332,7 +332,7 @@ func TestPluginInstallRemoveClearsArtifactAndLog(t *testing.T) {
 	if _, err := os.Lstat(f.stagingPath()); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("remove kept the log", err)
 	}
-	installForTest(t, s, v.ID)
+	installForTest(t, s)
 	if err := f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
@@ -347,16 +347,16 @@ func TestPluginInstallRemoveClearsArtifactAndLog(t *testing.T) {
 func TestPluginInstallReceiptSurvivesLifecycle(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
-	f := installForTest(t, s, v.ID)
+	f := installForTest(t, s)
 	want := feedRecordNamed(t, f).Install
 	steps := []func() error{
 		func() error { return f.EnablePluginFeed(false) },
-		func() error { return f.ConfigurePluginFeed([]string{v.ID}) },
+		func() error { return f.ConfigurePluginScope("all") },
 		func() error {
-			return f.GrantPluginCapabilities(PluginCapabilityGrants{Read: []string{v.ID}})
+			return f.GrantPluginAccess(PluginAccess{Status: true, Read: []string{v.ID}})
 		},
 		func() error { return f.EnablePluginFeed(true) },
-		f.RevokePluginCapabilities,
+		f.RevokePluginAccess,
 	}
 	for i, step := range steps {
 		if err := step(); err != nil {
@@ -376,8 +376,8 @@ func TestPluginInstallReceiptSurvivesLifecycle(t *testing.T) {
 // instead of being repaired or partly trusted.
 func TestPluginInstallReceiptPoisonIsRefused(t *testing.T) {
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
-	f := installForTest(t, s, v.ID)
+	register(t, s, "codex")
+	f := installForTest(t, s)
 	raw, err := os.ReadFile(f.pluginPath())
 	if err != nil {
 		t.Fatal(err)
@@ -493,7 +493,7 @@ func TestPluginInstallNativeReceiptValid(t *testing.T) {
 // record and the data folder instead of trusting the earlier checks.
 func TestPluginInstallCommitRechecksUnderLock(t *testing.T) {
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
+	register(t, s, "codex")
 	f := NewPluginFeed(s, "demo")
 	changes := []func() error{
 		func() error {
@@ -518,7 +518,7 @@ func TestPluginInstallCommitRechecksUnderLock(t *testing.T) {
 		if err := change(); err != nil {
 			t.Fatal(err)
 		}
-		_, err = install.Commit(stagedTestArtifact(t, install), nil, PluginInstallGrants{Sessions: []string{v.ID}}, testInstallReceipt())
+		_, err = install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt())
 		if model.ErrorCodeOf(err) != model.CodeConflict {
 			t.Fatal(i, "commit ignored a change made after Begin", err)
 		}
@@ -601,7 +601,7 @@ func TestPluginInstallSaveErrorAfterRename(t *testing.T) {
 func assertSaveErrorOutcome(t *testing.T, save func(PluginFeed, pluginRecord) ([]byte, error), wantKept, published bool) {
 	t.Helper()
 	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
+	register(t, s, "codex")
 	f := NewPluginFeed(s, "demo")
 	install, err := f.BeginPluginInstall()
 	if err != nil {
@@ -609,7 +609,7 @@ func assertSaveErrorOutcome(t *testing.T, save func(PluginFeed, pluginRecord) ([
 	}
 	savePluginInstallRecord = save
 	defer func() { savePluginInstallRecord = PluginFeed.savePlugin }()
-	kept, err := install.Commit(stagedTestArtifact(t, install), nil, PluginInstallGrants{Sessions: []string{v.ID}}, testInstallReceipt())
+	kept, err := install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt())
 	savePluginInstallRecord = PluginFeed.savePlugin
 	if err == nil || kept != wantKept {
 		t.Fatalf("kept=%v err=%v", kept, err)
