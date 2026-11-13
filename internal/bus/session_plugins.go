@@ -156,6 +156,10 @@ func encodeSessionPluginPolicy(p sessionPluginPolicy) (json.RawMessage, error) {
 
 func sessionAllowsPlugin(session model.Session, name string) bool {
 	p, ok := decodeSessionPluginPolicy(session)
+	return sessionPolicyAllowsPlugin(p, ok, name)
+}
+
+func sessionPolicyAllowsPlugin(p sessionPluginPolicy, ok bool, name string) bool {
 	if !ok || !validSessionPluginName(name) || p.Mode == "off" {
 		return false
 	}

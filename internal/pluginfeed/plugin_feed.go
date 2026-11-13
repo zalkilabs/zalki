@@ -122,7 +122,7 @@ func feedAllowed(p pluginRecord, launch *PluginFeedStatus) (bool, error) {
 
 func (s pluginFiles) scanPlugin(view bus.JournalView, p pluginRecord, raw []byte, head bus.EventWindow) (PluginDelivery, error) {
 	position := p.Position.Sequence
-	member := feedMembers(view, p)
+	member := func(session string) bool { return standardMember(view, p, session) }
 	for scanned := 0; position < head.Last && scanned < 64; scanned++ {
 		position++
 		event, err := view.EventAt(head.Epoch, position)
@@ -157,20 +157,6 @@ func (s PluginFeed) AckPluginFeed(delivery PluginDelivery) error {
 		_, err = s.savePlugin(p)
 		return err
 	})
-}
-
-// feedMembers is standardMember for one feed scan, remembered per session
-// so a scan checks each session once.
-func feedMembers(view bus.JournalView, p pluginRecord) func(string) bool {
-	known := map[string]bool{}
-	return func(session string) bool {
-		member, ok := known[session]
-		if !ok {
-			member = standardMember(view, p, session)
-			known[session] = member
-		}
-		return member
-	}
 }
 
 // feedView returns the event as a plugin may see it now. A session event
