@@ -134,6 +134,8 @@ var required = []requiredTest{
 	{"bus", "TestLeaseOperationsAndPruneDoNotDeadlock"},
 	{"bus", "TestEveryHookStageIsLoggable"},
 	{"bus", "TestHookStageInventoryRejectsDynamicForms"},
+	{"cmd/zalki", "TestPluginSupervisorRealChildrenCLI"},
+	{"cmd/zalki", "TestPluginSupervisorForegroundAndStopCLI"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

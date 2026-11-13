@@ -22,6 +22,20 @@ func main() {
 	}
 }
 
+// supervisorExitCode: the supervisor's two special outcomes, matched by
+// direct identity (a joined or wrapped error is an ordinary failure): 75
+// asks launchd for a new controller, 0 is a permanent setup error a
+// restart cannot help. ok is false for every other error.
+func supervisorExitCode(err error) (code int, ok bool) {
+	if err == errZalkiReplaced { //nolint:errorlint // Direct identity on purpose: a joined or wrapped error is an ordinary failure.
+		return exitReplaced, true
+	}
+	if err == errUnsafePluginsDir { //nolint:errorlint // Direct identity on purpose, as above.
+		return 0, true
+	}
+	return 0, false
+}
+
 func run(ctx context.Context, argv []string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {

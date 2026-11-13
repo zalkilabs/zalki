@@ -55,7 +55,7 @@ func TestMain(m *testing.M) {
 	if len(os.Args) == 3 && os.Args[1] == "host-test-worker" {
 		store, err := bus.NewStore(os.Args[2], adapters.Builtin(), nil)
 		if err == nil {
-			err = Run(context.Background(), store, "fake-notifier", io.Discard)
+			err = Run(context.Background(), store, "fake-notifier", io.Discard, nil)
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -321,7 +321,7 @@ func startHost(t *testing.T, store bus.Store) (context.CancelFunc, <-chan error)
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, store, "fake-notifier", io.Discard); close(done) }()
+	go func() { done <- Run(ctx, store, "fake-notifier", io.Discard, nil); close(done) }()
 	t.Cleanup(func() {
 		cancel()
 		select {
@@ -357,7 +357,7 @@ func TestHostReapsChildOnEOFAndDoesNotInheritSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := launchChild(t.Context(), binary, identityOf(t, binary), []string{"host-fake-child"}, hostData(store), "", lease)
+	c, err := launchChild(t.Context(), binary, identityOf(t, binary), []string{"host-fake-child"}, hostData(store), "", lease, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -595,7 +595,7 @@ func TestHostRequiresEnableAndRefusesSecondChild(t *testing.T) {
 	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := Run(t.Context(), store, "fake-notifier", io.Discard); err == nil {
+	if err := Run(t.Context(), store, "fake-notifier", io.Discard, nil); err == nil {
 		t.Fatal("disabled plugin launched")
 	}
 	if _, err := os.Stat(filepath.Join(hostData(store), ".child-env")); !os.IsNotExist(err) {
@@ -611,7 +611,7 @@ func TestHostRequiresEnableAndRefusesSecondChild(t *testing.T) {
 	})
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
-	if err := Run(ctx, store, "fake-notifier", io.Discard); err == nil {
+	if err := Run(ctx, store, "fake-notifier", io.Discard, nil); err == nil {
 		t.Fatal("second host was permitted")
 	}
 }
@@ -690,7 +690,7 @@ func TestHostPreservesWriterFailureDuringCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	want := errors.New("owner output failed")
-	err := Run(ctx, store, "fake-notifier", cancelErrorWriter{cancel, want})
+	err := Run(ctx, store, "fake-notifier", cancelErrorWriter{cancel, want}, nil)
 	if !errors.Is(err, want) {
 		t.Fatal("shutdown hid the observed owner output failure", err)
 	}
@@ -899,7 +899,7 @@ func TestHostRefusesTheOldWireByName(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte(version+"-hello"), 0600); err != nil {
 			t.Fatal(err)
 		}
-		err := Run(t.Context(), store, "fake-notifier", io.Discard)
+		err := Run(t.Context(), store, "fake-notifier", io.Discard, nil)
 		want := "fake-notifier uses the old plugin wire (" + version + "). Zalki now speaks only zalki-plugin/1"
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatal("old wire not refused by name", version, err)
@@ -917,7 +917,7 @@ func TestHostNeverEchoesAnUnknownHelloVersion(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("payload-version-hello"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	err := Run(t.Context(), store, "fake-notifier", io.Discard)
+	err := Run(t.Context(), store, "fake-notifier", io.Discard, nil)
 	if err == nil || !strings.Contains(err.Error(), errHelloVersion.Error()) {
 		t.Fatal("unknown version not refused", err)
 	}
@@ -968,7 +968,7 @@ func TestGrantedPluginStderrIsWithheldWhenTheHelloFails(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte(mode), 0600); err != nil {
 			t.Fatal(err)
 		}
-		err := Run(t.Context(), store, "fake-notifier", io.Discard)
+		err := Run(t.Context(), store, "fake-notifier", io.Discard, nil)
 		if err == nil || !strings.Contains(err.Error(), want) || strings.Contains(err.Error(), "SENTINEL-PRIVATE-STDERR") {
 			t.Fatalf("%s: %v", mode, err)
 		}
@@ -982,7 +982,7 @@ func TestPluginRunNamedRefusal(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("unenabled-read"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	err := Run(t.Context(), store, "fake-notifier", io.Discard)
+	err := Run(t.Context(), store, "fake-notifier", io.Discard, nil)
 	want := "fake-notifier stopped after Zalki refused read (protocol_error). Check access with: zalki plugins show fake-notifier"
 	if err == nil || err.Error() != want {
 		t.Fatalf("got %v, want %q", err, want)
@@ -996,7 +996,7 @@ func TestHostStopsAPluginThatRequiresAMissingCapability(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("needs-members"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	err := Run(t.Context(), store, "fake-notifier", io.Discard)
+	err := Run(t.Context(), store, "fake-notifier", io.Discard, nil)
 	if err == nil || !strings.Contains(err.Error(), `fake-notifier needs "members", which this Zalki does not offer (or which is not granted). Update Zalki or grant it`) {
 		t.Fatal("missing capability not named", err)
 	}
@@ -1012,7 +1012,7 @@ func TestHostOffersOnlyGrantedCapabilities(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("stderr-after-hello"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	_ = Run(t.Context(), store, "fake-notifier", io.Discard)
+	_ = Run(t.Context(), store, "fake-notifier", io.Discard, nil)
 	frames := readHostFrames(t, store)
 	if !strings.Contains(frames, `"capabilities":["feed"]}`) {
 		t.Fatalf("feed-only host hello: %q", frames)
@@ -1045,7 +1045,7 @@ func TestHostShowsFeedOnlyStderrAfterHello(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("stderr-after-hello"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	err := Run(t.Context(), store, "fake-notifier", io.Discard)
+	err := Run(t.Context(), store, "fake-notifier", io.Discard, nil)
 	if err == nil || !strings.Contains(err.Error(), "feed-only diagnostic line") {
 		t.Fatal("feed-only stderr was hidden", err)
 	}

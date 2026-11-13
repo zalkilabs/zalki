@@ -47,7 +47,7 @@ func TestPluginManualRuntimeEnvironment(t *testing.T) {
 		t.Setenv(key, value)
 	}
 	home := t.TempDir()
-	c, err := launchChild(t.Context(), os.Args[0], identityOf(t, os.Args[0]), []string{"-test.run=^TestPluginEnvChild$"}, home, home, openTestLease(t))
+	c, err := launchChild(t.Context(), os.Args[0], identityOf(t, os.Args[0]), []string{"-test.run=^TestPluginEnvChild$"}, home, home, openTestLease(t), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestPluginEnvChild(t *testing.T) {
 
 func TestPluginHomeMustBeCleanAbsolute(t *testing.T) {
 	for _, home := range []string{"relative", "/a/../b", "/a/"} {
-		if _, err := launchChild(t.Context(), os.Args[0], identityOf(t, os.Args[0]), nil, t.TempDir(), home, openTestLease(t)); err == nil || !strings.Contains(err.Error(), "clean absolute") {
+		if _, err := launchChild(t.Context(), os.Args[0], identityOf(t, os.Args[0]), nil, t.TempDir(), home, openTestLease(t), true); err == nil || !strings.Contains(err.Error(), "clean absolute") {
 			t.Errorf("home %q: %v", home, err)
 		}
 	}
@@ -160,7 +160,7 @@ func checkChangedPinRefused(t *testing.T, change func(*testing.T, string)) {
 	pinned := identityOf(t, path)
 	time.Sleep(20 * time.Millisecond) // a later change time
 	change(t, path)
-	c, err := launchChild(t.Context(), path, pinned, nil, t.TempDir(), "", openTestLease(t))
+	c, err := launchChild(t.Context(), path, pinned, nil, t.TempDir(), "", openTestLease(t), true)
 	if c != nil || model.ErrorCodeOf(err) != model.CodeConflict || !strings.HasSuffix(err.Error(), "the plugin file changed while it started; install it again") {
 		t.Fatalf("a changed file started: %v", err)
 	}
@@ -172,7 +172,7 @@ func checkChangedPinRefused(t *testing.T, change func(*testing.T, string)) {
 func checkUnchangedPinStarts(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "plugin")
 	writeExecutable(t, path, pinFirst)
-	c, err := launchChild(t.Context(), path, identityOf(t, path), nil, t.TempDir(), "", openTestLease(t))
+	c, err := launchChild(t.Context(), path, identityOf(t, path), nil, t.TempDir(), "", openTestLease(t), true)
 	if err != nil {
 		t.Fatal("an unchanged pin did not start", err)
 	}
@@ -207,4 +207,21 @@ func joinClose(err error, file *os.File) error {
 		return closeErr
 	}
 	return err
+}
+
+// A pin that fails its check before the start (digest, argv or file type)
+// is a permanent stop reason in supervised mode, with its text unchanged.
+func TestPluginPreStartPinFailureIsPermanent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plugin")
+	writeExecutable(t, path, pinFirst)
+	zero := strings.Repeat("0", 64)
+	status := pluginfeed.PluginFeedStatus{Name: "demo", Launch: &pluginfeed.PluginLaunch{Executable: path, Args: []string{}, SHA256: zero, PinSHA256: zero}}
+	sup := &supervision{}
+	_, _, _, err := sup.prepare(status)
+	if err == nil || sup.stopCode(err) != "pin_invalid" {
+		t.Fatalf("a pre-start pin failure is not permanent: %q", sup.stopCode(err))
+	}
+	if !strings.Contains(err.Error(), "plugin launch changed") {
+		t.Fatal("the pin failure lost its owner text")
+	}
 }

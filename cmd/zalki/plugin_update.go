@@ -19,6 +19,9 @@ var errPluginUpdateAvailable = errors.New("update available")
 // Only the exact success marker means an available update. A joined cleanup
 // error, or a build tool's exit status, remains an ordinary CLI failure.
 func commandExitCode(err error) int {
+	if code, ok := supervisorExitCode(err); ok {
+		return code
+	}
 	if !errors.Is(err, errPluginUpdateAvailable) {
 		return 1
 	}
