@@ -1,4 +1,4 @@
-.PHONY: build test test-required vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check
+.PHONY: build test test-required test-alias vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check
 
 GORELEASER ?= goreleaser
 GOVULNCHECK ?= govulncheck
@@ -17,6 +17,10 @@ test-required: build
 	@set -eu; report="$$(mktemp)"; trap 'rm -f "$$report"' EXIT; \
 	if ! ZALKI_TEST_BINARY="$(CURDIR)/bin/zalki" go test -race -count=1 -json ./... > "$$report"; then cat "$$report"; exit 1; fi; \
 	go run ./scripts/check-integration "$$report"
+
+# Full required suite with a proven symlinked temporary root (one full pass).
+test-alias:
+	GOFLAGS= GOWORK=off go run -p=1 -mod=readonly ./scripts/test-alias
 
 vet:
 	go vet ./...
