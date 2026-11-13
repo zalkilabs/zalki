@@ -78,6 +78,16 @@ var required = []requiredTest{
 	{"model", "TestPublishedPluginEnums"},
 	{"plugins", "TestValidPluginID"},
 	{"pluginfeed", "TestReceiptWithoutIDIsAnOldRecord"},
+	{"pluginfeed", "TestScopeIsAllOrNoneAndFailsClosed"},
+	{"pluginfeed", "TestPluginMemberIsALiveSession"},
+	{"pluginfeed", "TestFiveChecksUseTheSameMembership"},
+	{"pluginfeed", "TestFeedOffersASessionsOwnEndOnce"},
+	{"pluginfeed", "TestRevisionCoversOwnerChoicesOnly"},
+	{"pluginfeed", "TestMembershipChangesKeepTheBinding"},
+	{"pluginfeed", "TestTamperedRevisionIsRefused"},
+	{"pluginfeed", "TestNoFeedWithoutStatusAccess"},
+	{"pluginfeed", "TestFeedScanOf64SessionsHoldsTheLockBriefly"},
+	{"cmd/zalki", "TestPluginInstallRefusesExtendedAccess"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

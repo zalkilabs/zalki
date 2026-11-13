@@ -60,9 +60,24 @@ func pluginListLine(feed pluginfeed.PluginFeed) string {
 	if status.Enabled {
 		state = "enabled"
 	}
-	var g pluginfeed.PluginCapabilityGrants
-	if status.Capabilities != nil {
-		g = status.Capabilities.PluginCapabilityGrants
+	return fmt.Sprintf("%s  %s  %s", plainText(status.Name), state, describeAccess(status.Scope, status.Access))
+}
+
+// describeAccess is the owner's one-line view of a plugin's access, for
+// example "scope all; status, receive; send to 1, read from 0 session(s)".
+func describeAccess(scope string, a pluginfeed.PluginAccess) string {
+	if scope != "all" {
+		scope = "none" // anything else gives no standard access
 	}
-	return fmt.Sprintf("%s  %s  changes from %d, receive from %d, send to %d, read from %d session(s)", plainText(status.Name), state, len(status.Sessions), len(g.Receive), len(g.Send), len(g.Read))
+	var standard []string
+	if a.Status {
+		standard = append(standard, "status")
+	}
+	if a.Receive {
+		standard = append(standard, "receive")
+	}
+	if len(standard) == 0 {
+		standard = []string{"no standard access"}
+	}
+	return fmt.Sprintf("scope %s; %s; send to %d, read from %d session(s)", scope, strings.Join(standard, ", "), len(a.Send), len(a.Read))
 }

@@ -98,7 +98,7 @@ func (s *ptySession) assertExitThenShellGetsInput(t *testing.T, code string) {
 
 // Ctrl-C on a real terminal must end the install at once and install nothing.
 // In line mode (TERM=dumb) the terminal turns it into a real SIGINT; on the
-// checkbox screen (raw mode) it is a key. Native and Go plugins.
+// raw-key question it is a key. Native and Go plugins.
 func TestPluginInstallRealTerminalCtrlC(t *testing.T) {
 	binary := checkRealBinary(t)
 	for _, c := range []struct {
@@ -107,9 +107,9 @@ func TestPluginInstallRealTerminalCtrlC(t *testing.T) {
 		steps      [][2]string
 		ctrlCAt    string
 	}{
-		{"line mode, native, at the final question", "dumb", false, [][2]string{{"Sessions for changes", "1\n"}, {"Sessions for receive", "\n"}, {"Sessions for read", "\n"}}, "Install and enable"},
-		{"line mode, go, at the first prompt", "dumb", true, nil, "Sessions for changes"},
-		{"checkbox screen, native", "xterm-256color", false, nil, "Arrows move"},
+		{"line mode, native, at the question", "dumb", false, nil, "Install for all sessions?"},
+		{"line mode, go, at the question", "dumb", true, nil, "Install for all sessions?"},
+		{"raw keys, native", "xterm-256color", false, nil, "Install for all sessions?"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			store, _ := pluginOwnerFixture(t)
@@ -138,7 +138,7 @@ func TestPluginInstallRealTerminalCtrlCDuringBuild(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	session := startPTYInstall(t, binary, store.Dir, fakeGoFolder(t, `exec sleep 30`), "dumb")
 	deadline := time.After(20 * time.Second)
-	session.answer(t, deadline, [2]string{"Sessions for changes", "1\n"}, [2]string{"Sessions for read", "\n"}, [2]string{"Install and enable", "y\n"})
+	session.answer(t, deadline, [2]string{"Install for all sessions?", "y\n"})
 	session.waitFor(t, "Building...", deadline)
 	session.typeText(t, "\x03")
 	session.waitFor(t, "Cancelled. Nothing was installed.", deadline)
@@ -156,8 +156,7 @@ func TestPluginInstallRealTerminalSecondCtrlCKills(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	session := startPTYInstall(t, binary, store.Dir, nativeInstallFolder(t), "dumb")
 	deadline := time.After(20 * time.Second)
-	session.answer(t, deadline, [2]string{"Sessions for changes", "1\n"}, [2]string{"Sessions for receive", "\n"}, [2]string{"Sessions for read", "\n"})
-	session.waitFor(t, "Install and enable", deadline)
+	session.waitFor(t, "Install for all sessions?", deadline)
 	lock := holdStoreLock(t, store.Dir)
 	defer lock.Close()
 	session.typeText(t, "y\n")

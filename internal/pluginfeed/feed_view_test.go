@@ -2,6 +2,7 @@ package pluginfeed
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -50,7 +51,7 @@ func checkFeedViewCase(t *testing.T, feed, outside []string, tc feedViewCase) {
 		Message: &model.EventMessage{ID: "00000000-0000-4000-8000-000000000003", ReplyTo: feedViewParent,
 			From: tc.from, To: tc.to, Status: model.StatusSubmitted}}
 	stored := *event.Message
-	got, ok := feedView(feed, event)
+	got, ok := feedView(listMembers(feed), true, event)
 	if ok != tc.offered {
 		t.Fatalf("offered = %v, want %v", ok, tc.offered)
 	}
@@ -81,14 +82,19 @@ func assertFrameNamesNone(t *testing.T, event model.Event, outside []string) {
 	}
 }
 
-// Session events are offered only for feed sessions, unchanged.
+// listMembers is a member function of a fixed set of sessions.
+func listMembers(ids []string) func(string) bool {
+	return func(id string) bool { return slices.Contains(ids, id) }
+}
+
+// Session events are offered only for member sessions, unchanged.
 func TestFeedViewSessionEvents(t *testing.T) {
 	a, b := "codex:00000000-0000-4000-8000-00000000000a", "codex:00000000-0000-4000-8000-00000000000b"
 	event := model.Event{Type: model.EventSessionStateChanged, Session: model.EventSession{ID: a, Cause: model.CauseStop}}
-	if got, ok := feedView([]string{a}, event); !ok || got.Session != event.Session {
+	if got, ok := feedView(listMembers([]string{a}), true, event); !ok || got.Session != event.Session {
 		t.Fatalf("feed session event = %+v, %v", got, ok)
 	}
-	if _, ok := feedView([]string{b}, event); ok {
+	if _, ok := feedView(listMembers([]string{b}), true, event); ok {
 		t.Fatal("offered a session event outside the feed")
 	}
 }

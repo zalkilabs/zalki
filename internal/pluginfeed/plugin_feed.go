@@ -16,7 +16,6 @@ package pluginfeed
 
 import (
 	"crypto/sha256"
-	"slices"
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -80,13 +79,8 @@ func (s PluginFeed) NextPluginFeed(launch *PluginFeedStatus) (PluginDelivery, er
 		if err != nil {
 			return err
 		}
-		if !p.Enabled {
-			return model.NewError(model.CodeUnauthorized, "plugin is disabled")
-		}
-		// Checked under the same lock that picks the event: the event is
-		// one this exact launch may see.
-		if launchBindingCode(p, launch) != "ok" {
-			return model.NewError(model.CodeUnauthorized, "plugin launch is stale")
+		if feed, err := feedAllowed(p, launch); !feed {
+			return err // without status access: no feed, and the position stays
 		}
 		head, err := view.EventWindow()
 		if err != nil {
@@ -114,15 +108,28 @@ func (s PluginFeed) NextPluginFeed(launch *PluginFeedStatus) (PluginDelivery, er
 	return delivery, err
 }
 
+// feedAllowed is checked under the same lock that picks the event: the
+// plugin is enabled, this exact launch still holds, and it has status access.
+func feedAllowed(p pluginRecord, launch *PluginFeedStatus) (bool, error) {
+	switch {
+	case !p.Enabled:
+		return false, model.NewError(model.CodeUnauthorized, "plugin is disabled")
+	case launchBindingCode(p, launch) != "ok":
+		return false, model.NewError(model.CodeUnauthorized, "plugin launch is stale")
+	}
+	return p.Access.Status, nil
+}
+
 func (s pluginFiles) scanPlugin(view bus.JournalView, p pluginRecord, raw []byte, head bus.EventWindow) (PluginDelivery, error) {
 	position := p.Position.Sequence
+	member := feedMembers(view, p)
 	for scanned := 0; position < head.Last && scanned < 64; scanned++ {
 		position++
 		event, err := view.EventAt(head.Epoch, position)
 		if err != nil {
 			return PluginDelivery{}, err
 		}
-		if offered, ok := feedView(p.Sessions, event); ok {
+		if offered, ok := feedView(member, p.Scope == scopeAll, event); ok {
 			return pluginOffer(event.ID, "", &offered, raw, pluginPosition{head.Epoch, position}), nil
 		}
 	}
@@ -152,17 +159,32 @@ func (s PluginFeed) AckPluginFeed(delivery PluginDelivery) error {
 	})
 }
 
-// feedView returns the event as a plugin with these feed sessions may see it.
-// A session event needs its session. A message event needs its sender or its
-// recipient; the other party is reduced to "kind:". reply_to is kept: bus
-// writes a reply only between its parent's parties (checkReplyParties), so the
-// parent is eligible for the same feed set.
-func feedView(sessions []string, event model.Event) (model.Event, bool) {
+// feedMembers is standardMember for one feed scan, remembered per session
+// so a scan checks each session once.
+func feedMembers(view bus.JournalView, p pluginRecord) func(string) bool {
+	known := map[string]bool{}
+	return func(session string) bool {
+		member, ok := known[session]
+		if !ok {
+			member = standardMember(view, p, session)
+			known[session] = member
+		}
+		return member
+	}
+}
+
+// feedView returns the event as a plugin may see it now. A session event
+// needs a member session; a session's own retirement or exit is still offered
+// once, as the plugin could see that session just before it. A message event
+// needs a member sender or recipient; the other party is reduced to "kind:".
+// reply_to is kept: bus writes a reply only between its parent's parties
+// (checkReplyParties), so the parent is eligible for the same members.
+func feedView(member func(string) bool, scopeAll bool, event model.Event) (model.Event, bool) {
 	if event.Message == nil {
-		return event, slices.Contains(sessions, event.Session.ID)
+		return event, member(event.Session.ID) || finalSessionEvent(scopeAll, event.Session)
 	}
 	m := *event.Message
-	from, to := slices.Contains(sessions, m.From), slices.Contains(sessions, m.To)
+	from, to := member(m.From), member(m.To)
 	if !from && !to {
 		return model.Event{}, false
 	}
@@ -174,6 +196,15 @@ func feedView(sessions []string, event model.Event) (model.Event, bool) {
 	}
 	event.Message = &m
 	return event, true
+}
+
+// finalSessionEvent decides, in this one place, whether a session's own end
+// is offered after it stopped being a member: the change into retirement,
+// or the exit of its owner while not retired, judged by the membership just
+// before it (scope all). Each journal event is offered at most once, so this
+// is never repeated. Slice 5 adds its eligibility-continuity condition here.
+func finalSessionEvent(scopeAll bool, e model.EventSession) bool {
+	return scopeAll && !e.PreviousRetired && (e.Retired || e.Cause == model.CauseOwnerExited)
 }
 
 func addressKind(address string) string {

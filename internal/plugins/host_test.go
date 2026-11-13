@@ -274,7 +274,10 @@ func hostStore(t *testing.T) (bus.Store, model.Session) {
 	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").AddExternalPlugin(binary, []string{"host-fake-child"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").ConfigurePluginFeed([]string{session.ID}); err != nil {
+	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(true); err != nil {
@@ -924,12 +927,12 @@ func TestGrantedPluginStderrIsWithheldWhenTheHelloFails(t *testing.T) {
 		"stderr-old-hello":     "uses the old plugin wire (v1)",
 		"stderr-needs-members": `needs "members"`,
 	} {
-		store, session := hostStore(t)
+		store, _ := hostStore(t)
 		feed := pluginfeed.NewPluginFeed(store, "fake-notifier")
 		if err := feed.EnablePluginFeed(false); err != nil {
 			t.Fatal(err)
 		}
-		if err := feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Receive: []string{session.ID}}); err != nil {
+		if err := feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true, Receive: true}); err != nil {
 			t.Fatal(err)
 		}
 		if err := feed.EnablePluginFeed(true); err != nil {
@@ -974,22 +977,23 @@ func TestHostOffersOnlyGrantedCapabilities(t *testing.T) {
 		t.Fatalf("feed-only host hello: %q", frames)
 	}
 	for _, test := range []struct {
-		grants pluginfeed.PluginCapabilityGrants
+		access pluginfeed.PluginAccess
 		want   []string
 	}{
-		{pluginfeed.PluginCapabilityGrants{}, []string{"feed"}},
-		{pluginfeed.PluginCapabilityGrants{Receive: []string{"a"}}, []string{"feed", "inbox", "reply"}},
-		{pluginfeed.PluginCapabilityGrants{Send: []string{"a"}}, []string{"feed", "send"}},
-		{pluginfeed.PluginCapabilityGrants{Read: []string{"a"}}, []string{"feed", "read"}},
-		{pluginfeed.PluginCapabilityGrants{Receive: []string{"a"}, Send: []string{"a"}, Read: []string{"a"}}, hostCapabilities},
+		{pluginfeed.PluginAccess{Status: true}, []string{"feed"}},
+		{pluginfeed.PluginAccess{Receive: true}, []string{"inbox", "reply"}},
+		{pluginfeed.PluginAccess{Status: true, Receive: true}, []string{"feed", "inbox", "reply"}},
+		{pluginfeed.PluginAccess{Status: true, Send: []string{"a"}}, []string{"feed", "send"}},
+		{pluginfeed.PluginAccess{Status: true, Read: []string{"a"}}, []string{"feed", "read"}},
+		{pluginfeed.PluginAccess{Status: true, Receive: true, Send: []string{"a"}, Read: []string{"a"}}, hostCapabilities},
 	} {
-		status := &pluginfeed.PluginFeedStatus{Capabilities: &pluginfeed.PluginCapabilities{PluginCapabilityGrants: test.grants}}
+		status := &pluginfeed.PluginFeedStatus{Access: test.access}
 		if got := grantedCapabilities(status); !slices.Equal(got, test.want) {
-			t.Errorf("%+v: offered %v, want %v", test.grants, got, test.want)
+			t.Errorf("%+v: offered %v, want %v", test.access, got, test.want)
 		}
 	}
-	if got := grantedCapabilities(&pluginfeed.PluginFeedStatus{}); !slices.Equal(got, []string{"feed"}) {
-		t.Errorf("no grants: offered %v", got)
+	if got := grantedCapabilities(&pluginfeed.PluginFeedStatus{}); len(got) != 0 {
+		t.Errorf("no access: offered %v", got)
 	}
 }
 

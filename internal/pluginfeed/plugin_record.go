@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
@@ -20,16 +19,20 @@ type pluginPosition struct {
 }
 
 type pluginRecord struct {
-	ID           string                `json:"id"`
-	Name         string                `json:"name"`
-	Launch       *PluginLaunch         `json:"launch,omitempty"`
-	Enabled      bool                  `json:"enabled"`
-	Sessions     []string              `json:"sessions"`
-	Position     pluginPosition        `json:"position"`
-	GapID        string                `json:"gap_id,omitempty"`
-	GapReason    string                `json:"gap_reason,omitempty"`
-	Capabilities *PluginCapabilities   `json:"capabilities,omitempty"`
-	Install      *PluginInstallReceipt `json:"install,omitempty"`
+	ID      string        `json:"id"`
+	Name    string        `json:"name"`
+	Launch  *PluginLaunch `json:"launch,omitempty"`
+	Enabled bool          `json:"enabled"`
+	// Scope "all" gives standard access to every live session; any other
+	// value is none.
+	Scope     string                `json:"scope"`
+	Access    PluginAccess          `json:"access"`
+	Position  pluginPosition        `json:"position"`
+	GapID     string                `json:"gap_id,omitempty"`
+	GapReason string                `json:"gap_reason,omitempty"`
+	Install   *PluginInstallReceipt `json:"install,omitempty"`
+	// Revision is pluginRevision of this record, checked on every load.
+	Revision string `json:"revision"`
 	// Epoch is new on every enable. A running child keeps the epoch of its
 	// launch, so it never adopts grants that changed after it started.
 	Epoch string `json:"epoch,omitempty"`
@@ -37,17 +40,18 @@ type pluginRecord struct {
 
 // PluginFeedStatus describes a named installation, without claiming a live child.
 type PluginFeedStatus struct {
-	Launch       *PluginLaunch         `json:"launch,omitempty"`
-	ID           string                `json:"id,omitempty"`
-	Name         string                `json:"plugin"`
-	DataDir      string                `json:"data_dir"`
-	Enabled      bool                  `json:"enabled"`
-	Sessions     []string              `json:"sessions"`
-	GapPending   bool                  `json:"gap_pending"`
-	LastGap      string                `json:"last_gap,omitempty"`
-	Capabilities *PluginCapabilities   `json:"capabilities,omitempty"`
-	Install      *PluginInstallReceipt `json:"install,omitempty"`
-	Epoch        string                `json:"epoch,omitempty"`
+	Launch     *PluginLaunch         `json:"launch,omitempty"`
+	ID         string                `json:"id,omitempty"`
+	Name       string                `json:"plugin"`
+	DataDir    string                `json:"data_dir"`
+	Enabled    bool                  `json:"enabled"`
+	Scope      string                `json:"scope"`
+	Access     PluginAccess          `json:"access"`
+	Revision   string                `json:"revision,omitempty"`
+	GapPending bool                  `json:"gap_pending"`
+	LastGap    string                `json:"last_gap,omitempty"`
+	Install    *PluginInstallReceipt `json:"install,omitempty"`
+	Epoch      string                `json:"epoch,omitempty"`
 }
 
 func (s pluginFiles) pluginPath() string { return filepath.Join(s.pluginDir(), s.name+".json") }
@@ -108,13 +112,13 @@ func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
 	if !p.validIdentityAndLaunch(s.name) {
 		return p, nil, journal.ErrInvalidBatch
 	}
-	if err := s.checkPluginGrants(p.Sessions); err != nil {
+	if err := s.checkAccess(p.Access); err != nil {
 		return p, nil, err
 	}
-	if err := s.checkCapabilities(p.Capabilities); err != nil {
-		return p, nil, err
+	if p.Revision != pluginRevision(p) {
+		return p, nil, journal.ErrInvalidBatch // a hand edit cannot keep an old binding
 	}
-	if (p.Enabled && (len(p.Sessions) == 0 || p.GapReason == "")) || p.invalidPosition() {
+	if (p.Enabled && (p.Access.empty() || p.GapReason == "")) || p.invalidPosition() {
 		return p, nil, journal.ErrInvalidBatch
 	}
 	switch p.GapReason {
@@ -132,37 +136,12 @@ func (p pluginRecord) invalidPosition() bool {
 }
 
 func (s pluginFiles) savePlugin(p pluginRecord) ([]byte, error) {
+	p.Revision = pluginRevision(p)
 	raw, err := journal.EncodeJSON(p, 16<<10)
 	if err != nil {
 		return nil, err
 	}
 	return raw, journal.WriteAtomic(s.pluginPath(), raw)
-}
-
-// ConfigurePluginFeed replaces explicit grants only while execution is disabled.
-func (s PluginFeed) ConfigurePluginFeed(ids []string) error {
-	if err := s.checkName(); err != nil {
-		return err
-	}
-	ids = slices.Clone(ids)
-	slices.Sort(ids)
-	if err := s.checkPluginGrants(ids); err != nil {
-		return err
-	}
-	return s.locked(func() error {
-		p, _, err := s.loadPlugin()
-		if err != nil {
-			return err
-		}
-		if p.ID == "" {
-			return model.NewError(model.CodeNotFound, "add the plugin first")
-		}
-		if p.Enabled {
-			return model.NewError(model.CodeConflict, "disable the plugin before changing its grants")
-		}
-		_, err = s.savePlugin(pluginRecord{ID: p.ID, Name: p.Name, Sessions: ids, Launch: p.Launch, Capabilities: p.Capabilities, Install: p.Install})
-		return err
-	})
 }
 
 // EnablePluginFeed starts at the current end; it never launches executable code.
@@ -202,8 +181,8 @@ func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [
 			if err := p.applyLaunchPin(launch, prior, raw); err != nil {
 				return err
 			}
-			if len(p.Sessions) == 0 {
-				return model.NewError(model.CodeInvalidInput, "configure explicit session grants first")
+			if p.Access.empty() {
+				return model.NewError(model.CodeInvalidInput, "grant some access first")
 			}
 			head, err := view.EventWindow()
 			if err != nil {
@@ -226,7 +205,7 @@ func (s PluginFeed) PluginStatus() (PluginFeedStatus, error) {
 	var status PluginFeedStatus
 	err := bus.WithJournalRead(s.store, func(bus.JournalView) error {
 		p, _, err := s.loadPlugin()
-		status = PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Sessions: slices.Clone(p.Sessions), GapPending: p.GapID != "", LastGap: p.GapReason, Capabilities: p.Capabilities.clone(), Install: p.Install, Epoch: p.Epoch}
+		status = PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Scope: p.Scope, Access: p.Access.clone(), Revision: p.Revision, GapPending: p.GapID != "", LastGap: p.GapReason, Install: p.Install, Epoch: p.Epoch}
 		return err
 	})
 	return status, err

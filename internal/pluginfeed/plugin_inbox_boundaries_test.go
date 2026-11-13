@@ -29,7 +29,7 @@ func TestPluginInboxPrunedSenderDoesNotBrickNextSender(t *testing.T) {
 	if err := x.f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{x.from.ID, b.ID}}); err != nil {
+	if err := x.f.GrantPluginAccess(PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {

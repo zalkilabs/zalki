@@ -34,21 +34,21 @@ type helloOK struct {
 }
 
 // grantedCapabilities is what the host offers one installation: the names
-// it implements AND its grants allow. inbox and reply need receive; send and
-// read need their extended grants. A feed-only plugin gets only feed.
+// it implements AND its access allows. feed needs status access; inbox and
+// reply need receive; send and read need a named session each.
 func grantedCapabilities(status *pluginfeed.PluginFeedStatus) []string {
-	offered := []string{"feed"}
-	c := status.Capabilities
-	if c == nil {
-		return offered
+	a := status.Access
+	offered := []string{}
+	if a.Status {
+		offered = append(offered, "feed")
 	}
-	if len(c.Receive) > 0 {
+	if a.Receive {
 		offered = append(offered, "inbox", "reply")
 	}
-	if len(c.Send) > 0 {
+	if len(a.Send) > 0 {
 		offered = append(offered, "send")
 	}
-	if len(c.Read) > 0 {
+	if len(a.Read) > 0 {
 		offered = append(offered, "read")
 	}
 	return offered

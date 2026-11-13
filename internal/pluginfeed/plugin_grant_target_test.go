@@ -10,8 +10,8 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// TestPluginFeedRefusesPluginInboxTargets checks that a feed grant names only
-// native sessions. Another plugin's inbox address is refused when the owner
+// TestPluginFeedRefusesPluginInboxTargets checks that a named grant names
+// only native sessions. Another plugin's inbox address is refused when the owner
 // sets it, and a record that holds one on disk does not load.
 func TestPluginFeedRefusesPluginInboxTargets(t *testing.T) {
 	s := fixtureStore(t)
@@ -20,12 +20,12 @@ func TestPluginFeedRefusesPluginInboxTargets(t *testing.T) {
 	feed := NewPluginFeed(s, "fake-notifier")
 	other := "plugin:" + model.NewUUID()
 	for _, ids := range [][]string{{other}, {a.ID, other}} {
-		if err := feed.ConfigurePluginFeed(ids); model.ErrorCodeOf(err) != model.CodeInvalidInput {
-			t.Fatal("feed grant accepted a plugin inbox address", ids, err)
+		if err := feed.GrantPluginAccess(PluginAccess{Read: ids}); model.ErrorCodeOf(err) != model.CodeInvalidInput {
+			t.Fatal("a named grant accepted a plugin inbox address", ids, err)
 		}
 	}
-	if err := feed.ConfigurePluginFeed([]string{a.ID}); err != nil {
-		t.Fatal("native feed grant refused", err)
+	if err := feed.GrantPluginAccess(PluginAccess{Read: []string{a.ID}}); err != nil {
+		t.Fatal("native named grant refused", err)
 	}
 	raw, err := os.ReadFile(feed.pluginPath())
 	if err != nil || !bytes.Contains(raw, []byte(a.ID)) {
@@ -41,9 +41,9 @@ func TestPluginFeedRefusesPluginInboxTargets(t *testing.T) {
 
 func TestNextPluginFeedIsBoundToTheLaunch(t *testing.T) {
 	s := fixtureStore(t)
-	a, _ := register(t, s, "codex")
+	register(t, s, "codex")
 	b, _ := register(t, s, "codex")
-	enableFeed(t, s, a.ID)
+	enableFeed(t, s)
 	feed := NewPluginFeed(s, "fake-notifier")
 	launch, err := feed.PluginStatus()
 	if err != nil || launch.Epoch == "" {
@@ -62,7 +62,7 @@ func checkOldLaunchRefused(t *testing.T, feed PluginFeed, launch PluginFeedStatu
 		t.Fatal(err)
 	}
 	if sessions != nil {
-		if err := feed.ConfigurePluginFeed(sessions); err != nil {
+		if err := feed.ConfigurePluginScope("all"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -83,21 +83,19 @@ func checkOldLaunchRefused(t *testing.T, feed PluginFeed, launch PluginFeedStatu
 
 func TestLaunchBindingCodeComparesTheWholeLaunch(t *testing.T) {
 	pin := &PluginLaunch{PinSHA256: strings.Repeat("a", 64)}
-	caps := &PluginCapabilities{Revision: "r1"}
-	launch := &PluginFeedStatus{ID: "p", Enabled: true, Epoch: "e1", Sessions: []string{"codex:a"}, Launch: pin, Capabilities: caps}
+	launch := &PluginFeedStatus{ID: "p", Enabled: true, Epoch: "e1", Revision: "r1", Launch: pin}
 	record := func() pluginRecord {
-		return pluginRecord{ID: "p", Enabled: true, Epoch: "e1", Sessions: []string{"codex:a"}, Launch: &PluginLaunch{PinSHA256: pin.PinSHA256}, Capabilities: &PluginCapabilities{Revision: "r1"}}
+		return pluginRecord{ID: "p", Enabled: true, Epoch: "e1", Revision: "r1", Launch: &PluginLaunch{PinSHA256: pin.PinSHA256}}
 	}
 	if code := launchBindingCode(record(), launch); code != "ok" {
 		t.Fatal("same launch", code)
 	}
 	for name, change := range map[string]func(*pluginRecord){
-		"id":       func(p *pluginRecord) { p.ID = "q" },
-		"epoch":    func(p *pluginRecord) { p.Epoch = "e2" },
-		"sessions": func(p *pluginRecord) { p.Sessions = []string{"codex:b"} },
-		"pin":      func(p *pluginRecord) { p.Launch.PinSHA256 = strings.Repeat("b", 64) },
-		"revision": func(p *pluginRecord) { p.Capabilities.Revision = "r2" },
-		"no caps":  func(p *pluginRecord) { p.Capabilities = nil },
+		"id":        func(p *pluginRecord) { p.ID = "q" },
+		"epoch":     func(p *pluginRecord) { p.Epoch = "e2" },
+		"pin":       func(p *pluginRecord) { p.Launch.PinSHA256 = strings.Repeat("b", 64) },
+		"revision":  func(p *pluginRecord) { p.Revision = "r2" },
+		"no launch": func(p *pluginRecord) { p.Launch = nil },
 	} {
 		p := record()
 		change(&p)

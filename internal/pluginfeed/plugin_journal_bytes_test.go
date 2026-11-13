@@ -18,7 +18,7 @@ const (
 	byteFixtureActor   = "cursor:00000000-0000-4000-8000-000000000071"
 	byteFixtureGen     = "00000000-0000-4000-8000-000000000072"
 	byteFixturePlugin  = "00000000-0000-4000-8000-000000000073"
-	byteFixtureGrant   = "00000000-0000-4000-8000-000000000074"
+	byteFixtureGrant   = "7474747474747474747474747474747474747474747474747474747474747474"
 	byteFixtureInbox   = "00000000-0000-4000-8000-000000000075"
 	byteFixtureNative  = "00000000-0000-4000-8000-000000000076"
 	byteFixtureRequest = "00000000-0000-4000-8000-000000000077"
@@ -59,12 +59,10 @@ func seedPluginJournalBytes(f PluginFeed, view bus.JournalView, now time.Time) e
 		}
 	}
 	launch := &PluginLaunch{Executable: "/fixture/plugin", Args: []string{"literal <>&"}, SHA256: strings.Repeat("a", 64), PinSHA256: strings.Repeat("b", 64)}
-	capability := &PluginCapabilities{Version: 1, Installation: byteFixturePlugin, PinSHA256: launch.PinSHA256, Revision: byteFixtureGrant,
-		PluginCapabilityGrants: PluginCapabilityGrants{Read: []string{byteFixtureActor}, Receive: []string{byteFixtureActor}}}
 	if err := f.savePluginIdentity(byteFixturePlugin); err != nil {
 		return err
 	}
-	if _, err := f.savePlugin(pluginRecord{ID: byteFixturePlugin, Name: f.name, Launch: launch, Enabled: true, Sessions: []string{byteFixtureActor}, GapReason: "enabled", Capabilities: capability}); err != nil {
+	if _, err := f.savePlugin(pluginRecord{ID: byteFixturePlugin, Name: f.name, Launch: launch, Enabled: true, Scope: scopeAll, Access: PluginAccess{Status: true, Receive: true, Read: []string{byteFixtureActor}}, GapReason: "enabled"}); err != nil {
 		return err
 	}
 	return seedPluginJournalMessages(f, view, now)
@@ -121,13 +119,15 @@ func auditPluginJournalBytes(t *testing.T, f PluginFeed, before *PluginFeedStatu
 func assertPluginJournalBytes(t *testing.T, name string, raw []byte) {
 	t.Helper()
 	// Captured with production files at 149740f before the journal boundary.
-	// installation: captured again when receive replaced inbox_from/inbox_read.
+	// installation: captured again when receive replaced inbox_from/inbox_read,
+	// and all but identity when scope, access and the hash revision replaced
+	// sessions and capabilities (slice 2).
 	want := map[string]string{
-		"installation":  "cd36d91174d5ae6a285ef1c1e13147050e6145b6e2be71a218c742c81c687a30",
+		"installation":  "c43a9777df1317e57fafae777c3ed0250036e6bba2f640de709e95036cfeed2b",
 		"identity hint": "6427652d690a10e557e0354e70a402d50ebe7180f4bbc03bb7bc0848ff2e235b",
-		"inbox index":   "cceb38d7cf3a91fdbdb108ef088ddb973d2f04710a7a826c9b6e6df1fcd5eb83",
-		"native audit":  "0b4d819ba006f36622a358b79086dd851025931a6699a509b8239c63de4a91d0",
-		"inbox audit":   "eac9d3bece08f2a9804d03062ceb050f1e2493136f5986b4da7e2f203b960470",
+		"inbox index":   "180098f511cc8c376cc5b981658f6a5840912b193a816f34ab075521d587dcf4",
+		"native audit":  "d7ab481971eb2351f79ca1d2b1de3d08a8295d15773d9e9fe903e00565478828",
+		"inbox audit":   "2de0e921b43c0253a738cee5fe6baad0ada5ea248f1f296303f0490f0f561948",
 	}[name]
 	if got := fmt.Sprintf("%x", sha256.Sum256(raw)); got != want {
 		t.Fatalf("%s bytes changed: SHA256 %s, want %s", name, got, want)

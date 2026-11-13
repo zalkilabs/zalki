@@ -72,7 +72,7 @@ func externalTestChild(args []string) error {
 }
 
 func TestExternalPluginLiteralArgsHomeOnlyAndPersistentCwd(t *testing.T) {
-	store, session := hostStore(t)
+	store, _ := hostStore(t)
 	binary, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +86,10 @@ func TestExternalPluginLiteralArgsHomeOnlyAndPersistentCwd(t *testing.T) {
 	if err := feed.AddExternalPlugin(binary, args); err != nil {
 		t.Fatal(err)
 	}
-	if err := feed.ConfigurePluginFeed([]string{session.ID}); err != nil {
+	if err := feed.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := feed.EnablePluginFeed(true); err != nil {
@@ -139,7 +142,7 @@ func runExternalUntilObserved(t *testing.T, store bus.Store, evidence string) {
 }
 
 func TestExternalPluginRunRejectsChangedFileBeforeExec(t *testing.T) {
-	store, session := hostStore(t)
+	store, _ := hostStore(t)
 	file := filepath.Join(t.TempDir(), "plugin")
 	marker := filepath.Join(t.TempDir(), "must-not-execute")
 	body := "#!/bin/sh\n: > '" + marker + "'\nexit 0\n"
@@ -150,7 +153,10 @@ func TestExternalPluginRunRejectsChangedFileBeforeExec(t *testing.T) {
 	if err := feed.AddExternalPlugin(file, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := feed.ConfigurePluginFeed([]string{session.ID}); err != nil {
+	if err := feed.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := feed.EnablePluginFeed(true); err != nil {

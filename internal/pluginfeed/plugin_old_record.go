@@ -10,8 +10,9 @@ import (
 )
 
 // ErrOldPluginRecord marks a plugin record written by an older Zalki: one
-// with the inbox_from and inbox_read grants (before receive), or an install
-// receipt without the manifest id (before zalki-plugin/1). There is no
+// without a scope (before rule scope, so also with the inbox_from/inbox_read
+// grants of before receive), or an install receipt without the manifest id
+// (before zalki-plugin/1). There is no
 // conversion: the owner removes the plugin and installs it again.
 var ErrOldPluginRecord = errors.New("plugin record from an older Zalki")
 
@@ -50,6 +51,7 @@ func shellUnsafe(r rune) bool {
 // folder of its install receipt when it has one.
 func oldPluginSource(raw []byte) (string, bool) {
 	var old struct {
+		Scope        *string                    `json:"scope"`
 		Capabilities map[string]json.RawMessage `json:"capabilities"`
 		Install      *struct {
 			Source string `json:"source"`
@@ -61,10 +63,11 @@ func oldPluginSource(raw []byte) (string, bool) {
 	}
 	_, from := old.Capabilities["inbox_from"]
 	_, inbox := old.Capabilities["inbox_read"]
+	noScope := old.Scope == nil
 	if old.Install == nil {
-		return "", from || inbox
+		return "", from || inbox || noScope
 	}
-	return old.Install.Source, from || inbox || old.Install.ID == ""
+	return old.Install.Source, from || inbox || noScope || old.Install.ID == ""
 }
 
 // oldPluginID reads only the installation ID of an old record, for remove.

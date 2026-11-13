@@ -9,32 +9,32 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// SECURITY (slice W): a launch without message grants is checked by its
-// launch binding alone. These tests prove that this branch still fences
+// SECURITY: a launch without message access is checked by the same
+// binding (epoch, revision, pin). These tests prove that this branch still fences
 // every owner change, and that such a launch can never reach a body path.
 
 func feedOnlyLaunch(t *testing.T) (bus.Store, PluginFeed, model.Session, PluginFeedStatus) {
 	t.Helper()
 	s := fixtureStore(t)
 	a, _ := register(t, s, "codex")
-	enableFeed(t, s, a.ID)
+	enableFeed(t, s)
 	f := NewPluginFeed(s, "fake-notifier")
 	status, err := f.PluginStatus()
-	if err != nil || status.Capabilities != nil || status.Epoch == "" {
+	if err != nil || status.Access.messages() || status.Epoch == "" {
 		t.Fatal("feed-only launch", status, err)
 	}
 	return s, f, a, status
 }
 
-// grantInPlace gives the record message grants WITHOUT a disable/enable, so
-// the epoch stays: only the capability check can see the change.
-func grantInPlace(t *testing.T, f PluginFeed, session string) {
+// grantInPlace gives the record message access WITHOUT a disable/enable, so
+// the epoch stays: only the revision can see the change.
+func grantInPlace(t *testing.T, f PluginFeed, _ string) {
 	t.Helper()
 	p, _, err := f.loadPlugin()
 	if err != nil {
 		t.Fatal(err)
 	}
-	p.Capabilities = &PluginCapabilities{Version: 1, Installation: p.ID, PinSHA256: p.Launch.PinSHA256, Revision: model.NewUUID(), PluginCapabilityGrants: PluginCapabilityGrants{Receive: []string{session}}}
+	p.Access.Receive = true
 	if _, err := f.savePlugin(p); err != nil {
 		t.Fatal(err)
 	}
@@ -125,40 +125,41 @@ func TestOwnerReadsRefuseAPluginWithoutGrants(t *testing.T) {
 // A launch WITH grants whose revision is stale stays refused.
 func TestLaunchWithGrantsAndStaleRevisionIsRefused(t *testing.T) {
 	s := fixtureStore(t)
-	a, _ := register(t, s, "codex")
+	register(t, s, "codex")
 	installFeed(t, s)
 	f := NewPluginFeed(s, "fake-notifier")
-	if err := f.ConfigurePluginFeed([]string{a.ID}); err != nil {
+	if err := f.ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{a.ID}}); err != nil {
+	if err := f.GrantPluginAccess(PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
 	launch, err := f.PluginStatus()
-	if err != nil || launch.Capabilities == nil {
+	if err != nil || !launch.Access.Receive {
 		t.Fatal(launch, err)
 	}
 	if code := f.PluginBindingCode(&launch); code != "ok" {
 		t.Fatal("current launch refused", code)
 	}
 	stale := launch
-	stale.Capabilities = launch.Capabilities.clone()
-	stale.Capabilities.Revision = model.NewUUID()
+	stale.Revision = strings.Repeat("0", 64)
 	if code := f.PluginBindingCode(&stale); code != "stale_binding" {
 		t.Fatal("stale revision accepted", code)
 	}
 	if m, code := f.NextPluginInbox(&stale); m != nil || code == "ok" {
 		t.Fatal("inbox_next with a stale revision", code)
 	}
-	// Same revision, but the grants no longer bind to this pin.
+	// The record now binds another pin: its revision moves with it.
 	p, _, err := f.loadPlugin()
 	if err != nil {
 		t.Fatal(err)
 	}
-	p.Capabilities.PinSHA256 = strings.Repeat("a", 64)
+	pin := *p.Launch
+	pin.PinSHA256 = strings.Repeat("a", 64)
+	p.Launch = &pin
 	if _, err := f.savePlugin(p); err != nil {
 		t.Fatal(err)
 	}

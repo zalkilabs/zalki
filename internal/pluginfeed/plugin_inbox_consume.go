@@ -75,15 +75,15 @@ func BoundPluginSend(binding *PluginFeedStatus) func(view bus.JournalView, state
 	return func(view bus.JournalView, stateDir, installation, to, replyTo, messageID string) (func() error, error) {
 		var record func() error
 		err := view.WithWriteScope(stateDir, func() error {
-			if binding == nil || binding.ID != installation || binding.Launch == nil || binding.Capabilities == nil {
+			if binding == nil || binding.ID != installation || binding.Launch == nil {
 				return model.NewError(model.CodeUnauthorized, "plugin send denied")
 			}
 			f, p, err := pluginInboxTarget(stateDir, "plugin:"+installation)
-			if err != nil || pluginBindingCode(p, binding) != "ok" || !pluginGrantsBound(p) {
+			if err != nil || launchBindingCode(p, binding) != "ok" {
 				return model.NewError(model.CodeUnauthorized, "plugin send denied")
 			}
 			if replyTo == "" {
-				if !slices.Contains(p.Capabilities.Send, to) {
+				if !extendedMember(view, p, p.Access.Send, to) {
 					return model.NewError(model.CodeUnauthorized, "plugin send denied")
 				}
 				record = func() error { return nil }
@@ -100,16 +100,9 @@ func BoundPluginSend(binding *PluginFeedStatus) func(view bus.JournalView, state
 	}
 }
 
-// pluginGrantsBound: enabled, launched, and the grants belong to this exact
-// installation and pin.
-func pluginGrantsBound(p pluginRecord) bool {
-	c := p.Capabilities
-	return p.Enabled && p.Launch != nil && c != nil && c.Installation == p.ID && c.PinSHA256 == p.Launch.PinSHA256
-}
-
 // pluginInboxCode checks the bound installation under the Store lock.
 func (s pluginFiles) pluginInboxCode(before *PluginFeedStatus) string {
-	if before == nil || before.ID == "" || before.Launch == nil || before.Capabilities == nil {
+	if before == nil || before.ID == "" || before.Launch == nil || !before.Access.Receive {
 		return "unauthorized"
 	}
 	p, _, err := s.loadPlugin()
@@ -140,7 +133,7 @@ func (s pluginFiles) nextPluginInboxAt(view bus.JournalView, installation string
 		if err == nil && consumedPluginInboxRecord(&m, installation, entry) {
 			continue
 		}
-		state := inboxEntryState(view, p.Capabilities, entry)
+		state := inboxEntryState(view, p, entry)
 		if state == "dead" {
 			continue // only the index entry goes; the message record stays stored
 		}
@@ -164,16 +157,17 @@ func (s pluginFiles) nextPluginInboxAt(view bus.JournalView, installation string
 
 // inboxEntryState decides whether an inbox entry may be offered now, by the
 // sender's identity (actor ID), not its registration generation. "ok": the
-// sender is in the current receive list. "held": it is not granted now; the
-// entry stays and comes back after a re-grant. "dead": the sender's session
+// plugin has receive access and the sender is a member now (scope all, live).
+// "held": it is not; the entry stays and comes back if the sender is a member
+// again. "dead": the sender's session
 // record is gone, so the entry can never be offered again. The stored
 // generation is information for the plugin only.
-func inboxEntryState(view bus.JournalView, c *PluginCapabilities, entry pluginInboxEntry) string {
+func inboxEntryState(view bus.JournalView, p pluginRecord, entry pluginInboxEntry) string {
 	_, err := view.SessionGeneration(entry.Sender)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		return "dead"
-	case err != nil || c == nil || !slices.Contains(c.Receive, entry.Sender):
+	case err != nil || !p.Access.Receive || !standardMember(view, p, entry.Sender):
 		return "held"
 	default:
 		return "ok"

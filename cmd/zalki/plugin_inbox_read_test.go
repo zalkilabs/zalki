@@ -44,8 +44,8 @@ func newInboxReadCLIFixture(t *testing.T) inboxReadCLIFixture {
 		t.Fatal(err)
 	}
 	capabilityCLIOK(t, binary, store.Dir, "add", "external", "--exec", executable)
-	capabilityCLIOK(t, binary, store.Dir, "configure", "external", "--session", author.ID)
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--receive", author.ID)
+	capabilityCLIOK(t, binary, store.Dir, "configure", "external", "--scope", "all")
+	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--status", "--receive")
 	capabilityCLIOK(t, binary, store.Dir, "enable", "external")
 	status, err := pluginfeed.NewPluginFeed(store, "external").PluginStatus()
 	if err != nil {
@@ -89,7 +89,7 @@ func TestPluginInboxReadActualCLIOutputPrivacyAndNonConsumption(t *testing.T) {
 			Revision   string `json:"admission_revision"`
 		} `json:"message"`
 	}
-	if json.Unmarshal(out, &result) != nil || result.Message.Generation == "" || result.Message.Revision != x.status.Capabilities.Revision || bytes.Contains(out, []byte(x.key)) {
+	if json.Unmarshal(out, &result) != nil || result.Message.Generation == "" || result.Message.Revision != x.status.Revision || bytes.Contains(out, []byte(x.key)) {
 		t.Fatal("CLI omitted provenance or exposed capability")
 	}
 	for path, want := range before {

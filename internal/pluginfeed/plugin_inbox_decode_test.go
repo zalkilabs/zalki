@@ -89,7 +89,7 @@ func poisonExistingIndexField(fields map[string]json.RawMessage, kind string) {
 }
 
 func TestPluginInboxInstallationLoaderRejectsAbsentAuthority(t *testing.T) {
-	for _, kind := range []string{"null", "empty-object", "missing-id", "missing-name", "missing-enabled", "missing-capabilities"} {
+	for _, kind := range []string{"null", "empty-object", "missing-id", "missing-name", "missing-enabled", "missing-access", "missing-scope", "missing-revision"} {
 		t.Run(kind, func(t *testing.T) { checkInstallationAbsentAuthority(t, kind) })
 	}
 }

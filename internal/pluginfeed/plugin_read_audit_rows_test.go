@@ -131,7 +131,7 @@ func checkAuditRowsRoundTrip(t *testing.T, namespace, kind string) {
 	case "empty":
 		rows = []pluginReadAuditRow{}
 	case "populated":
-		rows = []pluginReadAuditRow{{At: x.now.Add(-time.Hour), Plugin: x.before.ID, Request: model.NewUUID(), Session: x.session, Message: x.message.ID, Revision: x.before.Capabilities.Revision, Outcome: "ok", Bytes: 200}}
+		rows = []pluginReadAuditRow{{At: x.now.Add(-time.Hour), Plugin: x.before.ID, Request: model.NewUUID(), Session: x.session, Message: x.message.ID, Revision: x.before.Revision, Outcome: "ok", Bytes: 200}}
 	}
 	if err := x.f.savePluginReadAuditFile(filepath.Base(x.path()), rows, x.now); err != nil {
 		t.Fatal(err)

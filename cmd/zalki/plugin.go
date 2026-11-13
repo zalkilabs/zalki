@@ -5,7 +5,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
-const pluginTrustNotice = "External plugins run with your OS user permissions. Session grants filter the Zalki feed; they do not restrict filesystem access. A plugin can read and change all of your Zalki state. Run only code you trust."
+const pluginTrustNotice = "External plugins run with your OS user permissions. Access and scope filter what Zalki exposes; they do not restrict filesystem access. A plugin can read and change all of your Zalki state. Run only code you trust."
 
 func newPluginCommand(opts *commandOptions) *cobra.Command {
 	group := &cobra.Command{Use: "plugins", Short: "Manage explicitly enabled local plugins", Long: pluginTrustNotice}

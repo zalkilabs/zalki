@@ -128,10 +128,13 @@ func securityNativeFixture(t *testing.T, p *securityNativePeer) (*v2Fixture, str
 	if err := x.feed.AddExternalPlugin(binary, []string{"v2-test-child", x.result, target.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.feed.ConfigurePluginFeed([]string{target.ID}); err != nil {
+	if err := x.feed.ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Receive: []string{target.ID}, Send: []string{target.ID}}); err != nil {
+	if err := x.feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true, Receive: true, Send: []string{target.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.feed.EnablePluginFeed(true); err != nil {

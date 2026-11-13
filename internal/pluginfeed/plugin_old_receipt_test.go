@@ -6,9 +6,11 @@ import "testing"
 // old record, refused with the reinstall fix, never loaded half-valid.
 func TestReceiptWithoutIDIsAnOldRecord(t *testing.T) {
 	for raw, old := range map[string]bool{
-		`{"install":{"source":"/src/a"}}`:                     true,
-		`{"install":{"source":"/src/a","id":"local/a"}}`:      false,
-		`{"capabilities":{"receive":["x"]}}`:                  false,
+		`{"install":{"source":"/src/a"}}`:                              true,
+		`{"scope":"all","install":{"source":"/src/a","id":"local/a"}}`: false,
+		`{"scope":"none"}`: false,
+		`{"install":{"source":"/src/a","id":"local/a"}}`:      true,
+		`{"capabilities":{"receive":["x"]}}`:                  true,
 		`{"capabilities":{"inbox_read":true}}`:                true,
 		`{"install":{"source":"/src/a","id":""},"enabled":1}`: true,
 	} {

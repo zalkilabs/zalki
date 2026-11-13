@@ -47,11 +47,14 @@ func v2HostFixture(t *testing.T) *v2Fixture {
 	if err := x.feed.AddExternalPlugin(binary, []string{"v2-test-child", x.result, asker.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.feed.ConfigurePluginFeed([]string{asker.ID}); err != nil {
+	if err := x.feed.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
 	// Receive only: the child answers under the reply rule, with no send grant.
-	if err := x.feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Receive: []string{asker.ID}}); err != nil {
+	if err := x.feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.feed.EnablePluginFeed(true); err != nil {
@@ -173,7 +176,7 @@ func TestV2HostStopsAStaleChildBeforeItSends(t *testing.T) {
 	if err := x.feed.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Send: []string{target.ID}}); err != nil {
+	if err := x.feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true, Send: []string{target.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.feed.EnablePluginFeed(true); err != nil {

@@ -80,7 +80,7 @@ func fakeGoFolder(t *testing.T, script string) string {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin+":/usr/bin:/bin")
-	manifest := `{"api":"zalki-plugin/1","id":"local/demo","version":"0.1.0","name":"demo","language":"go","purpose":"cancel test","build":["go","build","-o","plugin","."],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":true}}`
+	manifest := `{"api":"zalki-plugin/1","id":"local/demo","version":"0.1.0","name":"demo","language":"go","purpose":"cancel test","build":["go","build","-o","plugin","."],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":false}}`
 	return writeInstallFolder(t, manifest, map[string]string{"main.go": "package main\n\nfunc main() {}\n", "go.mod": "module example.com/demo\n\ngo 1.22\n"})
 }
 
@@ -99,16 +99,14 @@ func TestPluginInstallCtrlCAtPromptsCancels(t *testing.T) {
 		goTool  bool
 		mode    installChoice
 		parts   []string
-		prompts int // session prompts shown: none may follow the cancel
+		prompts int // times the question is shown: never again after the cancel
 	}{
-		{"native, line mode, first prompt", false, installPlainLines, []string{"^C", "1\n\n\ny\n"}, 1},
-		{"native, line mode, later prompt", false, installPlainLines, []string{"1\n", "^C", "\n\ny\n"}, 2},
-		{"native, line mode, final question", false, installPlainLines, []string{"1\n\n\n", "^C", "y\n"}, 3},
-		{"native, line mode, Ctrl-C with the answer", false, installPlainLines, []string{"1\n\n\n", "^C:y\n"}, 3},
-		{"native, raw keys", false, installRawKeys, []string{" ", "^C", "y"}, 0},
-		{"native, line mode, nobody types after Ctrl-C", false, installPlainLines, []string{"1\n", "block"}, 2},
-		{"go, line mode", true, installPlainLines, []string{"1\n", "^C", "\ny\n"}, 2},
-		{"go, raw keys", true, installRawKeys, []string{" ", "^C", "y"}, 0},
+		{"native, line mode, at the question", false, installPlainLines, []string{"^C", "y\n"}, 1},
+		{"native, line mode, Ctrl-C with the answer", false, installPlainLines, []string{"^C:y\n"}, 1},
+		{"native, raw keys", false, installRawKeys, []string{"^C", "y"}, 1},
+		{"native, line mode, nobody types after Ctrl-C", false, installPlainLines, []string{"block"}, 1},
+		{"go, line mode", true, installPlainLines, []string{"^C", "y\n"}, 1},
+		{"go, raw keys", true, installRawKeys, []string{"^C", "y"}, 1},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -132,7 +130,7 @@ func TestPluginInstallCtrlCAtPromptsCancels(t *testing.T) {
 			}()
 			output, err := pluginInstallCancelled(t, store.Dir, c.mode, ctx, input, folder)
 			assertInstallCancelled(t, store.Dir, output, err)
-			if strings.Contains(output, "Building...") || strings.Contains(output, "Verifying...") || strings.Count(output, "(enter session numbers") != c.prompts || time.Since(start) > 3*time.Second {
+			if strings.Contains(output, "Building...") || strings.Contains(output, "Verifying...") || strings.Count(output, installQuestion) > c.prompts || time.Since(start) > 3*time.Second {
 				t.Fatalf("the install went on after Ctrl-C (%s):\n%s", time.Since(start), output)
 			}
 		})
@@ -156,7 +154,7 @@ func TestPluginInstallCancelBeforeBuildAndCommit(t *testing.T) {
 				}
 			}
 			defer func() { installStep = func(string) {} }()
-			output, err := pluginInstallCancelled(t, store.Dir, installRawKeys, ctx, strings.NewReader(" y"), folder)
+			output, err := pluginInstallCancelled(t, store.Dir, installRawKeys, ctx, strings.NewReader("y"), folder)
 			assertInstallCancelled(t, store.Dir, output, err)
 			// "Enabling..." comes before the last check, so it may show; the build may not.
 			if strings.Contains(output, "Building...") || (step == "build" && strings.Contains(output, "Enabling...")) {
@@ -183,7 +181,7 @@ func TestPluginInstallCancelDuringBuildKeepsNoLog(t *testing.T) {
 		}
 	}()
 	start := time.Now()
-	output, err := pluginInstallCancelled(t, store.Dir, installRawKeys, ctx, strings.NewReader(" y"), folder)
+	output, err := pluginInstallCancelled(t, store.Dir, installRawKeys, ctx, strings.NewReader("y"), folder)
 	assertInstallCancelled(t, store.Dir, output, err)
 	if !strings.Contains(output, "Building...") || time.Since(start) > 15*time.Second {
 		t.Fatal("the build was not stopped by the cancel", time.Since(start), output)
@@ -221,7 +219,7 @@ func TestPluginInstallCancelAtEnablingOutput(t *testing.T) {
 		if goTool {
 			folder = fakeGoFolder(t, `printf built > plugin; chmod 700 plugin`)
 		}
-		output, err := pluginInstallCancelled(t, store.Dir, installRawKeys, t.Context(), strings.NewReader(" y"), folder, "Enabling...")
+		output, err := pluginInstallCancelled(t, store.Dir, installRawKeys, t.Context(), strings.NewReader("y"), folder, "Enabling...")
 		assertInstallCancelled(t, store.Dir, output, err)
 		if !strings.Contains(output, "Enabling...") {
 			t.Fatal("the cancel did not come from the Enabling output", output)

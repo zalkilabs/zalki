@@ -37,12 +37,6 @@ type PluginInstallReceipt struct {
 	InstalledAt    string   `json:"installed_at"`
 }
 
-// PluginInstallGrants are the owner's selections; nothing is granted implicitly.
-type PluginInstallGrants struct {
-	Sessions []string
-	PluginCapabilityGrants
-}
-
 // PluginInstall holds the name lease for one install attempt and owns its
 // staging folder. Close always releases the lease and removes staging unless
 // a build log was kept for the owner.
@@ -249,27 +243,23 @@ func copyPluginArtifactObserved(s PluginFeed, source string, observe func(*os.Fi
 var savePluginInstallRecord = PluginFeed.savePlugin
 
 // Commit copies the built artifact, pins it, takes the Store lock, verifies the
-// pin again and then publishes one enabled record with grants and receipt in
+// pin again and then publishes one enabled record with scope all, the
+// owner's access and the receipt in
 // one atomic write. On an error with kept false nothing was published and the
 // copied artifact is removed. On an error with kept true the record may be
 // published (the write was not confirmed), so nothing is rolled back.
-func (i *PluginInstall) Commit(artifact string, args []string, grants PluginInstallGrants, receipt PluginInstallReceipt) (kept bool, err error) {
+func (i *PluginInstall) Commit(artifact string, args []string, access PluginAccess, receipt PluginInstallReceipt) (kept bool, err error) {
 	s := i.feed
 	defer func() {
 		if err != nil && !kept {
 			err = errors.Join(err, os.RemoveAll(s.pluginBinPath()))
 		}
 	}()
-	grants.Sessions = slices.Clone(grants.Sessions)
-	slices.Sort(grants.Sessions)
-	for _, ids := range []*[]string{&grants.Read, &grants.Send, &grants.Receive} {
-		*ids = slices.Clone(*ids)
-		slices.Sort(*ids)
+	access.sortLists()
+	if access.empty() {
+		return false, model.NewError(model.CodeInvalidInput, "select some access")
 	}
-	if len(grants.Sessions) == 0 {
-		return false, model.NewError(model.CodeInvalidInput, "select at least one session")
-	}
-	if err := errors.Join(s.checkPluginGrants(grants.Sessions), s.checkCapabilityGrants(grants.PluginCapabilityGrants)); err != nil {
+	if err := s.checkAccess(access); err != nil {
 		return false, err
 	}
 	pinned, err := s.copyPluginArtifact(artifact)
@@ -300,13 +290,13 @@ func (i *PluginInstall) Commit(artifact string, args []string, grants PluginInst
 		if err := launch.Verify(); err != nil {
 			return err
 		}
-		kept, err = s.commitInstall(view, launch, grants, receipt)
+		kept, err = s.commitInstall(view, launch, access, receipt)
 		return err
 	})
 	return kept, err
 }
 
-func (s PluginFeed) commitInstall(view bus.JournalView, launch PluginLaunch, grants PluginInstallGrants, receipt PluginInstallReceipt) (bool, error) {
+func (s PluginFeed) commitInstall(view bus.JournalView, launch PluginLaunch, access PluginAccess, receipt PluginInstallReceipt) (bool, error) {
 	p, _, err := s.loadPlugin()
 	if err != nil {
 		return false, err
@@ -321,10 +311,7 @@ func (s PluginFeed) commitInstall(view bus.JournalView, launch PluginLaunch, gra
 	if err != nil {
 		return false, err
 	}
-	p = pluginRecord{ID: model.NewUUID(), Name: s.name, Launch: &launch, Enabled: true, Sessions: grants.Sessions, Install: &receipt}
-	if !grants.empty() {
-		p.Capabilities = &PluginCapabilities{Version: 1, Installation: p.ID, PinSHA256: launch.PinSHA256, Revision: model.NewUUID(), PluginCapabilityGrants: grants.PluginCapabilityGrants}
-	}
+	p = pluginRecord{ID: model.NewUUID(), Name: s.name, Launch: &launch, Enabled: true, Scope: scopeAll, Access: access, Install: &receipt}
 	p.setGap(head, "enabled")
 	identity := filepath.Join(s.pluginDir(), "id-"+p.ID+".json")
 	err = pluginDirectory(s.pluginDataPath(), true)

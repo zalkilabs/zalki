@@ -2,6 +2,7 @@ package bus
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -184,6 +185,27 @@ func (v JournalView) SessionGeneration(id string) (generation string, err error)
 		return readErr
 	})
 	return generation, err
+}
+
+// PluginMember reports whether a plugin may use session now: the record
+// exists, is not retired, and its liveness is not exited (unknown is live).
+// Liveness is the same check zalki list uses, so a plugin's members are the
+// sessions the owner sees. A session that was never registered gives false
+// with no error; any read failure gives false and the error, so callers fail
+// closed. ZAL-6 adds the session's own plugin policy for plugin here.
+func (v JournalView) PluginMember(session, plugin string) (member bool, err error) {
+	err = v.use(func(store Store) error {
+		record, readErr := store.session(session)
+		if errors.Is(readErr, os.ErrNotExist) {
+			return nil
+		}
+		if readErr != nil {
+			return readErr
+		}
+		member = !record.Retired && store.sessionLiveness(record) != model.LivenessExited
+		return nil
+	})
+	return member && err == nil, err
 }
 
 // NativeInboxMessage projects a record against its current native recipient.

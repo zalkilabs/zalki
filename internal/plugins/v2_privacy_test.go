@@ -28,10 +28,13 @@ func (x *v2Fixture) pluginMail(t *testing.T) (model.Message, pluginfeed.PluginFe
 	if err := reader.AddExternalPlugin(x.binary, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := reader.ConfigurePluginFeed([]string{x.asker.ID}); err != nil {
+	if err := reader.ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
-	if err := reader.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Read: []string{x.asker.ID}}); err != nil {
+	if err := reader.GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.GrantPluginAccess(pluginfeed.PluginAccess{Status: true, Read: []string{x.asker.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := reader.EnablePluginFeed(true); err != nil {

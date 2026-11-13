@@ -102,7 +102,7 @@ func TestPluginInboxNeedsReceiveGrant(t *testing.T) {
 	if err := x.f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Send: []string{x.from.ID}}); err != nil {
+	if err := x.f.GrantPluginAccess(PluginAccess{Status: true, Send: []string{x.from.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {
@@ -184,7 +184,7 @@ func newPluginSendFixture(t *testing.T) pluginSendFixture {
 	other, _ := register(t, f.store, "cursor")
 	x.foreign = other.ID
 	send := []string{x.granted.ID, x.approval.ID, x.retired.ID, x.absent}
-	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{Send: send}); err != nil {
+	if err := f.GrantPluginAccess(PluginAccess{Status: true, Send: send}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.EnablePluginFeed(true); err != nil {
@@ -223,7 +223,7 @@ func TestPluginSendChecksTheGrantBeforeAnyLookup(t *testing.T) {
 			t.Fatalf("send to %s not granted: %v", to, err)
 		}
 	}
-	if _, err := x.send("c1", x.absent, "hello"); model.ErrorCodeOf(err) != model.CodeUnavailable {
+	if _, err := x.send("c1", x.absent, "hello"); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatalf("granted but unregistered recipient: %v", err)
 	}
 	if n := x.messageCount(t); n != 0 {
@@ -273,7 +273,7 @@ func TestPluginSendFollowsApprovalAndRetirement(t *testing.T) {
 	if err := x.store.Update(x.retired.ID, model.StateRetired, true); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := x.send("gone", x.retired.ID, "late"); model.ErrorCodeOf(err) != model.CodeUnavailable {
+	if _, err := x.send("gone", x.retired.ID, "late"); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatalf("send to a retired session: %v", err)
 	}
 	if err := x.f.EnablePluginFeed(false); err != nil {
@@ -308,7 +308,7 @@ func TestPluginSendIsBoundToTheLaunch(t *testing.T) {
 	if err := x.f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Send: []string{x.granted.ID}}); err != nil {
+	if err := x.f.GrantPluginAccess(PluginAccess{Status: true, Send: []string{x.granted.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {
@@ -338,16 +338,16 @@ func TestPluginSendIsBoundToTheLaunch(t *testing.T) {
 }
 
 // addPlugin installs and enables a second plugin in the same Store.
-func addPlugin(t *testing.T, store bus.Store, name, executable string, feed []string, grants PluginCapabilityGrants) (PluginFeed, PluginFeedStatus) {
+func addPlugin(t *testing.T, store bus.Store, name, executable string, grants PluginAccess) (PluginFeed, PluginFeedStatus) {
 	t.Helper()
 	p := NewPluginFeed(store, name)
 	if err := p.AddExternalPlugin(executable, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.ConfigurePluginFeed(feed); err != nil {
+	if err := p.ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.GrantPluginCapabilities(grants); err != nil {
+	if err := p.GrantPluginAccess(grants); err != nil {
 		t.Fatal(err)
 	}
 	if err := p.EnablePluginFeed(true); err != nil {
@@ -383,7 +383,7 @@ func pluginMailFixture(t *testing.T) (pluginSendFixture, model.Message, PluginFe
 	if err != nil {
 		t.Fatal(err)
 	}
-	reader, status := addPlugin(t, x.store, "reader", x.status.Launch.Executable, []string{x.granted.ID}, PluginCapabilityGrants{Read: []string{x.granted.ID}})
+	reader, status := addPlugin(t, x.store, "reader", x.status.Launch.Executable, PluginAccess{Status: true, Read: []string{x.granted.ID}})
 	if status.ID == x.status.ID {
 		t.Fatal("the reader must be a different installation")
 	}
@@ -426,7 +426,7 @@ func TestPluginReadRefusesAnotherPluginsMail(t *testing.T) {
 // inbox_next and inbox_consume see only the plugin's own inbox.
 func TestPluginInboxNeverReturnsAnotherPluginsMail(t *testing.T) {
 	x := newInboxReadFixture(t, "")
-	other, status := addPlugin(t, x.f.store, "other", x.status.Launch.Executable, []string{x.from.ID}, PluginCapabilityGrants{Receive: []string{x.from.ID}})
+	other, status := addPlugin(t, x.f.store, "other", x.status.Launch.Executable, PluginAccess{Status: true, Receive: true})
 	r := x.request()
 	r.To, r.Body = "plugin:"+status.ID, "PRIVATE_B"
 	b, err := x.service.Send(context.Background(), r)

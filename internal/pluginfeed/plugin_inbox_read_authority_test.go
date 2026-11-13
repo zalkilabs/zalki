@@ -23,14 +23,14 @@ func checkInboxReadAuthority(t *testing.T, kind string) {
 		if err := x.f.EnablePluginFeed(false); err != nil {
 			t.Fatal(err)
 		}
-		var g PluginCapabilityGrants
+		g := PluginAccess{Status: true}
 		if kind == "read-only" {
 			g.Read = []string{x.from.ID}
 		}
 		if kind == "send-only" {
 			g.Send = []string{x.from.ID}
 		}
-		if err := x.f.GrantPluginCapabilities(g); err != nil {
+		if err := x.f.GrantPluginAccess(g); err != nil {
 			t.Fatal(err)
 		}
 		if err := x.f.EnablePluginFeed(true); err != nil {
@@ -49,7 +49,6 @@ func checkInboxReadAuthority(t *testing.T, kind string) {
 	assertInboxReadDenied(t, raw, err, "")
 }
 func alteredInboxReadSnapshot(before PluginFeedStatus, kind string) PluginFeedStatus {
-	before.Capabilities = before.Capabilities.clone()
 	launch := *before.Launch
 	before.Launch = &launch
 	switch kind {
@@ -58,7 +57,7 @@ func alteredInboxReadSnapshot(before PluginFeedStatus, kind string) PluginFeedSt
 	case "checked-pin":
 		before.Launch.PinSHA256 = strings.Repeat("a", 64)
 	case "checked-revision":
-		before.Capabilities.Revision = model.NewUUID()
+		before.Revision = strings.Repeat("0", 64)
 	}
 	return before
 }
@@ -75,23 +74,20 @@ func tamperInboxReadAuthority(t *testing.T, x inboxReadFixture, kind string) {
 		}
 		return
 	case "owner-revoke":
-		if err = x.f.RevokePluginCapabilities(); err != nil {
+		if err = x.f.RevokePluginAccess(); err != nil {
 			t.Fatal(err)
 		}
 		return
 	case "disabled":
 		p.Enabled = false
 	case "no-capabilities":
-		p.Capabilities = nil
-	case "foreign-installation":
-		p.Capabilities.Installation = model.NewUUID()
-	case "foreign-pin":
-		p.Capabilities.PinSHA256 = strings.Repeat("a", 64)
+		p.Access = PluginAccess{Status: true}
+	case "foreign-installation", "foreign-pin":
+		p.Scope = "none" // any owner change moves the revision
 	case "changed-launch-pin":
 		p.Launch.PinSHA256 = strings.Repeat("a", 64)
 	case "replaced-installation":
 		p.ID = model.NewUUID()
-		p.Capabilities.Installation = p.ID
 	}
 	if _, err = x.f.savePlugin(p); err != nil {
 		t.Fatal(err)
@@ -120,7 +116,7 @@ func TestPluginInboxReadRegrantAndReinstallDoNotRefreshOldSnapshot(t *testing.T)
 	}
 	// The sender stays in accept_from: only a sender the plugin may still
 	// hear from is offered (see TestInboxOffersOnlyCurrentSenders).
-	if err := x.f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{x.from.ID}}); err != nil {
+	if err := x.f.GrantPluginAccess(PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.EnablePluginFeed(true); err != nil {
@@ -135,7 +131,7 @@ func TestPluginInboxReadRegrantAndReinstallDoNotRefreshOldSnapshot(t *testing.T)
 	}
 	raw, err = x.read(t, &current, x.now.Add(2*time.Second))
 	x.checkResult(t, raw, err)
-	if err = x.f.RevokePluginCapabilities(); err != nil {
+	if err = x.f.RevokePluginAccess(); err != nil {
 		t.Fatal(err)
 	}
 	if err = x.f.RemovePlugin(); err != nil {
@@ -144,10 +140,10 @@ func TestPluginInboxReadRegrantAndReinstallDoNotRefreshOldSnapshot(t *testing.T)
 	if err = x.f.AddExternalPlugin(old.Launch.Executable, old.Launch.Args); err != nil {
 		t.Fatal(err)
 	}
-	if err = x.f.ConfigurePluginFeed(old.Sessions); err != nil {
+	if err = x.f.ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
-	if err = x.f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{x.from.ID}}); err != nil {
+	if err = x.f.GrantPluginAccess(PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err = x.f.EnablePluginFeed(true); err != nil {

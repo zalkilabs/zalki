@@ -2,6 +2,7 @@ package pluginfeed
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,7 +46,7 @@ func TestRefusedReadsAreCappedPerPlugin(t *testing.T) {
 	if _, err := x.read(t, &x.before, x.target.ID, x.message.ID, x.now); err != nil {
 		t.Fatal(err)
 	}
-	other := pluginReadAuditRow{At: x.now, Plugin: model.NewUUID(), Request: model.NewUUID(), Session: x.target.ID, Message: x.message.ID, Revision: model.NewUUID(), Outcome: "denied"}
+	other := pluginReadAuditRow{At: x.now, Plugin: model.NewUUID(), Request: model.NewUUID(), Session: x.target.ID, Message: x.message.ID, Revision: strings.Repeat("e", 64), Outcome: "denied"}
 	if err := x.f.savePluginReadAudit(append(x.audit(t, x.now), other), x.now); err != nil {
 		t.Fatal(err)
 	}
@@ -89,10 +90,10 @@ func TestRefusedReadCapShrinksAnOlderLargerAudit(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows := x.audit(t, x.now)
-	other := pluginReadAuditRow{At: x.now, Plugin: model.NewUUID(), Request: model.NewUUID(), Session: x.target.ID, Message: x.message.ID, Revision: model.NewUUID(), Outcome: "denied"}
+	other := pluginReadAuditRow{At: x.now, Plugin: model.NewUUID(), Request: model.NewUUID(), Session: x.target.ID, Message: x.message.ID, Revision: strings.Repeat("e", 64), Outcome: "denied"}
 	rows = append(rows, other)
 	for i := 0; i < 96; i++ {
-		rows = append(rows, pluginReadAuditRow{At: x.now.Add(time.Duration(i+1) * time.Millisecond), Plugin: x.before.ID, Request: model.NewUUID(), Session: x.target.ID, Message: x.message.ID, Revision: x.before.Capabilities.Revision, Outcome: "denied"})
+		rows = append(rows, pluginReadAuditRow{At: x.now.Add(time.Duration(i+1) * time.Millisecond), Plugin: x.before.ID, Request: model.NewUUID(), Session: x.target.ID, Message: x.message.ID, Revision: x.before.Revision, Outcome: "denied"})
 	}
 	if err := x.f.savePluginReadAudit(rows, x.now); err != nil {
 		t.Fatal(err)

@@ -21,7 +21,10 @@ func ownerChangesBetweenTicks(t *testing.T, feed pluginfeed.PluginFeed, sessions
 		t.Fatal(err)
 	}
 	if len(sessions) > 0 {
-		if err := feed.ConfigurePluginFeed(sessions); err != nil {
+		if err := feed.ConfigurePluginScope("all"); err != nil {
+			t.Fatal(err)
+		}
+		if err := feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
 			t.Fatal(err)
 		}
 	}

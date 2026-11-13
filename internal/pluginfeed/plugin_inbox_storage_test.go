@@ -28,7 +28,7 @@ func newInboxStorageFixture(t *testing.T) inboxStorageFixture {
 	t.Helper()
 	f, _, _ := externalPinFixture(t)
 	from, key := register(t, f.store, "cursor")
-	if err := f.GrantPluginCapabilities(PluginCapabilityGrants{Receive: []string{from.ID}}); err != nil {
+	if err := f.GrantPluginAccess(PluginAccess{Status: true, Receive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.EnablePluginFeed(true); err != nil {
@@ -100,7 +100,7 @@ func TestPluginInboxStoredProvenanceAndExactRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	index, indexPath, before := checkStoredInboxProvenance(t, x, r, m, canonical)
-	if err = x.f.RevokePluginCapabilities(); err != nil {
+	if err = x.f.RevokePluginAccess(); err != nil {
 		t.Fatal(err)
 	}
 	again, err := x.service.Send(context.Background(), r)
@@ -177,7 +177,7 @@ func TestPluginInboxExistingInstallationHintAndRemoval(t *testing.T) {
 	if _, err := x.service.Send(context.Background(), r); err != nil {
 		t.Fatal("backfilled identity did not route", err)
 	}
-	if err := x.f.RevokePluginCapabilities(); err != nil {
+	if err := x.f.RevokePluginAccess(); err != nil {
 		t.Fatal(err)
 	}
 	if err := x.f.RemovePlugin(); err != nil {
@@ -279,7 +279,7 @@ func checkInboxCapacity(t *testing.T, scope string) {
 		count, size = 128, maxStateFileBytes
 	}
 	for range count {
-		index.Entries = append(index.Entries, pluginInboxEntry{ID: model.NewUUID(), Sender: x.from.ID, Generation: x.from.Generation, Revision: x.status.Capabilities.Revision, At: now.Add(-2 * time.Hour), Bytes: size})
+		index.Entries = append(index.Entries, pluginInboxEntry{ID: model.NewUUID(), Sender: x.from.ID, Generation: x.from.Generation, Revision: x.status.Revision, At: now.Add(-2 * time.Hour), Bytes: size})
 	}
 	if scope == "full-encoding" {
 		index.Entries[len(index.Entries)-1].Bytes -= 12 << 10
@@ -359,7 +359,7 @@ func checkStoredInboxProvenance(t *testing.T, x inboxStorageFixture, r bus.SendR
 		t.Fatal("storage or quota provenance missing")
 	}
 	e := index.Entries[0]
-	if !reflect.DeepEqual([]any{e.ID, e.Sender, e.Generation, e.Revision, e.Bytes, e.At.Format(time.RFC3339Nano)}, []any{r.MessageID, x.from.ID, x.from.Generation, x.status.Capabilities.Revision, len(canonical), m.CreatedAt}) {
+	if !reflect.DeepEqual([]any{e.ID, e.Sender, e.Generation, e.Revision, e.Bytes, e.At.Format(time.RFC3339Nano)}, []any{r.MessageID, x.from.ID, x.from.Generation, x.status.Revision, len(canonical), m.CreatedAt}) {
 		t.Fatal("caller-controlled or incomplete provenance")
 	}
 	indexPath := filepath.Join(x.f.pluginDataPath(), "inbox.json")
@@ -395,21 +395,16 @@ func mutateInboxCapabilities(p *pluginRecord, x inboxStorageFixture, name string
 	case "disabled":
 		p.Enabled = false
 	case "no-capabilities":
-		p.Capabilities = nil
+		p.Access = PluginAccess{Status: true}
 	case "read-only":
-		p.Capabilities.Receive = nil
-		p.Capabilities.Read = []string{x.from.ID}
-	case "foreign-installation":
-		p.Capabilities.Installation = model.NewUUID()
+		p.Access.Receive = false
+		p.Access.Read = []string{x.from.ID}
+	case "foreign-installation", "foreign-pin":
+		p.Scope = "none"
 	case "replaced-installation":
 		p.ID = model.NewUUID()
-		p.Capabilities.Installation = p.ID
-	case "foreign-pin":
-		p.Capabilities.PinSHA256 = strings.Repeat("a", 64)
 	case "ungranted":
-		other := x.from
-		other.ID = "cursor:00000000-0000-4000-8000-000000000099"
-		p.Capabilities.Receive = []string{other.ID}
+		p.Scope = "ALL" // not exactly "all": no standard access
 	}
 }
 
