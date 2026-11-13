@@ -56,6 +56,51 @@ jobs:
           check-latest: true
       - run: make lint
 
+  windows-vet:
+    # Report only: the count of packages that fail GOOS=windows go vet.
+    name: Windows vet (report only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - run: go mod download
+      - name: Count failing packages
+        # Each package is vetted alone: go vet ./... reports only the first
+        # failing dependency and hides the packages behind it. Vet failures
+        # are only reported; a failed package list fails the step.
+        run: |
+          summary() { echo "$1" | tee -a "$GITHUB_STEP_SUMMARY"; }
+          discover() {
+            if ! go list ./... > "$1" 2> list.err || [ -s list.err ] || [ ! -s "$1" ]; then
+              summary "package discovery failed or partial ($2): $(head -n 1 list.err)"
+              exit 1
+            fi
+          }
+          discover host.txt host
+          GOOS=windows GOARCH=amd64 discover windows.txt windows
+          failed=0
+          total=0
+          list=""
+          while read -r pkg; do
+            total=$((total + 1))
+            if ! GOOS=windows GOARCH=amd64 go vet "$pkg" > vet.log 2>&1; then
+              failed=$((failed + 1))
+              list="$list- $pkg"$'\n'
+              echo "::warning::GOOS=windows go vet fails: $pkg"
+              head -n 5 vet.log
+            fi
+          done < windows.txt
+          omitted="$(sort host.txt | comm -23 - <(sort windows.txt) | paste -sd ' ' -)"
+          summary "GOOS=windows go vet: $failed of $total Windows-selected packages fail"
+          printf '%s' "$list" | tee -a "$GITHUB_STEP_SUMMARY"
+          summary "not built on windows: ${omitted:-none}"
+
   vulnerabilities:
     name: Vulnerabilities
     uses: ./.github/workflows/security.yml
