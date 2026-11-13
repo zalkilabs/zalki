@@ -27,7 +27,7 @@ func (s Store) nativeNames(sessions []model.Session) {
 	}
 }
 
-func (s Store) rememberNativeConfigDir(id, kind string) error {
+func (s Store) rememberNativeConfigDir(id, kind string, snapshots ...hookRuntime) error {
 	adapter, err := s.registry().Lookup(kind)
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func (s Store) rememberNativeConfigDir(id, kind string) error {
 		return nil
 	}
 	return s.locked(func() error {
-		v, err := s.session(id)
+		v, err := sessionForHook(s, id, snapshots...)
 		if os.IsNotExist(err) {
 			return nil
 		}
@@ -91,12 +91,12 @@ func (s Store) resolve(destination string) (model.Session, error) {
 	return model.Session{}, model.NewError(model.CodeUnavailable, "no registered session named %q; use list_agents for names and exact IDs", destination)
 }
 
-func (s Store) hookName(id, name string) error {
+func (s Store) hookName(id, name string, snapshots ...hookRuntime) error {
 	if name != "" && !model.ValidName(name) {
 		return nil
 	}
 	return s.locked(func() error {
-		v, err := s.session(id)
+		v, err := sessionForHook(s, id, snapshots...)
 		if os.IsNotExist(err) {
 			return nil
 		}

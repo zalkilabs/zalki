@@ -21,7 +21,7 @@ func cursorRecoveryContext(binary string, claim agent.RecoveryGrant) string {
 		return ""
 	}
 	command := cursorListenerCommand(binary, claim.Actor, claim.Capability, claim.StateDir, claim.ConfigFile)
-	return fmt.Sprintf("[Zalki local listener recovery]\nYour registered Cursor session has no verified live listener. "+
+	return fmt.Sprintf("[Zalki local listener recovery]\nZalki registered this resumed chat. Set up its listener using the private instructions below.\n%s\nYour registered Cursor session has no verified live listener. "+
 		"Your actor remains %s. Your refreshed private capability is %s; use it for future zalki calls. "+
 		"This replaces only your own previous capability; never reveal it or borrow another session's. "+
 		"If a listener setup command was already denied, do not retry it: report that and keep deferred hook delivery. "+
@@ -31,5 +31,5 @@ func cursorRecoveryContext(binary string, claim agent.RecoveryGrant) string {
 		"Do not inspect terminal logs, read credential files, poll, wait for output, change permissions, or start another listener after a refusal. "+
 		"If setup is unavailable or denied, report it and retain deferred delivery. End your turn normally. "+
 		"On ZALKI_WAKE, read list_messages with that message_id; use reply_message to acknowledge and reply, or ack_message when no reply is needed. "+
-		"This setup instruction is emitted once for this missing-listener interval; it is not an agent request.", claim.Actor, claim.Capability, command)
+		"This setup instruction is emitted once for this missing-listener interval; it is not an agent request.", claim.Instructions, claim.Actor, claim.Capability, command)
 }

@@ -348,11 +348,11 @@ func (s Store) releaseReadyApprovals(current model.Session, queued []model.Messa
 // releaseApprovalQueue delivers messages that were waiting for actor's
 // permission prompt. It runs after the hook has recorded the new session
 // state. Retired and exited sessions end those messages as not sent.
-func (s *Service) releaseApprovalQueue(ctx context.Context, actor string) error {
+func (s *Service) releaseApprovalQueue(ctx context.Context, actor string, snapshots ...hookRuntime) error {
 	var jobs []model.Message
 	var target model.Session
 	err := s.Store.locked(func() error {
-		current, err := s.Store.session(actor)
+		current, err := sessionForHook(s.Store, actor, snapshots...)
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}

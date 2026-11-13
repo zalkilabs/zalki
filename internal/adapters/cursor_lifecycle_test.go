@@ -48,8 +48,8 @@ func TestCursorOnlyAnActualPromptReactivatesARetiredConversation(t *testing.T) {
 	unknown := "cursor:" + newTestID()
 	cursorHook(t, &service, unknown, "beforeSubmitPrompt", "", 0)
 	// List hides retired and exited records; check the journal directly.
-	if _, err := os.Stat(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(unknown, ":", "_")+".json")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("a prompt registered an unknown conversation without SessionStart", err)
+	if _, err := os.Stat(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(unknown, ":", "_")+".json")); err != nil {
+		t.Fatal("C01_PROMPT_REGISTERS_RESUMED_UNKNOWN_CHAT", err)
 	}
 }
 

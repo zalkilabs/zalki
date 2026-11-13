@@ -249,6 +249,12 @@ func TestCodecResultIsBoundedBeforePersisting(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			store := fixtureStore(t)
 			to, key := register(t, store, "cursor")
+			// A supported legacy record has no persisted adapter state. Reads
+			// initialize it normally; only returned policy state is rewritten.
+			to.AdapterState = nil
+			if err := store.locked(func() error { return store.saveSession(to) }); err != nil {
+				t.Fatal(err)
+			}
 			registry, err := agent.NewRegistry(stubCodexAdapter{}, rewritingCursorAdapter{rewrite: rewrite})
 			if err != nil {
 				t.Fatal(err)

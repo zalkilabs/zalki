@@ -7,12 +7,14 @@ import (
 )
 
 type HookInput struct {
-	SessionID      string   `json:"session_id"`
-	CWD            string   `json:"cwd"`
-	Event          string   `json:"hook_event_name"`
-	Source         string   `json:"source"`
-	ConversationID string   `json:"conversation_id"`
-	WorkspaceRoots []string `json:"workspace_roots"`
+	// Set only by trusted native normalization; JSON cannot select creation.
+	AllowPromptRegistration bool     `json:"-"`
+	SessionID               string   `json:"session_id"`
+	CWD                     string   `json:"cwd"`
+	Event                   string   `json:"hook_event_name"`
+	Source                  string   `json:"source"`
+	ConversationID          string   `json:"conversation_id"`
+	WorkspaceRoots          []string `json:"workspace_roots"`
 	// Status is a client-native field. Only the adapter's NormalizeHook and
 	// HandleHook interpret it; core decides from the canonical Event.
 	Status       string  `json:"status"`

@@ -211,16 +211,21 @@ func completionBody(subject model.Session, event, at, line string) string {
 	return body
 }
 
-func (s *Service) notifyWatches(ctx context.Context, actor string, event agent.HookInput, asOf time.Time) error {
+func (s *Service) notifyWatches(ctx context.Context, actor string, event agent.HookInput, asOf time.Time, snapshots ...hookRuntime) error {
 	kind, ok := completionKind(event)
 	if !ok {
 		return nil
 	}
-	watches, err := s.Store.consumeWatches(actor, asOf)
+	watches, err := consumeHookWatches(s.Store, actor, asOf, snapshots...)
 	if err != nil || len(watches) == 0 {
 		return err
 	}
-	subject, err := s.Store.session(actor)
+	var subject model.Session
+	err = s.Store.readLocked(func() error {
+		var err error
+		subject, err = sessionForHook(s.Store, actor, snapshots...)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -330,4 +335,20 @@ func (s *Service) deliverEnded(ctx context.Context, subject model.Session, watch
 		}
 	}
 	return first
+}
+
+func consumeHookWatches(s Store, actor string, asOf time.Time, snapshots ...hookRuntime) ([]Watch, error) {
+	if len(snapshots) == 0 {
+		return s.consumeWatches(actor, asOf)
+	}
+	var due []Watch
+	err := s.locked(func() error {
+		if _, err := sessionForHook(s, actor, snapshots...); err != nil {
+			return err
+		}
+		var err error
+		due, err = s.consumeWatchesLocked(actor, asOf)
+		return err
+	})
+	return due, err
 }

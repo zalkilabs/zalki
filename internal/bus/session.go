@@ -81,30 +81,12 @@ func (s Store) Register(kind, id, cwd string, endpoint *model.Endpoint) (model.S
 // Compaction refreshes the model's private capability without replacing the
 // receiving registration. Its native queue still belongs to that registration.
 // Startup/resume and explicit registration continue to create a new generation.
-func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact bool) (model.Session, string, error) {
-	var session model.Session
-	full, err := s.sessionID(kind, id)
+func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact bool, initialization ...agent.HookInput) (model.Session, string, error) {
+	session, key, err := newRegistration(s, kind, id, cwd, endpoint, initialization...)
 	if err != nil {
 		return session, "", err
 	}
-	if !filepath.IsAbs(cwd) {
-		return session, "", model.NewError(model.CodeInvalidInput, "working directory must be absolute")
-	}
-	adapter, err := s.registry().Lookup(kind)
-	if err != nil {
-		return session, "", err
-	}
-	if adapter.ReceiveCapabilities(model.Session{}).RequiresEndpoint && endpoint == nil {
-		return session, "", fmt.Errorf("%s registration requires its own socket", adapter.Descriptor().Label)
-	}
-	key := newID() + newID()
-	hash := sha256.Sum256([]byte(key))
-	native, _ := canonicalNativeID(id)
-	session = model.Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: model.StateReady, UpdatedAt: model.Timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
-	if names, ok := adapter.(agent.NameAdapter); ok {
-		session.NativeConfigDir = names.ConfigDir()
-	}
-	session.Receive = adapter.ReceiveCapabilities(session)
+	full, native := session.ID, session.NativeID
 	err = s.locked(func() error {
 		preserved := false
 		current, err := s.session(full)
@@ -140,6 +122,42 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 	return session, key, err
 }
 
+// All creation paths share this initialization boundary. Future per-session
+// policy fields must be initialized here before any registration is published.
+func newRegistration(s Store, kind, id, cwd string, endpoint *model.Endpoint, initialization ...agent.HookInput) (model.Session, string, error) {
+	var session model.Session
+	full, err := s.sessionID(kind, id)
+	if err != nil {
+		return session, "", err
+	}
+	if !filepath.IsAbs(cwd) {
+		return session, "", model.NewError(model.CodeInvalidInput, "working directory must be absolute")
+	}
+	adapter, err := s.registry().Lookup(kind)
+	if err != nil {
+		return session, "", err
+	}
+	if adapter.ReceiveCapabilities(model.Session{}).RequiresEndpoint && endpoint == nil {
+		return session, "", fmt.Errorf("%s registration requires its own socket", adapter.Descriptor().Label)
+	}
+	key := newID() + newID()
+	hash := sha256.Sum256([]byte(key))
+	native, _ := canonicalNativeID(id)
+	session = model.Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: model.StateReady, UpdatedAt: model.Timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
+	if names, ok := adapter.(agent.NameAdapter); ok {
+		session.NativeConfigDir = names.ConfigDir()
+	}
+	session.AdapterState, err = s.decodeAdapterState(kind, agent.StateInput{})
+	if err != nil {
+		return session, "", err
+	}
+	session.Receive = adapter.ReceiveCapabilities(session)
+	if len(initialization) > 0 {
+		initializeHookRegistration(s, kind, initialization[0], &session)
+	}
+	return session, key, nil
+}
+
 func (s Store) authenticate(id, key string) (model.Session, error) {
 	current, err := s.session(id)
 	if err != nil {
@@ -164,12 +182,12 @@ func (s Store) Update(id string, state model.SessionState, retire bool) error {
 	return updateSession(s, id, state, retire, "")
 }
 
-func updateSession(s Store, id string, state model.SessionState, retire bool, cause model.EventCause) error {
+func updateSession(s Store, id string, state model.SessionState, retire bool, cause model.EventCause, snapshots ...hookRuntime) error {
 	if !state.Valid() || (state == model.StateRetired) != retire {
 		return model.NewError(model.CodeInvalidTransition, "invalid session state/retirement transition")
 	}
 	return s.locked(func() error {
-		current, err := s.session(id)
+		current, err := sessionForHook(s, id, snapshots...)
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}

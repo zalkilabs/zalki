@@ -73,7 +73,7 @@ func (s Store) lifecycleSession(actor, kind string) (model.Session, bool, error)
 
 func (h hookRuntime) ApplyLifecycle(policy func(model.SessionView) (agent.LifecycleChange, error)) error {
 	return h.store.locked(func() error {
-		v, ok, err := h.store.lifecycleSession(h.actor, h.kind)
+		v, ok, err := lifecycleSessionForHook(h)
 		if !ok || err != nil {
 			return err
 		}
@@ -111,7 +111,7 @@ func (h hookRuntime) ClaimRecovery(policy func(model.SessionView) (agent.Recover
 	}
 	var key string
 	err := h.store.locked(func() error {
-		v, ok, err := h.store.lifecycleSession(h.actor, h.kind)
+		v, ok, err := lifecycleSessionForHook(h)
 		if !ok || err != nil {
 			return err
 		}
@@ -143,5 +143,5 @@ func (h hookRuntime) ClaimRecovery(policy func(model.SessionView) (agent.Recover
 		return agent.RecoveryGrant{}, err
 	}
 	h.store.logEvent(slog.LevelInfo, "listener.recovery_requested", eventData{Actor: h.actor})
-	return agent.RecoveryGrant{Actor: h.actor, Capability: key, StateDir: h.store.Dir, ConfigFile: h.store.ConfigFile}, nil
+	return agent.RecoveryGrant{Instructions: startupInstructions(h.actor, key), Actor: h.actor, Capability: key, StateDir: h.store.Dir, ConfigFile: h.store.ConfigFile}, nil
 }

@@ -178,6 +178,10 @@ func checkIDEChatSharesOneActor(t *testing.T, roots []string, wantCWD string) {
 	if err != nil || msg.Status != "pending_next_activity" {
 		t.Fatalf("%+v %v", msg, err)
 	}
+	setup := runCursorHook(t, &service, map[string]any{"hook_event_name": "postToolUse", "conversation_id": conversation})
+	if !strings.Contains(setup, "refreshed private capability") || strings.Contains(setup, "ide body") {
+		t.Fatal("C12_SETUP_PRECEDES_PEER_CONTEXT")
+	}
 	out := runCursorHook(t, &service, map[string]any{"hook_event_name": "postToolUse", "conversation_id": conversation})
 	if !strings.Contains(out, "additional_context") || !strings.Contains(out, "ide body") {
 		t.Fatalf("later hook did not reach the started session: %s", out)

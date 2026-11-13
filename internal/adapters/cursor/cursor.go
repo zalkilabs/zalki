@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -97,6 +98,7 @@ func (Adapter) NormalizeHook(event agent.HookInput) (agent.HookInput, error) {
 		event.SessionID = event.ConversationID
 	}
 	event.CWD = hookCWD(event)
+	event.AllowPromptRegistration = event.Event == "UserPromptSubmit"
 	return event, nil
 }
 
@@ -151,18 +153,15 @@ func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string,
 	if event.Event == "Interrupt" || event.Event == "Stop" && (event.Status != "completed" || event.LoopCount >= 5) {
 		return true, s.ApplyLifecycle(suppressRecovery)
 	}
+	return cursorActivityOutput(s, event, id, output)
+}
+
+func cursorActivityOutput(s agent.LifecycleHost, event agent.HookInput, id string, output io.Writer) (bool, error) {
 	state := model.StateBusy
 	if event.Event == "Stop" {
 		state = model.StateReady
 	}
 	if err := s.UpdateSession(id, state, false); err != nil {
-		return true, err
-	}
-	text, err := s.EmitPending(id)
-	if errors.Is(err, os.ErrNotExist) {
-		return true, nil
-	}
-	if err != nil {
 		return true, err
 	}
 	binary, err := os.Executable()
@@ -173,7 +172,17 @@ func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string,
 	if err != nil {
 		return true, err
 	}
-	text = strings.TrimSpace(text + "\n\n" + cursorRecoveryContext(binary, claim))
+	text := cursorRecoveryContext(binary, claim)
+	setup := claim.Capability != ""
+	if !setup {
+		text, err = s.EmitPending(id)
+		if errors.Is(err, os.ErrNotExist) {
+			return true, nil
+		}
+		if err != nil {
+			return true, err
+		}
+	}
 	if text == "" {
 		return true, nil
 	}
@@ -181,7 +190,25 @@ func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string,
 	if event.Event == "Stop" {
 		field = "followup_message"
 	}
-	return true, json.NewEncoder(output).Encode(map[string]string{field: text})
+	return true, writeCursorHookOutput(output, field, text, setup)
+}
+
+func writeCursorHookOutput(output io.Writer, field, text string, setup bool) error {
+	raw, err := json.Marshal(map[string]string{field: text})
+	if err != nil {
+		return err
+	}
+	if setup && (len(text) > 24*1024 || len(raw)+1 > 24*1024) {
+		_, _ = fmt.Fprintln(os.Stderr, "Zalki setup instructions are too large. Shorten the configured paths, then start a new chat.")
+		return nil
+	}
+	_, err = output.Write(append(raw, '\n'))
+	if err != nil && setup {
+		const message = "Zalki setup did not finish. Start a new chat to retry setup."
+		_, _ = fmt.Fprintln(os.Stderr, message)
+		return errors.New(message)
+	}
+	return err
 }
 
 func (Adapter) Health(s agent.HealthHost, v model.Session) (string, string) {
@@ -203,7 +230,7 @@ func (Adapter) RecoveryHint(d model.SessionDiagnostic) string {
 		return "Cancel this conversation's running cursor-listen task; it is from an earlier Zalki build or registration and cannot receive. Then arm one new task using its private startup guidance."
 	}
 	if d.ListenerHealth == "stale" || d.ListenerHealth == "not_armed" {
-		return "In this Cursor session, arm one native Shell cursor-listen task using its private startup guidance."
+		return "In this Cursor session, arm one native Shell cursor-listen task using its private startup guidance. If setup instructions did not arrive, start a new chat to retry setup. If the command was denied, keep deferred delivery; do not retry it."
 	}
 	return ""
 }
