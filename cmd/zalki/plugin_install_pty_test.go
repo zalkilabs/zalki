@@ -3,6 +3,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -240,7 +242,8 @@ func startPTYInstall(t *testing.T, binary, state, folder, term string) *ptySessi
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.CommandContext(t.Context(), "/bin/sh", "-c", ptyShell, binary, "--state", state, "--log-level", "off", "plugins", "install", folder)
+	cmd := exec.CommandContext(context.WithoutCancel(t.Context()), "/bin/sh", "-c", ptyShell, binary, "--state", state, "--log-level", "off", "plugins", "install", folder)
+	cmd.Cancel = nil // Only the exclusive cleanup owner may stop this shell.
 	cmd.Env = append(os.Environ(), "TERM="+term, "HOME="+t.TempDir())
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = slave, slave, slave
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}
@@ -249,19 +252,7 @@ func startPTYInstall(t *testing.T, binary, state, folder, term string) *ptySessi
 	if err != nil {
 		t.Fatal(err)
 	}
-	waited := make(chan struct{})
-	go func() {
-		_ = cmd.Wait()
-		close(waited)
-	}()
-	t.Cleanup(func() {
-		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) // the shell's own session and group
-		select {
-		case <-waited:
-		case <-time.After(10 * time.Second):
-			t.Error("the shell and zalki were not reaped")
-		}
-	})
+	t.Cleanup(func() { stopPTYInstall(t, cmd) })
 	session := &ptySession{master: master, more: make(chan struct{}, 1)}
 	go session.collect()
 	return session
@@ -298,4 +289,54 @@ func TestPluginInstallRealTerminalCancelKeys(t *testing.T) {
 			assertNothingInstalled(t, store.Dir)
 		})
 	}
+}
+
+// stopPTYInstall owns the sole Wait. No asynchronous Wait may run beside it.
+func stopPTYInstall(t *testing.T, cmd *exec.Cmd) {
+	t.Helper()
+	stopPTYInstallWith(t, cmd, cmd.Wait)
+}
+
+func stopPTYInstallWith(t *testing.T, cmd *exec.Cmd, wait func() error) {
+	t.Helper()
+	if cmd.ProcessState != nil {
+		return
+	}
+	if err := signalPTYInstallGroup(cmd); err != nil {
+		t.Errorf("PTY cleanup could not confirm group cleanup: %v", err)
+	}
+	_ = cmd.Process.Kill()
+	waited := make(chan struct{})
+	go func() { _ = wait(); close(waited) }()
+	select {
+	case <-waited:
+	case <-time.After(10 * time.Second):
+		t.Error("the shell and zalki were not reaped")
+	}
+}
+
+func signalPTYInstallGroup(cmd *exec.Cmd) error {
+	if cmd.ProcessState != nil {
+		return errors.New("PTY leader already reaped; group signal refused")
+	}
+	// leader-unreaped: this exclusive owner has not started Wait. The kernel
+	// query must still identify the original child as leader of its own group.
+	group, err := readPTYInstallGroup(cmd.Process.Pid)
+	if err != nil {
+		return fmt.Errorf("read owned PTY group for %d: %w", cmd.Process.Pid, err)
+	}
+	if group != cmd.Process.Pid || group == syscall.Getpgrp() {
+		return errors.New("PTY child no longer leads its own isolated group")
+	}
+	err = syscall.Kill(-group, syscall.SIGKILL)
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, syscall.EPERM) {
+		if ptyInstallGroupExited(cmd.Process.Pid) {
+			return nil
+		}
+		return fmt.Errorf("PTY group %d signal: %w; strict zombie proof refused", group, err)
+	}
+	return fmt.Errorf("PTY group %d signal: %w", group, err)
 }

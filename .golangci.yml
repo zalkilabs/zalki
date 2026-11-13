@@ -86,6 +86,8 @@ linters:
             - github.com/zalkilabs/zalki/internal/journal$
             - github.com/zalkilabs/zalki/internal/model$
             - github.com/zalkilabs/zalki/internal/pluginfeed$
+            - github.com/zalkilabs/zalki/internal/procwatch$
+            - golang.org/x/sys/unix$
         pluginfeed:
           files: ["**/internal/pluginfeed/*.go", "!$test"]
           list-mode: strict

@@ -507,6 +507,8 @@ func TestSnapshotInstallSourceReadsWideFoldersInChunks(t *testing.T) {
 	}
 }
 
+const boundedBuildChildWait = "i=0; while [ ! -f stop-child ] && [ $i -lt 160 ]; do i=$((i+1)); sleep 0.05; done"
+
 // A build whose leader exits at once must not leave a child behind, and the
 // child cannot write past the cap after the leader is gone.
 func TestRunInstallBuildStopsChildAfterLeaderExit(t *testing.T) {
@@ -515,8 +517,8 @@ func TestRunInstallBuildStopsChildAfterLeaderExit(t *testing.T) {
 		wait              time.Duration
 		limit             int64
 	}{
-		{"burst past cap", "sleep 0.3; i=0; while [ $i -lt 40 ]; do printf '%0200d\\n' 0; i=$((i+1)); done; sleep 8", "build output passed", 2 * time.Second, 1 << 10},
-		{"holds output", "sleep 8", "background process", 300 * time.Millisecond, 1 << 10},
+		{"burst past cap", "sleep 0.3; i=0; while [ $i -lt 40 ]; do printf '%0200d\\n' 0; i=$((i+1)); done; " + boundedBuildChildWait, "build output passed", 2 * time.Second, 1 << 10},
+		{"holds output", boundedBuildChildWait, "background process", 300 * time.Millisecond, 1 << 10},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -539,9 +541,8 @@ func TestRunInstallBuildStopsChildAfterLeaderExit(t *testing.T) {
 			raw, _ := os.ReadFile(filepath.Join(dir, "child.pid"))
 			pid, _ := strconv.Atoi(strings.TrimSpace(string(raw)))
 			t.Cleanup(func() {
-				if pid > 0 {
-					_ = syscall.Kill(pid, syscall.SIGKILL)
-				}
+				// A recorded PID is observation only; never recover signal authority.
+				_ = stopBuildOutputFixture(dir)
 			})
 			info, statErr := os.Stat(log)
 			if err == nil || !strings.Contains(err.Error(), c.want) || took > c.wait+2*time.Second || statErr != nil || info.Size() > c.limit {
@@ -561,4 +562,9 @@ func processGone(pid int, within time.Duration) bool {
 		}
 	}
 	return false
+}
+
+// A fixture PID file is never signal authority.
+func stopBuildOutputFixture(dir string) error {
+	return os.WriteFile(filepath.Join(dir, "stop-child"), nil, 0600)
 }

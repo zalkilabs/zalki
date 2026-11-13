@@ -693,19 +693,13 @@ func RunInstallBuild(ctx context.Context, tool InstallTool, argv []string, dir, 
 		}
 	}
 	capped := &installLog{file: output, left: maxInstallLog, stop: cancel}
-	cmd := exec.CommandContext(ctx, tool.Path, goBuildArgs(argv)...) //nolint:gosec // G204: the owner approved this literal argv.
+	cmd := exec.CommandContext(context.WithoutCancel(ctx), tool.Path, goBuildArgs(argv)...) //nolint:gosec // G204: the owner approved this literal argv.
 	cmd.Dir, cmd.Stdout, cmd.Stderr, cmd.Env = dir, capped, capped, goBuildEnv(build)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	cmd.Cancel = nil // Cancellation is ordered before the sole Wait below.
 	// Wait stops waiting for held output pipes this long after the leader exits.
 	cmd.WaitDelay = installWaitDelay
-	if err = cmd.Start(); err != nil {
-		return errors.Join(err, output.Close())
-	}
-	err = cmd.Wait()
-	// Go stops watching the group when the leader exits, so a background child
-	// could keep running and writing. Always end the whole group here.
-	_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	err = runInstallBuildChild(ctx, cmd)
 	capped.mu.Lock()
 	over := capped.over
 	capped.mu.Unlock()
@@ -715,7 +709,7 @@ func RunInstallBuild(ctx context.Context, tool InstallTool, argv []string, dir, 
 	case ctx.Err() != nil:
 		err = errors.Join(err, installError("build stopped after %s", installTimeout))
 	case errors.Is(err, exec.ErrWaitDelay):
-		err = installError("the build left a background process holding its output; it was stopped")
+		err = errors.Join(err, installError("the build left a background process holding its output; the output pipes were closed"))
 	}
 	capped.mu.Lock()
 	defer capped.mu.Unlock()

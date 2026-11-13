@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -15,6 +16,9 @@ import (
 )
 
 type signalFixtureHost struct {
+	mu                   sync.Mutex
+	waitStarted          bool
+	waitChild            func() error
 	cmd                  *exec.Cmd
 	done                 chan struct{}
 	waitErr              error
@@ -72,8 +76,8 @@ func startSignalFixtureHost(t *testing.T) *signalFixtureHost {
 	if err := h.cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	go func() { h.waitErr = h.cmd.Wait(); close(h.done) }()
 	t.Cleanup(func() {
+		h.startWait()
 		select {
 		case <-h.done:
 		default:
@@ -100,6 +104,7 @@ func startSignalFixtureHost(t *testing.T) *signalFixtureHost {
 
 func (h *signalFixtureHost) wait(t *testing.T) error {
 	t.Helper()
+	h.startWait()
 	select {
 	case <-h.done:
 		return h.waitErr
@@ -129,13 +134,8 @@ func TestPluginForegroundGroupSignalsAllowEOFCleanup(t *testing.T) {
 	for _, sig := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP} {
 		t.Run(sig.String(), func(t *testing.T) {
 			h := startSignalFixtureHost(t)
-			group, err := syscall.Getpgid(h.cmd.Process.Pid)
-			if err != nil || group != h.cmd.Process.Pid || group == syscall.Getpgrp() {
-				t.Fatal("refusing to signal a group not isolated by this fixture", group, err)
-			}
 			started := time.Now()
-			// This is the private HOST group, never the child's isolated group.
-			if err := syscall.Kill(-group, sig); err != nil {
+			if err := h.signalGroup(sig); err != nil {
 				t.Fatal(err)
 			}
 			if err := h.wait(t); err != nil {
@@ -195,4 +195,38 @@ func notifierTemp(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func (h *signalFixtureHost) startWait() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.waitStarted {
+		return
+	}
+	h.waitStarted = true
+	go func() {
+		if h.waitChild != nil {
+			h.waitErr = h.waitChild()
+		} else {
+			h.waitErr = h.cmd.Wait()
+		}
+		close(h.done)
+	}()
+}
+
+func (h *signalFixtureHost) signalGroup(sig syscall.Signal) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.waitStarted || h.cmd.ProcessState != nil {
+		return errors.New("fixture Wait already started; group signal refused")
+	}
+	group, err := syscall.Getpgid(h.cmd.Process.Pid)
+	if err != nil {
+		return err
+	}
+	if group != h.cmd.Process.Pid || group == syscall.Getpgrp() {
+		return errors.New("refusing to signal a group not isolated by this fixture")
+	}
+	// leader-unreaped: startWait is excluded until this last group signal returns.
+	return syscall.Kill(-group, sig)
 }
