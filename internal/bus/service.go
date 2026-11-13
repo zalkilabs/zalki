@@ -83,6 +83,9 @@ func (s *Service) deliverReserved(ctx context.Context, msg model.Message, target
 		deliver = s.Deliver
 	}
 	receipt := s.runTransport(ctx, deliver, msg, target)
+	if receipt.Status == model.StatusApprovalBlocked {
+		return s.holdTransportApproval(msg)
+	}
 	result, err := s.Store.Finish(id, receipt)
 	if err == nil && target.State == model.StateBusy {
 		result.BusyDelivery = target.Receive.BusyDelivery

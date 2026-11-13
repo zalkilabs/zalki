@@ -8,14 +8,15 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func TestHeldReservationWriteFailureRollsBackTheCount(t *testing.T) {
+func TestHeldReservationUnreadableFailureKeepsCountUntilRecount(t *testing.T) {
 	store := fixtureStore(t)
 	target, _ := register(t, store, "cursor")
 	msg := model.Message{ID: newID(), To: target.ID, Status: model.StatusAttempting}
 	if err := msg.Hold(); err != nil {
 		t.Fatal(err)
 	}
-	// A directory at the final filename forces atomic rename to fail, even as root.
+	// A directory at the final filename refuses the write and makes the hold
+	// inventory unreadable. Error alone no longer proves that decrement is safe.
 	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
 	if err := os.Mkdir(path, 0700); err != nil {
 		t.Fatal(err)
@@ -24,8 +25,18 @@ func TestHeldReservationWriteFailureRollsBackTheCount(t *testing.T) {
 		t.Fatal("reservation unexpectedly saved over a directory")
 	}
 	current, err := store.session(target.ID)
+	if err != nil || current.ApprovalHeld != 1 {
+		t.Fatal("unreadable reservation inventory lost its conservative count", err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := (&Service{Store: store}).releaseApprovalQueue(t.Context(), target.ID); err != nil {
+		t.Fatal(err)
+	}
+	current, err = store.session(target.ID)
 	if err != nil || current.ApprovalHeld != 0 {
-		t.Fatal("failed reservation inflated held count", err)
+		t.Fatal("clean readable inventory did not clear the unpublished hold count", err)
 	}
 }
 

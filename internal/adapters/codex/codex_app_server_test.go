@@ -197,6 +197,7 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 type fakeCodex struct {
 	Home, Thread, Mode string
 	BeforeResponse     func(string)
+	CurrentMode        func() string
 }
 
 type observedCodex struct {
@@ -339,7 +340,15 @@ type codexFakeReply struct {
 	failure any
 }
 
+func currentFakeCodex(spec fakeCodex) fakeCodex {
+	if spec.CurrentMode != nil {
+		spec.Mode = spec.CurrentMode()
+	}
+	return spec
+}
+
 func fakeCodexResult(spec fakeCodex, method, home, version string, page *int) codexFakeReply {
+	spec = currentFakeCodex(spec)
 	if spec.BeforeResponse != nil {
 		spec.BeforeResponse(method)
 	}

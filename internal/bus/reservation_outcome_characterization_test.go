@@ -135,19 +135,18 @@ func assertReservationPersistence(t *testing.T, f *reservationOrderFixture, mess
 func TestReservationPersistenceFailureKeepsFreshnessAndQuota(t *testing.T) {
 	for _, approval := range []bool{false, true} {
 		t.Run(reservationOutcomeName(approval, true), func(t *testing.T) {
-			checkReservationPersistenceFailure(t, approval)
+			for _, unreadable := range []bool{false, true} {
+				name := map[bool]string{false: "pre-intent", true: "unreadable-inventory"}[unreadable]
+				t.Run(name, func(t *testing.T) { checkReservationPersistenceFailure(t, approval, unreadable) })
+			}
 		})
 	}
 }
 
-func checkReservationPersistenceFailure(t *testing.T, approval bool) {
+func checkReservationPersistenceFailure(t *testing.T, approval, unreadable bool) {
 	t.Helper()
 	f := prepareNamedReservation(t, approval)
-	// A directory at the final file forces reservation IO to fail even as root.
-	path := filepath.Join(f.store.Dir, "messages", f.request.MessageID+".json")
-	if err := os.Mkdir(path, 0700); err != nil {
-		t.Fatal(err)
-	}
+	path := blockReservationPersistence(t, f, unreadable)
 	started := time.Now()
 	message, target, fresh, err := reserveCharacterizedMessage(f, true)
 	ended := time.Now()
@@ -158,13 +157,47 @@ func checkReservationPersistenceFailure(t *testing.T, approval bool) {
 	assertReservationIdentity(t, message, f, started, ended)
 	assertReservationHold(t, message, approval, started, ended)
 	assertReservationQuotaSample(t, f, message, started, ended)
-	current, readErr := f.store.session(f.target.ID)
-	if readErr != nil || current.ApprovalHeld != 0 || f.logReads != 0 {
-		t.Fatal("failed write kept an approval count or logged a reservation", current.ApprovalHeld, f.logReads, readErr)
-	}
+	assertFailedReservationCount(t, f, approval && unreadable)
 	info, statErr := os.Stat(path)
 	if statErr != nil || !info.IsDir() {
 		t.Fatal("failed write replaced its blocked destination", statErr)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := (&Service{Store: f.store}).releaseApprovalQueue(t.Context(), f.target.ID); err != nil {
+		t.Fatal(err)
+	}
+	assertFailedReservationCount(t, f, false)
+}
+
+func blockReservationPersistence(t *testing.T, f *reservationOrderFixture, unreadable bool) string {
+	t.Helper()
+	// An event destination directory fails preflight before any intent, while
+	// leaving the hold inventory readable. The original message destination
+	// directory also makes that inventory unreadable, so its count stays safe.
+	path := filepath.Join(f.store.Dir, eventRecordPath(eventState(t, f.store).Last+1))
+	if unreadable {
+		path = filepath.Join(f.store.Dir, "messages", f.request.MessageID+".json")
+	}
+	if err := os.Mkdir(path, 0700); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func assertFailedReservationCount(t *testing.T, f *reservationOrderFixture, conservative bool) {
+	t.Helper()
+	want := 0
+	if conservative {
+		want = 1
+	}
+	current, readErr := f.store.session(f.target.ID)
+	if readErr != nil || current.ApprovalHeld != want || f.logReads != 0 {
+		t.Fatalf("failed reservation count=%d want=%d logged=%d error=%v", current.ApprovalHeld, want, f.logReads, readErr)
+	}
+	if _, err := os.Stat(filepath.Join(f.store.Dir, "commits", "pending.json")); !os.IsNotExist(err) {
+		t.Fatal("preflight refusal left a pending intent", err)
 	}
 }
 
