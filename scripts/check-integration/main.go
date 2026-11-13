@@ -138,23 +138,44 @@ func check(input io.Reader, tests []requiredTest) error {
 	return nil
 }
 
+// Alias mode adds the in-process proof without copying the current root list.
+func requiredForMode(alias bool) []requiredTest {
+	tests := append([]requiredTest(nil), required...)
+	if alias {
+		tests = append(tests, requiredTest{"cmd/zalki", "TestTempAliasEnvironment"})
+	}
+	return tests
+}
+
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: check-integration GO_TEST_JSON")
+	alias, path, err := reportArguments(os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	if err := run(os.Args[1]); err != nil {
+	tests := requiredForMode(alias)
+	if err := runRequired(path, tests); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("Required integration coverage passed (%d tests, no skipped descendants).\n", len(required))
+	fmt.Printf("Required integration coverage passed (%d tests, no skipped descendants).\n", len(tests))
 }
 
-func run(path string) error {
+func reportArguments(args []string) (bool, string, error) {
+	if len(args) == 1 && args[0] != "--alias" {
+		return false, args[0], nil
+	}
+	if len(args) == 2 && args[0] == "--alias" {
+		return true, args[1], nil
+	}
+	return false, "", errors.New("usage: check-integration [--alias] GO_TEST_JSON")
+}
+
+func runRequired(path string, tests []requiredTest) error {
 	f, err := os.Open(path) //nolint:gosec // G304: explicit local test report supplied by the operator.
 	if err != nil {
 		return err
 	}
 	defer f.Close() //nolint:errcheck // Read-only test report.
-	return check(f, required)
+	return check(f, tests)
 }

@@ -120,3 +120,77 @@ func TestRequiredIntegrationRejectsSkipsForEveryRoot(t *testing.T) {
 		}
 	}
 }
+
+// The alias gate must not replace or snapshot away any current required roots.
+func TestAliasModeRetainsCurrentRequiredRoots(t *testing.T) {
+	prior := required
+	required = append(append([]requiredTest(nil), required...), requiredTest{"cmd/zalki", "TestFutureRequiredRoot"})
+	defer func() { required = prior }()
+	tests := requiredForMode(true)
+	var report strings.Builder
+	encoder := json.NewEncoder(&report)
+	for _, target := range append(append([]requiredTest(nil), prior...), requiredTest{"cmd/zalki", "TestTempAliasEnvironment"}) {
+		for _, action := range []string{"run", "pass"} {
+			if err := encoder.Encode(map[string]string{"Action": action, "Package": target.importPath(), "Test": target.name}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := check(strings.NewReader(report.String()), tests); err == nil || !strings.Contains(err.Error(), "TestFutureRequiredRoot") {
+		t.Fatal("alias mode dropped current required roots", err)
+	}
+}
+
+func TestAliasModeRequiresExecutedProof(t *testing.T) {
+	proof := requiredTest{"cmd/zalki", "TestTempAliasEnvironment"}
+	ordinary := requiredReport(t, required)
+	event := func(action, name string) string { return requiredEvent(t, action, requiredTest{proof.pkg, name}) }
+	for name, suffix := range map[string]string{"missing": "", "pass without run": event("pass", proof.name), "skipped": event("run", proof.name) + event("skip", proof.name), "skipped descendant": event("run", proof.name) + event("skip", proof.name+"/child") + event("pass", proof.name)} {
+		t.Run(name, func(t *testing.T) {
+			if err := check(strings.NewReader(ordinary+suffix), requiredForMode(true)); err == nil {
+				t.Fatal("ALIAS_CHECKER_ACCEPTED_MISSING_OR_SKIPPED_PROOF", name)
+			}
+		})
+	}
+	log := ordinary + event("run", proof.name) + event("pass", proof.name)
+	if err := check(strings.NewReader(log), requiredForMode(true)); err != nil {
+		t.Fatal(err)
+	}
+	if err := check(strings.NewReader(ordinary+event("skip", proof.name)), requiredForMode(false)); err != nil {
+		t.Fatal("ordinary gate changed", err)
+	}
+}
+
+func TestAliasCheckerArguments(t *testing.T) {
+	for _, args := range [][]string{nil, {"--alias"}, {"--alias", "a", "b"}} {
+		if _, _, err := reportArguments(args); err == nil {
+			t.Fatal("accepted malformed checker arguments", args)
+		}
+	}
+	for _, args := range [][]string{{"report.json"}, {"--alias", "report.json"}} {
+		alias, path, err := reportArguments(args)
+		if err != nil || path != "report.json" || alias != (len(args) == 2) {
+			t.Fatal(args, alias, path, err)
+		}
+	}
+}
+
+func requiredReport(t *testing.T, tests []requiredTest) string {
+	t.Helper()
+	var report strings.Builder
+	for _, target := range tests {
+		for _, action := range []string{"run", "pass"} {
+			report.WriteString(requiredEvent(t, action, target))
+		}
+	}
+	return report.String()
+}
+
+func requiredEvent(t *testing.T, action string, target requiredTest) string {
+	t.Helper()
+	raw, err := json.Marshal(map[string]string{"Action": action, "Package": target.importPath(), "Test": target.name})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw) + "\n"
+}
