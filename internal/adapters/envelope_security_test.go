@@ -19,6 +19,10 @@ func TestCursorHookRendererForgedEnvelopeAndExpandedControls(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		setup := cursorHook(t, &service, to.ID, "postToolUse", "", 0)
+		if !strings.Contains(setup, "refreshed private capability") || strings.Contains(setup, message.ID) {
+			t.Fatal("setup guidance did not preserve the queued envelope")
+		}
 		encoded := cursorHook(t, &service, to.ID, "postToolUse", "", 0)
 		var response map[string]string
 		if err := json.Unmarshal([]byte(encoded), &response); err != nil {

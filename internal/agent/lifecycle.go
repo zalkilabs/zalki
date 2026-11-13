@@ -36,10 +36,11 @@ type RecoveryDecision struct {
 // RecoveryGrant is a successful, single-use recovery claim returned only to the
 // trusted hook handler. Its plaintext capability is never persisted.
 type RecoveryGrant struct {
-	Actor      string
-	Capability string `json:"-"`
-	StateDir   string
-	ConfigFile string
+	Instructions string `json:"-"`
+	Actor        string
+	Capability   string `json:"-"`
+	StateDir     string
+	ConfigFile   string
 }
 
 // LifecycleHost is the trusted host for adapters whose hooks own client state.

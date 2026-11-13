@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func recoveryKey(t *testing.T, text string) string {
@@ -45,21 +46,13 @@ func TestCursorRecoveryEmitsOnceWithoutLosingPendingMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := cursorHook(t, &service, to.ID, "postToolUse", "", 0)
-	if !strings.Contains(text, "pending peer note") || !strings.Contains(text, "additional_context") {
-		t.Fatal("recovery displaced pending peer context")
+	if strings.Contains(text, "pending peer note") || !strings.Contains(text, "additional_context") {
+		t.Fatal("C12_RECOVERY_OUTPUT_IS_SETUP_ONLY")
 	}
 	newKey := recoveryKey(t, text)
-	_, err = store.Messages(to.ID, newKey)
-	current := adapterTestSession(t, store, to.ID)
-	if err != nil || current.Generation != to.Generation || current.ID != to.ID || current.Receive.IdleWake {
-		t.Fatalf("recovery changed conversation identity or advertised an unarmed listener: %v", err)
-	}
-	if _, err := store.Messages(to.ID, oldKey); err == nil {
-		t.Fatal("old capability still valid after refresh")
-	}
-	stored := adapterTestMessage(t, store, msg.ID)
-	if stored.TargetGeneration != to.Generation || stored.AcknowledgedAt != "" {
-		t.Fatal("recovery lost pending message scope or manufactured an acknowledgement", err)
+	assertCursorRecoveryScope(t, store, to, oldKey, newKey, msg)
+	if next := cursorHook(t, &service, to.ID, "postToolUse", "", 0); !strings.Contains(next, "pending peer note") || strings.Contains(next, "refreshed private capability") {
+		t.Fatal("C12_PEER_MESSAGE_DELIVERED_AFTER_SETUP")
 	}
 	if _, err := store.Ack(to.ID, newKey, msg.ID); err != nil {
 		t.Fatal(err)
@@ -81,6 +74,22 @@ func TestCursorRecoveryEmitsOnceWithoutLosingPendingMessages(t *testing.T) {
 	b, _ := json.Marshal(items)
 	if bytes.Contains(b, []byte(newKey)) || bytes.Contains(b, []byte("cursor_recovery_")) {
 		t.Fatal("discovery exposed private recovery state")
+	}
+}
+
+func assertCursorRecoveryScope(t *testing.T, store bus.Store, to model.Session, oldKey, newKey string, msg model.Message) {
+	t.Helper()
+	_, err := store.Messages(to.ID, newKey)
+	current := adapterTestSession(t, store, to.ID)
+	if err != nil || current.Generation != to.Generation || current.ID != to.ID || current.Receive.IdleWake {
+		t.Fatalf("recovery changed conversation identity or advertised an unarmed listener: %v", err)
+	}
+	if _, err := store.Messages(to.ID, oldKey); err == nil {
+		t.Fatal("old capability still valid after refresh")
+	}
+	stored := adapterTestMessage(t, store, msg.ID)
+	if stored.TargetGeneration != to.Generation || stored.AcknowledgedAt != "" {
+		t.Fatal("recovery lost pending message scope or manufactured an acknowledgement", err)
 	}
 }
 

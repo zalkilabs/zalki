@@ -178,6 +178,12 @@ func TestCursorPromptReactivatesResumedConversation(t *testing.T) {
 		if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), &out); err != nil {
 			t.Fatal(err)
 		}
+		if event == "beforeSubmitPrompt" {
+			if strings.TrimSpace(out.String()) != `{"continue":true}` {
+				t.Fatal("prompt response included private context or a follow-up")
+			}
+			return
+		}
 		if out.Len() != 0 {
 			t.Fatal("unexpected context or automatic follow-up")
 		}

@@ -68,6 +68,7 @@ func (stubCursorAdapter) Deliver(_ context.Context, _ model.Message, v model.Ses
 	return model.NewReceipt(model.StatusPendingActivity)
 }
 func (stubCursorAdapter) NormalizeHook(v agent.HookInput) (agent.HookInput, error) {
+	v.AllowPromptRegistration = v.Event == "UserPromptSubmit"
 	if v.Event == "Stop" && v.Status != "" && v.Status != "completed" {
 		v.Event = "Interrupt"
 	}

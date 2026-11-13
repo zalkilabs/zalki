@@ -23,6 +23,15 @@ func (t requiredTest) importPath() string {
 }
 
 var required = []requiredTest{
+	{"adapters", "TestCursorPromptRegistersAndArmsResumedChat"},
+	{"adapters", "TestCursorStaleHookCannotTouchReplacementGeneration"},
+	{"bus", "TestPromptRegistrationConcurrentProcesses"},
+	{"bus", "TestPromptRegistrationConcurrentGlobalQuota"},
+	{"bus", "TestPromptRegistrationCrashAfterDurableDebit"},
+	{"bus", "TestPromptRegistrationWALRecoveryDoesNotRecharge"},
+	{"bus", "TestPromptQuotaProcessCrashPublicationCuts"},
+	{"adapters", "TestCursorRecoveryCrashAfterClaimDoesNotRetry"},
+	{"pluginfeed", "TestPluginOldParentReplyTargetsPromptReplacement"},
 	{"cmd/zalki", "TestUpgradeWithoutInstallationRecordCLI"},
 	{"cmd/zalki", "TestConfigSetUnsetCLI"},
 	{"cmd/zalki", "TestDoctorCodexTrustIsOffline"},

@@ -17,6 +17,7 @@ func TestSessionWriterInventory(t *testing.T) {
 	expected := map[string]int{
 		"approval.go:rememberApprovalHold": 1, "approval.go:clearApprovalHeld": 1, "approval.go:reconcileSessionHold": 1,
 		"hook_lifecycle.go:ApplyLifecycle": 1, "hook_lifecycle.go:ClaimRecovery": 1,
+		"hook_registration.go:registerPromptAbsent": 1,
 		"listener.go:Arm": 1, "listener.go:Confirm": 1, "listener.go:Close": 1,
 		"process.go:rememberOwner": 1, "prune.go:sweepRetired": 1, "prune.go:retireIfDue": 1,
 		"event_commit.go:saveSessionWith": 1, "event_commit.go:saveSessionFor": 1,
