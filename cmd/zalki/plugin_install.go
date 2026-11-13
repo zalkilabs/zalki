@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -44,8 +45,8 @@ var installTerminal = func(in io.Reader) (installChoice, func()) {
 }
 
 type installFlags struct {
-	yes, allowUnsandboxed, details bool
-	tree, as                       string
+	yes, allowUnsandboxed, details, dryRun bool
+	tree, as                               string
 }
 
 func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
@@ -57,7 +58,17 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 			installWarning +
 			"\n\nThe plugin gets the standard access it asks for (status, receive) in every live session (scope all). Extended SEND/READ is optional and limited to named running sessions chosen in your terminal. --yes refuses any manifest declaring either kind. Without a terminal, --yes needs --tree-sha256 and --allow-unsandboxed.",
 		Args: cobra.ExactArgs(1),
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if flags.dryRun {
+				opts.logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+				return nil
+			}
+			return opts.root.PersistentPreRunE(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flags.dryRun {
+				return (&pluginInstaller{cmd: cmd, flags: flags, home: opts.home}).dryRun(args[0])
+			}
 			service, err := opts.service()
 			if err != nil {
 				return err
@@ -66,6 +77,7 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&flags.details, "details", false, "show the captured source, build and trust details before the question")
+	cmd.Flags().BoolVar(&flags.dryRun, "dry-run", false, "build and verify privately without reading or creating Zalki state")
 	cmd.Flags().StringVar(&flags.as, "as", "", "local name of this instance (default: the manifest name)")
 	cmd.Flags().BoolVar(&flags.yes, "yes", false, "install without the review screen; needs the flags below")
 	cmd.Flags().StringVar(&flags.tree, "tree-sha256", "", "expected snapshot hash of FOLDER (with --yes)")
@@ -85,6 +97,7 @@ type pluginInstaller struct {
 	home                                string
 	installerActor, installerCapability string
 	terminalReviewed                    bool
+	update                              *pluginfeed.PluginFeedStatus
 }
 
 func (p *pluginInstaller) say(format string, args ...any) error {
@@ -222,7 +235,7 @@ func (p *pluginInstaller) finish(access pluginfeed.PluginAccess) error {
 				p.install.KeepBuildLog()
 			}
 			err = errors.Join(err, p.say("%s\n", plainLines(plugins.TailInstallLog(log, 20))))
-			return fmt.Errorf("build failed: %w. Nothing was installed. Full log: %s (removed by the next install of %s or by plugins remove %s)", err, log, p.name, p.name)
+			return fmt.Errorf("build failed: %w. %s. Full log: %s (removed by the next install or update of %s or by plugins remove %s)", err, p.failureState(), log, p.name, p.name)
 		}
 	}
 	if err := p.say("Verifying...\n"); err != nil {
@@ -230,9 +243,13 @@ func (p *pluginInstaller) finish(access pluginfeed.PluginAccess) error {
 	}
 	artifact, err := plugins.StagedInstallArtifact(p.source.Dir, m.Artifact)
 	if err != nil {
-		return fmt.Errorf("%w. Nothing was installed", err)
+		return fmt.Errorf("%w. %s", err, p.failureState())
 	}
-	if err := p.say("Enabling...\n"); err != nil {
+	progress := "Enabling..."
+	if p.update != nil {
+		progress = "Publishing update..."
+	}
+	if err := p.say("%s\n", progress); err != nil {
 		return err
 	}
 	installStep("commit")
@@ -242,10 +259,28 @@ func (p *pluginInstaller) finish(access pluginfeed.PluginAccess) error {
 	if ctx.Err() != nil {
 		return errInstallCancelled
 	}
-	if err := installCommitError(p.name)(p.install.Commit(artifact, m.Args, access, receipt, p.installerActor, p.installerCapability, p.terminalReviewed)); err != nil {
+	return p.commitReviewedArtifact(artifact, m.Args, access, receipt)
+}
+
+func (p *pluginInstaller) commitReviewedArtifact(artifact string, args []string, access pluginfeed.PluginAccess, receipt pluginfeed.PluginInstallReceipt) error {
+	commitError := installCommitError(p.name)
+	if p.update != nil {
+		commitError = updateCommitError(p.name)
+	}
+	if err := commitError(p.install.Commit(artifact, args, access, receipt, p.installerActor, p.installerCapability, p.terminalReviewed)); err != nil {
 		return err
 	}
+	if p.update != nil {
+		return p.reportUpdated()
+	}
 	return p.reportInstalled()
+}
+
+func (p *pluginInstaller) failureState() string {
+	if p.update != nil {
+		return "The old version is still installed"
+	}
+	return "Nothing was installed"
 }
 
 // installCommitError says what a failed commit left behind. When the record

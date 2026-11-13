@@ -16,6 +16,9 @@ import (
 )
 
 func (p *pluginInstaller) review() (pluginfeed.PluginAccess, bool, error) {
+	if p.update != nil {
+		return p.reviewUpdate()
+	}
 	p.terminalReviewed = false
 	m := p.source.Manifest
 	access := pluginfeed.PluginAccess{Status: m.Access.Status, Receive: m.Access.Receive}

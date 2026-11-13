@@ -116,6 +116,8 @@ var required = []requiredTest{
 	{"adapters", "TestCodexSessionEndRestartBurstKeepsAllSessions"},
 	{"adapters", "TestPruneCodexNeedsEvidenceOrExplicitID"},
 	{"adapters", "TestCodexSessionEndLeavesHeldUntilNormalRelease"},
+	{"cmd/zalki", "TestPluginUpdateCheckExitCodes"},
+	{"cmd/zalki", "TestPluginInstallDryRun"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

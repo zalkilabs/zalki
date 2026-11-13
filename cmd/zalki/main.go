@@ -18,7 +18,7 @@ func main() {
 	ctx = context.WithValue(ctx, signalContextKey{}, ctx)
 	if err := run(ctx, os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "zalki:", err)
-		os.Exit(1)
+		os.Exit(commandExitCode(err))
 	}
 }
 
