@@ -46,7 +46,10 @@ func (c *child) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func launchChild(ctx context.Context, binary string, args []string, cwd, home string, lease *os.File) (*child, error) {
+// launchChild starts binary, which the caller verified while it had the
+// identity pinned. If the started file is no longer that file, the child is
+// killed and reaped and the start fails: no retry and no new pin.
+func launchChild(ctx context.Context, binary string, pinned fileIdentity, args []string, cwd, home string, lease *os.File) (*child, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -72,11 +75,14 @@ func launchChild(ctx context.Context, binary string, args []string, cwd, home st
 		home, err = os.UserHomeDir()
 	}
 	if err == nil {
+		err = cleanHome(home)
+	}
+	if err == nil {
 		// stop owns cancellation; the exec watcher must not preempt EOF grace.
 		c.cmd = exec.CommandContext(context.WithoutCancel(ctx), binary, args...)
 		c.cmd.Dir = cwd
 		c.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-		c.cmd.Env = []string{"HOME=" + home}
+		c.cmd.Env = childEnv(home)
 		c.cmd.Stdin, c.cmd.Stdout, c.cmd.Stderr = input, output, c
 		c.cmd.ExtraFiles = []*os.File{lease}
 		c.cmd.WaitDelay = time.Second
@@ -93,6 +99,11 @@ func launchChild(ctx context.Context, binary string, args []string, cwd, home st
 		close(c.done)
 	}()
 	context.AfterFunc(ctx, func() { _ = c.stop(nil) })
+	if !stillPinned(binary, pinned) {
+		_ = c.cmd.Process.Kill()
+		_ = c.stop(nil)
+		return nil, errPinChangedAtStart
+	}
 	return c, nil
 }
 

@@ -36,11 +36,11 @@ func Run(ctx context.Context, store bus.Store, name string, output io.Writer) (r
 	if err != nil {
 		return err
 	}
-	launch, ready, err := prepareLaunch(status)
+	launch, pinned, ready, err := prepareLaunch(status)
 	if err != nil {
 		return err
 	}
-	c, err := launchChild(ctx, launch.Executable, launch.Args, status.DataDir, "", lease)
+	c, err := launchChild(ctx, launch.Executable, pinned, launch.Args, status.DataDir, "", lease)
 	if err != nil {
 		if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
 			return nil
@@ -77,10 +77,16 @@ func checkInstallation(feed pluginfeed.PluginFeed, id string) (pluginfeed.Plugin
 	return current, nil
 }
 
-func prepareLaunch(status pluginfeed.PluginFeedStatus) (pluginfeed.PluginLaunch, string, error) {
+// prepareLaunch captures the executable's identity BEFORE the digest check,
+// so a file swapped after the check is caught when it has started.
+func prepareLaunch(status pluginfeed.PluginFeedStatus) (pluginfeed.PluginLaunch, fileIdentity, string, error) {
 	ready := status.Name + " ready"
 	if status.Launch == nil {
-		return pluginfeed.PluginLaunch{}, "", errors.New("plugin has no external executable")
+		return pluginfeed.PluginLaunch{}, fileIdentity{}, "", errors.New("plugin has no external executable")
 	}
-	return *status.Launch, ready, status.Launch.Verify()
+	pinned, err := pinnedIdentity(status.Launch.Executable)
+	if err != nil {
+		return pluginfeed.PluginLaunch{}, fileIdentity{}, "", err
+	}
+	return *status.Launch, pinned, ready, status.Launch.Verify()
 }

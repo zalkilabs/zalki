@@ -198,7 +198,7 @@ func (check *externalObservationCheck) run(t *testing.T) {
 	if err != nil || observed.Cwd != expected {
 		t.Fatal("external cwd was not persistent data", observed.Cwd, expected, err)
 	}
-	if observed.Home != home || observed.EnvironmentCount != 1 || observed.SentinelInherited {
+	if observed.Home != home || observed.EnvironmentCount != 2 || observed.SentinelInherited {
 		t.Fatal("external child inherited environment", observed.EnvironmentCount, observed.SentinelInherited)
 	}
 	if raw, err := os.ReadFile(sentinel); err != nil || string(raw) != "keep" {

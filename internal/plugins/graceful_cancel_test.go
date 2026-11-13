@@ -32,7 +32,7 @@ func gracefulChildFixture(t *testing.T, mode string) (*child, context.CancelFunc
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
-	c, err := launchChild(ctx, binary, []string{"host-fake-child"}, data, "", lease)
+	c, err := launchChild(ctx, binary, identityOf(t, binary), []string{"host-fake-child"}, data, "", lease)
 	if err != nil {
 		cancel()
 		_ = lease.Close()
@@ -133,7 +133,7 @@ func TestPluginAlreadyCanceledContextDoesNotLaunch(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	c, err := launchChild(ctx, binary, []string{"host-fake-child"}, hostData(store), "", lease)
+	c, err := launchChild(ctx, binary, identityOf(t, binary), []string{"host-fake-child"}, hostData(store), "", lease)
 	if c != nil {
 		_ = c.stop(nil)
 		t.Fatal("already-canceled context launched a child")

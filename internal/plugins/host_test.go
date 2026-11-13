@@ -356,7 +356,7 @@ func TestHostReapsChildOnEOFAndDoesNotInheritSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := launchChild(t.Context(), binary, []string{"host-fake-child"}, hostData(store), "", lease)
+	c, err := launchChild(t.Context(), binary, identityOf(t, binary), []string{"host-fake-child"}, hostData(store), "", lease)
 	if err != nil {
 		t.Fatal(err)
 	}
