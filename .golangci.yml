@@ -43,7 +43,6 @@ linters:
             - github.com/zalkilabs/zalki/internal/logging$
             - github.com/zalkilabs/zalki/internal/model$
             - github.com/zalkilabs/zalki/internal/procwatch$
-            - golang.org/x/sys/unix$
         process-mechanisms:
           files: ["**/internal/procwatch/*.go", "!$test"]
           list-mode: strict
@@ -82,8 +81,6 @@ linters:
           allow:
             - $gostd
             - github.com/zalkilabs/zalki/internal/bus$
-            - github.com/zalkilabs/zalki/internal/fsutil$
-            - github.com/zalkilabs/zalki/internal/journal$
             - github.com/zalkilabs/zalki/internal/model$
             - github.com/zalkilabs/zalki/internal/pluginfeed$
             - github.com/zalkilabs/zalki/internal/procwatch$
@@ -94,9 +91,89 @@ linters:
           allow:
             - $gostd
             - github.com/zalkilabs/zalki/internal/bus$
-            - github.com/zalkilabs/zalki/internal/fsutil$
             - github.com/zalkilabs/zalki/internal/journal$
             - github.com/zalkilabs/zalki/internal/model$
+        mcpserver:
+          files: ["**/internal/mcpserver/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/modelcontextprotocol/go-sdk/mcp$
+            - github.com/zalkilabs/zalki/internal/bus$
+            - github.com/zalkilabs/zalki/internal/model$
+        logging:
+          files: ["**/internal/logging/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+        fsutil:
+          files: ["**/internal/fsutil/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
+        # Only procwatch may use raw OS calls. The files listed below are the
+        # current users; remove a line when its file moves behind a platform API.
+        # This list may only shrink; a file move or rename must update its line.
+        os-calls:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/scripts/**"
+            - "!**/internal/procwatch/*.go"
+            - "!**/cmd/zalki/main.go"
+            - "!**/cmd/zalki/plugin_install_term.go"
+            - "!**/cmd/zalki/plugin_install_term_darwin.go"
+            - "!**/cmd/zalki/plugin_install_term_linux.go"
+            - "!**/cmd/zalki/plugin_supervise.go"
+            - "!**/cmd/zalki/plugin_supervise_binary.go"
+            - "!**/cmd/zalki/plugin_supervise_device_darwin.go"
+            - "!**/cmd/zalki/plugin_supervise_device_linux.go"
+            - "!**/cmd/zalki/plugin_supervise_logs.go"
+            - "!**/cmd/zalki/plugin_supervise_process.go"
+            - "!**/cmd/zalki/plugin_supervise_restart.go"
+            - "!**/cmd/zalki/plugin_supervise_state.go"
+            - "!**/cmd/zalki/plugin_supervised_host.go"
+            - "!**/internal/adapters/codex/codex_app_server.go"
+            - "!**/internal/bus/endpoint.go"
+            - "!**/internal/bus/exit_observer.go"
+            - "!**/internal/bus/hook_registration_quota.go"
+            - "!**/internal/bus/listener.go"
+            - "!**/internal/bus/liveness.go"
+            - "!**/internal/bus/process.go"
+            - "!**/internal/bus/process_stat_darwin.go"
+            - "!**/internal/bus/process_stat_linux.go"
+            - "!**/internal/bus/runtime.go"
+            - "!**/internal/config/file.go"
+            - "!**/internal/fsutil/fsutil.go"
+            - "!**/internal/install/installation_lock.go"
+            - "!**/internal/install/installation_plan.go"
+            - "!**/internal/journal/lock.go"
+            - "!**/internal/journal/order_darwin.go"
+            - "!**/internal/journal/read_bytes.go"
+            - "!**/internal/logging/errors.go"
+            - "!**/internal/logging/file.go"
+            - "!**/internal/pluginfeed/plugin_artifacts.go"
+            - "!**/internal/pluginfeed/plugin_install.go"
+            - "!**/internal/pluginfeed/plugin_installation.go"
+            - "!**/internal/pluginfeed/plugin_launch.go"
+            - "!**/internal/pluginfeed/plugin_lease.go"
+            - "!**/internal/pluginfeed/plugin_update.go"
+            - "!**/internal/pluginfeed/plugin_update_pins.go"
+            - "!**/internal/plugins/child.go"
+            - "!**/internal/plugins/install.go"
+            - "!**/internal/plugins/install_process.go"
+            - "!**/internal/plugins/install_process_darwin.go"
+            - "!**/internal/plugins/install_process_linux.go"
+            - "!**/internal/plugins/pin_identity.go"
+            - "!**/internal/plugins/pin_identity_darwin.go"
+            - "!**/internal/plugins/pin_identity_linux.go"
+            - "!**/internal/plugins/supervised.go"
+          list-mode: lax
+          deny:
+            - pkg: syscall
+              desc: Only procwatch may use raw OS calls; use a platform API instead.
+            - pkg: golang.org/x/sys
+              desc: Only procwatch may use raw OS calls; use a platform API instead.
         pluginfeed-importers:
           files: ["$all", "!$test", "!**/cmd/zalki/*.go", "!**/internal/plugins/*.go"]
           list-mode: lax
