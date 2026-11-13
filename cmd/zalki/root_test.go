@@ -98,7 +98,7 @@ func TestRejectedArgumentsNeverWriteProtocolOutputOrState(t *testing.T) {
 }
 
 func TestVersionAndFreshCommandFlags(t *testing.T) {
-	home := t.TempDir()
+	home := configTestHome(t)
 	for _, args := range [][]string{{"--version"}, {"version"}} {
 		out, diagnostic, err := execute(t, home, "", args...)
 		if err != nil || diagnostic != "" || out != bus.BuildVersion()+"\n" {
@@ -150,7 +150,7 @@ func TestGeneratedSetupRetainsInstalledCommandSyntax(t *testing.T) {
 	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {
 		t.Setenv(name, "")
 	}
-	home := t.TempDir()
+	home := configTestHome(t)
 	state := filepath.Join(home, "state")
 	for _, name := range []string{"setup", "install"} {
 		outDir := filepath.Join(home, name)

@@ -24,7 +24,7 @@ func newUpgradeFixture(t *testing.T, brewScript, childScript string) upgradeFixt
 	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {
 		t.Setenv(name, "")
 	}
-	root := t.TempDir()
+	root := configTestHome(t)
 	f := upgradeFixture{home: filepath.Join(root, "home"), state: filepath.Join(root, "home", "state"), prefix: filepath.Join(root, "prefix")}
 	f.brewLog, f.childLog = filepath.Join(root, "brew.log"), filepath.Join(root, "child.log")
 	f.manifest = filepath.Join(f.state, "installation.json")
