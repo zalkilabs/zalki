@@ -5,19 +5,18 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
 // The one-question screen names only the standard access the plugin asked
 // for, in every live session.
 func TestPluginInstallAccessLine(t *testing.T) {
-	both := installAccessLine(plugins.InstallAccess{Status: true, Receive: true})
-	if both != "Access in every live session: changes = see state and message status, no text; receive = sessions may message this plugin, and it may answer them\n" {
-		t.Fatalf("%q", both)
+	lines, err := reviewAccessLines(pluginReviewPlan{access: pluginReviewAccess{status: true, receive: true}})
+	if err != nil || strings.Join(lines, "\n") != "  see the status of all sessions, now and later\n  get messages that sessions send to it, and answer the sender" {
+		t.Fatalf("%q %v", lines, err)
 	}
-	if only := installAccessLine(plugins.InstallAccess{Status: true}); strings.Contains(only, "receive") {
-		t.Fatalf("an unrequested kind is shown: %q", only)
+	lines, err = reviewAccessLines(pluginReviewPlan{access: pluginReviewAccess{status: true}})
+	if err != nil || strings.Contains(strings.Join(lines, "\n"), "receive") {
+		t.Fatal(lines, err)
 	}
 }
 

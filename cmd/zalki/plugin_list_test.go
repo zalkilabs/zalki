@@ -22,13 +22,13 @@ func TestPluginListAndOldRecord(t *testing.T) {
 		}
 	}
 	raw, err := pluginOwnerLocal(t, store.Dir, "list")
-	if err != nil || string(raw) != "ext  disabled  scope all; status, receive; send to 0, read from 0 session(s)\n" {
+	if err != nil || !strings.Contains(string(raw), "Manual plugins (no installation receipt)\n  ext  unknown version  disabled; runtime unknown; scope all; 0 eligible in the session snapshot; SEND 0; READ 0; installed by unknown (no installation receipt)") {
 		t.Fatalf("list: %q %v", raw, err)
 	}
 	writeOldPluginRecord(t, filepath.Join(store.Dir, "plugins", "ext.json"))
-	fix := "ext: plugin record from an older Zalki. Run: zalki plugins remove ext && zalki plugins install FOLDER"
+	fix := "ext: plugin record from an older Zalki. Run: zalki plugins remove ext && zalki plugins install FOLDER --as ext"
 	assertOldRecordRefused(t, store.Dir, fix)
-	if raw, err := pluginOwnerLocal(t, store.Dir, "list"); err != nil || !strings.HasPrefix(string(raw), "ext  old record, remove it: "+fix) {
+	if raw, err := pluginOwnerLocal(t, store.Dir, "list"); err != nil || !strings.Contains(string(raw), "Old plugin records\n  ext  "+fix) {
 		t.Fatalf("list of an old record: %q %v", raw, err)
 	}
 	if raw, err := pluginOwnerLocal(t, store.Dir, "remove", "ext"); err != nil {

@@ -89,15 +89,22 @@ func TestPluginLifecycleCharacterization(t *testing.T) {
 			t.Fatalf("%v changed shape:\nfiles %q\nkeys  %q", step.args, files, keys)
 		}
 	}
-	// Enabled installations refuse grant changes, configure and removal.
+	// An enabled installation takes configure and grant (one rebind each),
+	// refuses a second add, and is removed in one command.
 	for _, args := range [][]string{{"add", "ext", "--exec", file}, {"configure", "ext", "--scope", "all"}, {"grant", "ext", "--status"}, {"enable", "ext"}} {
 		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
 			t.Fatal(args, string(raw), err)
 		}
 	}
-	for _, args := range [][]string{{"configure", "ext", "--scope", "all"}, {"grant", "ext", "--status", "--read", session.ID}, {"remove", "ext"}, {"add", "ext", "--exec", file}} {
-		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err == nil {
-			t.Fatal("enabled installation accepted", args, string(raw))
+	for _, args := range [][]string{{"configure", "ext", "--scope", "all"}, {"grant", "ext", "--status", "--read", session.ID}} {
+		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
+			t.Fatal("an enabled installation refused a rebind", args, string(raw), err)
 		}
+	}
+	if raw, err := pluginOwnerLocal(t, store.Dir, "add", "ext", "--exec", file); err == nil {
+		t.Fatal("a second add of an enabled installation was accepted", string(raw))
+	}
+	if raw, err := pluginOwnerLocal(t, store.Dir, "remove", "ext"); err != nil {
+		t.Fatal("one-command remove of an enabled installation failed", string(raw), err)
 	}
 }

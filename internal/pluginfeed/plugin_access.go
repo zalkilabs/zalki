@@ -1,13 +1,16 @@
 package pluginfeed
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -104,8 +107,8 @@ func extendedMember(view bus.JournalView, p pluginRecord, list []string, session
 	return err == nil && member
 }
 
-// ConfigurePluginScope sets the scope of standard access while disabled.
-// Only "all" and "none" are accepted.
+// ConfigurePluginScope sets the scope of standard access. Only "all" and
+// "none" are accepted. On an enabled plugin it rebinds (see changeOwnerAccess).
 func (s PluginFeed) ConfigurePluginScope(scope string) error {
 	if err := s.checkName(); err != nil {
 		return err
@@ -113,14 +116,14 @@ func (s PluginFeed) ConfigurePluginScope(scope string) error {
 	if scope != scopeAll && scope != "none" {
 		return model.NewError(model.CodeInvalidInput, "scope must be all or none")
 	}
-	return s.changeDisabled(func(p *pluginRecord) error {
+	return s.changeOwnerAccess(func(p *pluginRecord) error {
 		p.Scope = scope
 		return nil
 	})
 }
 
-// GrantPluginAccess replaces all granted access while disabled.
-// Pin verification runs outside Store flock; the complete record is rechecked.
+// GrantPluginAccess replaces all granted access. On an enabled plugin it
+// rebinds (see changeOwnerAccess).
 func (s PluginFeed) GrantPluginAccess(a PluginAccess) error {
 	if err := s.checkName(); err != nil {
 		return err
@@ -132,39 +135,12 @@ func (s PluginFeed) GrantPluginAccess(a PluginAccess) error {
 	if err := s.checkAccess(a); err != nil {
 		return err
 	}
-	var before pluginRecord
-	var prior [32]byte
-	if err := bus.WithJournalRead(s.store, func(bus.JournalView) error {
-		var raw []byte
-		var err error
-		before, raw, err = s.loadPlugin()
-		prior = sha256.Sum256(raw)
-		return err
-	}); err != nil {
-		return err
-	}
-	switch {
-	case before.ID == "":
-		return model.NewError(model.CodeNotFound, "add the plugin first")
-	case before.Enabled:
-		return model.NewError(model.CodeConflict, "disable the plugin before changing its access")
-	case before.Launch == nil:
-		return model.NewError(model.CodeInvalidInput, "access grants require an external plugin")
-	}
-	if err := before.Launch.Verify(); err != nil {
-		return err
-	}
-	return s.locked(func() error {
-		p, raw, err := s.loadPlugin()
-		if err != nil {
-			return err
-		}
-		if p.ID != before.ID || p.Enabled || p.Launch == nil || sha256.Sum256(raw) != prior {
-			return model.NewError(model.CodeConflict, "plugin changed before granting access; retry")
+	return s.changeOwnerAccess(func(p *pluginRecord) error {
+		if p.Launch == nil {
+			return model.NewError(model.CodeInvalidInput, "access grants require an external plugin")
 		}
 		p.Access = a
-		_, err = s.savePlugin(p)
-		return err
+		return nil
 	})
 }
 
@@ -187,23 +163,88 @@ func (s PluginFeed) RevokePluginAccess() error {
 	})
 }
 
-// changeDisabled applies one owner change to a disabled installation.
-func (s PluginFeed) changeDisabled(change func(*pluginRecord) error) error {
-	return s.locked(func() error {
-		p, _, err := s.loadPlugin()
+// changeOwnerAccess applies one owner change to scope or access. A disabled
+// plugin is just rewritten. An enabled plugin is rebound in ONE atomic write:
+// the change, a fresh epoch and an "enabled" gap. The running child's binding
+// no longer holds (stale_binding), so it stops; a new start gets only the new
+// access. The record is always either the old or the new one; a write whose
+// confirmation failed is reported by publicationError. The pin is verified
+// outside the Store lock first, and the record must not change in between.
+func (s PluginFeed) changeOwnerAccess(change func(*pluginRecord) error) error {
+	var before pluginRecord
+	var prior [32]byte
+	if err := bus.WithJournalRead(s.store, func(bus.JournalView) error {
+		var raw []byte
+		var err error
+		before, raw, err = s.loadPlugin()
+		prior = sha256.Sum256(raw)
+		return err
+	}); err != nil {
+		return err
+	}
+	if before.ID == "" {
+		return model.NewError(model.CodeNotFound, "add the plugin first")
+	}
+	if before.Launch != nil {
+		if err := before.Launch.Verify(); err != nil {
+			return err
+		}
+	}
+	return s.write(func(view bus.JournalView) error {
+		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err
 		}
-		if p.ID == "" {
-			return model.NewError(model.CodeNotFound, "add the plugin first")
-		}
-		if p.Enabled {
-			return model.NewError(model.CodeConflict, "disable the plugin before changing its access")
+		if p.ID != before.ID || sha256.Sum256(raw) != prior {
+			return model.NewError(model.CodeConflict, "plugin changed while its access was being changed; retry")
 		}
 		if err := change(&p); err != nil {
 			return err
 		}
-		_, err = s.savePlugin(p)
-		return err
+		if err := rebindIfEnabled(view, &p); err != nil {
+			return err
+		}
+		written, err := s.savePlugin(p)
+		if err == nil {
+			return nil
+		}
+		return s.publicationError(raw, written, err)
 	})
+}
+
+// rebindIfEnabled gives an enabled record a fresh epoch and an "enabled" gap,
+// so the running child's binding no longer holds. It refuses to leave an
+// enabled plugin with no access.
+func rebindIfEnabled(view bus.JournalView, p *pluginRecord) error {
+	if !p.Enabled {
+		return nil
+	}
+	if !p.mayRun() {
+		return model.NewError(model.CodeInvalidInput, "this leaves the plugin no access; use plugins revoke to remove all access")
+	}
+	head, err := view.EventWindow()
+	if err != nil {
+		return err
+	}
+	p.setGap(head, "enabled")
+	p.Epoch = model.NewUUID()
+	return nil
+}
+
+// publicationError reports a failed record write honestly. The write is one
+// atomic rename, so after it the record should be the old or the new image.
+// Read it again under the same lock and say only what is proven:
+//   - the new bytes: written, but the disk did not confirm it;
+//   - the old bytes: not written, the previous access stands;
+//   - anything else (unreadable, missing, other bytes): unknown, and it may
+//     be in effect. Never "unchanged" without the old bytes.
+func (s PluginFeed) publicationError(prior, written []byte, err error) error {
+	current, readErr := journal.ReadBytes(s.pluginPath(), 16<<10)
+	switch {
+	case readErr == nil && bytes.Equal(current, written):
+		return errors.Join(model.NewError(model.CodeUnavailable, "the access change was written, but the disk did not confirm it; it may be in effect. Check it with: zalki plugins show %s", s.name), err)
+	case readErr == nil && bytes.Equal(current, prior):
+		return errors.Join(model.NewError(model.CodeUnavailable, "the access change was not written; %s keeps its previous access", s.name), err)
+	}
+	return errors.Join(model.NewError(model.CodeUnavailable, "the access change may or may not be in effect; check it with: zalki plugins show %s", s.name), err, readErr)
 }

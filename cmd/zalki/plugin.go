@@ -14,7 +14,7 @@ func newPluginCommand(opts *commandOptions) *cobra.Command {
 	}
 	group.AddCommand(newPluginCapabilityCommand(opts, "grant"), newPluginCapabilityCommand(opts, "revoke"))
 	group.AddCommand(newPluginReadCommand(opts), newPluginInboxReadCommand(opts))
-	group.AddCommand(newPluginCheckCommand(opts), newPluginInstallCommand(opts), newPluginListCommand(opts))
+	group.AddCommand(newPluginCheckCommand(opts), newPluginInstallCommand(opts), newPluginListCommand(opts), newPluginShowCommand(opts))
 	group.AddCommand(&cobra.Command{
 		Use: "run NAME", Short: "Run one installed plugin in the foreground", Long: pluginTrustNotice + "\n\nPlugins MUST exit on stdin EOF within the 2-second grace period and must not daemonize. Helpers must exit with the plugin or not inherit FD 3. Interactive terminal input is unsupported. Plugins speak the one plugin wire: feed offers and ACKs, their own inbox, replies, and the extended send and read grants. The plugin runs as the owner; grants filter only what Zalki exposes.", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

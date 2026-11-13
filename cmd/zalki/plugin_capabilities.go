@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
@@ -9,8 +10,11 @@ func newPluginCapabilityCommand(opts *commandOptions, action string) *cobra.Comm
 	var access pluginfeed.PluginAccess
 	cmd := &cobra.Command{
 		Use: action + " NAME", Short: "Manage a plugin's access", Args: cobra.ExactArgs(1),
-		Long: "Grant replaces all access while the plugin is disabled; what is not named is denied. --status and --receive are standard access: they apply to every live session when the scope is all (zalki plugins configure NAME --scope all). With --receive, sessions may message the plugin at plugin:UUID, and it may answer each message (at most 8 answers, within 24 hours). --send and --read are extended access for exact sessions only. Revoke removes all access and disables the plugin.",
+		Long: "Grant replaces all access; an enabled plugin gets a new launch binding; what is not named is denied. --status and --receive are standard access: they apply to every live session when the scope is all (zalki plugins configure NAME --scope all). With --receive, sessions may message the plugin at plugin:UUID, and it may answer each message (at most 8 answers, within 24 hours). --send and --read are extended access for exact sessions only. Revoke removes all access and disables the plugin.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if action == "grant" && !pluginAccessTerminal(cmd.InOrStdin()) {
+				return errors.New("change plugin access in your own terminal: zalki plugins grant NAME")
+			}
 			service, err := opts.service()
 			if err != nil {
 				return err
@@ -19,7 +23,15 @@ func newPluginCapabilityCommand(opts *commandOptions, action string) *cobra.Comm
 			if action == "revoke" {
 				return pluginDone(cmd, feed.RevokePluginAccess(), "Revoked all access of %s; it is disabled.", name)
 			}
-			return pluginDone(cmd, feed.GrantPluginAccess(access), "Recorded access for %s.", name)
+			before, err := feed.PluginStatus()
+			if err != nil {
+				return err
+			}
+			err = feed.GrantPluginAccess(access)
+			if before.Enabled {
+				return pluginAccessRecorded(cmd, err, name)
+			}
+			return pluginDone(cmd, err, "Recorded access for %s.", name)
 		},
 	}
 	if action == "grant" {

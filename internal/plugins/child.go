@@ -182,13 +182,14 @@ func (c *child) stop(cause error) error {
 	if cause == nil {
 		return nil
 	}
+	// A host-made hint (old wire, missing capability, a refused operation)
+	// is the owner's fix, shown alone: never with child stderr.
+	var hint hostHintError
+	if errors.As(cause, &hint) {
+		return hint
+	}
 	if c.readMode.Load() {
-		// Its stderr may hold message text, so it is not shown. A host-made
-		// hint (old wire, missing capability) is still the owner's fix.
-		var hint hostHintError
-		if errors.As(cause, &hint) {
-			return hint
-		}
+		// Its stderr may hold message text, so it is not shown.
 		return errors.New("plugin request host failed")
 	}
 	return fmt.Errorf("%w; child stderr: %s", cause, plainStderr(c.stderr))

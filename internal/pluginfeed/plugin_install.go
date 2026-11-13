@@ -3,6 +3,7 @@ package pluginfeed
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -35,6 +36,15 @@ type PluginInstallReceipt struct {
 	Artifact       string   `json:"artifact"`
 	ArtifactSHA256 string   `json:"artifact_sha256"`
 	InstalledAt    string   `json:"installed_at"`
+	// Access is the reviewed manifest's declared access: exactly the four
+	// booleans status, receive, send and read. The grants live in the record.
+	Access json.RawMessage `json:"access"`
+	// InstalledBy is who installed it, proven at commit: a native session ID,
+	// "terminal" (an anonymous, reviewed terminal) or "unproven".
+	InstalledBy string `json:"installed_by"`
+	// InstalledByLabel is that session's display name at install time: a
+	// historical claim, never proof or a lookup key.
+	InstalledByLabel string `json:"installed_by_label,omitempty"`
 }
 
 // PluginInstall holds the name lease for one install attempt and owns its
@@ -61,7 +71,8 @@ func (r *PluginInstallReceipt) valid() bool {
 		return false
 	}
 	_, err := time.Parse(time.RFC3339Nano, r.InstalledAt)
-	return err == nil && printableText(r.InstalledAt, 64) && r.validPaths() && r.validBuild() && r.validClaims()
+	_, declared := decodeDeclaredAccess(r.Access)
+	return err == nil && printableText(r.InstalledAt, 64) && r.validPaths() && r.validBuild() && r.validClaims() && declared && validProvenance(r.InstalledBy, r.InstalledByLabel)
 }
 
 func (r *PluginInstallReceipt) validPaths() bool {
@@ -100,12 +111,11 @@ func (i *PluginInstall) StagingDir() string { return i.feed.stagingPath() }
 // KeepBuildLog keeps the staging folder after Close so the owner can read the log.
 func (i *PluginInstall) KeepBuildLog() { i.keepLog = true }
 
-// sweepPluginInstallFiles removes install leftovers of this name only. The
+// sweepPluginInstallFiles removes this name's install staging only. The
 // name is validated and the parents are checked, so links are never followed.
+// It runs before the copied manifest is checked, so it never touches the
+// pin or the ledgers (see sweepInstallArtifacts).
 func (s PluginFeed) sweepPluginInstallFiles() error {
-	if err := errors.Join(os.RemoveAll(s.pluginBinPath()), removeIfPresent(s.replyLedgerPath())); err != nil {
-		return err
-	}
 	switch err := pluginDirectory(s.stagingRoot(), false); {
 	case errors.Is(err, os.ErrNotExist):
 		return nil
@@ -113,6 +123,18 @@ func (s PluginFeed) sweepPluginInstallFiles() error {
 		return err
 	}
 	return errors.Join(os.RemoveAll(s.stagingPath()), journal.SyncDir(s.stagingRoot()))
+}
+
+// sweepInstallArtifacts removes this name's leftover pin, reply ledger and
+// start-notice ledger, only after checkInstallArtifacts proved every one of
+// them is Zalki's own for current (see there); otherwise nothing is removed.
+// It runs only on remove, or in Commit once the receipt and choices are
+// checked and no installation of this name exists (current "").
+func (s PluginFeed) sweepInstallArtifacts(current string) error {
+	if err := s.checkInstallArtifacts(current); err != nil {
+		return err
+	}
+	return errors.Join(os.RemoveAll(s.pluginBinPath()), removeIfPresent(s.replyLedgerPath()), removeIfPresent(s.startNoticePath()))
 }
 
 // BeginPluginInstall reserves a new plugin name for one install attempt.
@@ -143,16 +165,7 @@ func (s PluginFeed) BeginPluginInstall() (*PluginInstall, error) {
 }
 
 func (s PluginFeed) prepareInstall() error {
-	if err := bus.WithJournalRead(s.store, func(bus.JournalView) error {
-		p, _, err := s.loadPlugin()
-		if err != nil {
-			return err
-		}
-		if p.ID != "" {
-			return model.NewError(model.CodeConflict, "plugin already installed; remove it first")
-		}
-		return s.checkEmptyPluginData()
-	}); err != nil {
+	if err := s.noInstallation(); err != nil {
 		return err
 	}
 	if err := s.sweepPluginInstallFiles(); err != nil {
@@ -162,6 +175,22 @@ func (s PluginFeed) prepareInstall() error {
 		return err
 	}
 	return pluginDirectory(s.stagingPath(), true)
+}
+
+// noInstallation refuses a name that is installed or has abandoned data.
+func (s PluginFeed) noInstallation() error {
+	return bus.WithJournalRead(s.store, func(bus.JournalView) error { return s.noInstallationUnlocked() })
+}
+
+func (s PluginFeed) noInstallationUnlocked() error {
+	p, _, err := s.loadPlugin()
+	if err != nil {
+		return err
+	}
+	if p.ID != "" {
+		return model.NewError(model.CodeConflict, "plugin already installed; remove it first")
+	}
+	return s.checkEmptyPluginData()
 }
 
 // checkEmptyPluginData refuses to adopt data left by an earlier installation.
@@ -248,20 +277,40 @@ var savePluginInstallRecord = PluginFeed.savePlugin
 // one atomic write. On an error with kept false nothing was published and the
 // copied artifact is removed. On an error with kept true the record may be
 // published (the write was not confirmed), so nothing is rolled back.
-func (i *PluginInstall) Commit(artifact string, args []string, access PluginAccess, receipt PluginInstallReceipt) (kept bool, err error) {
+//
+// receipt.Access holds the reviewed manifest's declared access. Access may be
+// empty only when send or read was declared and the owner chose no session.
+// Send and read need terminalReview. The installer is proven under the
+// commit lock from installerActor and installerCapability (see
+// installProvenance); the receipt's own InstalledBy and InstalledAt are
+// overwritten.
+func (i *PluginInstall) Commit(artifact string, args []string, access PluginAccess, receipt PluginInstallReceipt, installerActor, installerCapability string, terminalReview bool) (kept bool, err error) {
 	s := i.feed
+	swept := false // set only after a complete sweep: then the pin folder holds only this attempt's copy
 	defer func() {
-		if err != nil && !kept {
+		if err != nil && !kept && swept {
 			err = errors.Join(err, os.RemoveAll(s.pluginBinPath()))
 		}
 	}()
 	access.sortLists()
-	if access.empty() {
-		return false, model.NewError(model.CodeInvalidInput, "select some access")
+	if err := commitAccessError(access, receipt.Access, terminalReview); err != nil {
+		return false, err
 	}
 	if err := s.checkAccess(access); err != nil {
 		return false, err
 	}
+	// Only now, with the name lease held, the choices checked and still no
+	// installation of this name, may leftovers of an earlier attempt go. The
+	// check reads the record without the Store lock (records are replaced
+	// atomically, and the lock may be busy for long); the commit checks again
+	// under the lock before it publishes anything.
+	if err := s.noInstallationUnlocked(); err != nil {
+		return false, err
+	}
+	if err := s.sweepInstallArtifacts(""); err != nil {
+		return false, err // a refused or failed sweep owns nothing: the defer removes nothing
+	}
+	swept = true // the pin folder is now empty; what appears in it is this attempt's
 	pinned, err := s.copyPluginArtifact(artifact)
 	if err != nil {
 		return false, err
@@ -276,6 +325,8 @@ func (i *PluginInstall) Commit(artifact string, args []string, access PluginAcce
 		receipt.Build = []string{}
 	}
 	receipt.ArtifactSHA256 = launch.SHA256
+	// Placeholders for the shape check; the commit sets the real values.
+	receipt.InstalledAt, receipt.InstalledBy, receipt.InstalledByLabel = model.Timestamp(), installedByUnproven, ""
 	if !receipt.valid() {
 		return false, model.NewError(model.CodeInvalidInput, "plugin install receipt is invalid")
 	}
@@ -290,10 +341,31 @@ func (i *PluginInstall) Commit(artifact string, args []string, access PluginAcce
 		if err := launch.Verify(); err != nil {
 			return err
 		}
+		receipt.InstalledAt = model.Timestamp()
+		receipt.InstalledBy, receipt.InstalledByLabel = installProvenance(view, installerActor, installerCapability, terminalReview)
 		kept, err = s.commitInstall(view, launch, access, receipt)
 		return err
 	})
 	return kept, err
+}
+
+// commitAccessError checks the granted access against the declared access:
+// every granted kind was declared, send and read need a reviewed terminal,
+// and no access at all is allowed only when send or read was declared and
+// the owner chose no session for them.
+func commitAccessError(access PluginAccess, raw json.RawMessage, terminalReview bool) error {
+	declared, ok := decodeDeclaredAccess(raw)
+	switch {
+	case !ok:
+		return model.NewError(model.CodeInvalidInput, "plugin install receipt is invalid")
+	case declared.extended() && !terminalReview:
+		return model.NewError(model.CodeInvalidInput, "send and read need the review screen in your own terminal")
+	case !declared.covers(access):
+		return model.NewError(model.CodeInvalidInput, "an access choice asks for more than the plugin declared")
+	case access.empty() && !declared.extended():
+		return model.NewError(model.CodeInvalidInput, "select some access")
+	}
+	return nil
 }
 
 func (s PluginFeed) commitInstall(view bus.JournalView, launch PluginLaunch, access PluginAccess, receipt PluginInstallReceipt) (bool, error) {
@@ -306,6 +378,12 @@ func (s PluginFeed) commitInstall(view bus.JournalView, launch PluginLaunch, acc
 	}
 	if err := s.checkEmptyPluginData(); err != nil {
 		return false, err
+	}
+	// The selected sessions are fixed IDs; each must be live now (U16/U17).
+	for _, id := range slices.Concat(access.Send, access.Read) {
+		if member, err := view.PluginMember(id, s.name); err != nil || !member {
+			return false, model.NewError(model.CodeConflict, "a selected session is no longer live; nothing was installed")
+		}
 	}
 	head, err := view.EventWindow()
 	if err != nil {

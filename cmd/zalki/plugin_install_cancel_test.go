@@ -86,7 +86,7 @@ func fakeGoFolder(t *testing.T, script string) string {
 
 func assertInstallCancelled(t *testing.T, state, output string, err error) {
 	t.Helper()
-	if err != nil || !strings.Contains(output, "Cancelled. Nothing was installed.") || strings.Contains(output, "Installed and enabled") || strings.Contains(output, "build failed") {
+	if err != nil || !strings.Contains(output, "Cancelled. Nothing was installed.") || strings.Contains(output, "Installed. Start it with:") || strings.Contains(output, "build failed") {
 		t.Fatalf("not cancelled cleanly: %v\n%s", err, output)
 	}
 	assertNothingInstalled(t, state)

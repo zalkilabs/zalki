@@ -276,9 +276,6 @@ func prepareNamedPluginRemoval(t *testing.T, f PluginFeed) PluginDelivery {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := f.RemovePlugin(); model.ErrorCodeOf(err) != model.CodeConflict {
-		t.Fatal("removed enabled plugin", err)
-	}
 	if err := f.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}

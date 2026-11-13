@@ -5,10 +5,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/zalkilabs/zalki/internal/plugins"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -37,17 +37,16 @@ type signalInstall struct {
 func startSignalInstall(t *testing.T, binary, state, folder string) *signalInstall {
 	t.Helper()
 	args := []string{"--state", state, "--log-level", "off", "plugins", "install", "--yes", "--allow-unsandboxed", "--tree-sha256"}
-	probe, _ := exec.CommandContext(t.Context(), binary, append(args, "0", folder)...).CombinedOutput()
-	tree := regexp.MustCompile(`snapshot ([0-9a-f]{64})`).FindSubmatch(probe)
-	if tree == nil {
-		t.Fatalf("no snapshot hash in:\n%s", probe)
+	snapshot, err := plugins.SnapshotInstallSource(folder, t.TempDir())
+	if err != nil {
+		t.Fatal("cannot hash signal fixture", err)
 	}
 	read, write, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = read.Close() })
-	cmd := exec.CommandContext(t.Context(), binary, append(args, string(tree[1]), folder)...)
+	cmd := exec.CommandContext(t.Context(), binary, append(args, snapshot.TreeSHA256, folder)...)
 	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
 	cmd.Stdout, cmd.Stderr = write, write
 	err = cmd.Start()

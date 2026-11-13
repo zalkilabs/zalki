@@ -33,6 +33,7 @@ type contextReader struct {
 	r       io.Reader
 	results chan contextRead
 	pending bool
+	maxRead int // review uses1byte so raw confirmation cannot swallow a later shell command
 	left    []byte
 }
 
@@ -57,6 +58,9 @@ func (c *contextReader) Read(p []byte) (int, error) {
 	if !c.pending {
 		c.pending = true
 		size := len(p)
+		if c.maxRead > 0 {
+			size = min(size, c.maxRead)
+		}
 		go func() {
 			buf := make([]byte, size)
 			n, err := c.r.Read(buf)

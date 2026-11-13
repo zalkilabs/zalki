@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -107,9 +108,9 @@ func TestPluginInstallRealTerminalCtrlC(t *testing.T) {
 		steps      [][2]string
 		ctrlCAt    string
 	}{
-		{"line mode, native, at the question", "dumb", false, nil, "Install for all sessions?"},
-		{"line mode, go, at the question", "dumb", true, nil, "Install for all sessions?"},
-		{"raw keys, native", "xterm-256color", false, nil, "Install for all sessions?"},
+		{"line mode, native, at the question", "dumb", false, nil, "Install it?"},
+		{"line mode, go, at the question", "dumb", true, nil, "Install it?"},
+		{"raw keys, native", "xterm-256color", false, nil, "Install it?"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			store, _ := pluginOwnerFixture(t)
@@ -124,7 +125,7 @@ func TestPluginInstallRealTerminalCtrlC(t *testing.T) {
 			session.typeText(t, "\x03")
 			session.waitFor(t, "Cancelled. Nothing was installed.", deadline)
 			session.assertExitThenShellGetsInput(t, "0")
-			if out := session.output(); strings.Contains(out, "Installed and enabled") || strings.Contains(out, "Building...") {
+			if out := session.output(); strings.Contains(out, "Installed. Start it with:") || strings.Contains(out, "Building...") {
 				t.Fatalf("work went on after Ctrl-C:\n%s", out)
 			}
 			assertNothingInstalled(t, store.Dir)
@@ -138,7 +139,7 @@ func TestPluginInstallRealTerminalCtrlCDuringBuild(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	session := startPTYInstall(t, binary, store.Dir, fakeGoFolder(t, `exec sleep 30`), "dumb")
 	deadline := time.After(20 * time.Second)
-	session.answer(t, deadline, [2]string{"Install for all sessions?", "y\n"})
+	session.answer(t, deadline, [2]string{"Install it?", "y\n"})
 	session.waitFor(t, "Building...", deadline)
 	session.typeText(t, "\x03")
 	session.waitFor(t, "Cancelled. Nothing was installed.", deadline)
@@ -156,7 +157,7 @@ func TestPluginInstallRealTerminalSecondCtrlCKills(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	session := startPTYInstall(t, binary, store.Dir, nativeInstallFolder(t), "dumb")
 	deadline := time.After(20 * time.Second)
-	session.waitFor(t, "Install for all sessions?", deadline)
+	session.waitFor(t, "Install it?", deadline)
 	lock := holdStoreLock(t, store.Dir)
 	defer lock.Close()
 	session.typeText(t, "y\n")
@@ -264,4 +265,37 @@ func startPTYInstall(t *testing.T, binary, state, folder, term string) *ptySessi
 	session := &ptySession{master: master, more: make(chan struct{}, 1)}
 	go session.collect()
 	return session
+}
+
+// Positive raw and cooked paths use the production terminal detector. A key
+// arriving after approval belongs to the owner shell, never a prefetched read.
+func TestPluginInstallRealTerminalApproves(t *testing.T) {
+	binary := checkRealBinary(t)
+	for _, mode := range []struct{ term, answer string }{{"xterm-256color", "y"}, {"dumb", "yes\n"}} {
+		t.Run(mode.term, func(t *testing.T) {
+			store, _ := pluginOwnerFixture(t)
+			session := startPTYInstall(t, binary, store.Dir, nativeInstallFolder(t), mode.term)
+			session.answer(t, time.After(20*time.Second), [2]string{"Install it?", mode.answer})
+			session.waitFor(t, "Installed. Start it with: zalki plugins run demo", time.After(20*time.Second))
+			session.assertExitThenShellGetsInput(t, "0")
+			status := readInstallStatus(t, store.Dir, "demo")
+			if status.Install == nil || status.Install.InstalledBy != "terminal" || !status.Enabled {
+				t.Fatal("real confirmation did not record terminal", status)
+			}
+		})
+	}
+}
+
+func TestPluginInstallRealTerminalCancelKeys(t *testing.T) {
+	binary := checkRealBinary(t)
+	for _, key := range []string{"\r", "n", "q", "\x1b", "\x03"} {
+		t.Run(fmt.Sprintf("key-%x", key), func(t *testing.T) {
+			store, _ := pluginOwnerFixture(t)
+			session := startPTYInstall(t, binary, store.Dir, nativeInstallFolder(t), "xterm-256color")
+			session.answer(t, time.After(20*time.Second), [2]string{"Install it?", key})
+			session.waitFor(t, "Cancelled. Nothing was installed.", time.After(20*time.Second))
+			session.assertExitThenShellGetsInput(t, "0")
+			assertNothingInstalled(t, store.Dir)
+		})
+	}
 }

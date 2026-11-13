@@ -77,15 +77,12 @@ func (s pluginFiles) checkPluginGrants(ids []string) error {
 // decodePluginRecord decodes strictly. A record of an older Zalki gives
 // ErrOldPluginRecord with the fix, and p keeps only its installation ID.
 func decodePluginRecord(name string, raw []byte, p *pluginRecord) error {
-	err := bus.DecodeStrictRecordJSON(raw, p)
-	if err == nil {
-		return nil
-	}
+	// An old shape is named first: some old records also decode cleanly.
 	if old := oldPluginRecord(name, raw); old != nil {
 		*p = pluginRecord{ID: oldPluginID(raw)}
 		return old
 	}
-	return err
+	return bus.DecodeStrictRecordJSON(raw, p)
 }
 
 func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
@@ -118,7 +115,7 @@ func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
 	if p.Revision != pluginRevision(p) {
 		return p, nil, journal.ErrInvalidBatch // a hand edit cannot keep an old binding
 	}
-	if (p.Enabled && (p.Access.empty() || p.GapReason == "")) || p.invalidPosition() {
+	if (p.Enabled && (!p.mayRun() || p.GapReason == "")) || p.invalidPosition() {
 		return p, nil, journal.ErrInvalidBatch
 	}
 	switch p.GapReason {
@@ -127,6 +124,20 @@ func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
 	default:
 		return p, nil, journal.ErrInvalidBatch
 	}
+}
+
+// mayRun reports whether the record may be enabled: it has some access, or
+// it was installed declaring send or read and the owner chose no session for
+// them (installed with no grants; the plugin then gets no capability).
+func (p pluginRecord) mayRun() bool {
+	if !p.Access.empty() {
+		return true
+	}
+	if p.Install == nil {
+		return false
+	}
+	declared, ok := decodeDeclaredAccess(p.Install.Access)
+	return ok && declared.extended()
 }
 
 func (p pluginRecord) invalidPosition() bool {
@@ -181,7 +192,7 @@ func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [
 			if err := p.applyLaunchPin(launch, prior, raw); err != nil {
 				return err
 			}
-			if p.Access.empty() {
+			if !p.mayRun() {
 				return model.NewError(model.CodeInvalidInput, "grant some access first")
 			}
 			head, err := view.EventWindow()

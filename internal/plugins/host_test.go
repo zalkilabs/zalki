@@ -86,13 +86,8 @@ func fakeChild(state string) error {
 	if err := writeFrame(os.Stdout, frame{Hello: fakeHello(string(mode))}); err != nil {
 		return err
 	}
-	switch string(mode) {
-	case "v1-hello", "v1-read-hello", "v2-hello", "needs-members", "payload-version-hello", "stderr-needs-members", "stderr-bad-hello", "stderr-old-hello":
-		return recordHostFrames(state)
-	case "stderr-after-hello":
-		_ = recordHostFrames(state)
-		_, _ = os.Stderr.WriteString("feed-only diagnostic line")
-		return errors.New("stopped after hello")
+	if done, err := fakeAfterHello(state, string(mode)); done {
+		return err
 	}
 	if string(mode) == "no-read" {
 		time.Sleep(10 * time.Second)
@@ -112,6 +107,37 @@ func fakeChild(state string) error {
 		_, _ = os.Stderr.Write([]byte(strings.Repeat("x", 8193)))
 	}
 	return fakeDeliveries(state, string(mode))
+}
+
+// fakeAfterHello runs the modes that end right after the hello.
+func fakeAfterHello(state, mode string) (bool, error) {
+	switch mode {
+	case "unenabled-read":
+		// The hello asked only for feed; after hello_ok, a read is refused
+		// by name.
+		in := bufio.NewReader(os.Stdin)
+		for {
+			line, err := in.ReadString('\n')
+			if err != nil {
+				return true, err
+			}
+			if strings.HasPrefix(line, `{"hello_ok"`) {
+				break
+			}
+		}
+		if err := writeFrame(os.Stdout, map[string]any{"op": "read", "request_id": "r1", "args": map[string]string{"session": "codex:00000000-0000-4000-8000-000000000001", "message": "00000000-0000-4000-8000-000000000002"}}); err != nil {
+			return true, err
+		}
+		_, err := io.Copy(io.Discard, in)
+		return true, err
+	case "v1-hello", "v1-read-hello", "v2-hello", "needs-members", "payload-version-hello", "stderr-needs-members", "stderr-bad-hello", "stderr-old-hello":
+		return true, recordHostFrames(state)
+	case "stderr-after-hello":
+		_ = recordHostFrames(state)
+		_, _ = os.Stderr.WriteString("feed-only diagnostic line")
+		return true, errors.New("stopped after hello")
+	}
+	return false, nil
 }
 
 // fakeBeforeHello runs the modes that end or wait before the hello.
@@ -945,6 +971,20 @@ func TestGrantedPluginStderrIsWithheldWhenTheHelloFails(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), want) || strings.Contains(err.Error(), "SENTINEL-PRIVATE-STDERR") {
 			t.Fatalf("%s: %v", mode, err)
 		}
+	}
+}
+
+// U48: a request the hello did not enable stops the child with a named,
+// host-made reason (a fixed op name and code), never plugin text.
+func TestPluginRunNamedRefusal(t *testing.T) {
+	store, _ := hostStore(t)
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("unenabled-read"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	err := Run(t.Context(), store, "fake-notifier", io.Discard)
+	want := "fake-notifier stopped after Zalki refused read (protocol_error). Check access with: zalki plugins show fake-notifier"
+	if err == nil || err.Error() != want {
+		t.Fatalf("got %v, want %q", err, want)
 	}
 }
 
