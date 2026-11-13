@@ -91,6 +91,10 @@ func (l startNoticeLedger) valid(installation string) bool {
 // start never spends twice). The caller holds the Store lock and has already
 // checked that the whole output fits; it shows the line only on true.
 func (s pluginFiles) reserveStartNotice(p pluginRecord, actor, generation string, now time.Time) (bool, error) {
+	return s.reserveStartNoticeWith(p, actor, generation, now, journal.WriteAtomic)
+}
+
+func (s pluginFiles) reserveStartNoticeWith(p pluginRecord, actor, generation string, now time.Time, write func(string, []byte) error) (bool, error) {
 	if !startNoticeDue(p, now) {
 		return false, nil
 	}
@@ -112,7 +116,7 @@ func (s pluginFiles) reserveStartNotice(p pluginRecord, actor, generation string
 	}
 	// A failed or uncertain write withholds the line (false); the count may
 	// still be published, and the caller never refunds it.
-	if err := journal.WriteAtomic(s.startNoticePath(), raw); err != nil {
+	if err := write(s.startNoticePath(), raw); err != nil {
 		return false, err
 	}
 	return true, nil

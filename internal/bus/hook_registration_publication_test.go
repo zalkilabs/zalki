@@ -57,6 +57,8 @@ func assertPromptInitializationParity(t *testing.T, policy string) {
 	native := newID()
 	one, pubOne := runRegistrationPublication(t, native, "sessionStart")
 	two, pubTwo := runRegistrationPublication(t, native, "beforeSubmitPrompt")
+	assertSessionPluginPublication(t, pubOne.record, policy)
+	assertSessionPluginPublication(t, pubTwo.record, policy)
 	firstA := normalizeRegistrationRecord(t, pubOne.record, false)
 	firstB := normalizeRegistrationRecord(t, pubTwo.record, false)
 	if !reflect.DeepEqual(firstA, firstB) {
@@ -111,6 +113,12 @@ func normalizeRegistrationRecord(t *testing.T, record map[string]any, lifecycle 
 	}
 	for _, key := range []string{"generation", "key_hash", "updated_at"} {
 		delete(cloned, key)
+	}
+	if policy, ok := cloned["plugin_policy"].(map[string]any); ok {
+		if audit, ok := policy["last_change"].(map[string]any); ok {
+			delete(audit, "id")
+			delete(audit, "at")
+		}
 	}
 	if lifecycle {
 		cloned["state"] = "ready"

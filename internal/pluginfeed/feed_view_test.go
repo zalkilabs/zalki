@@ -51,7 +51,7 @@ func checkFeedViewCase(t *testing.T, feed, outside []string, tc feedViewCase) {
 		Message: &model.EventMessage{ID: "00000000-0000-4000-8000-000000000003", ReplyTo: feedViewParent,
 			From: tc.from, To: tc.to, Status: model.StatusSubmitted}}
 	stored := *event.Message
-	got, ok := feedView(listMembers(feed), true, event)
+	got, ok := feedView(listMembers(feed), event)
 	if ok != tc.offered {
 		t.Fatalf("offered = %v, want %v", ok, tc.offered)
 	}
@@ -91,10 +91,10 @@ func listMembers(ids []string) func(string) bool {
 func TestFeedViewSessionEvents(t *testing.T) {
 	a, b := "codex:00000000-0000-4000-8000-00000000000a", "codex:00000000-0000-4000-8000-00000000000b"
 	event := model.Event{Type: model.EventSessionStateChanged, Session: model.EventSession{ID: a, Cause: model.CauseStop}}
-	if got, ok := feedView(listMembers([]string{a}), true, event); !ok || got.Session != event.Session {
+	if got, ok := feedView(listMembers([]string{a}), event); !ok || got.Session != event.Session {
 		t.Fatalf("feed session event = %+v, %v", got, ok)
 	}
-	if _, ok := feedView(listMembers([]string{b}), true, event); ok {
+	if _, ok := feedView(listMembers([]string{b}), event); ok {
 		t.Fatal("offered a session event outside the feed")
 	}
 }

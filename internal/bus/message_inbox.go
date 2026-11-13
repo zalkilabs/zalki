@@ -132,6 +132,9 @@ func (s Store) readExactMessage(r messageRead) (model.Message, error) {
 	if r.recipient != "" && message.To != r.recipient {
 		return model.Message{}, model.NewError(model.CodeNotFound, "message was not sent to this recipient")
 	}
+	if blockedPluginInbox(s, actor, message) {
+		return model.Message{}, model.NewError(model.CodeUnavailable, "message is not available for delivery now")
+	}
 	return r.view(message, false), nil
 }
 
@@ -147,7 +150,7 @@ func (s Store) scanMessages(r messageRead, limit int, skipped *skippedMessages) 
 		return items, false, err
 	}
 	*skipped, err = s.eachReadableMessage(func(item model.Message) error {
-		if r.matches(item, cursor) {
+		if r.matches(item, cursor) && !blockedPluginInbox(s, r.query.Actor, item) {
 			items = append(items, r.view(item, r.history && !r.query.IncludeBody))
 		}
 		return nil
@@ -174,6 +177,9 @@ func (s Store) scanCursor(query MessageQuery) (*model.Message, error) {
 	}
 	if anchor.From != query.Actor && anchor.To != query.Actor {
 		return nil, model.NewError(model.CodeUnauthorized, "cursor belongs to another session")
+	}
+	if blockedPluginInbox(s, query.Actor, anchor) {
+		return nil, model.NewError(model.CodeUnavailable, "cursor is not available for delivery now")
 	}
 	return &anchor, nil
 }
@@ -320,7 +326,9 @@ func (s Store) pendingForHook(actor string, current model.Session) ([]model.Mess
 	pending := []model.Message{}
 	skipped, err := markers(s).eachReadable(func(msg model.Message) error {
 		if msg.To == actor && msg.TargetGeneration == current.Generation && model.HookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
-			pending = append(pending, msg)
+			if checkPluginMessageDelivery(s, msg) == nil {
+				pending = append(pending, msg)
+			}
 		}
 		return nil
 	})
@@ -338,6 +346,9 @@ func (s Store) pendingForHook(actor string, current model.Session) ([]model.Mess
 // later message is not skipped ahead.
 func (s Store) emitPendingContext(pending []model.Message, out *strings.Builder) error {
 	for i, msg := range pending {
+		if checkPluginMessageDelivery(s, msg) != nil {
+			continue
+		}
 		body := model.Envelope(s.withLabel(msg)) + "\n\n"
 		if i >= hookContextMessages || out.Len()+len(body) > hookContextBytes {
 			break

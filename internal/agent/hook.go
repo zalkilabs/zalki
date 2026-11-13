@@ -28,6 +28,8 @@ type HookInput struct {
 
 type StartupContext struct {
 	Actor, Capability, StateDir, ConfigFile, Instructions string
+	// Executable is captured before core takes the journal lock for pure rendering.
+	Executable string
 }
 
 // HookRegistration is what an adapter reports when a lifecycle hook registers a session.

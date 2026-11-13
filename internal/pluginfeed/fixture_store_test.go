@@ -36,6 +36,12 @@ func readCommitFile(t *testing.T, path string) []byte {
 }
 
 func writeJSON(path string, value any) error {
+	if message, ok := value.(model.Message); ok {
+		value = struct {
+			model.Message
+			Binding string `json:"plugin_binding,omitempty"`
+		}{message, message.PluginBinding}
+	}
 	raw, err := journal.EncodeJSON(value, bus.MaxMessageRecordBytes)
 	if err != nil {
 		return err

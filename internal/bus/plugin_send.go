@@ -24,7 +24,7 @@ type PluginSendRequest struct {
 // messageID is the ID the send will have. The returned record runs in the same
 // lock BEFORE a new message is stored (never for a retry of a stored one), so
 // a failed count stores nothing: the limit fails closed.
-type pluginSendAdmit func(view JournalView, stateDir, installation, to, replyTo, messageID string) (record func() error, err error)
+type pluginSendAdmit func(view JournalView, stateDir, installation, to, replyTo, messageID string) (record func() error, revision string, err error)
 
 // pluginMessageID maps one client ID to one record forever. Messages are never
 // deleted, so a retry with the same client ID can never send twice.
@@ -55,7 +55,7 @@ func (s *Service) SendFromPlugin(ctx context.Context, request PluginSendRequest)
 	var fresh bool
 	err = WithJournalWrite(s.Store, func(view JournalView) error {
 		id := pluginMessageID(request.Installation, request.ClientMessageID)
-		record, err := admit(view, s.Store.Dir, request.Installation, request.To, request.ReplyTo, id)
+		record, revision, err := admit(view, s.Store.Dir, request.Installation, request.To, request.ReplyTo, id)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func (s *Service) SendFromPlugin(ctx context.Context, request PluginSendRequest)
 				return err
 			}
 		}
-		msg, target, fresh, err = reservePluginMessage(s.Store, request)
+		msg, target, fresh, err = reservePluginMessage(s.Store, request, revision)
 		return err
 	})
 	if err != nil {
@@ -80,7 +80,7 @@ func (s *Service) SendFromPlugin(ctx context.Context, request PluginSendRequest)
 
 // reservePluginMessage runs under the journal lock after the grant check.
 // fresh reports that the new message is ready for delivery now.
-func reservePluginMessage(s Store, request PluginSendRequest) (message model.Message, target model.Session, fresh bool, err error) {
+func reservePluginMessage(s Store, request PluginSendRequest, revision string) (message model.Message, target model.Session, fresh bool, err error) {
 	from := "plugin:" + request.Installation
 	id := pluginMessageID(request.Installation, request.ClientMessageID)
 	old, err := s.message(id)
@@ -109,7 +109,7 @@ func reservePluginMessage(s Store, request PluginSendRequest) (message model.Mes
 	if err := validateReservationTarget(s, target, from, ""); err != nil {
 		return message, target, false, err
 	}
-	message = model.Message{Schema: recordSchema, ID: id, From: from, FromName: request.Name, FromLabel: model.PluginLabel, To: target.ID, Body: request.Body, ReplyTo: request.ReplyTo, TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusAttempting}
+	message = model.Message{PluginBinding: revision, Schema: recordSchema, ID: id, From: from, FromName: request.Name, FromLabel: model.PluginLabel, To: target.ID, Body: request.Body, ReplyTo: request.ReplyTo, TargetGeneration: target.Generation, CreatedAt: model.Timestamp(), Status: model.StatusAttempting}
 	if err := prepareReservation(s, &message, target); err != nil {
 		return message, target, false, err
 	}

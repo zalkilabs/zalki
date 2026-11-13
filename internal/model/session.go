@@ -5,6 +5,8 @@ import "encoding/json"
 // Session is a persisted registration value. Its owner, endpoint and listener
 // remain shared pointers when copied; receiving capabilities remain a value.
 type Session struct {
+	// PluginPolicy is private persisted native policy; omit from all discovery views.
+	PluginPolicy json.RawMessage `json:"plugin_policy,omitempty"`
 	Schema       int             `json:"schema"`
 	NativeID     string          `json:"native_id,omitempty"`
 	AdapterState json.RawMessage `json:"adapter_state,omitempty"`

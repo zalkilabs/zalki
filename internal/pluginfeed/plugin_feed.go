@@ -129,7 +129,7 @@ func (s pluginFiles) scanPlugin(view bus.JournalView, p pluginRecord, raw []byte
 		if err != nil {
 			return PluginDelivery{}, err
 		}
-		if offered, ok := feedView(member, p.Scope == scopeAll, event); ok {
+		if offered, ok := feedView(member, event); ok {
 			return pluginOffer(event.ID, "", &offered, raw, pluginPosition{head.Epoch, position}), nil
 		}
 	}
@@ -174,14 +174,14 @@ func feedMembers(view bus.JournalView, p pluginRecord) func(string) bool {
 }
 
 // feedView returns the event as a plugin may see it now. A session event
-// needs a member session; a session's own retirement or exit is still offered
-// once, as the plugin could see that session just before it. A message event
+// needs a current member. Rich final events are suppressed until slices3+6
+// provide the accepted same-write witness; owner-exit events stay suppressed. A message event
 // needs a member sender or recipient; the other party is reduced to "kind:".
 // reply_to is kept: bus writes a reply only between its parent's parties
 // (checkReplyParties), so the parent is eligible for the same members.
-func feedView(member func(string) bool, scopeAll bool, event model.Event) (model.Event, bool) {
+func feedView(member func(string) bool, event model.Event) (model.Event, bool) {
 	if event.Message == nil {
-		return event, member(event.Session.ID) || finalSessionEvent(scopeAll, event.Session)
+		return event, !event.Session.Retired && event.Session.Cause != model.CauseOwnerExited && member(event.Session.ID)
 	}
 	m := *event.Message
 	from, to := member(m.From), member(m.To)
@@ -196,15 +196,6 @@ func feedView(member func(string) bool, scopeAll bool, event model.Event) (model
 	}
 	event.Message = &m
 	return event, true
-}
-
-// finalSessionEvent decides, in this one place, whether a session's own end
-// is offered after it stopped being a member: the change into retirement,
-// or the exit of its owner while not retired, judged by the membership just
-// before it (scope all). Each journal event is offered at most once, so this
-// is never repeated. Slice 5 adds its eligibility-continuity condition here.
-func finalSessionEvent(scopeAll bool, e model.EventSession) bool {
-	return scopeAll && !e.PreviousRetired && (e.Retired || e.Cause == model.CauseOwnerExited)
 }
 
 func addressKind(address string) string {

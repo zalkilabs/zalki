@@ -71,9 +71,10 @@ func (s PluginFeed) ConsumePluginInbox(before *PluginFeedStatus, id string) stri
 // revision). A reply (replyTo set) must pass the reply rule; any other send
 // needs the extended send grant for the exact recipient. The returned record
 // step counts a new reply in the same lock.
-func BoundPluginSend(binding *PluginFeedStatus) func(view bus.JournalView, stateDir, installation, to, replyTo, messageID string) (func() error, error) {
-	return func(view bus.JournalView, stateDir, installation, to, replyTo, messageID string) (func() error, error) {
+func BoundPluginSend(binding *PluginFeedStatus) func(view bus.JournalView, stateDir, installation, to, replyTo, messageID string) (func() error, string, error) {
+	return func(view bus.JournalView, stateDir, installation, to, replyTo, messageID string) (func() error, string, error) {
 		var record func() error
+		var revision string
 		err := view.WithWriteScope(stateDir, func() error {
 			if binding == nil || binding.ID != installation || binding.Launch == nil {
 				return model.NewError(model.CodeUnauthorized, "plugin send denied")
@@ -82,22 +83,29 @@ func BoundPluginSend(binding *PluginFeedStatus) func(view bus.JournalView, state
 			if err != nil || launchBindingCode(p, binding) != "ok" {
 				return model.NewError(model.CodeUnauthorized, "plugin send denied")
 			}
-			if replyTo == "" {
-				if !extendedMember(view, p, p.Access.Send, to) {
-					return model.NewError(model.CodeUnauthorized, "plugin send denied")
-				}
-				record = func() error { return nil }
-				return nil
-			}
-			count, err := f.checkReply(view, p, to, replyTo, messageID, replyClock())
+			revision = p.Revision
+			count, err := preparePluginSendCount(view, f, p, to, replyTo, messageID)
 			if err != nil {
 				return err
 			}
 			record = func() error { return view.WithWriteScope(stateDir, count) }
 			return nil
 		})
-		return record, err
+		return record, revision, err
 	}
+}
+
+func preparePluginSendCount(view bus.JournalView, f pluginFiles, p pluginRecord, to, replyTo, messageID string) (func() error, error) {
+	if replyTo == "" {
+		if !extendedMember(view, p, p.Access.Send, to) {
+			return nil, model.NewError(model.CodeUnauthorized, "plugin send denied")
+		}
+		return func() error { return nil }, nil
+	}
+	if !mayAnswer(view, p, to) {
+		return nil, errOutOfScope
+	}
+	return f.checkReply(view, p, to, replyTo, messageID, replyClock())
 }
 
 // pluginInboxCode checks the bound installation under the Store lock.
@@ -190,6 +198,13 @@ func (s pluginFiles) consumePluginInboxAt(view bus.JournalView, installation, id
 		return "not_found"
 	}
 	entry := index.Entries[i]
+	p, _, err := s.loadPlugin()
+	if err != nil {
+		return "unavailable"
+	}
+	if inboxEntryState(view, p, entry) != "ok" {
+		return "out_of_scope"
+	}
 	m, size, err := view.CurrentMessage(id)
 	if err != nil || !pluginInboxRecordMatches(&m, installation, entry, size) && !consumedPluginInboxRecord(&m, installation, entry) {
 		return "not_found"

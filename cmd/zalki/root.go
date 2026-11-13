@@ -175,7 +175,8 @@ func (opts *commandOptions) service() (*bus.Service, error) {
 	}
 	store.MaxBodyBytes = opts.snapshot.Settings.MaxBodyBytes.Value
 	store.ConfigFile = opts.snapshot.Paths.ConfigFile.Value
-	return &bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox}, nil
+	store.PluginDelivery = pluginfeed.CheckPluginDelivery
+	return &bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox, PluginStartup: pluginfeed.SessionPluginStartup}, nil
 }
 
 func encodeOutput(cmd *cobra.Command, value any) error {

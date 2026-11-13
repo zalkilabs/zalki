@@ -84,6 +84,9 @@ func (s Store) writeMessage(path string, next model.Message) error {
 	if err != nil {
 		return err
 	}
+	if err := checkStoredPluginBinding(prior, next); err != nil {
+		return err
+	}
 	if err := checkReplyParties(s, prior, next); err != nil {
 		return err
 	}

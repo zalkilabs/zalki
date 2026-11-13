@@ -237,9 +237,13 @@ func (Adapter) RecoveryHint(d model.SessionDiagnostic) string {
 
 func (Adapter) StartupOutput(startup agent.StartupContext) (any, error) {
 	id, key, context := startup.Actor, startup.Capability, startup.Instructions
-	binary, err := os.Executable()
-	if err != nil {
-		return nil, err
+	binary := startup.Executable
+	if binary == "" {
+		var err error
+		binary, err = os.Executable()
+		if err != nil {
+			return nil, err
+		}
 	}
 	command := cursorListenerCommand(binary, id, key, startup.StateDir, startup.ConfigFile)
 	return (map[string]any{

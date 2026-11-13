@@ -12,6 +12,7 @@ func newPluginCommand(opts *commandOptions) *cobra.Command {
 	for _, name := range []string{"add", "remove", "configure", "enable", "disable", "status"} {
 		group.AddCommand(newPluginOwnerCommand(opts, name))
 	}
+	group.AddCommand(newPluginMuteCommand(opts, true), newPluginMuteCommand(opts, false))
 	group.AddCommand(newPluginCapabilityCommand(opts, "grant"), newPluginCapabilityCommand(opts, "revoke"))
 	group.AddCommand(newPluginReadCommand(opts), newPluginInboxReadCommand(opts))
 	group.AddCommand(newPluginCheckCommand(opts), newPluginInstallCommand(opts), newPluginListCommand(opts), newPluginShowCommand(opts))

@@ -286,6 +286,7 @@ func hostStore(t *testing.T) (bus.Store, model.Session) {
 		t.Fatal(err)
 	}
 	store, err := bus.NewStore(directory, adapters.Builtin(), nil)
+	store.PluginDelivery = pluginfeed.CheckPluginDelivery
 	if err != nil {
 		t.Fatal(err)
 	}

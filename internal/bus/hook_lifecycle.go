@@ -109,8 +109,8 @@ func (h hookRuntime) ClaimRecovery(policy func(model.SessionView) (agent.Recover
 	if !recoveryEvents[h.event] {
 		return agent.RecoveryGrant{}, model.NewError(model.CodeInvalidTransition, "recovery is not allowed for this hook event")
 	}
-	var key string
-	err := h.store.locked(func() error {
+	var key, instructions string
+	err := WithJournalWrite(h.store, func(view JournalView) error {
 		v, ok, err := lifecycleSessionForHook(h)
 		if !ok || err != nil {
 			return err
@@ -137,11 +137,12 @@ func (h hookRuntime) ClaimRecovery(policy func(model.SessionView) (agent.Recover
 			return err
 		}
 		key = next
+		instructions = startupInstructions(h.actor, key) + "\n" + currentPluginStartup(view, h.store, v, h.pluginStartup, false, nil)
 		return nil
 	})
 	if err != nil || key == "" {
 		return agent.RecoveryGrant{}, err
 	}
 	h.store.logEvent(slog.LevelInfo, "listener.recovery_requested", eventData{Actor: h.actor})
-	return agent.RecoveryGrant{Instructions: startupInstructions(h.actor, key), Actor: h.actor, Capability: key, StateDir: h.store.Dir, ConfigFile: h.store.ConfigFile}, nil
+	return agent.RecoveryGrant{Instructions: instructions, Actor: h.actor, Capability: key, StateDir: h.store.Dir, ConfigFile: h.store.ConfigFile}, nil
 }

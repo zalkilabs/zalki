@@ -126,7 +126,7 @@ func TestFiveChecksUseTheSameMembership(t *testing.T) {
 func fiveChecks(view bus.JournalView, p pluginRecord, session string) map[string]bool {
 	status := PluginFeedStatus{ID: p.ID, Launch: p.Launch, Enabled: true, Revision: p.Revision, Epoch: p.Epoch}
 	event := model.Event{Session: model.EventSession{ID: session, State: model.StateBusy, Previous: model.StateReady}}
-	_, feed := feedView(feedMembers(view, p), p.Scope == scopeAll, event)
+	_, feed := feedView(feedMembers(view, p), event)
 	return map[string]bool{
 		"A feed":      p.Access.Status && feed,
 		"B admission": pluginInboxAdmissionAllowed(view, p, session),
@@ -137,24 +137,20 @@ func fiveChecks(view bus.JournalView, p pluginRecord, session string) map[string
 	}
 }
 
-// A session's own retirement or exit is offered once, judged by the
-// membership before it; later events of that session are not.
-func TestFeedOffersASessionsOwnEndOnce(t *testing.T) {
-	gone := func(string) bool { return false }
-	for name, test := range map[string]struct {
-		e        model.EventSession
-		scopeAll bool
-		want     bool
-	}{
-		"retirement":               {model.EventSession{ID: "codex:x", Retired: true}, true, true},
-		"owner exited":             {model.EventSession{ID: "codex:x", Cause: model.CauseOwnerExited}, true, true},
-		"after retirement":         {model.EventSession{ID: "codex:x", PreviousRetired: true, Retired: true}, true, false},
-		"exit after retirement":    {model.EventSession{ID: "codex:x", PreviousRetired: true, Retired: true, Cause: model.CauseOwnerExited}, true, false},
-		"ordinary change":          {model.EventSession{ID: "codex:x", State: model.StateBusy}, true, false},
-		"retirement in scope none": {model.EventSession{ID: "codex:x", Retired: true}, false, false},
-	} {
-		if _, got := feedView(gone, test.scopeAll, model.Event{Session: test.e}); got != test.want {
-			t.Errorf("%s: offered = %v", name, got)
+// No rich final event is offered without the later same-write witness, even
+// when a membership callback still says true after an eligibility change.
+func TestFeedSuppressesUnprovedRichFinalEvents(t *testing.T) {
+	cases := []model.EventSession{
+		{ID: "codex:x", Retired: true},
+		{ID: "codex:x", Cause: model.CauseOwnerExited},
+		{ID: "codex:x", Retired: true, Cause: model.CauseOwnerExited},
+		{ID: "codex:x", PreviousRetired: true, Retired: true},
+	}
+	for _, event := range cases {
+		for _, allowed := range []bool{true, false} {
+			if _, offered := feedView(func(string) bool { return allowed }, model.Event{Session: event}); offered {
+				t.Fatal("Z6_FINAL_EVENT_WITHOUT_WITNESS_HIDDEN")
+			}
 		}
 	}
 }

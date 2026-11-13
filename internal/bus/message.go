@@ -260,6 +260,9 @@ func (s Store) Ack(actor, key, id string) (result model.Message, resultErr error
 		if err != nil || model.IsPluginInboxAddress(loaded.To) || loaded.To != actor {
 			return model.NewError(model.CodeNotFound, "message not found or not yours")
 		}
+		if err := checkPluginMessageDelivery(s, loaded); err != nil {
+			return err
+		}
 		msg = loaded
 		if !msg.Status.CanAcknowledge() {
 			return model.NewError(model.CodeInvalidTransition, "cannot acknowledge a message that was not sent")
