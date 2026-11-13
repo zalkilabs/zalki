@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"syscall"
@@ -52,7 +51,7 @@ func pluginInstallLocal(t *testing.T, state string, mode installChoice, input st
 	t.Helper()
 	previous := installTerminal
 	installTerminal = func(io.Reader) (installChoice, func()) { return mode, func() {} }
-	t.Cleanup(func() { installTerminal = previous })
+	defer func() { installTerminal = previous }()
 	cmd := newRootCommand(t.TempDir())
 	output := &cappedOutput{limit: 4 << 20}
 	cmd.SetIn(strings.NewReader(input))
@@ -125,11 +124,11 @@ func TestPluginInstallGoBuildEndToEnd(t *testing.T) {
 		"go.mod":  "module example.com/gonote\n\ngo 1.22\n",
 		"main.go": "package main\n\nimport (\"io\"; \"os\")\n\nfunc main() { _, _ = io.Copy(io.Discard, os.Stdin) }\n",
 	})
-	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, "y", folder)
+	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, "y", folder, "--details")
 	if err != nil {
 		t.Fatal(output, err)
 	}
-	for _, want := range []string{"Install \"gonote\" (local/gonote 0.1.0, author's claim)\r\n", "Build: [\"go\", \"build\", \"-mod=readonly\", \"-o\", \"plugin\", \".\"]\r\nTool: /", "(go launcher; its hash is checked for changes, the compiler is not pinned)\r\nBuild env: only PATH from your environment; private caches, GOTOOLCHAIN=local, GOENV=off, GOWORK=off, -buildvcs=false, -mod=readonly (vendor/ is ignored), cgo off, no network (GOPROXY=off), 2 CPUs. go.mod may use only the standard library. VCS folders such as .git are not copied.\r\n", "Access in every live session: changes = see state and message status, no text\r\n", "Artifact: plugin, pinned by SHA256 after the build\r\nRun arguments: [\"--quiet\"]\r\n", "Publisher proof: none", "no sandbox", "Building...", "Installed and enabled gonote. Access: scope all; status; send to 0, read from 0 session(s). Not running yet"} {
+	for _, want := range []string{"Install \"gonote\" (local/gonote 0.1.0, author's claim)\n", "Build: [\"go\", \"build\", \"-mod=readonly\", \"-o\", \"plugin\", \".\"]\nTool: /", "(go launcher; its hash is checked for changes, the compiler is not pinned)", "Tool SHA256: ", "Build env: only PATH from your environment; private caches, GOTOOLCHAIN=local, GOENV=off, GOWORK=off, -buildvcs=false, -mod=readonly (vendor/ is ignored), cgo off, no network (GOPROXY=off), 2 CPUs. go.mod may use only the standard library. VCS folders such as .git are not copied.\n", "  see the status of all sessions, now and later\n", "Artifact: plugin; artifact pin: pending build\nRun arguments: [\"--quiet\"]\n", "Publisher proof: none", "no sandbox", "Building...", "Installed. Start it with: zalki plugins run gonote"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output lacks %q:\n%s", want, output)
 		}
@@ -192,7 +191,7 @@ func TestPluginInstallNativeAndCancelPaths(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	folder := nativeInstallFolder(t)
 	assertInstallCancels(t, store.Dir, folder)
-	// Space: changes; Right+Space: receive; Right+Space: read; then y.
+	// Standard access needs only the one confirmation.
 	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, "y", folder)
 	if err != nil {
 		t.Fatal(output, err)
@@ -210,7 +209,7 @@ func TestPluginInstallNativeAndCancelPaths(t *testing.T) {
 func assertSecondInstance(t *testing.T, state, folder string) {
 	t.Helper()
 	output, err := pluginInstallLocal(t, state, installRawKeys, "y", folder, "--as", "demo-2")
-	if err != nil || !strings.Contains(output, `Install "demo-2" (local/demo 0.1.0, author's claim)`) || !strings.Contains(output, "Installed and enabled demo-2.") {
+	if err != nil || !strings.Contains(output, `Install "demo-2" (local/demo 0.1.0, author's claim)`) || !strings.Contains(output, "Installed. Start it with: zalki plugins run demo-2") {
 		t.Fatal("second instance", output, err)
 	}
 	first, second := readInstallStatus(t, state, "demo"), readInstallStatus(t, state, "demo-2")
@@ -236,14 +235,14 @@ func assertNativeChoices(t *testing.T, state, output string) {
 	if status.Install.Tool != "" || len(status.Install.Build) != 0 || status.Install.Build == nil {
 		t.Fatal("native receipt claimed a build", status.Install)
 	}
-	if !strings.Contains(output, "Build: none (ready-made executable)") || !strings.Contains(output, "Run arguments: none") {
+	if !strings.Contains(output, `Ready-made artifact; runs: ["bin/plugin"]`) {
 		t.Fatal(output)
 	}
 }
 
 func assertInstallCancels(t *testing.T, state, folder string) {
 	t.Helper()
-	for _, input := range []string{"n", "\ry", "q", "\x03y", "", " y", "\x1b[Cy", "\x1by"} {
+	for _, input := range []string{"n", "\ry", "q", "\x03y", "", " ", "\x1b[Cy", "\x1by"} {
 		output, err := pluginInstallLocal(t, state, installRawKeys, input, folder)
 		if err != nil || !strings.Contains(output, "Cancelled. Nothing was installed.") {
 			t.Fatalf("input %q: %s %v", input, output, err)
@@ -259,7 +258,7 @@ func TestPluginInstallPlainLineFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(output, err)
 	}
-	for _, want := range []string{"Access in every live session: changes", installQuestion, "Installed and enabled demo"} {
+	for _, want := range []string{"  see the status of all sessions, now and later", installQuestion, "Installed. Start it with: zalki plugins run demo"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output lacks %q:\n%s", want, output)
 		}
@@ -284,27 +283,22 @@ func TestPluginInstallPlainLineFallback(t *testing.T) {
 		if err != nil {
 			output += err.Error()
 		}
-		if strings.Contains(output, "Installed and enabled") || !strings.Contains(output, want) {
+		if strings.Contains(output, "Installed. Start it with:") || !strings.Contains(output, want) {
 			t.Fatalf("input %q: want %q, got: %s", input, want, output)
 		}
 		assertNothingInstalled(t, store.Dir)
 	}
 }
 
-func TestPluginInstallReadsArrowKeys(t *testing.T) {
-	for input, want := range map[string][]string{
-		"\x1b[A\x1b[B\x1b[C\x1b[D\x1bOC\x1bx\r\x03y": {"up", "down", "right", "left", "right", "esc", "x", "enter", "ctrl-c", "y"},
-		// A key after a lone ESC is kept, not swallowed as part of a sequence.
-		"\x1by\x1bn\x1bq\x1b\x03\x1b\r": {"esc", "y", "esc", "n", "esc", "q", "esc", "ctrl-c", "esc", "enter"},
-		"\x1b\x1b[A\x1b":                {"esc", "up", "esc"},
+func TestPluginInstallReadsConfirmationKeys(t *testing.T) {
+	for input, want := range map[string]pluginReviewAnswer{
+		"y": pluginReviewAccept, "Y": pluginReviewAccept, "\x1b[A": pluginReviewCancel,
+		"\x1by": pluginReviewCancel, "\r": pluginReviewCancel, "\x03": pluginReviewCancel,
+		"": pluginReviewCancel,
 	} {
-		keys := bufio.NewReader(strings.NewReader(input))
-		var got []string
-		for k := readInstallKey(keys); k != "eof"; k = readInstallKey(keys) {
-			got = append(got, k)
-		}
-		if !slices.Equal(got, want) {
-			t.Fatalf("input %q: keys %q, want %q", input, got, want)
+		got, err := readPluginReviewAnswer(bufio.NewReader(strings.NewReader(input)), true)
+		if err != nil || got != want {
+			t.Fatalf("input %q: got %v err %v want %v", input, got, err, want)
 		}
 	}
 }
@@ -324,7 +318,7 @@ func TestPluginInstallRawEscCancels(t *testing.T) {
 type panicWriter struct{ bytes.Buffer }
 
 func (w *panicWriter) Write(p []byte) (int, error) {
-	if bytes.Contains(p, []byte("\x1b[2J")) {
+	if bytes.Contains(p, []byte(installQuestion)) {
 		panic("screen write failed")
 	}
 	return w.Buffer.Write(p)
@@ -361,21 +355,22 @@ func TestPluginInstallRestoresTerminalOnPanic(t *testing.T) {
 func TestPluginInstallNeedsTerminalOrExplicitYes(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	folder := nativeInstallFolder(t)
-	if output, err := pluginInstallLocal(t, store.Dir, installNoTerminal, "y\n", folder); err == nil || !strings.Contains(err.Error(), "needs a terminal") {
+	if output, err := pluginInstallLocal(t, store.Dir, installNoTerminal, "y\n", folder); err == nil || !strings.Contains(err.Error(), "Run this in your own terminal") {
 		t.Fatal("no-terminal install did not fail", output, err)
 	}
 	assertNothingInstalled(t, store.Dir)
-	output, err := pluginInstallLocal(t, store.Dir, installNoTerminal, "", "--yes", "--allow-unsandboxed", "--tree-sha256", "0", folder)
-	tree := regexp.MustCompile(`snapshot ([0-9a-f]{64})`).FindStringSubmatch(err.Error())
-	if tree == nil {
-		t.Fatal("tree mismatch did not show the snapshot", output, err)
+	snapshot, err := plugins.SnapshotInstallSource(folder, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
 	}
+	tree := []string{"", snapshot.TreeSHA256}
+	var output string
 	refused := []struct {
 		want string
 		args []string
 	}{
 		{"need --yes", []string{"--allow-unsandboxed", folder}},
-		{"needs --allow-unsandboxed", []string{"--yes", "--tree-sha256", tree[1], folder}},
+		{"add --allow-unsandboxed", []string{"--yes", "--tree-sha256", tree[1], folder}},
 		{"unknown flag: --session", []string{"--yes", "--allow-unsandboxed", "--tree-sha256", tree[1], "--session", "codex:x", folder}},
 		{"unknown flag: --send", []string{"--yes", "--allow-unsandboxed", "--tree-sha256", tree[1], "--send", "codex:x", folder}},
 	}
@@ -387,7 +382,7 @@ func TestPluginInstallNeedsTerminalOrExplicitYes(t *testing.T) {
 		assertNothingInstalled(t, store.Dir)
 	}
 	output, err = pluginInstallLocal(t, store.Dir, installNoTerminal, "", "--yes", "--allow-unsandboxed", "--tree-sha256", tree[1], folder)
-	if err != nil || !strings.Contains(output, "Accepted by --yes.") || !strings.Contains(output, "Access in every live session") {
+	if err != nil || !strings.Contains(output, "Accepted by --yes (standard access only).") || !strings.Contains(output, "see the status of all sessions") {
 		t.Fatal(output, err)
 	}
 	if s := readInstallStatus(t, store.Dir, "demo"); s.Scope != "all" || !s.Access.Status || !s.Access.Receive || len(s.Access.Read)+len(s.Access.Send) != 0 {
@@ -401,10 +396,9 @@ func TestPluginInstallRefusesExtendedAccess(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	manifest := strings.Replace(nativeInstallManifest, `"read":false`, `"read":true`, 1)
 	folder := writeInstallFolder(t, manifest, map[string]string{"bin/plugin": "#!/bin/sh\nexit 0\n"})
-	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, "y", folder)
-	want := "extended access (send/read) needs the new install screen; not available in this build"
-	if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "zalki plugins grant demo --status --receive --read SESSION_ID") || strings.Contains(output, installQuestion) {
-		t.Fatal("extended access was not refused with the commands", output, err)
+	output, err := pluginInstallLocal(t, store.Dir, installNoTerminal, "", "--yes", folder)
+	if err == nil || !strings.Contains(err.Error(), "asks for extended access (READ). Run this in your own terminal: zalki plugins install ") || strings.Contains(output, installQuestion) {
+		t.Fatal("extended --yes did not refuse with its terminal command", output, err)
 	}
 	assertNothingInstalled(t, store.Dir)
 }
@@ -476,7 +470,7 @@ func TestPluginInstallRefusesLinksAndBadInputs(t *testing.T) {
 	}
 	for _, c := range cases {
 		output, err := pluginInstallLocal(t, store.Dir, installRawKeys, "y", c.folder)
-		if err == nil || !strings.Contains(err.Error(), c.want) || strings.Contains(output, "Installed and enabled") {
+		if err == nil || !strings.Contains(err.Error(), c.want) || strings.Contains(output, "Installed. Start it with:") {
 			t.Fatal(c.want, "case was accepted or failed for another reason:", output, err)
 		}
 		assertNothingInstalled(t, store.Dir)
@@ -507,7 +501,7 @@ func TestPluginInstallNeedsNoSessionAndListsNone(t *testing.T) {
 		t.Fatal(err)
 	}
 	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, "y", nativeInstallFolder(t))
-	if err != nil || !strings.Contains(output, "Installed and enabled demo") || strings.Contains(output, session.ID) {
+	if err != nil || !strings.Contains(output, "Installed. Start it with: zalki plugins run demo") || strings.Contains(output, session.ID) {
 		t.Fatal("install without a live session failed or listed a session", output, err)
 	}
 }
@@ -524,38 +518,4 @@ func TestPluginInstallCommitErrorNeverHidesAKeptRecord(t *testing.T) {
 	if rolled := installCommitError("demo")(false, failed).Error(); !strings.Contains(rolled, "Nothing was installed") {
 		t.Fatal("rollback not reported:", rolled)
 	}
-}
-
-// The copy is what is reviewed and built: when the folder asks for send or
-// read by the time it is copied, the install is refused even though the first
-// read of the manifest asked only for standard access.
-func TestPluginInstallChecksAccessOnTheCopiedManifest(t *testing.T) {
-	store, _ := pluginOwnerFixture(t)
-	folder := writeInstallFolder(t, strings.Replace(nativeInstallManifest, `"read":false`, `"read":true`, 1), map[string]string{"bin/plugin": "#!/bin/sh\nexit 0\n"})
-	first, err := plugins.ReadInstallManifest(nativeInstallFolder(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	same, err := plugins.ReadInstallManifest(folder)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range []struct {
-		first plugins.InstallManifest
-		want  string
-	}{{first, "folder changed"}, {same, "extended access (send/read)"}} {
-		install, err := pluginfeed.NewPluginFeed(store, "demo").BeginPluginInstall()
-		if err != nil {
-			t.Fatal(err)
-		}
-		p := &pluginInstaller{store: store, install: install, folder: folder, name: "demo"}
-		err = p.prepare(c.first)
-		if closeErr := install.Close(); closeErr != nil {
-			t.Fatal(closeErr)
-		}
-		if err == nil || !strings.Contains(err.Error(), c.want) {
-			t.Fatalf("want %q, got %v", c.want, err)
-		}
-	}
-	assertNothingInstalled(t, store.Dir)
 }

@@ -88,6 +88,17 @@ var required = []requiredTest{
 	{"pluginfeed", "TestNoFeedWithoutStatusAccess"},
 	{"pluginfeed", "TestFeedScanOf64SessionsHoldsTheLockBriefly"},
 	{"cmd/zalki", "TestPluginInstallRefusesExtendedAccess"},
+	{"cmd/zalki", "TestPluginInstallRealTerminalApproves"},
+	{"cmd/zalki", "TestPluginInstallRealTerminalCancelKeys"},
+	{"cmd/zalki", "TestPluginListUnknownScopeIsSafe"},
+	{"cmd/zalki", "TestPluginInstallUnsafeSourceDiagnostics"},
+	{"cmd/zalki", "TestPluginInstallSourceErrorClassification"},
+	{"pluginfeed", "TestInstallKeepsForeignArtifacts"},
+	{"pluginfeed", "TestPluginGrantEnabledRebind"},
+	{"pluginfeed", "TestPluginRemoveHeldLease"},
+	{"pluginfeed", "TestPluginRebindPublicationUncertainty"},
+	{"pluginfeed", "TestPluginPublicationOutcomeIsProvenOrUnknown"},
+	{"plugins", "TestPluginRunNamedRefusal"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

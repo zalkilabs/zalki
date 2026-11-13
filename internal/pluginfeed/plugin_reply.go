@@ -68,6 +68,21 @@ func (s pluginFiles) replyLedgerPath() string {
 }
 
 // loadReplyLedger reads the ledger and drops parents older than the TTL.
+// valid reports a reply ledger the host could have written: version 1, a
+// canonical installation, a parents map, and per parent canonical IDs and at
+// most maxReplies replies.
+func (l replyLedger) valid() bool {
+	if l.Version != 1 || !model.IsCanonicalUUID(l.Installation) || l.Parents == nil {
+		return false
+	}
+	for parent, entry := range l.Parents {
+		if !model.IsCanonicalUUID(parent) || len(entry.Replies) > maxReplies || !allUUIDs(entry.Replies) {
+			return false
+		}
+	}
+	return true
+}
+
 func (s pluginFiles) loadReplyLedger(installation string, now time.Time) (replyLedger, error) {
 	ledger := replyLedger{Version: 1, Installation: installation, Parents: map[string]replyParent{}}
 	raw, err := journal.ReadBytes(s.replyLedgerPath(), 1<<20)
@@ -81,16 +96,13 @@ func (s pluginFiles) loadReplyLedger(installation string, now time.Time) (replyL
 	if err := bus.DecodeStrictRecordJSON(raw, &read); err != nil {
 		return ledger, err
 	}
-	if read.Version != 1 || !model.IsCanonicalUUID(read.Installation) || read.Parents == nil {
+	if !read.valid() {
 		return ledger, journal.ErrInvalidFile
 	}
 	if read.Installation != installation {
 		return ledger, nil // left by an earlier installation of this name
 	}
 	for parent, entry := range read.Parents {
-		if !model.IsCanonicalUUID(parent) || len(entry.Replies) > maxReplies || !allUUIDs(entry.Replies) {
-			return ledger, journal.ErrInvalidFile
-		}
 		if now.Sub(entry.At) < replyLedgerTTL {
 			ledger.Parents[parent] = entry
 		}

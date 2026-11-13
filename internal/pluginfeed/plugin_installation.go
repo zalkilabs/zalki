@@ -106,11 +106,16 @@ func (s PluginFeed) addPlugin(launch *PluginLaunch) error {
 	})
 }
 
-// RemovePlugin deletes a disabled, stopped installation and its private data.
-// Data cleanup runs outside the journal lock, while retaining the name lease.
+// RemovePlugin disables and removes a stopped installation and its private
+// data in one command. Holding the name lease proves no child runs; a held
+// lease refuses with nothing removed. Data cleanup runs outside the journal
+// lock, while retaining the name lease.
 func (s PluginFeed) RemovePlugin() error {
 	var installation string
 	lease, err := s.AcquirePluginLease()
+	if errors.Is(err, syscall.EWOULDBLOCK) {
+		return model.NewError(model.CodeConflict, "%s is running or its lease is held; stop it first, then run zalki plugins remove %s again", s.name, s.name)
+	}
 	if err != nil {
 		return err
 	}
@@ -126,8 +131,9 @@ func (s PluginFeed) RemovePlugin() error {
 			return err
 		}
 		installation = p.ID
-		if p.Enabled {
-			return model.NewError(model.CodeConflict, "disable the plugin before removing it")
+		// Prove the leftovers are this installation's before anything goes.
+		if err := s.checkInstallArtifacts(p.ID); err != nil {
+			return err
 		}
 		if err := os.Remove(s.pluginPath()); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
@@ -144,7 +150,7 @@ func (s PluginFeed) RemovePlugin() error {
 	if err := os.RemoveAll(s.pluginDataPath()); err != nil {
 		return err
 	}
-	if err := s.sweepPluginInstallFiles(); err != nil {
+	if err := errors.Join(s.sweepInstallArtifacts(installation), s.sweepPluginInstallFiles()); err != nil {
 		return err
 	}
 	return journal.SyncDir(s.pluginDir())

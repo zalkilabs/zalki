@@ -208,9 +208,6 @@ func TestPluginFeedGrantChangesAndDisable(t *testing.T) {
 	a, _ := register(t, s, "codex")
 	b, _ := register(t, s, "codex")
 	enableFeed(t, s)
-	if err := NewPluginFeed(s, "fake-notifier").ConfigurePluginScope("all"); model.ErrorCodeOf(err) != model.CodeConflict {
-		t.Fatal("scope changed during execution", err)
-	}
 	if err := s.Update(a.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}

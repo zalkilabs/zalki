@@ -1,0 +1,38 @@
+{
+  "notifier": [
+    "Install \"notifier\" (zalkilabs/notifier 0.1.0, author's claim) from ~/dev/code/zalki-plugins/notifier",
+    "It runs as you, with no sandbox. It can do anything your user can do.",
+    "Built here with: [\"go\", \"build\", \"-trimpath\", \"-o\", \"plugin\", \".\"]  Runs: [\"plugin\"]",
+    "In Zalki it will:",
+    "  see the status of all sessions, now and later",
+    "Install it? [y/N]"
+  ],
+  "dashboard": [
+    "Install \"dashboard\" (zalkilabs/dashboard 0.1.0, author's claim) from ~/dev/code/zalki-plugins/dashboard",
+    "It runs as you, with no sandbox. It can do anything your user can do.",
+    "Built here with: [\"go\", \"build\", \"-mod=readonly\", \"-trimpath\", \"-o\", \"plugin\", \".\"]  Runs: [\"plugin\"]",
+    "In Zalki it will:",
+    "  see the status of all sessions, now and later",
+    "Install it? [y/N]"
+  ],
+  "arbiter": [
+    "Install \"arbiter\" (zalkilabs/arbiter 0.3.1, author's claim) from ~/dev/code/zalki-plugins/arbiter",
+    "It runs as you, with no sandbox. It can do anything your user can do.",
+    "Built here with: [\"go\", \"build\", \"-trimpath\", \"-o\", \"plugin\", \".\"]  Runs: [\"plugin\"]",
+    "In Zalki it will:",
+    "  see the status of all sessions, now and later",
+    "  get messages that sessions send to it, and answer the sender",
+    "Install it? [y/N]"
+  ],
+  "spawner": [
+    "Install \"spawner\" (zalkilabs/spawner 0.1.0, author's claim) from ~/dev/code/zalki-plugins/spawner",
+    "It runs as you, with no sandbox. It can do anything your user can do.",
+    "Built here with: [\"go\", \"build\", \"-p=1\", \"-mod=readonly\", \"-trimpath\", \"-o\", \"plugin\", \"./cmd/spawner\"]  Runs: [\"plugin\", \"serve\"]",
+    "In Zalki it will:",
+    "  see the status of all sessions, now and later",
+    "  get messages that sessions send to it, and answer the sender",
+    "  SEND messages on its own to: \"zlaki\", \"worker-3\"",
+    "It can send only to the sessions named above. Change later: zalki plugins grant spawner",
+    "Install it? [y/N]"
+  ]
+}

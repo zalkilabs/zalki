@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -121,7 +122,21 @@ func pluginOwnerCLI(t *testing.T, binary, state string, args ...string) ([]byte,
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
-	return exec.CommandContext(ctx, binary, append([]string{"--state", state, "--log-level", "off", "plugins"}, args...)...).CombinedOutput()
+	cmd := exec.CommandContext(ctx, binary, append([]string{"--state", state, "--log-level", "off", "plugins"}, args...)...)
+	if len(args) > 0 && (args[0] == "grant" || args[0] == "configure") {
+		master, slavePath, err := openTestPTY()
+		if err != nil {
+			t.Fatal("owner terminal fixture", err)
+		}
+		defer master.Close()
+		slave, err := os.OpenFile(slavePath, os.O_RDWR|syscall.O_NOCTTY, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer slave.Close()
+		cmd.Stdin = slave
+	}
+	return cmd.CombinedOutput()
 }
 
 func assertPluginOwnerStatus(t *testing.T, binary, state string, enabled, gap bool) {
@@ -276,6 +291,9 @@ func pluginOwnerEventually(t *testing.T, ready func() bool) {
 
 func pluginOwnerLocal(t *testing.T, state string, args ...string) ([]byte, error) {
 	t.Helper()
+	previous := pluginAccessTerminal
+	pluginAccessTerminal = func(io.Reader) bool { return true }
+	defer func() { pluginAccessTerminal = previous }()
 	cmd := newRootCommand(t.TempDir())
 	var output bytes.Buffer
 	cmd.SetOut(&output)
@@ -307,8 +325,11 @@ func TestPluginOwnerConfigureValidatesScopeAndEnabledState(t *testing.T) {
 			t.Fatal(args, string(raw), err)
 		}
 	}
-	if raw, err := pluginOwnerLocal(t, store.Dir, "configure", "fake-notifier", "--scope", "none"); err == nil {
-		t.Fatal("scope changed while enabled", string(raw))
+	if raw, err := pluginOwnerLocal(t, store.Dir, "configure", "fake-notifier", "--scope", "none"); err != nil {
+		t.Fatal("a scope change on an enabled plugin did not rebind", string(raw), err)
+	}
+	if status, err := pluginfeed.NewPluginFeed(store, "fake-notifier").PluginStatus(); err != nil || !status.Enabled || status.Scope != "none" {
+		t.Fatal("rebind lost the enabled state or the scope", status, err)
 	}
 }
 

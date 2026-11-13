@@ -25,28 +25,7 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 			return cobra.ExactArgs(1)(cmd, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			service, err := opts.service()
-			if err != nil {
-				return err
-			}
-			feed, name := pluginfeed.NewPluginFeed(service.Store, args[0]), plainText(args[0])
-			switch action {
-			case "add":
-				if executable == "" {
-					return errors.New("plugins add requires --exec ABSOLUTE_PATH; or use zalki plugins install FOLDER")
-				}
-				return pluginDone(cmd, feed.AddExternalPlugin(executable, args[1:]), "Added %s (disabled).", name)
-			case "remove":
-				return pluginDone(cmd, feed.RemovePlugin(), "Removed %s.", name)
-			case "configure":
-				return pluginDone(cmd, feed.ConfigurePluginScope(scope), "Configured %s: scope %s.", name, plainText(scope))
-			case "enable":
-				return pluginDone(cmd, feed.EnablePluginFeed(true), "Enabled %s.", name)
-			case "disable":
-				return pluginDone(cmd, feed.EnablePluginFeed(false), "Disabled %s.", name)
-			default:
-				return printPluginStatus(cmd, service.Store, args[0])
-			}
+			return runPluginOwner(cmd, opts, action, args, scope, executable)
 		},
 	}
 	if action == "configure" {
@@ -86,4 +65,56 @@ func printPluginStatus(cmd *cobra.Command, store bus.Store, name string) error {
 		}
 	}
 	return json.NewEncoder(cmd.OutOrStdout()).Encode(value)
+}
+
+func runPluginOwner(cmd *cobra.Command, opts *commandOptions, action string, args []string, scope, executable string) error {
+	if action == "configure" && scope == "all" && !pluginAccessTerminal(cmd.InOrStdin()) {
+		return errors.New("change plugin scope in your own terminal: zalki plugins configure NAME --scope all")
+	}
+	service, err := opts.service()
+	if err != nil {
+		return err
+	}
+	feed, name := pluginfeed.NewPluginFeed(service.Store, args[0]), plainText(args[0])
+	switch action {
+	case "add":
+		if executable == "" {
+			return errors.New("plugins add requires --exec ABSOLUTE_PATH; or use zalki plugins install FOLDER")
+		}
+		return pluginDone(cmd, feed.AddExternalPlugin(executable, args[1:]), "Added %s (disabled).", name)
+	case "remove":
+		return removePluginOwner(cmd, feed, name)
+	case "configure":
+		return configurePluginOwner(cmd, feed, name, scope)
+	case "enable":
+		return pluginDone(cmd, feed.EnablePluginFeed(true), "Enabled %s.", name)
+	case "disable":
+		return pluginDone(cmd, feed.EnablePluginFeed(false), "Disabled %s.", name)
+	default:
+		return printPluginStatus(cmd, service.Store, args[0])
+	}
+}
+
+func removePluginOwner(cmd *cobra.Command, feed pluginfeed.PluginFeed, name string) error {
+	before, err := feed.PluginStatus()
+	if err != nil && !errors.Is(err, pluginfeed.ErrOldPluginRecord) {
+		return err
+	}
+	err = feed.RemovePlugin()
+	if before.Enabled {
+		return pluginDone(cmd, err, "Disabled and removed %s.", name)
+	}
+	return pluginDone(cmd, err, "Removed %s.", name)
+}
+
+func configurePluginOwner(cmd *cobra.Command, feed pluginfeed.PluginFeed, name, scope string) error {
+	before, err := feed.PluginStatus()
+	if err != nil {
+		return err
+	}
+	err = feed.ConfigurePluginScope(scope)
+	if before.Enabled {
+		return pluginAccessRecorded(cmd, err, name)
+	}
+	return pluginDone(cmd, err, "Configured %s: scope %s.", name, plainText(scope))
 }

@@ -67,19 +67,19 @@ func TestPluginAccessOwnerCLIReplacementStatusAndRevoke(t *testing.T) {
 	if second.Revision == first.Revision {
 		t.Fatal("a different grant kept the revision")
 	}
-	assertEnabledRefusesChangesAndRevokeClears(t, binary, store.Dir, session)
+	assertEnabledRebindsAndRevokeClears(t, binary, store.Dir, session)
 }
 
-// assertEnabledRefusesChangesAndRevokeClears: an enabled plugin takes no
-// grant or scope change; revoke clears all access and keeps the scope.
-func assertEnabledRefusesChangesAndRevokeClears(t *testing.T, binary, state, session string) {
+// assertEnabledRebindsAndRevokeClears: a change on an enabled plugin
+// rebinds it; revoke clears all access and keeps the scope.
+func assertEnabledRebindsAndRevokeClears(t *testing.T, binary, state, session string) {
 	t.Helper()
 	capabilityCLIOK(t, binary, state, "enable", "external")
-	if raw, err := pluginOwnerCLI(t, binary, state, "grant", "external", "--status", "--read", session); err == nil {
-		t.Fatal("granted while enabled", string(raw))
-	}
-	if raw, err := pluginOwnerCLI(t, binary, state, "configure", "external", "--scope", "none"); err == nil {
-		t.Fatal("scope changed while enabled", string(raw))
+	enabled := readCapabilityOwnerStatus(t, binary, state)
+	// A change on an enabled plugin rebinds it: still enabled, a new epoch.
+	capabilityCLIOK(t, binary, state, "grant", "external", "--status", "--read", session)
+	if after := readCapabilityOwnerStatus(t, binary, state); !after.Enabled || after.Epoch == enabled.Epoch || len(after.Access.Read) != 1 {
+		t.Fatal("a grant on an enabled plugin did not rebind", after)
 	}
 	capabilityCLIOK(t, binary, state, "revoke", "external")
 	final := readCapabilityOwnerStatus(t, binary, state)

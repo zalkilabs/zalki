@@ -16,7 +16,14 @@ import (
 const testSHA = "0000000000000000000000000000000000000000000000000000000000000001"
 
 func testInstallReceipt() PluginInstallReceipt {
-	return PluginInstallReceipt{API: "zalki-plugin/1", ID: "local/demo", Version: "0.1.0", Source: "/src/demo", TreeSHA256: testSHA, ManifestSHA256: testSHA, Build: []string{"go", "build"}, Tool: "/usr/bin/go", ToolSHA256: testSHA, Artifact: "plugin", InstalledAt: model.Timestamp()}
+	return PluginInstallReceipt{API: "zalki-plugin/1", ID: "local/demo", Version: "0.1.0", Access: json.RawMessage(`{"status":true,"receive":true,"send":true,"read":true}`), InstalledBy: "unproven", Source: "/src/demo", TreeSHA256: testSHA, ManifestSHA256: testSHA, Build: []string{"go", "build"}, Tool: "/usr/bin/go", ToolSHA256: testSHA, Artifact: "plugin", InstalledAt: model.Timestamp()}
+}
+
+// standardInstallReceipt declares status and receive only.
+func standardInstallReceipt() PluginInstallReceipt {
+	r := testInstallReceipt()
+	r.Access = json.RawMessage(`{"status":true,"receive":true,"send":false,"read":false}`)
+	return r
 }
 
 func stagedTestArtifact(t *testing.T, install *PluginInstall) string {
@@ -36,7 +43,7 @@ func installForTest(t *testing.T, s bus.Store) PluginFeed {
 		t.Fatal(err)
 	}
 	defer install.Close()
-	if _, err := install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt()); err != nil {
+	if _, err := install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt(), "", "", true); err != nil {
 		t.Fatal(err)
 	}
 	return f
@@ -71,7 +78,7 @@ func TestPluginInstallCommitIsOneEnabledRecord(t *testing.T) {
 		t.Fatal("a second attempt got the name lease")
 	}
 	grants := PluginAccess{Status: true, Read: []string{v.ID}}
-	if _, err := install.Commit(stagedTestArtifact(t, install), []string{"--x"}, grants, testInstallReceipt()); err != nil {
+	if _, err := install.Commit(stagedTestArtifact(t, install), []string{"--x"}, grants, testInstallReceipt(), "", "", true); err != nil {
 		t.Fatal(err)
 	}
 	if err := install.Close(); err != nil {
@@ -146,7 +153,7 @@ func swapInstalledArtifact(t *testing.T, hook *func()) {
 		}
 	}
 	defer func() { *hook = func() {} }()
-	_, err = install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt())
+	_, err = install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt(), "", "", true)
 	if model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("swapped artifact was not refused", err)
 	}
@@ -170,7 +177,7 @@ func TestPluginInstallCommitFailuresPublishNothing(t *testing.T) {
 		receipt PluginInstallReceipt
 		args    []string
 	}{
-		{"no access", "#!/bin/sh\n", 0700, PluginAccess{}, testInstallReceipt(), nil},
+		{"no access", "#!/bin/sh\n", 0700, PluginAccess{}, standardInstallReceipt(), nil},
 		{"bad session", "#!/bin/sh\n", 0700, PluginAccess{Read: []string{"nope"}}, testInstallReceipt(), nil},
 		{"not executable", "data", 0600, PluginAccess{Status: true}, testInstallReceipt(), nil},
 		{"bad receipt", "#!/bin/sh\n", 0700, PluginAccess{Status: true}, bad, nil},
@@ -185,7 +192,7 @@ func TestPluginInstallCommitFailuresPublishNothing(t *testing.T) {
 		if err := os.WriteFile(path, []byte(c.body), c.mode); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := install.Commit(path, c.args, c.grants, c.receipt); err == nil {
+		if _, err := install.Commit(path, c.args, c.grants, c.receipt, "", "", true); err == nil {
 			t.Fatal(c.name, "committed")
 		}
 		if err := install.Close(); err != nil {
@@ -206,7 +213,7 @@ func TestPluginInstallCommitFailuresPublishNothing(t *testing.T) {
 	if err := os.Symlink(outside, link); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := install.Commit(link, nil, PluginAccess{Status: true}, testInstallReceipt()); err == nil {
+	if _, err := install.Commit(link, nil, PluginAccess{Status: true}, testInstallReceipt(), "", "", true); err == nil {
 		t.Fatal("linked artifact committed")
 	}
 	if err := install.Close(); err != nil {
@@ -271,12 +278,10 @@ func TestPluginInstallSweepStaysInsideItsName(t *testing.T) {
 	if info, err := os.Lstat(other.stagingPath()); err != nil || !info.IsDir() {
 		t.Fatal("staging was not recreated as a real folder", info, err)
 	}
-	if err := install.Close(); err != nil {
-		t.Fatal(err)
+	if _, err := os.Lstat(other.pluginBinPath()); err != nil {
+		t.Fatal("an unchecked install removed the bin link before Commit", err)
 	}
-	if _, err := os.Lstat(other.pluginBinPath()); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("bin link kept", err)
-	}
+	assertBinLinkRefusedAndKept(t, other, install)
 	for _, path := range []string{keep, neighbour, feedRecordNamed(t, f).Launch.Executable} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatal("sweep removed something outside its name", path, err)
@@ -518,7 +523,7 @@ func TestPluginInstallCommitRechecksUnderLock(t *testing.T) {
 		if err := change(); err != nil {
 			t.Fatal(err)
 		}
-		_, err = install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt())
+		_, err = install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt(), "", "", true)
 		if model.ErrorCodeOf(err) != model.CodeConflict {
 			t.Fatal(i, "commit ignored a change made after Begin", err)
 		}
@@ -609,7 +614,7 @@ func assertSaveErrorOutcome(t *testing.T, save func(PluginFeed, pluginRecord) ([
 	}
 	savePluginInstallRecord = save
 	defer func() { savePluginInstallRecord = PluginFeed.savePlugin }()
-	kept, err := install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt())
+	kept, err := install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, testInstallReceipt(), "", "", true)
 	savePluginInstallRecord = PluginFeed.savePlugin
 	if err == nil || kept != wantKept {
 		t.Fatalf("kept=%v err=%v", kept, err)
@@ -633,5 +638,20 @@ func assertSaveErrorOutcome(t *testing.T, save func(PluginFeed, pluginRecord) ([
 	status, err := f.PluginStatus()
 	if err != nil || !status.Enabled || status.Launch == nil || status.Launch.Verify() != nil || status.Install == nil {
 		t.Fatal("published record does not point at a valid install", status, err)
+	}
+}
+
+// assertBinLinkRefusedAndKept: a link is not Zalki's pin folder, so the
+// commit refuses and keeps it as it was.
+func assertBinLinkRefusedAndKept(t *testing.T, f PluginFeed, install *PluginInstall) {
+	t.Helper()
+	if _, err := install.Commit(stagedTestArtifact(t, install), nil, PluginAccess{Status: true}, standardInstallReceipt(), "", "", true); err == nil || !strings.Contains(err.Error(), "is not a file Zalki made for this plugin") {
+		t.Fatal("a bin link was swept or followed", err)
+	}
+	if err := install.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Lstat(f.pluginBinPath()); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("the bin link was not kept as it was", info, err)
 	}
 }

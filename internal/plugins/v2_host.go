@@ -89,6 +89,10 @@ type v2Host struct {
 	offerAt time.Time
 	emptyAt time.Time
 	enabled []string
+	// refusedOp holds the known operation (a string) the host refused: one
+	// the hello did not enable. Set by the pump, read by the loop; never
+	// plugin text.
+	refusedOp atomic.Value
 }
 
 // runV2Host serves one child after its hello, with the enabled names.
@@ -130,6 +134,9 @@ func (h *v2Host) pump() {
 			return
 		}
 		cmd, ok := parseCommand(f)
+		if ok && !h.allowed(cmd) {
+			h.refusedOp.Store(cmd.Op) // parseCommand accepted only a known op name
+		}
 		if !ok || !h.allowed(cmd) || !h.queue(cmd) {
 			h.fail("protocol_error")
 			return
@@ -330,6 +337,12 @@ func (h *v2Host) terminal(code string) error {
 	_ = h.write(map[string]string{"code": code})
 	if code == "revoked" && h.ctx.Err() == nil {
 		return errDisabled // the owner disabled it: a quiet, normal stop
+	}
+	if op, _ := h.refusedOp.Load().(string); op != "" && h.ctx.Err() == nil {
+		// Host-made text from a fixed op name and code: shown even when
+		// the child's stderr is withheld.
+		name := h.binding.Name
+		return hostHintError{fmt.Sprintf("%s stopped after Zalki refused %s (%s). Check access with: zalki plugins show %s", name, op, code, name)}
 	}
 	return h.failure()
 }

@@ -208,6 +208,28 @@ func (v JournalView) PluginMember(session, plugin string) (member bool, err erro
 	return member && err == nil, err
 }
 
+// AuthenticatedSessionLabel proves actor with its capability inside this
+// view, as every native command does, and returns only its display label:
+// its native session name, or "" when it has none. It never returns the
+// session record, its key hash or policy. A plugin address, a retired or
+// exited session and a wrong capability are refused.
+func (v JournalView) AuthenticatedSessionLabel(actor, capability string) (label string, err error) {
+	err = v.use(func(store Store) error {
+		if model.IsPluginInboxAddress(actor) || model.ValidateSessionAddress(actor) != nil {
+			return model.NewError(model.CodeInvalidIdentity, "the installer must be a native session")
+		}
+		session, err := store.authenticate(actor, capability)
+		if err != nil {
+			return err
+		}
+		named := []model.Session{session}
+		store.nativeNames(named)
+		label = named[0].Name
+		return nil
+	})
+	return label, err
+}
+
 // NativeInboxMessage projects a record against its current native recipient.
 // The caller owns authorization and the audit that precedes any body release.
 func (v JournalView) NativeInboxMessage(session, id string) (message model.Message, outcome string) {
