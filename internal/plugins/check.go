@@ -50,7 +50,7 @@ func Check(ctx context.Context, target CheckTarget, output io.Writer) (result er
 	if err != nil {
 		return reportCheck(output, "launch", err)
 	}
-	c, err := launchChild(ctx, launch.Executable, pinned, launch.Args, cwd, home, lease)
+	c, err := launchChild(ctx, launch.Executable, pinned, launch.Args, cwd, home, lease, true)
 	if err != nil {
 		return reportCheck(output, "launch", err)
 	}

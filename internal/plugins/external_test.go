@@ -112,7 +112,7 @@ func runExternalUntilObserved(t *testing.T, store bus.Store, evidence string) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, store, "external", io.Discard); close(done) }()
+	go func() { done <- Run(ctx, store, "external", io.Discard, nil); close(done) }()
 	t.Cleanup(func() {
 		cancel()
 		select {
@@ -165,7 +165,7 @@ func TestExternalPluginRunRejectsChangedFileBeforeExec(t *testing.T) {
 	if err := os.WriteFile(file, []byte(body+"# changed\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	err := Run(t.Context(), store, "external", io.Discard)
+	err := Run(t.Context(), store, "external", io.Discard, nil)
 	if model.ErrorCodeOf(err) != model.CodeConflict || !strings.Contains(err.Error(), "launch changed") {
 		t.Fatal("changed executable reached child startup", err)
 	}

@@ -216,10 +216,15 @@ func (s PluginFeed) PluginStatus() (PluginFeedStatus, error) {
 	var status PluginFeedStatus
 	err := bus.WithJournalRead(s.store, func(bus.JournalView) error {
 		p, _, err := s.loadPlugin()
-		status = PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Scope: p.Scope, Access: p.Access.clone(), Revision: p.Revision, GapPending: p.GapID != "", LastGap: p.GapReason, Install: p.Install, Epoch: p.Epoch}
+		status = s.statusOf(p)
 		return err
 	})
 	return status, err
+}
+
+// statusOf is the one mapper from a record to its status.
+func (s PluginFeed) statusOf(p pluginRecord) PluginFeedStatus {
+	return PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Scope: p.Scope, Access: p.Access.clone(), Revision: p.Revision, GapPending: p.GapID != "", LastGap: p.GapReason, Install: p.Install, Epoch: p.Epoch}
 }
 
 func (p pluginRecord) validIdentityAndLaunch(name string) bool {

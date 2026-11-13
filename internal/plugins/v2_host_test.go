@@ -121,7 +121,7 @@ func (x *v2Fixture) runChild(t *testing.T) v2TestOutcome {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, x.store, "arbiter", &x.output) }()
+	go func() { done <- Run(ctx, x.store, "arbiter", &x.output, nil) }()
 	var out v2TestOutcome
 	eventually(t, func() bool {
 		raw, err := os.ReadFile(x.result)

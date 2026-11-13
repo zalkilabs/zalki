@@ -49,7 +49,7 @@ func (c *child) Write(p []byte) (int, error) {
 // launchChild starts binary, which the caller verified while it had the
 // identity pinned. If the started file is no longer that file, the child is
 // killed and reaped and the start fails: no retry and no new pin.
-func launchChild(ctx context.Context, binary string, pinned fileIdentity, args []string, cwd, home string, lease *os.File) (*child, error) {
+func launchChild(ctx context.Context, binary string, pinned fileIdentity, args []string, cwd, home string, lease *os.File, ownGroup bool) (*child, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -81,7 +81,9 @@ func launchChild(ctx context.Context, binary string, pinned fileIdentity, args [
 		// stop owns cancellation; the exec watcher must not preempt EOF grace.
 		c.cmd = exec.CommandContext(context.WithoutCancel(ctx), binary, args...)
 		c.cmd.Dir = cwd
-		c.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		// A supervised plugin stays in its host's group, which the supervisor
+		// cleans as a whole; a manual one gets its own group, as before.
+		c.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: ownGroup}
 		c.cmd.Env = childEnv(home)
 		c.cmd.Stdin, c.cmd.Stdout, c.cmd.Stderr = input, output, c
 		c.cmd.ExtraFiles = []*os.File{lease}
