@@ -15,19 +15,43 @@ const approvalQueueCap = 8
 // saveReservation writes the count before a held reservation so a crash cannot
 // leave a durable held message with a zero count. The caller holds the lock.
 func (s Store) saveReservation(msg model.Message) error {
+	return saveReservationWith(s, msg, s.saveMessageRecord)
+}
+
+// saveReservationWith keeps the same writer protocol while allowing a private
+// fault seam after real publication. Caller holds the journal lock.
+func saveReservationWith(s Store, msg model.Message, write func(model.Message) error) error {
 	held := msg.IsQueuedForApproval()
 	if held {
 		if err := s.rememberApprovalHold(msg.To, 1); err != nil {
 			return err
 		}
 	}
-	if err := s.saveMessageRecord(msg); err != nil {
+	if err := write(msg); err != nil {
 		if held {
-			_ = s.rememberApprovalHold(msg.To, -1)
+			reconcileFailedApprovalReservation(s, msg.To)
 		}
 		return err
 	}
 	return nil
+}
+
+// A failed write can have published its entire batch or a replayable intent.
+// Only completed recovery/durable absence and a complete readable inventory
+// permit a downward recount. Unknown recovery/read results keep the increment.
+func reconcileFailedApprovalReservation(s Store, actor string) {
+	if err := recoverEventCommit(s); err != nil {
+		return
+	}
+	counts, unreadable, err := s.approvalHolds()
+	if err != nil || len(unreadable) != 0 {
+		return
+	}
+	current, err := s.session(actor)
+	if err != nil {
+		return
+	}
+	_ = s.reconcileSessionHold(current, counts[actor], current.Retired, false, &PruneReport{})
 }
 
 // holdForApproval marks msg as waiting on the target's permission prompt.
@@ -53,11 +77,12 @@ func (s Store) approvalCapacity(targetID string) error {
 }
 
 // ApprovalHeld writers, all under the journal lock:
-//   - rememberApprovalHold: +1 before a hold is written (-1 if that fails), and
+//   - rememberApprovalHold: +1 before a hold is written, and
 //     the downward move of recountAfterScan.
 //   - clearApprovalHeld: 0 after an approval scan that skipped no file.
 //   - register: a new generation carries heldAfterScan(prior, settled, skipped).
-//   - reconcileSessionHold (prune): the exact recount of readable holds.
+//   - reconcileSessionHold (prune or recovered reservation failure): the exact
+//     recount after a complete readable hold inventory.
 //
 // A scan that skipped files sets heldAfterScan(prior, processed, skipped).
 

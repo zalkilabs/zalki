@@ -114,6 +114,10 @@ func (Adapter) HandleHook(s agent.HookHost, event agent.HookInput, id string, ou
 	if event.Event == "SessionEnd" {
 		return true, s.UpdateSession(id, model.StateReady, false)
 	}
+	// PermissionRequest precedes a decision; only live transport knows whether to hold.
+	if event.Event == "PermissionRequest" {
+		return true, s.UpdateSession(id, model.StateBusy, false)
+	}
 	if event.Event != "UserPromptSubmit" {
 		return false, nil
 	}
