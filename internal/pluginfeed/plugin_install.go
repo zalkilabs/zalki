@@ -54,6 +54,7 @@ type PluginInstall struct {
 	feed    PluginFeed
 	lease   *os.File
 	keepLog bool
+	update  []byte // exact record reviewed by an update; nil for a new install
 }
 
 // Tests change the artifact copy before it is pinned, or after pinning.
@@ -285,6 +286,9 @@ var savePluginInstallRecord = PluginFeed.savePlugin
 // installProvenance); the receipt's own InstalledBy and InstalledAt are
 // overwritten.
 func (i *PluginInstall) Commit(artifact string, args []string, access PluginAccess, receipt PluginInstallReceipt, installerActor, installerCapability string, terminalReview bool) (kept bool, err error) {
+	if i.update != nil {
+		return i.commitUpdate(artifact, args, access, receipt, installerActor, installerCapability, terminalReview)
+	}
 	s := i.feed
 	swept := false // set only after a complete sweep: then the pin folder holds only this attempt's copy
 	defer func() {
