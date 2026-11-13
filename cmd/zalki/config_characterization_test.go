@@ -22,7 +22,7 @@ func cliEnv(t *testing.T) (home, state string) {
 	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {
 		t.Setenv(name, "")
 	}
-	home = t.TempDir()
+	home = configTestHome(t)
 	return home, filepath.Join(home, "state")
 }
 
