@@ -60,7 +60,8 @@ func TestCursorReplacementRegistrationFencesARunningListener(t *testing.T) {
 	store := adapterTestStore(t)
 	from, fromKey := registerAdapterSession(t, store, "codex")
 	old, oldKey := registerAdapterSession(t, store, "cursor")
-	stopOld, oldOutput := startRecoveryListener(t, store, old.ID, oldKey)
+	stopOld, oldOutput, setup := startReplacementListener(t, store, old.ID, oldKey)
+	setup.waitConfirmed(t)
 	if !adapterTestSession(t, store, old.ID).Receive.IdleWake {
 		t.Fatal("armed listener did not advertise idle wake")
 	}
@@ -78,6 +79,7 @@ func TestCursorReplacementRegistrationFencesARunningListener(t *testing.T) {
 	if err := listenCursorWithStore(ctx, store, old.ID, key, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "already has a listener") || time.Since(started) > time.Second {
 		t.Fatal("a second listener was not promptly refused for lifetime lock ownership", err)
 	}
+	setup.replacementFinished(t)
 	report, err := store.Diagnostics(t.Context())
 	if err != nil {
 		t.Fatal(err)

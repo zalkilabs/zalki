@@ -131,6 +131,9 @@ var required = []requiredTest{
 	{"cmd/zalki", "TestGatedBuildCleanupNeverSignalsRecordedGroup"},
 	{"cmd/zalki", "TestPTYInstallCleanupStopsUnreapedExitedLeaderGroup"},
 	{"plugins", "TestForegroundFixtureNeverSignalsAfterWaitStarts"},
+	{"bus", "TestLeaseOperationsAndPruneDoNotDeadlock"},
+	{"bus", "TestEveryHookStageIsLoggable"},
+	{"bus", "TestHookStageInventoryRejectsDynamicForms"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {
