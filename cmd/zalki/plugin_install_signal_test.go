@@ -164,9 +164,9 @@ func TestPluginInstallSecondSignalKills(t *testing.T) {
 // bounded loop (steps of 0.1 s), so it ends by that bound at the latest, even
 // when zalki is killed and cannot stop it. It marks that it started, then
 // (after pidDelay) writes its pid, which is also its process group:
-// RunInstallBuild starts it with Setpgid. Cleanup kills that group and waits
+// RunInstallBuild starts it with Setpgid. Cleanup writes a private stop marker and waits
 // until it is gone, if the pid appears within stopPIDWait.
-type gatedBuild struct{ folder, gate, started, pidFile string }
+type gatedBuild struct{ folder, gate, started, pidFile, stopFile string }
 
 // stopPIDWait is how long stop waits for a started build's pid file.
 const stopPIDWait = 2 * time.Second
@@ -174,12 +174,12 @@ const stopPIDWait = 2 * time.Second
 func newGatedBuild(t *testing.T, steps int, pidDelay string) *gatedBuild {
 	t.Helper()
 	dir := t.TempDir()
-	b := &gatedBuild{gate: filepath.Join(dir, "gate"), started: filepath.Join(dir, "started"), pidFile: filepath.Join(dir, "pid")}
+	b := &gatedBuild{gate: filepath.Join(dir, "gate"), started: filepath.Join(dir, "started"), pidFile: filepath.Join(dir, "pid"), stopFile: filepath.Join(dir, "stop")}
 	b.folder = fakeGoFolder(t, fmt.Sprintf(`: > '%[4]s'; sleep %[5]s
 echo $$ > '%[1]s.new' && mv '%[1]s.new' '%[1]s'
 i=0
-while [ ! -e '%[2]s' ]; do i=$((i+1)); [ $i -gt %[3]d ] && exit 3; sleep 0.1; done
-printf built > plugin; chmod 700 plugin`, b.pidFile, b.gate, steps, b.started, pidDelay))
+while [ ! -e '%[2]s' ]; do [ -e '%[6]s' ] && exit 0; i=$((i+1)); [ $i -gt %[3]d ] && exit 3; sleep 0.1; done
+printf built > plugin; chmod 700 plugin`, b.pidFile, b.gate, steps, b.started, pidDelay, b.stopFile))
 	t.Cleanup(func() { b.stop(t) })
 	return b
 }
@@ -218,16 +218,19 @@ func (b *gatedBuild) pid(t *testing.T) int {
 	return pid
 }
 
-// stop waits up to stopPIDWait for the pid, kills the build's process group
-// and checks it is gone. Without a pid by then, the build either never started
+// stop asks the fixture to exit through its private marker, then observes its
+// recorded PID without signalling it. Without a pid by then, it never started
 // or starts later; such a build still ends by its loop bound at the latest.
 func (b *gatedBuild) stop(t *testing.T) {
 	t.Helper()
+	if err := os.WriteFile(b.stopFile, nil, 0600); err != nil {
+		t.Error(err)
+		return
+	}
 	pid, ok := b.readPID(t, stopPIDWait)
 	if !ok {
 		return
 	}
-	_ = syscall.Kill(-pid, syscall.SIGKILL)
 	if !processGone(pid, 5*time.Second) {
 		t.Errorf("the fake build %d is still running", pid)
 	}
@@ -247,7 +250,7 @@ func processGone(pid int, wait time.Duration) bool {
 
 // When zalki is killed before the build reaches its gate, zalki cannot stop
 // the build. The fake build then ends by its own loop bound at the latest, and
-// at once when cleanup sees its pid within stopPIDWait, even a pid published
+// at once when cleanup writes its stop marker within stopPIDWait, even a pid published
 // after zalki died.
 func TestPluginInstallFakeBuildEndsAfterZalkiIsKilled(t *testing.T) {
 	binary := checkRealBinary(t)
@@ -264,7 +267,7 @@ func TestPluginInstallFakeBuildEndsAfterZalkiIsKilled(t *testing.T) {
 			t.Fatal("the fake build did not end by its loop bound")
 		}
 	})
-	t.Run("cleanup kills a build whose pid it sees", func(t *testing.T) {
+	t.Run("cleanup stops a build whose pid it sees", func(t *testing.T) {
 		build := start(t, 300, "0") // bound 30 s, longer than the checks below
 		pid := build.pid(t)
 		if processGone(pid, 0) {

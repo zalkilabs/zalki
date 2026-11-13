@@ -118,6 +118,19 @@ var required = []requiredTest{
 	{"adapters", "TestCodexSessionEndLeavesHeldUntilNormalRelease"},
 	{"cmd/zalki", "TestPluginUpdateCheckExitCodes"},
 	{"cmd/zalki", "TestPluginInstallDryRun"},
+	{"plugins", "TestInstallBuildReapedLeaderNeverSignalsGroup"},
+	{"plugins", "TestInstallBuildDirectKillPrecedesWait"},
+	{"plugins", "TestInstallBuildIdentityLossSuppressesGroup"},
+	{"plugins", "TestInstallBuildCancellationKeepsUnreapedAuthority"},
+	{"plugins", "TestInstallBuildIdentityChangesRefuseSignal"},
+	{"plugins", "TestInstallBuildFixturePIDNeverSignals"},
+	{"plugins", "TestInstallBuildOutputFailureStopsBeforeWait"},
+	{"plugins", "TestInstallBuildCanceledBeforeStart"},
+	{"plugins", "TestInstallBuildFinishNeverSignalsAfterReaping"},
+	{"cmd/zalki", "TestPTYInstallCleanupNeverSignalsReapedLeader"},
+	{"cmd/zalki", "TestGatedBuildCleanupNeverSignalsRecordedGroup"},
+	{"cmd/zalki", "TestPTYInstallCleanupStopsUnreapedExitedLeaderGroup"},
+	{"plugins", "TestForegroundFixtureNeverSignalsAfterWaitStarts"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {
