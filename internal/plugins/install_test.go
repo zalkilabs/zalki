@@ -11,7 +11,22 @@ import (
 	"time"
 )
 
-const goodManifest = `{"name":"demo","language":"go","purpose":"p","build":["go","build","-o","plugin","."],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":false}}`
+const goodManifest = `{"api":"zalki-plugin/1","id":"local/demo","version":"0.1.0","name":"demo","language":"go","purpose":"p","build":["go","build","-o","plugin","."],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":false}}`
+
+// The namespace rule is one function: author/name, each [a-z][a-z0-9-]{0,31}.
+func TestValidPluginID(t *testing.T) {
+	for id, ok := range map[string]bool{
+		"zalkilabs/arbiter": true, "local/demo": true, "some-author/build-2": true, "a/b": true,
+		strings.Repeat("a", 32) + "/" + strings.Repeat("b", 32): true,
+		strings.Repeat("a", 33) + "/b":                          false, "a/" + strings.Repeat("b", 33): false,
+		"": false, "demo": false, "/demo": false, "local/": false, "a/b/c": false, "Local/demo": false,
+		"local/Demo": false, "1x/demo": false, "local/-x": false, "local/de_mo": false, "local/de mo": false,
+	} {
+		if validPluginID(id) != ok {
+			t.Errorf("validPluginID(%q) = %v", id, !ok)
+		}
+	}
+}
 
 func TestParseInstallManifestRules(t *testing.T) {
 	m, err := parseInstallManifest([]byte(goodManifest))
@@ -53,6 +68,15 @@ func TestParseInstallManifestRules(t *testing.T) {
 		"nine args":       strings.Replace(goodManifest, `"artifact":"plugin"`, `"artifact":"plugin","args":["1","2","3","4","5","6","7","8","9"]`, 1),
 		"big args":        strings.Replace(goodManifest, `"artifact":"plugin"`, `"artifact":"plugin","args":["`+strings.Repeat("a", 1000)+`","`+strings.Repeat("a", 100)+`"]`, 1),
 		"go path tool":    strings.Replace(goodManifest, `"build":["go",`, `"build":["/usr/bin/go",`, 1),
+		"old api":         strings.Replace(goodManifest, `"api":"zalki-plugin/1"`, `"api":"v2"`, 1),
+		"next api":        strings.Replace(goodManifest, `"api":"zalki-plugin/1"`, `"api":"zalki-plugin/2"`, 1),
+		"missing api":     strings.Replace(goodManifest, `"api":"zalki-plugin/1",`, ``, 1),
+		"missing id":      strings.Replace(goodManifest, `"id":"local/demo",`, ``, 1),
+		"missing version": strings.Replace(goodManifest, `"version":"0.1.0",`, ``, 1),
+		"bare id":         strings.Replace(goodManifest, `"id":"local/demo"`, `"id":"demo"`, 1),
+		"empty version":   strings.Replace(goodManifest, `"version":"0.1.0"`, `"version":""`, 1),
+		"long version":    strings.Replace(goodManifest, `"version":"0.1.0"`, `"version":"`+strings.Repeat("1", 33)+`"`, 1),
+		"control version": strings.Replace(goodManifest, `"version":"0.1.0"`, `"version":"1\u001b"`, 1),
 	}
 	for name, raw := range bad {
 		if _, err := parseInstallManifest([]byte(raw)); err == nil {

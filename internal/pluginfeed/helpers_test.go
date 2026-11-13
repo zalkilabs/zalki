@@ -1,6 +1,7 @@
 package pluginfeed
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -30,4 +31,15 @@ func register(t *testing.T, store bus.Store, kind string) (model.Session, string
 func nextFeed(f PluginFeed) (PluginDelivery, error) {
 	status, _ := f.PluginStatus() // a load error comes back from NextPluginFeed too
 	return f.NextPluginFeed(&status)
+}
+
+// testExecutable is an absolute, pinned-able executable for plugin records
+// whose child never runs in the test: the test binary itself.
+func testExecutable(t *testing.T) string {
+	t.Helper()
+	path, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
 }

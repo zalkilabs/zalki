@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -73,15 +72,9 @@ func namedCheckTarget(store bus.Store, name string) (plugins.CheckTarget, func()
 		closeLease()
 		return plugins.CheckTarget{}, nil, errors.Join(err, errors.New("plugin installation changed before check"))
 	}
-	target := plugins.CheckTarget{Launch: current.Launch, Lease: lease}
-	if name == "fake-notifier" {
-		target.Binary, err = os.Executable()
-	} else if current.Launch == nil {
-		err = errors.New("plugin has no external executable")
-	}
-	if err != nil {
+	if current.Launch == nil {
 		closeLease()
-		return plugins.CheckTarget{}, nil, err
+		return plugins.CheckTarget{}, nil, errors.New("plugin has no external executable")
 	}
-	return target, closeLease, nil
+	return plugins.CheckTarget{Launch: current.Launch, Lease: lease}, closeLease, nil
 }

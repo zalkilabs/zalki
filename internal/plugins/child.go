@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,10 +44,6 @@ func (c *child) Write(p []byte) (int, error) {
 		c.cancel()
 	}
 	return len(p), nil
-}
-
-func startChild(ctx context.Context, binary, outbox string, lease *os.File) (*child, error) {
-	return launchChild(ctx, binary, []string{ChildCommand, "--outbox", outbox}, filepath.Dir(outbox), "", lease)
 }
 
 func launchChild(ctx context.Context, binary string, args []string, cwd, home string, lease *os.File) (*child, error) {
@@ -110,14 +105,38 @@ func (c *child) receive(timeout time.Duration) (frame, error) {
 }
 
 func (c *child) idle() error {
-	_, err := c.receive(250 * time.Millisecond)
-	if err == nil {
-		return errors.New("plugin sent an unsolicited frame")
+	for {
+		f, err := c.receive(250 * time.Millisecond)
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("plugin stream failed: %w", err)
+		}
+		if !f.isRequest() {
+			return errors.New("plugin sent an unsolicited frame")
+		}
+		if err := c.answerCheckRequest(f); err != nil {
+			return err
+		}
 	}
-	if !errors.Is(err, os.ErrDeadlineExceeded) {
-		return fmt.Errorf("plugin stream failed: %w", err)
+}
+
+// answerCheckRequest answers a request during check, where nothing is
+// stored: inbox_next finds an empty inbox, every other op is unavailable.
+func (c *child) answerCheckRequest(f frame) error {
+	cmd, ok := parseCommand(f)
+	if !ok || cmd.Ack != "" {
+		return errors.New("plugin sent an invalid request")
 	}
-	return nil
+	code := "unavailable"
+	if cmd.Op == "inbox_next" {
+		code = "ok"
+	}
+	if err := c.input.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
+		return c.deadlineError(c.input, err)
+	}
+	return c.pipeError(writeFrame(c.input, v2Reply{Reply: &v2Result{Op: cmd.Op, RequestID: cmd.RequestID, Code: code}}))
 }
 
 func (c *child) exchange(value frame) error {
@@ -128,6 +147,11 @@ func (c *child) exchange(value frame) error {
 		return c.pipeError(err)
 	}
 	response, err := c.receive(5 * time.Second)
+	for err == nil && response.isRequest() {
+		if err = c.answerCheckRequest(response); err == nil {
+			response, err = c.receive(5 * time.Second)
+		}
+	}
 	if err != nil {
 		return err
 	}
@@ -159,7 +183,12 @@ func (c *child) stop(cause error) error {
 		return nil
 	}
 	if c.readMode.Load() {
-		// Its stderr may hold message text, so it is not shown.
+		// Its stderr may hold message text, so it is not shown. A host-made
+		// hint (old wire, missing capability) is still the owner's fix.
+		var hint hostHintError
+		if errors.As(cause, &hint) {
+			return hint
+		}
 		return errors.New("plugin request host failed")
 	}
 	return fmt.Errorf("%w; child stderr: %s", cause, plainStderr(c.stderr))

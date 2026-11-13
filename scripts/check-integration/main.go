@@ -57,6 +57,18 @@ var required = []requiredTest{
 	{"plugins", "TestV2HostRoundTripWithRealChild"},
 	{"cmd/zalki", "TestPluginInstallBuildFailureKeepsOnlyLog"},
 	{"plugins", "TestRunInstallBuildTurnsGoTelemetryOff"},
+	{"plugins", "TestPublishedWireFramesMatchTheHost"},
+	{"plugins", "TestHostFramesWithExtraFieldsAreSupersets"},
+	{"plugins", "TestWireFixtureValuesArePublished"},
+	{"plugins", "TestHostRefusesTheOldWireByName"},
+	{"plugins", "TestHostNeverEchoesAnUnknownHelloVersion"},
+	{"plugins", "TestGrantedPluginStderrIsWithheldWhenTheHelloFails"},
+	{"plugins", "TestHostStopsAPluginThatRequiresAMissingCapability"},
+	{"plugins", "TestHostOffersOnlyGrantedCapabilities"},
+	{"plugins", "TestV2HostRefusesAnOpTheHelloDidNotEnable"},
+	{"model", "TestPublishedPluginEnums"},
+	{"plugins", "TestValidPluginID"},
+	{"pluginfeed", "TestReceiptWithoutIDIsAnOldRecord"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

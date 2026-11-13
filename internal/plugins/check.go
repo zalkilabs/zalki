@@ -7,19 +7,19 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
-// CheckTarget selects a pinned executable, or the built-in Binary when Launch is nil.
-// The caller retains ownership of an optional installed-name Lease until Check returns.
+// CheckTarget selects a pinned executable. The caller retains ownership of an
+// optional installed-name Lease until Check returns.
 type CheckTarget struct {
 	Launch *pluginfeed.PluginLaunch
-	Binary string
 	Lease  *os.File
 }
 
-// Check observes v1 transport and direct-child shutdown in temporary HOME/cwd/state.
+// Check observes the plugin wire and direct-child shutdown in temporary HOME/cwd/state.
 // Temporary paths do not sandbox the executable or restrict its OS permissions.
 // Check does not advance real feeds or prove arbitrary side effects durable.
 func Check(ctx context.Context, target CheckTarget, output io.Writer) (result error) {
@@ -46,7 +46,7 @@ func Check(ctx context.Context, target CheckTarget, output io.Writer) (result er
 		}
 		defer lease.Close() //nolint:errcheck // Child is reaped by the later defer first.
 	}
-	launch, err := checkLaunch(target, cwd)
+	launch, err := checkLaunch(target)
 	if err != nil {
 		return reportCheck(output, "launch", err)
 	}
@@ -58,11 +58,15 @@ func Check(ctx context.Context, target CheckTarget, output io.Writer) (result er
 	if err := reportCheck(output, "launch", nil); err != nil {
 		return err
 	}
-	header, err := c.receive(helloTimeout)
-	if err == nil && !header.validHello() {
-		err = errHelloVersion
+	enabled, err := greet(c, hostCapabilities)
+	if err != nil {
+		err = helloError("the plugin", err)
 	}
 	if err := reportCheck(output, "hello", err); err != nil {
+		return err
+	}
+	if !slices.Contains(enabled, "feed") {
+		_, err := fmt.Fprintln(output, "SKIP feed (not requested)")
 		return err
 	}
 	offers, err := checkOffers()
@@ -72,9 +76,9 @@ func Check(ctx context.Context, target CheckTarget, output io.Writer) (result er
 	return checkExchanges(c, offers, output)
 }
 
-func checkLaunch(target CheckTarget, cwd string) (pluginfeed.PluginLaunch, error) {
+func checkLaunch(target CheckTarget) (pluginfeed.PluginLaunch, error) {
 	if target.Launch == nil {
-		return pluginfeed.NewPluginLaunch(target.Binary, []string{ChildCommand, "--outbox", filepath.Join(cwd, "outbox")})
+		return pluginfeed.PluginLaunch{}, errors.New("plugin has no external executable")
 	}
 	return *target.Launch, target.Launch.Verify()
 }

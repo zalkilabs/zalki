@@ -23,7 +23,7 @@ func installFeed(t *testing.T, s bus.Store) {
 		t.Fatal(err)
 	}
 	if status.ID == "" {
-		if err := feed.AddPlugin(); err != nil {
+		if err := feed.AddExternalPlugin(testExecutable(t), nil); err != nil {
 			t.Fatal(err)
 		}
 	}

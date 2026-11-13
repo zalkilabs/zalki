@@ -20,7 +20,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/plugins"
 )
 
-const nativeInstallManifest = `{"name":"demo","language":"native","purpose":"test notices","build":null,"artifact":"bin/plugin","access":{"status":true,"receive":true,"send":false,"read":true}}`
+const nativeInstallManifest = `{"api":"zalki-plugin/1","id":"local/demo","version":"0.1.0","name":"demo","language":"native","purpose":"test notices","build":null,"artifact":"bin/plugin","access":{"status":true,"receive":true,"send":false,"read":true}}`
 
 func writeInstallFolder(t *testing.T, manifest string, files map[string]string) string {
 	t.Helper()
@@ -120,7 +120,7 @@ func TestPluginInstallGoBuildEndToEnd(t *testing.T) {
 		t.Skip("go is not on PATH")
 	}
 	store, session := pluginOwnerFixture(t)
-	manifest := `{"name":"gonote","language":"go","purpose":"desktop notices","build":["go","build","-mod=readonly","-o","plugin","."],"artifact":"plugin","args":["--quiet"],"access":{"status":true,"receive":false,"send":false,"read":false}}`
+	manifest := `{"api":"zalki-plugin/1","id":"local/gonote","version":"0.1.0","name":"gonote","language":"go","purpose":"desktop notices","build":["go","build","-mod=readonly","-o","plugin","."],"artifact":"plugin","args":["--quiet"],"access":{"status":true,"receive":false,"send":false,"read":false}}`
 	folder := writeInstallFolder(t, manifest, map[string]string{
 		"go.mod":  "module example.com/gonote\n\ngo 1.22\n",
 		"main.go": "package main\n\nimport (\"io\"; \"os\")\n\nfunc main() { _, _ = io.Copy(io.Discard, os.Stdin) }\n",
@@ -129,7 +129,7 @@ func TestPluginInstallGoBuildEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(output, err)
 	}
-	for _, want := range []string{"Install gonote", "Build: [\"go\", \"build\", \"-mod=readonly\", \"-o\", \"plugin\", \".\"]\r\nTool: /", "(go launcher; its hash is checked for changes, the compiler is not pinned)\r\nBuild env: only PATH from your environment; private caches, GOTOOLCHAIN=local, GOENV=off, GOWORK=off, -buildvcs=false, -mod=readonly (vendor/ is ignored), cgo off, no network (GOPROXY=off), 2 CPUs. go.mod may use only the standard library. VCS folders such as .git are not copied.\r\n", "Access per session: changes = see state and message status, no text\r\n", "Artifact: plugin, pinned by SHA256 after the build\r\nRun arguments: [\"--quiet\"]\r\n", "Publisher proof: none", "no sandbox", "Building...", "Installed and enabled gonote. Access: changes from 1 session(s). Not running yet"} {
+	for _, want := range []string{"Install \"gonote\" (local/gonote 0.1.0, author's claim)\r\n", "Build: [\"go\", \"build\", \"-mod=readonly\", \"-o\", \"plugin\", \".\"]\r\nTool: /", "(go launcher; its hash is checked for changes, the compiler is not pinned)\r\nBuild env: only PATH from your environment; private caches, GOTOOLCHAIN=local, GOENV=off, GOWORK=off, -buildvcs=false, -mod=readonly (vendor/ is ignored), cgo off, no network (GOPROXY=off), 2 CPUs. go.mod may use only the standard library. VCS folders such as .git are not copied.\r\n", "Access per session: changes = see state and message status, no text\r\n", "Artifact: plugin, pinned by SHA256 after the build\r\nRun arguments: [\"--quiet\"]\r\n", "Publisher proof: none", "no sandbox", "Building...", "Installed and enabled gonote. Access: changes from 1 session(s). Not running yet"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output lacks %q:\n%s", want, output)
 		}
@@ -199,8 +199,31 @@ func TestPluginInstallNativeAndCancelPaths(t *testing.T) {
 	}
 	assertNativeChoices(t, store.Dir, session.ID, output)
 	// A second install of the same name stops before the screen.
-	if output, err := pluginInstallLocal(t, store.Dir, installRawKeys, " y", folder); err == nil || !strings.Contains(err.Error(), "already installed") || strings.Contains(output, "Install demo") {
+	if output, err := pluginInstallLocal(t, store.Dir, installRawKeys, " y", folder); err == nil || !strings.Contains(err.Error(), "already installed") || strings.Contains(output, `Install "demo"`) {
 		t.Fatal("reinstall was not refused early", output, err)
+	}
+	assertSecondInstance(t, store.Dir, folder)
+}
+
+// --as installs one more instance of the same plugin id: its own record,
+// installation, address, data folder and lease. Only a NAME is unique.
+func assertSecondInstance(t *testing.T, state, folder string) {
+	t.Helper()
+	output, err := pluginInstallLocal(t, state, installRawKeys, " y", folder, "--as", "demo-2")
+	if err != nil || !strings.Contains(output, `Install "demo-2" (local/demo 0.1.0, author's claim)`) || !strings.Contains(output, "Installed and enabled demo-2.") {
+		t.Fatal("second instance", output, err)
+	}
+	first, second := readInstallStatus(t, state, "demo"), readInstallStatus(t, state, "demo-2")
+	if first.ID == second.ID || first.DataDir == second.DataDir || second.Install == nil || second.Install.ID != "local/demo" || first.Install.ID != second.Install.ID || second.Install.API != "zalki-plugin/1" || second.Install.Version != "0.1.0" {
+		t.Fatalf("instances share state: %+v %+v", first, second)
+	}
+	for _, name := range []string{"demo", "demo-2"} {
+		if _, err := os.Stat(filepath.Join(state, "plugins", name+".lock")); err != nil {
+			t.Fatal("each instance needs its own lease", name, err)
+		}
+	}
+	if output, err := pluginInstallLocal(t, state, installRawKeys, " y", folder, "--as", "demo-2"); err == nil || !strings.Contains(err.Error(), "already installed") {
+		t.Fatal("the same NAME twice was not refused", output, err)
 	}
 }
 
@@ -380,7 +403,7 @@ func TestPluginInstallBuildFailureKeepsOnlyLog(t *testing.T) {
 		t.Skip("go is not on PATH")
 	}
 	store, _ := pluginOwnerFixture(t)
-	manifest := `{"name":"broken","language":"go","purpose":"fails","build":["go","build","-o","plugin","./missing"],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":false}}`
+	manifest := `{"api":"zalki-plugin/1","id":"local/broken","version":"0.1.0","name":"broken","language":"go","purpose":"fails","build":["go","build","-o","plugin","./missing"],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":false}}`
 	folder := writeInstallFolder(t, manifest, map[string]string{"go.mod": "module example.com/broken\n\ngo 1.22\n"})
 	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, " y", folder)
 	log := filepath.Join(store.Dir, "plugins", ".staging", "broken", "build.log")

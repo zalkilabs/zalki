@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -15,35 +16,31 @@ import (
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
-// A v2 child has two lanes. The feed lane is one offer at a time, answered by
-// its ack. The request lane is one operation at a time, each with the child's
-// request_id. The lanes interleave: an ack may arrive while an operation runs.
+// A child has two lanes. The feed lane is one offer at a time, answered by
+// its ack. The request lane is one operation at a time, each in the envelope
+// {op, request_id, idempotency_key, args} and answered by one reply with the
+// same op and request_id. The lanes interleave: an ack may arrive while an
+// operation runs.
 type v2Command struct {
-	Ack     string     `json:"ack,omitempty"`
-	Read    *v2Read    `json:"read,omitempty"`
-	Next    *v2Next    `json:"inbox_next,omitempty"`
-	Consume *v2Consume `json:"inbox_consume,omitempty"`
-	Send    *v2Send    `json:"send,omitempty"`
+	Ack            string
+	Op             string
+	RequestID      string
+	IdempotencyKey string
+	Read           *v2Read
+	Consume        *v2Consume
+	Send           *v2Send
 }
 
 type v2Read struct {
-	RequestID string `json:"request_id"`
-	Session   string `json:"session"`
-	Message   string `json:"message"`
-}
-
-type v2Next struct {
-	RequestID string `json:"request_id"`
+	Session string `json:"session"`
+	Message string `json:"message"`
 }
 
 type v2Consume struct {
-	RequestID string `json:"request_id"`
-	Message   string `json:"message"`
+	Message string `json:"message"`
 }
 
 type v2Send struct {
-	RequestID       string `json:"request_id"`
-	ClientMessageID string `json:"client_message_id"`
 	// ReplyTo names the inbox message this send answers (the reply rule).
 	ReplyTo string `json:"reply_to,omitempty"`
 	To      string `json:"to"`
@@ -51,19 +48,23 @@ type v2Send struct {
 }
 
 type v2Result struct {
-	RequestID       string `json:"request_id"`
-	Code            string `json:"code"`
-	RetryAt         string `json:"retry_at,omitempty"`
-	ClientMessageID string `json:"client_message_id,omitempty"`
-	Status          string `json:"status,omitempty"`
-	Message         any    `json:"message,omitempty"`
+	Op        string         `json:"op"`
+	RequestID string         `json:"request_id"`
+	Code      string         `json:"code"`
+	Result    map[string]any `json:"result,omitempty"`
 }
 
 type v2Reply struct {
-	ReadResult    *v2Result `json:"read_result,omitempty"`
-	InboxResult   *v2Result `json:"inbox_result,omitempty"`
-	InboxConsumed *v2Result `json:"inbox_consumed,omitempty"`
-	SendResult    *v2Result `json:"send_result,omitempty"`
+	Reply *v2Result `json:"reply"`
+}
+
+// bindingCode compares the launch-time binding with the current record:
+// "" while it still holds, else the terminal code for the child.
+func bindingCode(feed pluginfeed.PluginFeed, binding *pluginfeed.PluginFeedStatus) string {
+	if code := feed.PluginBindingCode(binding); code != "ok" {
+		return code
+	}
+	return ""
 }
 
 // v2EmptyPoll is the shortest time between two inbox_next calls that found
@@ -87,21 +88,22 @@ type v2Host struct {
 	offer   *pluginfeed.PluginDelivery
 	offerAt time.Time
 	emptyAt time.Time
+	enabled []string
 }
 
-func runV2Host(ctx context.Context, feed pluginfeed.PluginFeed, service *bus.Service, binding *pluginfeed.PluginFeedStatus, c *child, out io.Writer, ready string, header frame) error {
-	if header.Hello == nil || header.Hello.Version != "v2" || header.ID != "" || header.Ack != "" || header.Gap != "" || header.Event != nil || c.reader.Buffered() != 0 {
-		return errHelloVersion
+// runV2Host serves one child after its hello, with the enabled names.
+func runV2Host(ctx context.Context, feed pluginfeed.PluginFeed, service *bus.Service, binding *pluginfeed.PluginFeedStatus, c *child, out io.Writer, ready string, enabled []string) error {
+	if c.reader.Buffered() != 0 {
+		return errHelloVersion // a frame before hello_ok: the plugin did not wait for it
 	}
-	c.readMode.Store(true)
 	ctx, cancel := context.WithCancel(ctx)
-	h := &v2Host{ctx: ctx, feed: feed, service: service, binding: binding, child: c, acks: make(chan string, 1), ops: make(chan *v2Command, 1), failed: make(chan string, 1), done: make(chan struct{})}
+	h := &v2Host{ctx: ctx, feed: feed, service: service, binding: binding, child: c, acks: make(chan string, 1), ops: make(chan *v2Command, 1), failed: make(chan string, 1), done: make(chan struct{}), enabled: enabled}
 	go h.pump()
 	defer func() { cancel(); c.cancel(); <-h.done }()
-	if err := h.write(frame{Hello: &hello{Version: "v2"}}); err != nil {
+	if err := h.loop(out, ready); !errors.Is(err, errDisabled) {
 		return err
 	}
-	return h.loop(out, ready)
+	return nil
 }
 
 func (h *v2Host) pump() {
@@ -122,8 +124,13 @@ func (h *v2Host) pump() {
 		if len(raw) == 0 && errors.Is(err, os.ErrDeadlineExceeded) {
 			continue
 		}
-		var f v2Command
-		if err != nil || len(raw) > maxFrame || decodeFrame(raw, &f) != nil || !f.valid() || !h.queue(&f) {
+		var f frame
+		if err != nil || len(raw) > maxFrame || decodeFrame(raw, &f) != nil {
+			h.fail("protocol_error")
+			return
+		}
+		cmd, ok := parseCommand(f)
+		if !ok || !h.allowed(cmd) || !h.queue(cmd) {
 			h.fail("protocol_error")
 			return
 		}
@@ -199,6 +206,9 @@ func (h *v2Host) ack(id string) error {
 }
 
 func (h *v2Host) tick() error {
+	if !slices.Contains(h.enabled, "feed") {
+		return nil // the plugin did not ask for the feed
+	}
 	if h.offer != nil {
 		if !h.busy.Load() && len(h.acks) == 0 && time.Since(h.offerAt) > v2AckTimeout {
 			return h.terminal("protocol_error")
@@ -220,19 +230,19 @@ func (h *v2Host) tick() error {
 }
 
 func (h *v2Host) handle(f *v2Command) error {
-	var reply v2Reply
-	switch {
-	case f.Read != nil:
-		reply.ReadResult = h.read(f.Read)
-	case f.Next != nil:
-		reply.InboxResult = h.next(f.Next)
-	case f.Consume != nil:
-		reply.InboxConsumed = &v2Result{RequestID: f.Consume.RequestID, Code: h.feed.ConsumePluginInbox(h.binding, f.Consume.Message)}
-		if reply.InboxConsumed.Code == "ok" {
-			reply.InboxConsumed.Message = f.Consume.Message
+	result := &v2Result{Op: f.Op, RequestID: f.RequestID}
+	switch f.Op {
+	case "read":
+		h.read(f.Read, result)
+	case "inbox_next":
+		h.next(result)
+	case "inbox_consume":
+		result.Code = h.feed.ConsumePluginInbox(h.binding, f.Consume.Message)
+		if result.Code == "ok" {
+			result.Result = map[string]any{"message": f.Consume.Message}
 		}
 	default:
-		reply.SendResult = h.sendMessage(f.Send)
+		h.sendMessage(f, result)
 	}
 	if code := bindingCode(h.feed, h.binding); code != "" {
 		return h.terminal(code)
@@ -242,52 +252,51 @@ func (h *v2Host) handle(f *v2Command) error {
 	if h.offer != nil {
 		h.offerAt = time.Now()
 	}
-	return h.write(reply)
+	return h.write(v2Reply{Reply: result})
 }
 
-func (h *v2Host) read(r *v2Read) *v2Result {
+func (h *v2Host) read(r *v2Read, result *v2Result) {
 	raw, code, _ := h.feed.ReadPluginMessageBound(h.binding, r.Session, r.Message)
-	result := &v2Result{RequestID: r.RequestID, Code: code}
+	result.Code = code
 	if code != "ok" && code != "native_deferred" {
-		return result
+		return
 	}
 	var body struct {
 		Message json.RawMessage `json:"message"`
 	}
 	if json.Unmarshal(raw, &body) != nil || len(body.Message) == 0 {
 		result.Code = "unavailable"
-		return result
+		return
 	}
-	result.Message = body.Message
-	return result
+	result.Result = map[string]any{"message": body.Message}
 }
 
-func (h *v2Host) next(r *v2Next) *v2Result {
-	result := &v2Result{RequestID: r.RequestID}
+func (h *v2Host) next(result *v2Result) {
 	if retry := h.emptyAt.Add(v2EmptyPoll); !h.emptyAt.IsZero() && time.Now().Before(retry) {
-		result.Code, result.RetryAt = "rate_limited", retry.UTC().Format(time.RFC3339Nano)
-		return result
+		result.Code = "rate_limited"
+		result.Result = map[string]any{"retry_at": retry.UTC().Format(time.RFC3339Nano)}
+		return
 	}
 	msg, code := h.feed.NextPluginInbox(h.binding)
 	result.Code = code
 	switch {
 	case msg != nil: // "ok", or "too_large" without the body
 		h.emptyAt = time.Time{}
-		result.Message = msg
+		result.Result = map[string]any{"message": msg}
 	case code == "ok":
 		h.emptyAt = time.Now()
 	}
-	return result
 }
 
-func (h *v2Host) sendMessage(r *v2Send) *v2Result {
-	result := &v2Result{RequestID: r.RequestID, ClientMessageID: r.ClientMessageID}
-	m, err := h.service.SendFromPlugin(h.ctx, bus.PluginSendRequest{Installation: h.binding.ID, Name: h.binding.Name, ClientMessageID: r.ClientMessageID, ReplyTo: r.ReplyTo, To: r.To, Body: r.Body})
+// sendMessage sends one message. The idempotency key is the client message
+// ID: a retry with the same key gets the same message.
+func (h *v2Host) sendMessage(f *v2Command, result *v2Result) {
+	r := f.Send
+	m, err := h.service.SendFromPlugin(h.ctx, bus.PluginSendRequest{Installation: h.binding.ID, Name: h.binding.Name, ClientMessageID: f.IdempotencyKey, ReplyTo: r.ReplyTo, To: r.To, Body: r.Body})
 	result.Code = v2Code(err)
 	if err == nil {
-		result.Message, result.Status = m.ID, string(m.Status)
+		result.Result = map[string]any{"message": m.ID, "status": string(m.Status)}
 	}
-	return result
 }
 
 // v2Code maps a core error to a result code. The text never reaches the child.
@@ -319,8 +328,15 @@ func (h *v2Host) terminal(code string) error {
 		code = "unavailable"
 	}
 	_ = h.write(map[string]string{"code": code})
+	if code == "revoked" && h.ctx.Err() == nil {
+		return errDisabled // the owner disabled it: a quiet, normal stop
+	}
 	return h.failure()
 }
+
+// errDisabled ends the host loop when the owner disabled the plugin;
+// runV2Host returns nil for it.
+var errDisabled = errors.New("plugin disabled")
 
 func (h *v2Host) write(value any) error {
 	raw, err := json.Marshal(value)
@@ -345,25 +361,72 @@ func (h *v2Host) failure() error {
 	return errors.New("plugin v2 failed")
 }
 
-// valid accepts exactly one ack or one operation with a token request_id.
-func (f *v2Command) valid() bool {
-	n, id := 0, ""
+// parseCommand accepts exactly one ack, or one request in the envelope with
+// a token request_id, an optional token idempotency_key (required for send)
+// and the op's args. Unknown ops and unknown args fields are refused.
+func parseCommand(f frame) (*v2Command, bool) {
+	if f.Hello != nil || f.ID != "" || f.Gap != "" || f.Event != nil {
+		return nil, false
+	}
 	if f.Ack != "" {
-		n++
+		return &v2Command{Ack: f.Ack}, !f.isRequest()
 	}
-	if f.Read != nil {
-		n, id = n+1, f.Read.RequestID
+	cmd := &v2Command{Op: f.Op, RequestID: f.RequestID, IdempotencyKey: f.IdempotencyKey}
+	if !validToken(f.RequestID) || (f.IdempotencyKey != "" && !validToken(f.IdempotencyKey)) {
+		return nil, false
 	}
-	if f.Next != nil {
-		n, id = n+1, f.Next.RequestID
+	target, ok := cmd.argsTarget(f)
+	if !ok {
+		return nil, false
 	}
-	if f.Consume != nil {
-		n, id = n+1, f.Consume.RequestID
+	if target == nil {
+		return cmd, true // inbox_next without args
 	}
-	if f.Send != nil {
-		n, id = n+1, f.Send.RequestID
+	if f.Args == nil || decodeFrame(f.Args, target) != nil {
+		return nil, false
 	}
-	return n == 1 && (f.Ack != "" || validToken(id))
+	return cmd, true
+}
+
+// argsTarget returns where the op's args decode to: nil for inbox_next
+// without args, false for an unknown op or a send without a key.
+func (cmd *v2Command) argsTarget(f frame) (any, bool) {
+	switch f.Op {
+	case "inbox_next":
+		if f.Args == nil {
+			return nil, true
+		}
+		return &struct{}{}, true
+	case "inbox_consume":
+		cmd.Consume = &v2Consume{}
+		return cmd.Consume, true
+	case "read":
+		cmd.Read = &v2Read{}
+		return cmd.Read, true
+	case "send":
+		cmd.Send = &v2Send{}
+		return cmd.Send, f.IdempotencyKey != ""
+	}
+	return nil, false
+}
+
+// opCapability is the capability name a request needs.
+func opCapability(cmd *v2Command) string {
+	switch {
+	case cmd.Op == "inbox_next" || cmd.Op == "inbox_consume":
+		return "inbox"
+	case cmd.Op == "read":
+		return "read"
+	case cmd.Send != nil && cmd.Send.ReplyTo != "":
+		return "reply"
+	default:
+		return "send"
+	}
+}
+
+// allowed refuses a request for a capability the hello did not enable.
+func (h *v2Host) allowed(cmd *v2Command) bool {
+	return cmd.Ack != "" || slices.Contains(h.enabled, opCapability(cmd))
 }
 
 // validToken accepts 1-64 ASCII letters, digits, '_' or '-'.

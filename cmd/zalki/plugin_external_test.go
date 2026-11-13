@@ -64,7 +64,7 @@ func TestExternalPluginOwnerRequiresExecAndArgvSeparator(t *testing.T) {
 	if err := os.WriteFile(file, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"add", "external"}, {"add", "external", "--exec", file, "unseparated"}, {"add", "fake-notifier", "--exec", file}, {"add", "fake-notifier", "--", "unexpected"}} {
+	for _, args := range [][]string{{"add", "external"}, {"add", "external", "--exec", file, "unseparated"}, {"add", "fake-notifier", "--", "unexpected"}} {
 		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err == nil {
 			t.Fatal("invalid add accepted", args, string(raw))
 		}

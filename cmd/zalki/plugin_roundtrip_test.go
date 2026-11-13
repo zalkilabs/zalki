@@ -30,7 +30,7 @@ func TestPluginOwnerBinaryRoundtrip(t *testing.T) {
 	store, session := pluginOwnerFixture(t)
 	state := store.Dir
 	assertPluginOwnerDisabled(t, binary, state)
-	for _, args := range [][]string{{"add", "fake-notifier"}, {"configure", "fake-notifier", "--session", session.ID}, {"enable", "fake-notifier"}} {
+	for _, args := range [][]string{{"add", "fake-notifier", "--exec", feedFixture(t)}, {"configure", "fake-notifier", "--session", session.ID}, {"enable", "fake-notifier"}} {
 		if output, err := pluginOwnerCLI(t, binary, state, args...); err != nil {
 			t.Fatal(args, string(output), err)
 		}
@@ -38,7 +38,8 @@ func TestPluginOwnerBinaryRoundtrip(t *testing.T) {
 	assertPluginOwnerStatus(t, binary, state, session.ID, true, true)
 	first, firstDone := startPluginOwnerHost(t, binary, state)
 	assertPluginOwnerStatus(t, binary, state, session.ID, true, false)
-	outbox := filepath.Join(state, "plugins", "fake-notifier.data", "outbox")
+	outbox := filepath.Join(state, "plugins", "fake-notifier.data", "events")
+	pluginOwnerEventually(t, func() bool { _, err := os.Stat(outbox); return err == nil })
 	if files, err := os.ReadDir(outbox); err != nil || len(files) != 0 {
 		t.Fatal("enable gap replayed historical notifications", files, err)
 	}
@@ -108,8 +109,9 @@ func awaitPluginOwnerEvent(t *testing.T, outbox, session string) string {
 		if err != nil || len(files) != 1 {
 			return false
 		}
-		raw, err := os.ReadFile(filepath.Join(outbox, files[0].Name()))
-		return err == nil && json.Unmarshal(raw, &event) == nil && event.Validate() == nil &&
+		var ok bool
+		event, ok = fixtureEvent(filepath.Join(outbox, files[0].Name()))
+		return ok && event.Validate() == nil &&
 			files[0].Name() == event.ID+".json" && event.Session.ID == session && event.Session.State == model.StateBusy
 	})
 	return event.ID
@@ -127,14 +129,12 @@ func assertPluginOwnerStatus(t *testing.T, binary, state, session string, enable
 	raw, err := pluginOwnerCLI(t, binary, state, "status", "fake-notifier")
 	var status struct {
 		pluginfeed.PluginFeedStatus
-		Outbox    string `json:"outbox"`
-		MaxEvents int    `json:"max_events"`
 	}
 	if err != nil || json.Unmarshal(raw, &status) != nil {
 		t.Fatal("status command failed", string(raw), err)
 	}
 	if status.Enabled != enabled || status.GapPending != gap || status.LastGap != "enabled" ||
-		len(status.Sessions) != 1 || status.Sessions[0] != session || status.Outbox != filepath.Join(state, "plugins", "fake-notifier.data", "outbox") || status.MaxEvents != 256 {
+		len(status.Sessions) != 1 || status.Sessions[0] != session || status.Launch == nil {
 		t.Fatal("status misrepresented the owner profile/gap", string(raw))
 	}
 }
@@ -165,7 +165,7 @@ func startPluginOwnerHost(t *testing.T, binary, state string) (*exec.Cmd, <-chan
 		default:
 		}
 		raw, err := os.ReadFile(log.Name())
-		return err == nil && strings.Contains(string(raw), "fake-notifier ready;")
+		return err == nil && strings.Contains(string(raw), "fake-notifier ready")
 	})
 	return cmd, done
 }
@@ -215,7 +215,7 @@ func TestPluginOwnerForcedParentCleanupReleasesChildLease(t *testing.T) {
 		t.Skip("requires the locally built real zalki binary")
 	}
 	store, session := pluginOwnerFixture(t)
-	for _, args := range [][]string{{"add", "fake-notifier"}, {"configure", "fake-notifier", "--session", session.ID}, {"enable", "fake-notifier"}} {
+	for _, args := range [][]string{{"add", "fake-notifier", "--exec", feedFixture(t)}, {"configure", "fake-notifier", "--session", session.ID}, {"enable", "fake-notifier"}} {
 		if raw, err := pluginOwnerCLI(t, binary, store.Dir, args...); err != nil {
 			t.Fatal("prepare cleanup host", string(raw), err)
 		}
@@ -291,7 +291,7 @@ func TestPluginOwnerConfigureValidatesGrantsAndEnabledState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if raw, err := pluginOwnerLocal(t, store.Dir, "add", "fake-notifier"); err != nil {
+	if raw, err := pluginOwnerLocal(t, store.Dir, "add", "fake-notifier", "--exec", feedFixture(t)); err != nil {
 		t.Fatal(string(raw), err)
 	}
 	ids := []string{first.ID, second.ID}
@@ -335,7 +335,7 @@ func assertPluginOwnerConfigureUnchanged(t *testing.T, store bus.Store, flags []
 
 func TestPluginOwnerStatusDoesNotClaimAHostIsRunning(t *testing.T) {
 	store, session := pluginOwnerFixture(t)
-	for _, args := range [][]string{{"add", "fake-notifier"}, {"configure", "fake-notifier", "--session", session.ID}, {"enable", "fake-notifier"}} {
+	for _, args := range [][]string{{"add", "fake-notifier", "--exec", feedFixture(t)}, {"configure", "fake-notifier", "--session", session.ID}, {"enable", "fake-notifier"}} {
 		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
 			t.Fatal(string(raw), err)
 		}
@@ -345,7 +345,7 @@ func TestPluginOwnerStatusDoesNotClaimAHostIsRunning(t *testing.T) {
 	if err != nil || json.Unmarshal(raw, &status) != nil {
 		t.Fatal("status failed", string(raw), err)
 	}
-	wanted := []string{"data_dir", "enabled", "epoch", "gap_pending", "id", "last_gap", "max_events", "outbox", "plugin", "sessions"}
+	wanted := []string{"data_dir", "enabled", "epoch", "gap_pending", "id", "last_gap", "launch", "pin_matches", "plugin", "sessions"}
 	keys := make([]string, 0, len(status))
 	for key := range status {
 		keys = append(keys, key)
@@ -354,7 +354,7 @@ func TestPluginOwnerStatusDoesNotClaimAHostIsRunning(t *testing.T) {
 	if !reflect.DeepEqual(keys, wanted) || string(status["enabled"]) != "true" || string(status["gap_pending"]) != "true" {
 		t.Fatal("status inferred runtime state or omitted configuration", string(raw))
 	}
-	for _, name := range []string{"fake-notifier.data/outbox"} {
+	for _, name := range []string{"fake-notifier.data/events"} {
 		if _, err := os.Stat(filepath.Join(store.Dir, "plugins", name)); !os.IsNotExist(err) {
 			t.Fatal("owner command launched or inspected a running host", name, err)
 		}

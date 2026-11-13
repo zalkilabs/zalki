@@ -69,7 +69,7 @@ func checkV2OldChild(t *testing.T, newSessions bool) {
 	}
 	ownerChangesBetweenTicks(t, x.feed, sessions...)
 	c, frames := pipeChild(t)
-	h := &v2Host{ctx: t.Context(), feed: x.feed, binding: &x.status, child: c}
+	h := &v2Host{ctx: t.Context(), feed: x.feed, binding: &x.status, child: c, enabled: []string{"feed"}}
 	if h.tick() == nil {
 		t.Fatal("the old child was not stopped")
 	}
@@ -85,52 +85,13 @@ func checkV2OldChild(t *testing.T, newSessions bool) {
 	}
 }
 
-func TestReadHostOldChildGetsNoNewFeedGrant(t *testing.T) {
-	x := v2HostFixture(t)
-	other, _, err := x.store.Register("codex", model.NewUUID(), t.TempDir(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ownerChangesBetweenTicks(t, x.feed, other.ID)
-	c, frames := pipeChild(t)
-	h := &readHost{ctx: t.Context(), feed: x.feed, binding: &x.status, child: c}
-	if h.offer() == nil {
-		t.Fatal("the old child was not stopped")
-	}
-	if line := firstFrame(t, frames); line != `{"code":"stale_binding"}`+"\n" {
-		t.Fatalf("the old child got %q", line)
-	}
-}
-
-func TestV1HostAsksForARestartAfterNewGrants(t *testing.T) {
-	x := v2HostFixture(t)
-	other, _, err := x.store.Register("codex", model.NewUUID(), t.TempDir(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ownerChangesBetweenTicks(t, x.feed, other.ID)
-	_, err = x.feed.NextPluginFeed(&x.status)
-	if model.ErrorCodeOf(err) != model.CodeUnauthorized {
-		t.Fatal("the old launch selected a feed event", err)
-	}
-	if err := launchEnded(x.feed, &x.status); err == nil || err.Error() != "plugin grants changed while it ran; start it again with zalki plugins run arbiter" {
-		t.Fatal("restart text", err)
-	}
-	if err := x.feed.EnablePluginFeed(false); err != nil {
-		t.Fatal(err)
-	}
-	if err := launchEnded(x.feed, &x.status); err != nil {
-		t.Fatal("a disabled plugin must stop quietly", err)
-	}
-}
-
 func TestOldChildCannotSendAfterDisableAndEnable(t *testing.T) {
 	x := v2HostFixture(t)
 	ownerChangesBetweenTicks(t, x.feed)
 	c, frames := pipeChild(t)
 	service := &bus.Service{Store: x.store, PluginSend: pluginfeed.BoundPluginSend(&x.status)}
 	h := &v2Host{ctx: t.Context(), feed: x.feed, service: service, binding: &x.status, child: c}
-	if h.handle(&v2Command{Send: &v2Send{RequestID: "old", ClientMessageID: "c1", ReplyTo: x.request.ID, To: x.asker.ID, Body: "hello"}}) == nil {
+	if h.handle(&v2Command{Op: "send", RequestID: "old", IdempotencyKey: "c1", Send: &v2Send{ReplyTo: x.request.ID, To: x.asker.ID, Body: "hello"}}) == nil {
 		t.Fatal("the old child was not stopped")
 	}
 	if line := firstFrame(t, frames); !strings.Contains(line, `"stale_binding"`) {
@@ -138,11 +99,10 @@ func TestOldChildCannotSendAfterDisableAndEnable(t *testing.T) {
 	}
 }
 
-// TestV1HostRealChildGetsNoNewFeedGrant runs a real v1 child, changes the feed
+// TestHostRealChildGetsNoNewFeedGrant runs a real child, changes the feed
 // grant from A to B while it runs, and makes a B event. The child must never
-// see B, and the host must end: quietly if it saw the disabled moment, or
-// with the restart text if it did not.
-func TestV1HostRealChildGetsNoNewFeedGrant(t *testing.T) {
+// see B, and the host must end with a named reason: disabled, or grants changed.
+func TestHostRealChildGetsNoNewFeedGrant(t *testing.T) {
 	store, _ := hostStore(t)
 	feed := pluginfeed.NewPluginFeed(store, "fake-notifier")
 	b, _, err := store.Register("codex", model.NewUUID(), t.TempDir(), nil)
@@ -160,7 +120,7 @@ func TestV1HostRealChildGetsNoNewFeedGrant(t *testing.T) {
 	}
 	select {
 	case err := <-done:
-		if err != nil && !strings.HasPrefix(err.Error(), "plugin grants changed while it ran; start it again with zalki plugins run fake-notifier") {
+		if err != nil && !strings.Contains(err.Error(), "plugin v2 failed") {
 			t.Fatal(err)
 		}
 	case <-time.After(3 * time.Second):

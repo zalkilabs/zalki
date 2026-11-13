@@ -130,9 +130,6 @@ func (l PluginLaunch) Verify() error {
 func (s PluginFeed) preparePluginPin() (*PluginLaunch, [32]byte, error) {
 	var launch *PluginLaunch
 	var prior [32]byte
-	if s.name == "fake-notifier" {
-		return nil, prior, nil
-	}
 	err := bus.WithJournalRead(s.store, func(bus.JournalView) error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {

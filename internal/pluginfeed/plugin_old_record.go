@@ -9,9 +9,10 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// ErrOldPluginRecord marks a plugin record written by an older Zalki, before
-// receive replaced inbox_from and inbox_read. There is no conversion: the owner
-// removes the plugin and installs it again.
+// ErrOldPluginRecord marks a plugin record written by an older Zalki: one
+// with the inbox_from and inbox_read grants (before receive), or an install
+// receipt without the manifest id (before zalki-plugin/1). There is no
+// conversion: the owner removes the plugin and installs it again.
 var ErrOldPluginRecord = errors.New("plugin record from an older Zalki")
 
 // oldPluginRecord reports the fix for a record with the old grant keys, or nil.
@@ -45,13 +46,14 @@ func shellUnsafe(r rune) bool {
 	return !strings.ContainsRune("/._-+@:,=", r)
 }
 
-// oldPluginSource reports whether raw has the old grant keys, and the source
+// oldPluginSource reports whether raw is an old record, and the source
 // folder of its install receipt when it has one.
 func oldPluginSource(raw []byte) (string, bool) {
 	var old struct {
 		Capabilities map[string]json.RawMessage `json:"capabilities"`
 		Install      *struct {
 			Source string `json:"source"`
+			ID     string `json:"id"`
 		} `json:"install"`
 	}
 	if json.Unmarshal(raw, &old) != nil {
@@ -62,7 +64,7 @@ func oldPluginSource(raw []byte) (string, bool) {
 	if old.Install == nil {
 		return "", from || inbox
 	}
-	return old.Install.Source, from || inbox
+	return old.Install.Source, from || inbox || old.Install.ID == ""
 }
 
 // oldPluginID reads only the installation ID of an old record, for remove.

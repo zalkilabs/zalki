@@ -59,20 +59,3 @@ func TestWireReportsOversizeBeforePartialReadError(t *testing.T) {
 		t.Fatal("oversize frame reported as truncated input", err)
 	}
 }
-
-func TestNotifierCancellationPreservesPartialReadFailureCause(t *testing.T) {
-	for _, cause := range []error{os.ErrClosed, io.ErrClosedPipe, os.ErrDeadlineExceeded} {
-		for _, canceled := range []bool{false, true} {
-			ctx, cancel := context.WithCancel(t.Context())
-			if canceled {
-				cancel()
-			}
-			input := io.NopCloser(io.MultiReader(strings.NewReader("{"), frameTerminalError{cause}))
-			err := runNotifierLoop(ctx, input, io.Discard, notifierTemp(t))
-			cancel()
-			if !errors.Is(err, io.ErrUnexpectedEOF) || !errors.Is(err, cause) {
-				t.Fatal("notifier lost partial read failure cause", canceled, cause, err)
-			}
-		}
-	}
-}

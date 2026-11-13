@@ -31,7 +31,7 @@ func signalFixture(t *testing.T) (pluginfeed.PluginFeed, string, string) {
 	}
 	feed := pluginfeed.NewPluginFeed(store, "signal-child")
 	data := filepath.Join(store.Dir, "plugins", "signal-child.data")
-	if err := feed.AddExternalPlugin(binary, []string{ChildCommand, "--outbox", filepath.Join(data, "outbox")}); err != nil {
+	if err := feed.AddExternalPlugin(binary, []string{"host-fake-child"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := feed.ConfigurePluginFeed([]string{session.ID}); err != nil {
@@ -149,6 +149,9 @@ func TestPluginForegroundGroupSignalsAllowEOFCleanup(t *testing.T) {
 
 func TestPluginHostSIGKILLStillClosesChildInputAndLease(t *testing.T) {
 	h := startSignalFixtureHost(t)
+	// The v2 host is ready before the first ACK; kill it only after the
+	// child has ACKed, so the child is not killed by SIGPIPE mid-ACK.
+	eventually(t, func() bool { s, err := h.feed.PluginStatus(); return err == nil && !s.GapPending })
 	if err := h.cmd.Process.Kill(); err != nil {
 		t.Fatal(err)
 	}
@@ -164,4 +167,29 @@ func TestPluginHostSIGKILLStillClosesChildInputAndLease(t *testing.T) {
 	// The dead host cannot call stop: OS closes its pipe; the child's raw FD3
 	// keeps the lease until the child finishes EOF cleanup and actually exits.
 	h.requireCleanupAndReleasedLease(t)
+}
+
+// referenceBinary is the real zalki binary for host-process tests: the one
+// from ZALKI_TEST_BINARY, or one built for this test.
+func referenceBinary(t *testing.T) string {
+	t.Helper()
+	if path := os.Getenv("ZALKI_TEST_BINARY"); path != "" {
+		return path
+	}
+	path := filepath.Join(t.TempDir(), "zalki")
+	cmd := exec.CommandContext(t.Context(), "go", "build", "-buildvcs=false", "-o", path, "../../cmd/zalki")
+	if raw, err := cmd.CombinedOutput(); err != nil {
+		t.Fatal("build reference binary", string(raw), err)
+	}
+	return path
+}
+
+// notifierTemp is a private temporary folder (0700).
+func notifierTemp(t *testing.T) string {
+	t.Helper()
+	path := t.TempDir()
+	if err := os.Chmod(path, 0700); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }

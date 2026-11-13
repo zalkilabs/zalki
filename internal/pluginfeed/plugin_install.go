@@ -22,6 +22,10 @@ import (
 // PluginInstallReceipt records what plugins install built and pinned.
 // It is evidence about inputs, not publisher proof or a sandbox claim.
 type PluginInstallReceipt struct {
+	// API, ID and Version are the manifest's claims, kept for list and show.
+	API            string   `json:"api"`
+	ID             string   `json:"id"`
+	Version        string   `json:"version"`
 	Source         string   `json:"source"`
 	TreeSHA256     string   `json:"tree_sha256"`
 	ManifestSHA256 string   `json:"manifest_sha256"`
@@ -63,12 +67,17 @@ func (r *PluginInstallReceipt) valid() bool {
 		return false
 	}
 	_, err := time.Parse(time.RFC3339Nano, r.InstalledAt)
-	return err == nil && printableText(r.InstalledAt, 64) && r.validPaths() && r.validBuild()
+	return err == nil && printableText(r.InstalledAt, 64) && r.validPaths() && r.validBuild() && r.validClaims()
 }
 
 func (r *PluginInstallReceipt) validPaths() bool {
 	return printableText(r.Source, 1024) && filepath.IsAbs(r.Source) && filepath.Clean(r.Source) == r.Source &&
 		printableText(r.Artifact, 256) && r.Artifact != "" && filepath.IsLocal(r.Artifact) && filepath.Clean(r.Artifact) == r.Artifact
+}
+
+// validClaims bounds the manifest claims; the manifest check is in plugins.
+func (r *PluginInstallReceipt) validClaims() bool {
+	return r.API != "" && printableText(r.API, 32) && r.ID != "" && printableText(r.ID, 65) && r.Version != "" && printableText(r.Version, 32)
 }
 
 // validBuild: a build needs its resolved tool; a ready-made artifact has neither.
@@ -118,9 +127,6 @@ func (s PluginFeed) sweepPluginInstallFiles() error {
 func (s PluginFeed) BeginPluginInstall() (*PluginInstall, error) {
 	if err := s.checkName(); err != nil {
 		return nil, err
-	}
-	if s.name == "fake-notifier" {
-		return nil, model.NewError(model.CodeInvalidInput, "fake-notifier is reserved for the built-in plugin")
 	}
 	if err := s.locked(func() error {
 		if err := pluginDirectory(s.pluginDir(), true); err != nil {

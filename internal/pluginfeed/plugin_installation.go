@@ -60,17 +60,12 @@ func (s PluginFeed) AcquirePluginLease() (*os.File, error) {
 	return OpenPluginLease(filepath.Join(s.pluginDir(), s.name+".lock"))
 }
 
-// AddPlugin creates a disabled installation and its persistent private data dir.
-// An existing record is never replaced and abandoned data is never adopted.
-func (s PluginFeed) AddPlugin() error { return s.addPlugin(nil) }
-
-// AddExternalPlugin pins an owner-supplied launch specification before installation.
+// AddExternalPlugin pins an owner-supplied launch specification and creates
+// a disabled installation with its persistent private data dir. An existing
+// record is never replaced and abandoned data is never adopted.
 func (s PluginFeed) AddExternalPlugin(executable string, args []string) error {
 	if err := s.checkName(); err != nil {
 		return err
-	}
-	if s.name == "fake-notifier" {
-		return model.NewError(model.CodeInvalidInput, "fake-notifier is reserved for the built-in plugin")
 	}
 	launch, err := NewPluginLaunch(executable, args)
 	if err != nil {

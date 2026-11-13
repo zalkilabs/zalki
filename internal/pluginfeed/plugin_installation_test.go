@@ -47,7 +47,7 @@ func TestNamedPluginRemovalReaddAndPersistentData(t *testing.T) {
 	s := fixtureStore(t)
 	v, _ := register(t, s, "codex")
 	f := NewPluginFeed(s, "alpha")
-	if err := f.AddPlugin(); err != nil {
+	if err := f.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
 	}
 	before, err := f.PluginStatus()
@@ -87,7 +87,7 @@ func TestNamedPluginRejectsInvalidNamesWithoutState(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			s := bus.Store{Dir: filepath.Join(t.TempDir(), "absent")}
 			f := NewPluginFeed(s, name)
-			for _, call := range []func() error{f.AddPlugin, f.RemovePlugin, func() error { return f.ConfigurePluginFeed(nil) }, func() error { return f.EnablePluginFeed(true) }, func() error { _, err := nextFeed(f); return err }, func() error { return f.AckPluginFeed(PluginDelivery{}) }, func() error { _, err := f.PluginStatus(); return err }} {
+			for _, call := range []func() error{func() error { return f.AddExternalPlugin("/bin/sh", nil) }, f.RemovePlugin, func() error { return f.ConfigurePluginFeed(nil) }, func() error { return f.EnablePluginFeed(true) }, func() error { _, err := nextFeed(f); return err }, func() error { return f.AckPluginFeed(PluginDelivery{}) }, func() error { _, err := f.PluginStatus(); return err }} {
 				if err := call(); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 					t.Fatal("accepted invalid name", err)
 				}
@@ -102,7 +102,7 @@ func TestNamedPluginRejectsInvalidNamesWithoutState(t *testing.T) {
 func TestNamedPluginDoesNotAdoptAbandonedDataOrLegacyRecord(t *testing.T) {
 	s := fixtureStore(t)
 	f := NewPluginFeed(s, "alpha")
-	if err := f.AddPlugin(); err != nil {
+	if err := f.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(f.pluginPath()); err != nil {
@@ -111,7 +111,7 @@ func TestNamedPluginDoesNotAdoptAbandonedDataOrLegacyRecord(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(f.pluginDataPath(), "old"), []byte("old"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.AddPlugin(); model.ErrorCodeOf(err) != model.CodeConflict {
+	if err := f.AddExternalPlugin(testExecutable(t), nil); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("adopted abandoned data", err)
 	}
 	if err := f.RemovePlugin(); err != nil {
@@ -124,7 +124,7 @@ func TestNamedPluginDoesNotAdoptAbandonedDataOrLegacyRecord(t *testing.T) {
 	if err != nil || status.ID != "" || status.Enabled {
 		t.Fatal("read legacy record", status, err)
 	}
-	if err := f.AddPlugin(); err != nil {
+	if err := f.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -139,7 +139,7 @@ func assertNamedPluginLeaseProtectsRemoval(t *testing.T, f PluginFeed) {
 	if err := f.RemovePlugin(); err == nil {
 		t.Fatal("removed a leased installation")
 	}
-	if err := f.AddPlugin(); err == nil {
+	if err := f.AddExternalPlugin(testExecutable(t), nil); err == nil {
 		t.Fatal("replaced a leased installation")
 	}
 	if err := lease.Close(); err != nil {
@@ -150,7 +150,7 @@ func assertNamedPluginLeaseProtectsRemoval(t *testing.T, f PluginFeed) {
 func TestNamedPluginConfigureDoesNotRecreateRemovedInstallation(t *testing.T) {
 	s := fixtureStore(t)
 	f := NewPluginFeed(s, "alpha")
-	if err := f.AddPlugin(); err != nil {
+	if err := f.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.RemovePlugin(); err != nil {
@@ -170,7 +170,7 @@ func TestNamedPluginConfigureDoesNotRecreateRemovedInstallation(t *testing.T) {
 func installedNamedFeed(t *testing.T, s bus.Store, name string, ids ...string) PluginFeed {
 	t.Helper()
 	feed := NewPluginFeed(s, name)
-	if err := feed.AddPlugin(); err != nil {
+	if err := feed.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := feed.ConfigurePluginFeed(ids); err != nil {
@@ -225,7 +225,7 @@ func assertNamedPluginGrantIsolation(t *testing.T, s bus.Store, a, b PluginFeed,
 
 func assertNamedPluginReaddFences(t *testing.T, f PluginFeed, previousID, id string, old PluginDelivery) {
 	t.Helper()
-	if err := f.AddPlugin(); err != nil {
+	if err := f.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
 	}
 	after, err := f.PluginStatus()

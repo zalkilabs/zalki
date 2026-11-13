@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -23,7 +25,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	readChildTestMain()
 	v2ChildTestMain()
 	if len(os.Args) == 4 && os.Args[1] == "check-test-child" {
 		if err := checkTestChild(os.Args[2], os.Args[3]); err != nil {
@@ -39,8 +40,13 @@ func TestMain(m *testing.M) {
 		}
 		os.Exit(0)
 	}
-	if len(os.Args) == 4 && os.Args[1] == ChildCommand && os.Args[2] == "--outbox" {
-		if err := referenceOrFakeChild(os.Args[3]); err != nil {
+	if len(os.Args) == 2 && os.Args[1] == "host-fake-child" {
+		// The host starts a plugin in its data folder; the fake keeps its state there.
+		state, err := os.Getwd()
+		if err == nil {
+			err = fakeChild(state)
+		}
+		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -49,7 +55,7 @@ func TestMain(m *testing.M) {
 	if len(os.Args) == 3 && os.Args[1] == "host-test-worker" {
 		store, err := bus.NewStore(os.Args[2], adapters.Builtin(), nil)
 		if err == nil {
-			err = Run(context.Background(), store, os.Args[0], "fake-notifier", io.Discard)
+			err = Run(context.Background(), store, "fake-notifier", io.Discard)
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -60,38 +66,33 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func fakeChild(outbox string) error {
+// fakeChild is a feed-only plugin on the one wire. Its behavior comes from
+// the .child-mode file in its data folder.
+func fakeChild(state string) error {
 	// Raw FD3 remains open until process exit, including runtime exit handlers.
 	if err := pluginfeed.CheckPluginLeaseFD(3); err != nil {
 		return err
 	}
-	state := filepath.Dir(outbox)
 	mode, _ := os.ReadFile(filepath.Join(state, ".child-mode"))
 	if err := recordFakeChildEnvironment(state); err != nil {
 		return err
 	}
-	if string(mode) == "control-stderr" {
-		_, _ = os.Stderr.Write([]byte("\x1b[2Jhidden\x07\u202e\r\xff\nnext\tline"))
-		return errors.New("control stderr")
+	if strings.HasPrefix(string(mode), "stderr-") && string(mode) != "stderr-after-hello" {
+		_, _ = os.Stderr.WriteString("SENTINEL-PRIVATE-STDERR")
 	}
-	if string(mode) == "eof-before-hello" {
-		_, err := io.Copy(io.Discard, os.Stdin)
+	if done, err := fakeBeforeHello(string(mode)); done {
 		return err
 	}
-	if string(mode) == "slow-hello" {
-		time.Sleep(3 * time.Second) // A cold first launch, well inside helloTimeout.
-	}
-	if string(mode) == "no-hello" {
-		// Outlive the hello deadline so the host's timeout, not an exit, ends it.
-		time.Sleep(helloTimeout + 20*time.Second)
-		return nil
-	}
-	version := "v1"
-	if string(mode) == "bad-hello" {
-		version = "other"
-	}
-	if err := writeFrame(os.Stdout, frame{Hello: &hello{Version: version}}); err != nil {
+	if err := writeFrame(os.Stdout, frame{Hello: fakeHello(string(mode))}); err != nil {
 		return err
+	}
+	switch string(mode) {
+	case "v1-hello", "v1-read-hello", "v2-hello", "needs-members", "payload-version-hello", "stderr-needs-members", "stderr-bad-hello", "stderr-old-hello":
+		return recordHostFrames(state)
+	case "stderr-after-hello":
+		_ = recordHostFrames(state)
+		_, _ = os.Stderr.WriteString("feed-only diagnostic line")
+		return errors.New("stopped after hello")
 	}
 	if string(mode) == "no-read" {
 		time.Sleep(10 * time.Second)
@@ -113,9 +114,89 @@ func fakeChild(outbox string) error {
 	return fakeDeliveries(state, string(mode))
 }
 
+// fakeBeforeHello runs the modes that end or wait before the hello.
+func fakeBeforeHello(mode string) (bool, error) {
+	switch mode {
+	case "control-stderr":
+		_, _ = os.Stderr.Write([]byte("\x1b[2Jhidden\x07\u202e\r\xff\nnext\tline"))
+		return true, errors.New("control stderr")
+	case "eof-before-hello":
+		_, err := io.Copy(io.Discard, os.Stdin)
+		return true, err
+	case "slow-hello":
+		time.Sleep(3 * time.Second) // A cold first launch, well inside helloTimeout.
+	case "no-hello":
+		// Outlive the hello deadline so the host's timeout, not an exit, ends it.
+		time.Sleep(helloTimeout + 20*time.Second)
+		return true, nil
+	}
+	return false, nil
+}
+
+// fakeHello is the hello a fake child sends in each mode.
+func fakeHello(mode string) *hello {
+	switch mode {
+	case "v1-hello", "v1-read-hello", "v2-hello":
+		return &hello{Version: strings.TrimSuffix(mode, "-hello")}
+	case "bad-hello":
+		return &hello{Wire: "other"}
+	case "payload-version-hello":
+		return &hello{Version: "SENTINEL-VERSION\n\x1b[2Jfake prompt"}
+	case "needs-members":
+		return &hello{Wire: wireName, Requires: []string{"feed", "members"}}
+	case "stderr-needs-members":
+		return &hello{Wire: wireName, Requires: []string{"feed", "members"}}
+	case "stderr-bad-hello", "stderr-old-hello":
+		if mode == "stderr-old-hello" {
+			return &hello{Version: "v1"}
+		}
+		return &hello{Wire: "other"}
+	}
+	return &hello{Wire: wireName, Requires: []string{"feed"}}
+}
+
+// skipHostFrame drops the host's hello, hello_ok and terminal frames; a
+// terminal frame is followed by EOF, which the caller still reads.
+func skipHostFrame(reader *bufio.Reader) bool {
+	next, _ := reader.Peek(10)
+	if bytes.HasPrefix(next, []byte(`{"code"`)) || bytes.HasPrefix(next, []byte(`{"hello`)) {
+		_, _ = reader.ReadString('\n')
+		return true
+	}
+	return false
+}
+
+// recordHostFrames stores the host's first two frames (its hello, then
+// hello_ok or a terminal frame) for the test to read.
+func recordHostFrames(state string) error {
+	reader := bufio.NewReader(os.Stdin)
+	var frames []byte
+	for range 2 {
+		line, err := reader.ReadBytes('\n')
+		frames = append(frames, line...)
+		if err != nil {
+			break
+		}
+	}
+	return os.WriteFile(filepath.Join(state, ".host-frames"), frames, 0600)
+}
+
+// readHostFrames returns what recordHostFrames stored.
+func readHostFrames(t *testing.T, store bus.Store) string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(hostData(store), ".host-frames"))
+	if err != nil {
+		t.Fatal("the child stored no host frames", err)
+	}
+	return string(raw)
+}
+
 func fakeDeliveries(state, mode string) error {
 	reader := bufio.NewReaderSize(os.Stdin, maxFrame+1)
 	for {
+		if skipHostFrame(reader) {
+			continue
+		}
 		value, err := readFrame(reader)
 		if errors.Is(err, io.EOF) {
 			fakeEOF(state, mode)
@@ -186,7 +267,11 @@ func hostStore(t *testing.T) (bus.Store, model.Session) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").AddPlugin(); err != nil {
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").AddExternalPlugin(binary, []string{"host-fake-child"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").ConfigurePluginFeed([]string{session.ID}); err != nil {
@@ -204,13 +289,9 @@ func hostData(store bus.Store) string {
 
 func startHost(t *testing.T, store bus.Store) (context.CancelFunc, <-chan error) {
 	t.Helper()
-	binary, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, store, binary, "fake-notifier", io.Discard); close(done) }()
+	go func() { done <- Run(ctx, store, "fake-notifier", io.Discard); close(done) }()
 	t.Cleanup(func() {
 		cancel()
 		select {
@@ -246,7 +327,7 @@ func TestHostReapsChildOnEOFAndDoesNotInheritSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := startChild(t.Context(), binary, filepath.Join(hostData(store), "outbox"), lease)
+	c, err := launchChild(t.Context(), binary, []string{"host-fake-child"}, hostData(store), "", lease)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -481,14 +562,10 @@ func TestHostConsumesOneOfferAndHonorsDisable(t *testing.T) {
 
 func TestHostRequiresEnableAndRefusesSecondChild(t *testing.T) {
 	store, _ := hostStore(t)
-	binary, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if err := Run(t.Context(), store, binary, "fake-notifier", io.Discard); err == nil {
+	if err := Run(t.Context(), store, "fake-notifier", io.Discard); err == nil {
 		t.Fatal("disabled plugin launched")
 	}
 	if _, err := os.Stat(filepath.Join(hostData(store), ".child-env")); !os.IsNotExist(err) {
@@ -504,7 +581,7 @@ func TestHostRequiresEnableAndRefusesSecondChild(t *testing.T) {
 	})
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
-	if err := Run(ctx, store, binary, "fake-notifier", io.Discard); err == nil {
+	if err := Run(ctx, store, "fake-notifier", io.Discard); err == nil {
 		t.Fatal("second host was permitted")
 	}
 }
@@ -580,14 +657,10 @@ func (w cancelErrorWriter) Write([]byte) (int, error) {
 
 func TestHostPreservesWriterFailureDuringCancellation(t *testing.T) {
 	store, _ := hostStore(t)
-	binary, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	want := errors.New("owner output failed")
-	err = Run(ctx, store, binary, "fake-notifier", cancelErrorWriter{cancel, want})
+	err := Run(ctx, store, "fake-notifier", cancelErrorWriter{cancel, want})
 	if !errors.Is(err, want) {
 		t.Fatal("shutdown hid the observed owner output failure", err)
 	}
@@ -604,7 +677,7 @@ func TestHostPreservesProtocolFailureDuringCancellation(t *testing.T) {
 	cancel()
 	select {
 	case err := <-done:
-		if err == nil || !strings.Contains(err.Error(), "invalid ACK") {
+		if err == nil || errors.Is(err, context.Canceled) {
 			t.Fatal("shutdown hid the observed child protocol failure", err)
 		}
 	case <-time.After(3 * time.Second):
@@ -646,7 +719,7 @@ func TestHostPreservesObservedEOFDuringCancellation(t *testing.T) {
 	cancel()
 	select {
 	case err := <-done:
-		if !errors.Is(err, io.EOF) {
+		if err == nil || errors.Is(err, context.Canceled) {
 			t.Fatal("shutdown hid the previously observed stream EOF", err)
 		}
 	case <-time.After(3 * time.Second):
@@ -743,4 +816,192 @@ func TestPlainStderr(t *testing.T) {
 func nextFeed(f pluginfeed.PluginFeed) (pluginfeed.PluginDelivery, error) {
 	status, _ := f.PluginStatus() // a load error comes back from NextPluginFeed too
 	return f.NextPluginFeed(&status)
+}
+
+// SECURITY (slice W): a disable while an offer is pending ends the host
+// quietly. The ACK the child sends after the disable is never applied, and
+// the lease is free when Run returns.
+func TestHostDisableWithPendingOfferAppliesNoLateAck(t *testing.T) {
+	store, _ := hostStore(t)
+	feed := pluginfeed.NewPluginFeed(store, "fake-notifier")
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("hold"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, done := startHost(t, store)
+	eventually(t, func() bool {
+		matches, err := filepath.Glob(filepath.Join(hostData(store), ".seen-*"))
+		return err == nil && len(matches) > 0
+	})
+	record := filepath.Join(store.Dir, "plugins", "fake-notifier.json")
+	if err := feed.EnablePluginFeed(false); err != nil {
+		t.Fatal(err)
+	}
+	disabled, err := os.ReadFile(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Only now may the child send its ACK for the offer it holds.
+	if err := os.WriteFile(filepath.Join(hostData(store), ".allow-ack"), []byte("yes"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal("a disable must end the host quietly", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("disabled host stayed alive")
+	}
+	if after, err := os.ReadFile(record); err != nil || !bytes.Equal(after, disabled) {
+		t.Fatal("an ACK after the disable changed the record", err)
+	}
+	lease, err := feed.AcquirePluginLease()
+	if err != nil {
+		t.Fatal("the lease is still held after Run returned", err)
+	}
+	_ = lease.Close()
+}
+
+// A plugin on the old wire gets a named refusal and a terminal frame.
+func TestHostRefusesTheOldWireByName(t *testing.T) {
+	for _, version := range []string{"v1", "v1-read", "v2"} {
+		store, _ := hostStore(t)
+		if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte(version+"-hello"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		err := Run(t.Context(), store, "fake-notifier", io.Discard)
+		want := "fake-notifier uses the old plugin wire (" + version + "). Zalki now speaks only zalki-plugin/1"
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatal("old wire not refused by name", version, err)
+		}
+		if frames := readHostFrames(t, store); !strings.Contains(frames, `{"code":"unsupported_wire"}`) {
+			t.Fatalf("no unsupported_wire frame for %s: %q", version, frames)
+		}
+	}
+}
+
+// A version value that is not a known old wire is plugin text: the refusal
+// is generic and never shows it (no newline, escape or sentinel).
+func TestHostNeverEchoesAnUnknownHelloVersion(t *testing.T) {
+	store, _ := hostStore(t)
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("payload-version-hello"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	err := Run(t.Context(), store, "fake-notifier", io.Discard)
+	if err == nil || !strings.Contains(err.Error(), errHelloVersion.Error()) {
+		t.Fatal("unknown version not refused", err)
+	}
+	if text := err.Error(); strings.Contains(text, "SENTINEL") || strings.ContainsAny(text, "\n\x1b") || strings.Contains(text, "old plugin wire") {
+		t.Fatalf("the refusal echoed plugin text: %q", text)
+	}
+	if frames := readHostFrames(t, store); !strings.Contains(frames, `{"code":"protocol_error"}`) {
+		t.Fatalf("no protocol_error frame: %q", frames)
+	}
+	long := strings.Repeat("A", 4096)
+	for _, h := range []*hello{
+		{Version: "v1\nSENTINEL"}, {Version: long},
+		{Wire: wireName, Requires: []string{"feed\n\x1b[2JSENTINEL"}},
+		{Wire: wireName, Requires: []string{long}},
+		{Wire: "SENTINEL\x1b[31m"},
+	} {
+		_, _, err := negotiate(frame{Hello: h}, hostCapabilities)
+		if text := helloError("p", err).Error(); strings.Contains(text, "SENTINEL") || strings.Contains(text, "AAAA") || strings.ContainsAny(text, "\n\x1b") || len(text) > 200 {
+			t.Errorf("owner text shows plugin bytes: %q", text)
+		}
+	}
+	for _, version := range oldWires {
+		if _, _, err := negotiate(frame{Hello: &hello{Version: version}}, hostCapabilities); !strings.Contains(helloError("p", err).Error(), "("+version+")") {
+			t.Errorf("known old wire %s is not named: %v", version, err)
+		}
+	}
+}
+
+// A plugin with message grants never shows its stderr, also when its hello
+// fails. The known hints (old wire, missing capability) still name the cause.
+func TestGrantedPluginStderrIsWithheldWhenTheHelloFails(t *testing.T) {
+	for mode, want := range map[string]string{
+		"stderr-bad-hello":     errHelloVersion.Error(),
+		"stderr-old-hello":     "uses the old plugin wire (v1)",
+		"stderr-needs-members": `needs "members"`,
+	} {
+		store, session := hostStore(t)
+		feed := pluginfeed.NewPluginFeed(store, "fake-notifier")
+		if err := feed.EnablePluginFeed(false); err != nil {
+			t.Fatal(err)
+		}
+		if err := feed.GrantPluginCapabilities(pluginfeed.PluginCapabilityGrants{Receive: []string{session.ID}}); err != nil {
+			t.Fatal(err)
+		}
+		if err := feed.EnablePluginFeed(true); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte(mode), 0600); err != nil {
+			t.Fatal(err)
+		}
+		err := Run(t.Context(), store, "fake-notifier", io.Discard)
+		if err == nil || !strings.Contains(err.Error(), want) || strings.Contains(err.Error(), "SENTINEL-PRIVATE-STDERR") {
+			t.Fatalf("%s: %v", mode, err)
+		}
+	}
+}
+
+// A required capability the host does not offer stops the start with a
+// named reason and a missing_capability frame, before any offer.
+func TestHostStopsAPluginThatRequiresAMissingCapability(t *testing.T) {
+	store, _ := hostStore(t)
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("needs-members"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	err := Run(t.Context(), store, "fake-notifier", io.Discard)
+	if err == nil || !strings.Contains(err.Error(), `fake-notifier needs "members", which this Zalki does not offer (or which is not granted). Update Zalki or grant it`) {
+		t.Fatal("missing capability not named", err)
+	}
+	frames := readHostFrames(t, store)
+	if !strings.Contains(frames, `{"code":"missing_capability","missing":["members"]}`) || strings.Contains(frames, `"event"`) || strings.Contains(frames, `"gap"`) {
+		t.Fatalf("host frames: %q", frames)
+	}
+}
+
+// A feed-only plugin is offered only feed: inbox, reply, send and read need grants.
+func TestHostOffersOnlyGrantedCapabilities(t *testing.T) {
+	store, _ := hostStore(t)
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("stderr-after-hello"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_ = Run(t.Context(), store, "fake-notifier", io.Discard)
+	frames := readHostFrames(t, store)
+	if !strings.Contains(frames, `"capabilities":["feed"]}`) {
+		t.Fatalf("feed-only host hello: %q", frames)
+	}
+	for _, test := range []struct {
+		grants pluginfeed.PluginCapabilityGrants
+		want   []string
+	}{
+		{pluginfeed.PluginCapabilityGrants{}, []string{"feed"}},
+		{pluginfeed.PluginCapabilityGrants{Receive: []string{"a"}}, []string{"feed", "inbox", "reply"}},
+		{pluginfeed.PluginCapabilityGrants{Send: []string{"a"}}, []string{"feed", "send"}},
+		{pluginfeed.PluginCapabilityGrants{Read: []string{"a"}}, []string{"feed", "read"}},
+		{pluginfeed.PluginCapabilityGrants{Receive: []string{"a"}, Send: []string{"a"}, Read: []string{"a"}}, hostCapabilities},
+	} {
+		status := &pluginfeed.PluginFeedStatus{Capabilities: &pluginfeed.PluginCapabilities{PluginCapabilityGrants: test.grants}}
+		if got := grantedCapabilities(status); !slices.Equal(got, test.want) {
+			t.Errorf("%+v: offered %v, want %v", test.grants, got, test.want)
+		}
+	}
+	if got := grantedCapabilities(&pluginfeed.PluginFeedStatus{}); !slices.Equal(got, []string{"feed"}) {
+		t.Errorf("no grants: offered %v", got)
+	}
+}
+
+// A feed-only plugin never sees message text, so its stderr is shown to the
+// owner when it fails after the hello. (With message grants it is hidden.)
+func TestHostShowsFeedOnlyStderrAfterHello(t *testing.T) {
+	store, _ := hostStore(t)
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("stderr-after-hello"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	err := Run(t.Context(), store, "fake-notifier", io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "feed-only diagnostic line") {
+		t.Fatal("feed-only stderr was hidden", err)
+	}
 }

@@ -46,16 +46,16 @@ var installTerminal = func(in io.Reader) (installChoice, func()) {
 
 type installFlags struct {
 	yes, allowUnsandboxed bool
-	tree                  string
+	tree, as              string
 	grants                pluginfeed.PluginInstallGrants
 }
 
 func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 	var flags installFlags
 	cmd := &cobra.Command{
-		Use:   "install FOLDER",
+		Use:   "install FOLDER [--as NAME]",
 		Short: "Build, pin, grant and enable a local plugin folder after one review",
-		Long: "Install reads zalki-plugin.json in FOLDER, copies the folder to a private staging folder, and shows one review screen with one [y/N] question. After yes it builds the copy, pins the result, records the selected access and enables the plugin in one step. Failure installs nothing. Enabled does not mean running: start it with zalki plugins run NAME.\n\n" +
+		Long: "Install reads zalki-plugin.json in FOLDER, copies the folder to a private staging folder, and shows one review screen with one [y/N] question. After yes it builds the copy, pins the result, records the selected access and enables the plugin in one step. Failure installs nothing. Enabled does not mean running: start it with zalki plugins run NAME. NAME is the manifest name, or --as NAME to install one more instance of the same plugin with its own data, lease and access.\n\n" +
 			installWarning +
 			"\n\nWithout a terminal, --yes needs --tree-sha256, --allow-unsandboxed and explicit access flags. --yes never grants everything the plugin asks for.",
 		Args: cobra.ExactArgs(1),
@@ -67,6 +67,7 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 			return (&pluginInstaller{cmd: cmd, store: service.Store, flags: flags}).run(args[0])
 		},
 	}
+	cmd.Flags().StringVar(&flags.as, "as", "", "local name of this instance (default: the manifest name)")
 	cmd.Flags().BoolVar(&flags.yes, "yes", false, "install without the review screen; needs the flags below")
 	cmd.Flags().StringVar(&flags.tree, "tree-sha256", "", "expected snapshot hash of FOLDER (with --yes)")
 	cmd.Flags().BoolVar(&flags.allowUnsandboxed, "allow-unsandboxed", false, "accept that the build and plugin run without a sandbox (with --yes)")
@@ -85,6 +86,7 @@ type pluginInstaller struct {
 	source  plugins.InstallSource
 	tool    plugins.InstallTool
 	folder  string
+	name    string // the local instance name: --as, or the manifest name
 }
 
 func (p *pluginInstaller) say(format string, args ...any) {
@@ -104,7 +106,10 @@ func (p *pluginInstaller) run(folder string) (err error) {
 	if err != nil {
 		return err
 	}
-	if p.install, err = pluginfeed.NewPluginFeed(p.store, manifest.Name).BeginPluginInstall(); err != nil {
+	if p.name = manifest.Name; p.flags.as != "" {
+		p.name = p.flags.as
+	}
+	if p.install, err = pluginfeed.NewPluginFeed(p.store, p.name).BeginPluginInstall(); err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, p.install.Close()) }()
@@ -143,7 +148,7 @@ func (p *pluginInstaller) prepare(name string) error {
 func (p *pluginInstaller) header() string {
 	m := p.source.Manifest
 	var b strings.Builder
-	fmt.Fprintf(&b, "Install %s\n", m.Name)
+	fmt.Fprintf(&b, "Install %q (%s %s, author's claim)\n", p.name, m.ID, plainText(m.Version))
 	fmt.Fprintf(&b, "Source: %s\n", plainText(p.folder))
 	fmt.Fprintf(&b, "Snapshot: %s\n", p.source.TreeSHA256)
 	fmt.Fprintf(&b, "Read the copied source: %s\n", plainText(p.source.Dir))
@@ -253,7 +258,7 @@ func unrequestedInstallFlags(g pluginfeed.PluginInstallGrants, r plugins.Install
 
 func (p *pluginInstaller) finish(grants pluginfeed.PluginInstallGrants) error {
 	m := p.source.Manifest
-	receipt := pluginfeed.PluginInstallReceipt{Source: p.folder, TreeSHA256: p.source.TreeSHA256, ManifestSHA256: p.source.ManifestSHA256, Build: m.Build, Artifact: m.Artifact, InstalledAt: model.Timestamp()}
+	receipt := pluginfeed.PluginInstallReceipt{API: m.API, ID: m.ID, Version: m.Version, Source: p.folder, TreeSHA256: p.source.TreeSHA256, ManifestSHA256: p.source.ManifestSHA256, Build: m.Build, Artifact: m.Artifact, InstalledAt: model.Timestamp()}
 	ctx := p.cmd.Context()
 	if len(m.Build) > 0 {
 		installStep("build")
@@ -272,7 +277,7 @@ func (p *pluginInstaller) finish(grants pluginfeed.PluginInstallGrants) error {
 				p.install.KeepBuildLog()
 			}
 			p.say("%s\n", plainLines(plugins.TailInstallLog(log, 20)))
-			return fmt.Errorf("build failed: %w. Nothing was installed. Full log: %s (removed by the next install of %s or by plugins remove %s)", err, log, m.Name, m.Name)
+			return fmt.Errorf("build failed: %w. Nothing was installed. Full log: %s (removed by the next install of %s or by plugins remove %s)", err, log, p.name, p.name)
 		}
 	}
 	p.say("Verifying...\n")
@@ -288,10 +293,10 @@ func (p *pluginInstaller) finish(grants pluginfeed.PluginInstallGrants) error {
 	if ctx.Err() != nil {
 		return errInstallCancelled
 	}
-	if err := installCommitError(m.Name)(p.install.Commit(artifact, m.Args, grants, receipt)); err != nil {
+	if err := installCommitError(p.name)(p.install.Commit(artifact, m.Args, grants, receipt)); err != nil {
 		return err
 	}
-	p.say("Installed and enabled %s. Access: %s. Not running yet: start it with zalki plugins run %s\n", m.Name, describeInstallGrants(grants), m.Name)
+	p.say("Installed and enabled %s. Access: %s. Not running yet: start it with zalki plugins run %s\n", p.name, describeInstallGrants(grants), p.name)
 	return nil
 }
 

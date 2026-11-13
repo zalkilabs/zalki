@@ -16,7 +16,7 @@ import (
 const testSHA = "0000000000000000000000000000000000000000000000000000000000000001"
 
 func testInstallReceipt() PluginInstallReceipt {
-	return PluginInstallReceipt{Source: "/src/demo", TreeSHA256: testSHA, ManifestSHA256: testSHA, Build: []string{"go", "build"}, Tool: "/usr/bin/go", ToolSHA256: testSHA, Artifact: "plugin", InstalledAt: model.Timestamp()}
+	return PluginInstallReceipt{API: "zalki-plugin/1", ID: "local/demo", Version: "0.1.0", Source: "/src/demo", TreeSHA256: testSHA, ManifestSHA256: testSHA, Build: []string{"go", "build"}, Tool: "/usr/bin/go", ToolSHA256: testSHA, Artifact: "plugin", InstalledAt: model.Timestamp()}
 }
 
 func stagedTestArtifact(t *testing.T, install *PluginInstall) string {
@@ -229,13 +229,13 @@ func TestPluginInstallRefusesExistingAndReservedNames(t *testing.T) {
 	if _, err := os.Stat(bin); err != nil {
 		t.Fatal("refused attempt swept a live artifact", err)
 	}
-	for _, name := range []string{"fake-notifier", "../x", ".staging", "Demo"} {
+	for _, name := range []string{"../x", ".staging", "Demo"} {
 		if _, err := NewPluginFeed(s, name).BeginPluginInstall(); err == nil {
 			t.Fatal(name, "accepted")
 		}
 	}
 	added := NewPluginFeed(s, "added")
-	if err := added.AddPlugin(); err != nil {
+	if err := added.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := added.BeginPluginInstall(); model.ErrorCodeOf(err) != model.CodeConflict {
@@ -452,6 +452,7 @@ func receiptPoison(t *testing.T, original json.RawMessage) map[string]json.RawMe
 func assertReceiptNeedsLaunch(t *testing.T, f PluginFeed, record map[string]json.RawMessage, original json.RawMessage) {
 	t.Helper()
 	// A receipt without a launch is poison too; install null means no receipt.
+	launch, capabilities := record["launch"], record["capabilities"]
 	record["install"] = original
 	delete(record, "launch")
 	delete(record, "capabilities")
@@ -462,7 +463,11 @@ func assertReceiptNeedsLaunch(t *testing.T, f PluginFeed, record map[string]json
 	if _, err := f.PluginStatus(); err == nil {
 		t.Error("receipt without launch accepted")
 	}
-	record["install"] = json.RawMessage(`null`)
+	// Every record has a launch now, so the null-receipt case keeps it.
+	record["install"], record["launch"] = json.RawMessage(`null`), launch
+	if capabilities != nil {
+		record["capabilities"] = capabilities
+	}
 	out, _ = json.Marshal(record)
 	if err := journal.WriteAtomic(f.pluginPath(), out); err != nil {
 		t.Fatal(err)
@@ -491,7 +496,13 @@ func TestPluginInstallCommitRechecksUnderLock(t *testing.T) {
 	v, _ := register(t, s, "codex")
 	f := NewPluginFeed(s, "demo")
 	changes := []func() error{
-		func() error { return f.locked(func() error { return createPluginInstallation(f, nil) }) },
+		func() error {
+			launch, err := NewPluginLaunch(testExecutable(t), nil)
+			if err != nil {
+				return err
+			}
+			return f.locked(func() error { return createPluginInstallation(f, &launch) })
+		},
 		func() error {
 			if err := os.Mkdir(f.pluginDataPath(), 0700); err != nil {
 				return err

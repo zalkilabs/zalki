@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,30 +44,12 @@ func (x *v2Fixture) pluginMail(t *testing.T) (model.Message, pluginfeed.PluginFe
 	return m, reader, status
 }
 
-func TestReadHostRefusesAnotherPluginsMail(t *testing.T) {
-	x := v2HostFixture(t)
-	m, reader, status := x.pluginMail(t)
-	rd, wr, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rd.Close()
-	h := &readHost{ctx: t.Context(), feed: reader, binding: &status, child: &child{input: wr}, failed: make(chan string, 1)}
-	if err := h.respond(&readCommand{done: make(chan struct{}), Read: &readRequest{Session: x.asker.ID, Message: m.ID}}); err != nil {
-		t.Fatal(err)
-	}
-	wr.Close()
-	raw, err := io.ReadAll(rd)
-	if err != nil || !bytes.Contains(raw, []byte(`"code":"unavailable"`)) || bytes.Contains(raw, []byte("PRIVATE")) {
-		t.Fatalf("v1-read gave another plugin's mail: %s %v", raw, err)
-	}
-}
-
 func TestV2ReadRefusesAnotherPluginsMail(t *testing.T) {
 	x := v2HostFixture(t)
 	m, reader, status := x.pluginMail(t)
 	h := &v2Host{feed: reader, binding: &status}
-	if r := h.read(&v2Read{RequestID: "r", Session: x.asker.ID, Message: m.ID}); r.Code != "unavailable" || r.Message != nil {
+	r := &v2Result{Op: "read", RequestID: "r"}
+	if h.read(&v2Read{Session: x.asker.ID, Message: m.ID}, r); r.Code != "unavailable" || r.Result != nil {
 		t.Fatalf("v2 read gave another plugin's mail: %+v", r)
 	}
 }
@@ -124,24 +105,26 @@ func TestV2HostWithholdsAnOldOversizedBody(t *testing.T) {
 	h := &v2Host{ctx: t.Context(), feed: x.feed, binding: &x.status, child: &child{input: wr}}
 	in := bufio.NewReader(rd)
 	for range 2 {
-		line := x.handleLine(t, h, in, &v2Command{Next: &v2Next{RequestID: "n"}})
+		line := x.handleLine(t, h, in, &v2Command{Op: "inbox_next", RequestID: "n"})
 		var reply struct {
-			Result struct {
-				Code    string         `json:"code"`
-				Message map[string]any `json:"message"`
-			} `json:"inbox_result"`
+			Reply struct {
+				Code   string `json:"code"`
+				Result struct {
+					Message map[string]any `json:"message"`
+				} `json:"result"`
+			} `json:"reply"`
 		}
-		if json.Unmarshal(line, &reply) != nil || len(line) > 1024 || reply.Result.Code != "too_large" {
+		if json.Unmarshal(line, &reply) != nil || len(line) > 1024 || reply.Reply.Code != "too_large" {
 			t.Fatalf("inbox_next of an oversized body: %s", line)
 		}
-		if m := reply.Result.Message; m["id"] != x.request.ID || m["body_bytes"] != float64(16<<10) || m["body"] != nil {
+		if m := reply.Reply.Result.Message; m["id"] != x.request.ID || m["body_bytes"] != float64(16<<10) || m["body"] != nil {
 			t.Fatalf("too_large result: %v", m)
 		}
 	}
 	if x.record(t, x.request.ID).AcknowledgedAt != "" {
 		t.Fatal("inbox_next acknowledged the message")
 	}
-	line := x.handleLine(t, h, in, &v2Command{Consume: &v2Consume{RequestID: "c", Message: x.request.ID}})
+	line := x.handleLine(t, h, in, &v2Command{Op: "inbox_consume", RequestID: "c", Consume: &v2Consume{Message: x.request.ID}})
 	if !bytes.Contains(line, []byte(`"code":"ok"`)) || x.record(t, x.request.ID).AcknowledgedAt == "" {
 		t.Fatalf("consume of the oversized message: %s", line)
 	}

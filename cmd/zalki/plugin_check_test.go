@@ -20,19 +20,13 @@ func checkRealBinary(t *testing.T) string {
 }
 
 func TestPluginCheckRawExecDoesNotCreateRealStateOrLogger(t *testing.T) {
-	binary := checkRealBinary(t)
 	state := filepath.Join(t.TempDir(), "must-not-create")
 	log := filepath.Join(state, "logs", "must-not-create")
-	parent := t.TempDir()
-	if err := os.Chmod(parent, 0700); err != nil {
-		t.Fatal(err)
-	}
-	outbox := filepath.Join(parent, "oracle-outbox")
 	cmd := newRootCommand(t.TempDir())
 	var output bytes.Buffer
 	cmd.SetOut(&output)
 	cmd.SetErr(&output)
-	cmd.SetArgs([]string{"--state", state, "--log-level", "debug", "--log-file", log, "plugins", "check", "--exec", binary, "--", "plugin-notifier", "--outbox", outbox})
+	cmd.SetArgs([]string{"--state", state, "--log-level", "debug", "--log-file", log, "plugins", "check", "--exec", feedFixture(t)})
 	if err := cmd.ExecuteContext(t.Context()); err != nil {
 		t.Fatal(output.String(), err)
 	}
@@ -42,15 +36,12 @@ func TestPluginCheckRawExecDoesNotCreateRealStateOrLogger(t *testing.T) {
 	if _, err := os.Stat(state); !os.IsNotExist(err) {
 		t.Fatal("raw check created real state/log", err)
 	}
-	if files, err := os.ReadDir(outbox); err != nil || len(files) != 2 {
-		t.Fatal("reference-only oracle did not see two synthetic events", files, err)
-	}
 }
 
 func TestPluginCheckNamedDisabledDoesNotAdvanceProfileOrUseRealData(t *testing.T) {
 	binary := checkRealBinary(t)
 	store, _ := pluginOwnerFixture(t)
-	if raw, err := pluginOwnerCLI(t, binary, store.Dir, "add", "fake-notifier"); err != nil {
+	if raw, err := pluginOwnerCLI(t, binary, store.Dir, "add", "fake-notifier", "--exec", feedFixture(t)); err != nil {
 		t.Fatal(string(raw), err)
 	}
 	path := filepath.Join(store.Dir, "plugins", "fake-notifier.json")

@@ -8,17 +8,16 @@ import (
 	"path/filepath"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
 // Run owns one foreground child; only the bounded feed API enters Store flock.
-func Run(ctx context.Context, store bus.Store, binary, name string, output io.Writer) (resultErr error) {
+func Run(ctx context.Context, store bus.Store, name string, output io.Writer) (resultErr error) {
 	if ctx.Err() != nil {
 		return nil
 	}
-	if !filepath.IsAbs(binary) || !filepath.IsAbs(store.Dir) {
-		return errors.New("plugin requires the absolute path of this binary")
+	if !filepath.IsAbs(store.Dir) {
+		return errors.New("plugin requires an absolute state directory")
 	}
 	feed := pluginfeed.NewPluginFeed(store, name)
 	status, err := feed.PluginStatus()
@@ -37,7 +36,7 @@ func Run(ctx context.Context, store bus.Store, binary, name string, output io.Wr
 	if err != nil {
 		return err
 	}
-	launch, ready, err := prepareLaunch(status, binary)
+	launch, ready, err := prepareLaunch(status)
 	if err != nil {
 		return err
 	}
@@ -48,6 +47,10 @@ func Run(ctx context.Context, store bus.Store, binary, name string, output io.Wr
 		}
 		return err
 	}
+	// A plugin with message grants may see message text, so its stderr is
+	// never shown, from the start: also when its hello fails or times out.
+	// A feed-only plugin sees no text; its stderr is shown.
+	c.readMode.Store(status.Capabilities != nil)
 	defer func() {
 		cause := resultErr
 		resultErr = c.stop(cause)
@@ -55,75 +58,12 @@ func Run(ctx context.Context, store bus.Store, binary, name string, output io.Wr
 			resultErr = nil
 		}
 	}()
-	header, err := c.receive(helloTimeout)
+	enabled, err := greet(c, grantedCapabilities(&status))
 	if err != nil {
-		return fmt.Errorf("plugin hello failed: %w", err)
+		return helloError(name, err)
 	}
-	return serve(ctx, store, feed, &status, c, output, ready, header)
-}
-
-// serve runs the host for the version in the child's hello.
-func serve(ctx context.Context, store bus.Store, feed pluginfeed.PluginFeed, status *pluginfeed.PluginFeedStatus, c *child, output io.Writer, ready string, header frame) error {
-	switch {
-	case header.Hello != nil && header.Hello.Version == "v2":
-		service := &bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox, PluginSend: pluginfeed.BoundPluginSend(status)}
-		return runV2Host(ctx, feed, service, status, c, output, ready, header)
-	case !header.validHello():
-		return runReadHost(ctx, feed, status, c, output, ready, header)
-	}
-	return hostLoop(ctx, feed, status, c, output, ready)
-}
-
-// launchEnded is the result of a v1 host whose launch no longer holds: a
-// disabled plugin stops quietly, a newer enable or grant asks for a restart.
-func launchEnded(feed pluginfeed.PluginFeed, launch *pluginfeed.PluginFeedStatus) error {
-	if current, err := feed.PluginStatus(); err == nil && current.Enabled {
-		return fmt.Errorf("plugin grants changed while it ran; start it again with zalki plugins run %s", launch.Name)
-	}
-	return nil
-}
-
-func hostLoop(ctx context.Context, feed pluginfeed.PluginFeed, launch *pluginfeed.PluginFeedStatus, c *child, output io.Writer, readyMessage string) error {
-	ready := false
-	for ctx.Err() == nil {
-		if err := c.idle(); err != nil {
-			return err
-		}
-		d, err := feed.NextPluginFeed(launch)
-		if err != nil {
-			var domain *model.Error
-			if errors.As(err, &domain) && domain.Code == model.CodeUnauthorized {
-				return launchEnded(feed, launch)
-			}
-			return err
-		}
-		if d.ID != "" {
-			if err := deliver(feed, c, d); err != nil {
-				return err
-			}
-		}
-		if !ready {
-			if _, err := fmt.Fprintln(output, readyMessage); err != nil {
-				return err
-			}
-			ready = true
-		}
-	}
-	return nil
-}
-
-func deliver(feed pluginfeed.PluginFeed, c *child, d pluginfeed.PluginDelivery) error {
-	if err := c.exchange(frame{ID: d.ID, Gap: d.Gap, Event: d.Event}); err != nil {
-		return fmt.Errorf("plugin delivery failed: %w", err)
-	}
-	err := feed.AckPluginFeed(d)
-	if err != nil {
-		status, check := feed.PluginStatus()
-		if check == nil && !status.Enabled {
-			return nil
-		}
-	}
-	return err
+	service := &bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox, PluginSend: pluginfeed.BoundPluginSend(&status)}
+	return runV2Host(ctx, feed, service, &status, c, output, ready, enabled)
 }
 
 func checkInstallation(feed pluginfeed.PluginFeed, id string) (pluginfeed.PluginFeedStatus, error) {
@@ -137,12 +77,8 @@ func checkInstallation(feed pluginfeed.PluginFeed, id string) (pluginfeed.Plugin
 	return current, nil
 }
 
-func prepareLaunch(status pluginfeed.PluginFeedStatus, binary string) (pluginfeed.PluginLaunch, string, error) {
+func prepareLaunch(status pluginfeed.PluginFeedStatus) (pluginfeed.PluginLaunch, string, error) {
 	ready := status.Name + " ready"
-	if status.Name == "fake-notifier" {
-		outbox := filepath.Join(status.DataDir, "outbox")
-		return pluginfeed.PluginLaunch{Executable: binary, Args: []string{ChildCommand, "--outbox", outbox}}, ready + "; local outbox: " + outbox, nil
-	}
 	if status.Launch == nil {
 		return pluginfeed.PluginLaunch{}, "", errors.New("plugin has no external executable")
 	}

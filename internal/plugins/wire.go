@@ -1,4 +1,4 @@
-// Package plugins runs the single explicitly enabled local reference plugin.
+// Package plugins runs explicitly enabled local plugins over the one plugin wire.
 package plugins
 
 import (
@@ -12,9 +12,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// ChildCommand is the private reference-child subcommand of the same binary.
-const ChildCommand = "plugin-notifier"
-
 const maxFrame = 64 << 10
 
 // helloTimeout bounds how long run and check wait for a plugin's first frame.
@@ -26,19 +23,39 @@ const helloTimeout = 10 * time.Second
 
 var errPartialFrameEOF = errors.New("plugin stream ended mid-frame")
 
-// errHelloVersion refuses any hello other than feed v1, v1-read or v2.
-var errHelloVersion = errors.New("plugin requires hello.version=v1, v1-read or v2; rebuild a v0 plugin against feed v1")
+// wireName is the one plugin wire this host speaks.
+const wireName = "zalki-plugin/1"
 
+// errHelloVersion refuses any hello the one plugin wire does not speak.
+var errHelloVersion = errors.New("plugin must start with the zalki-plugin/1 hello; rebuild it against the current plugin wire")
+
+// hello is the plugin's hello. Version is decoded only to name an old wire
+// (v1, v1-read, v2) in the refusal; the current wire never sets it.
 type hello struct {
-	Version string `json:"version"`
+	Wire     string   `json:"wire,omitempty"`
+	Version  string   `json:"version,omitempty"`
+	Requires []string `json:"requires,omitempty"`
+	Optional []string `json:"optional,omitempty"`
 }
 
+// frame is one plugin frame: the hello, an ack, or one request in the
+// envelope {op, request_id, idempotency_key, args}. The host also writes
+// feed offers ({id, gap, event}) with it.
 type frame struct {
-	Hello *hello       `json:"hello,omitempty"`
-	ID    string       `json:"id,omitempty"`
-	Gap   string       `json:"gap,omitempty"`
-	Event *model.Event `json:"event,omitempty"`
-	Ack   string       `json:"ack,omitempty"`
+	Hello          *hello          `json:"hello,omitempty"`
+	ID             string          `json:"id,omitempty"`
+	Gap            string          `json:"gap,omitempty"`
+	Event          *model.Event    `json:"event,omitempty"`
+	Ack            string          `json:"ack,omitempty"`
+	Op             string          `json:"op,omitempty"`
+	RequestID      string          `json:"request_id,omitempty"`
+	IdempotencyKey string          `json:"idempotency_key,omitempty"`
+	Args           json.RawMessage `json:"args,omitempty"`
+}
+
+// isRequest reports a frame in the request envelope.
+func (f frame) isRequest() bool {
+	return f.Op != "" || f.RequestID != "" || f.IdempotencyKey != "" || f.Args != nil
 }
 
 func readFrame(reader *bufio.Reader) (frame, error) {
@@ -76,7 +93,7 @@ func decodeFrame(raw []byte, target any) error {
 	return nil
 }
 
-func writeFrame(output io.Writer, value frame) error {
+func writeFrame(output io.Writer, value any) error {
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -90,8 +107,4 @@ func writeFrame(output io.Writer, value frame) error {
 		return io.ErrShortWrite
 	}
 	return err
-}
-
-func (f frame) validHello() bool {
-	return f.Hello != nil && f.Hello.Version == "v1" && f.ID == "" && f.Ack == "" && f.Gap == "" && f.Event == nil
 }
