@@ -16,11 +16,11 @@ func TestWireRefusesBadFrames(t *testing.T) {
 		}
 	}
 	var output bytes.Buffer
-	if err := writeFrame(&output, frame{Hello: &hello{Version: "v1"}}); err != nil {
+	if err := writeFrame(&output, frame{Hello: &hello{Wire: wireName, Requires: []string{"feed"}}}); err != nil {
 		t.Fatal(err)
 	}
 	value, err := readFrame(bufio.NewReaderSize(&output, maxFrame+1))
-	if err != nil || value.Hello == nil || value.Hello.Version != "v1" {
+	if err != nil || !isHello(value) || value.Hello.Requires[0] != "feed" {
 		t.Fatal("hello roundtrip", value, err)
 	}
 	if err := writeFrame(shortWriter{}, frame{Ack: "00000000-0000-4000-8000-000000000001"}); !errors.Is(err, io.ErrShortWrite) {
@@ -47,11 +47,11 @@ func TestWireDistinguishesEmptyFrameFromStreamEOF(t *testing.T) {
 }
 
 func TestWireEnforcesFrameSizeBoundaries(t *testing.T) {
-	const body = `{"hello":{"version":"v1"}}`
+	const body = `{"hello":{"wire":"zalki-plugin/1"}}`
 	for _, size := range []int{maxFrame, maxFrame + 1} {
 		raw := body + strings.Repeat(" ", size-len(body)-1) + "\n"
 		value, err := readFrame(bufio.NewReaderSize(strings.NewReader(raw), maxFrame+1))
-		if size == maxFrame && (err != nil || !value.validHello()) {
+		if size == maxFrame && (err != nil || !isHello(value)) {
 			t.Fatal("exact-limit frame was refused", err)
 		}
 		if size > maxFrame && err == nil {
@@ -64,14 +64,14 @@ func TestWireEnforcesFrameSizeBoundaries(t *testing.T) {
 	}
 }
 
-// Feed v1 is a clean break: a v0 hello is refused.
-func TestHelloRequiresFeedV1(t *testing.T) {
-	for version, want := range map[string]bool{"v1": true, "v0": false, "v1-read": false, "": false} {
-		if got := (frame{Hello: &hello{Version: version}}).validHello(); got != want {
-			t.Fatalf("validHello(%q) = %v, want %v", version, got, want)
-		}
-	}
-	if !strings.Contains(errHelloVersion.Error(), "v1") || !strings.Contains(errHelloVersion.Error(), "v0") {
-		t.Fatalf("hello error does not name the versions: %v", errHelloVersion)
+// isHello reports a bare zalki-plugin/1 hello frame.
+func isHello(f frame) bool {
+	return f.Hello != nil && f.Hello.Wire == wireName && f.ID == "" && f.Ack == "" && f.Gap == "" && f.Event == nil && !f.isRequest()
+}
+
+// The old wire is a clean break: its hello gets a named refusal, never a host.
+func TestOldWireHelloIsRefusedByName(t *testing.T) {
+	if !strings.Contains(errHelloVersion.Error(), "zalki-plugin/1") {
+		t.Fatalf("hello error does not name the wire: %v", errHelloVersion)
 	}
 }

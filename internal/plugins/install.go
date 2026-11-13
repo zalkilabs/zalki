@@ -51,6 +51,12 @@ type InstallAccess struct {
 // InstallManifest is the author's description of a local plugin folder.
 // Purpose is an author claim, not an audit.
 type InstallManifest struct {
+	// API is the plugin wire the plugin speaks; it must be one this host speaks.
+	API string `json:"api"`
+	// ID names the plugin (author/name, an author claim); Name is the default
+	// local instance name. One ID may be installed under many names (--as).
+	ID       string        `json:"id"`
+	Version  string        `json:"version"`
 	Name     string        `json:"name"`
 	Language string        `json:"language"`
 	Purpose  string        `json:"purpose"`
@@ -66,6 +72,28 @@ type InstallSource struct {
 	TreeSHA256     string
 	ManifestSHA256 string
 	Manifest       InstallManifest
+}
+
+// validPluginID is the one namespace rule for plugin IDs: "author/name",
+// each part [a-z][a-z0-9-]{0,31}. "zalkilabs" (our plugins) and "local" (a
+// folder with no published author) are the known authors. Neither is
+// enforced: with no signing yet, the ID is the author's claim and the install
+// screen says so. A later rule (an org name, a reserved author) goes here.
+func validPluginID(id string) bool {
+	author, name, ok := strings.Cut(id, "/")
+	return ok && validIDPart(author) && validIDPart(name)
+}
+
+func validIDPart(part string) bool {
+	if part == "" || len(part) > 32 || part[0] < 'a' || part[0] > 'z' {
+		return false
+	}
+	for _, r := range part {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func installError(format string, args ...any) error {
@@ -88,7 +116,7 @@ func parseInstallManifest(raw []byte) (InstallManifest, error) {
 	if _, old := fields["requests"]; old {
 		return m, installError(`%s uses "requests"; replace it with "access": {"status": true, "receive": false, "send": false, "read": false}`, installManifestFile)
 	}
-	for _, key := range []string{"name", "language", "purpose", "build", "artifact", "access"} {
+	for _, key := range []string{"api", "id", "version", "name", "language", "purpose", "build", "artifact", "access"} {
 		if _, ok := fields[key]; !ok {
 			return m, installError("%s needs the %q field", installManifestFile, key)
 		}
@@ -105,6 +133,9 @@ func parseInstallManifest(raw []byte) (InstallManifest, error) {
 }
 
 func (m InstallManifest) validate() error {
+	if err := m.validateClaims(); err != nil {
+		return err
+	}
 	switch {
 	case !plainManifestText(m.Purpose, 200):
 		return installError("purpose must be plain text of at most 200 bytes")
@@ -127,6 +158,19 @@ func (m InstallManifest) validate() error {
 		if len(list) > 8 || size > 1024 {
 			return installError("build and args allow at most 8 items and 1024 bytes")
 		}
+	}
+	return nil
+}
+
+// validateClaims checks the wire, the plugin ID and the version.
+func (m InstallManifest) validateClaims() error {
+	switch {
+	case m.API != wireName:
+		return installError("api %q is not a plugin wire this Zalki speaks; it speaks %q. Rebuild the plugin for it, or update Zalki", m.API, wireName)
+	case !validPluginID(m.ID):
+		return installError(`id must be "author/name", each part a lowercase letter then up to 31 lowercase letters, digits or '-' (for example "local/%s")`, m.Name)
+	case m.Version == "" || !plainManifestText(m.Version, 32):
+		return installError("version must be plain text of 1 to 32 bytes")
 	}
 	return nil
 }

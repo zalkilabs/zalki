@@ -262,7 +262,7 @@ func captureSecurityV2Sent(t *testing.T, x *v2Fixture, peer *securityNativePeer)
 	t.Helper()
 	out := x.runChild(t)
 	id := model.DeriveUUID("zalki/plugin-send/v1", x.status.ID, "c1")
-	if out.Send.Code != "ok" || out.Send.Message != id || out.Send.Status != string(model.StatusSubmitted) || out.Resend.Message != id {
+	if out.Send.Code != "ok" || out.Send.Result.Message != id || out.Send.Result.Status != string(model.StatusSubmitted) || out.Resend.Result.Message != id {
 		t.Fatal("API v2 child did not complete native send", out.Send, out.Resend)
 	}
 	var captured string

@@ -43,11 +43,14 @@ func externalTestChild(args []string) error {
 	if err := journal.WriteAtomic(args[0], raw); err != nil {
 		return err
 	}
-	if err := writeFrame(os.Stdout, frame{Hello: &hello{Version: "v1"}}); err != nil {
+	if err := writeFrame(os.Stdout, frame{Hello: &hello{Wire: wireName, Requires: []string{"feed"}}}); err != nil {
 		return err
 	}
 	reader := bufio.NewReaderSize(os.Stdin, maxFrame+1)
 	for {
+		if skipHostFrame(reader) {
+			continue // the host's hello and hello_ok
+		}
 		value, err := readFrame(reader)
 		if errors.Is(err, io.EOF) {
 			return nil
@@ -96,17 +99,17 @@ func TestExternalPluginLiteralArgsHomeOnlyAndPersistentCwd(t *testing.T) {
 	if err := os.WriteFile(sentinel, []byte("keep"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	check := externalObservationCheck{store, binary, evidence, marker, data, home, sentinel, literals}
+	check := externalObservationCheck{store, evidence, marker, data, home, sentinel, literals}
 	t.Run("initial", check.run)
 	t.Run("restart", check.run)
 }
 
-func runExternalUntilObserved(t *testing.T, store bus.Store, binary, evidence string) {
+func runExternalUntilObserved(t *testing.T, store bus.Store, evidence string) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, store, binary, "external", io.Discard); close(done) }()
+	go func() { done <- Run(ctx, store, "external", io.Discard); close(done) }()
 	t.Cleanup(func() {
 		cancel()
 		select {
@@ -156,11 +159,7 @@ func TestExternalPluginRunRejectsChangedFileBeforeExec(t *testing.T) {
 	if err := os.WriteFile(file, []byte(body+"# changed\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	binary, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = Run(t.Context(), store, binary, "external", io.Discard)
+	err := Run(t.Context(), store, "external", io.Discard)
 	if model.ErrorCodeOf(err) != model.CodeConflict || !strings.Contains(err.Error(), "launch changed") {
 		t.Fatal("changed executable reached child startup", err)
 	}
@@ -170,14 +169,14 @@ func TestExternalPluginRunRejectsChangedFileBeforeExec(t *testing.T) {
 }
 
 type externalObservationCheck struct {
-	store                                          bus.Store
-	binary, evidence, marker, data, home, sentinel string
-	literals                                       []string
+	store                                  bus.Store
+	evidence, marker, data, home, sentinel string
+	literals                               []string
 }
 
 func (check *externalObservationCheck) run(t *testing.T) {
-	store, binary, evidence, marker, data, home, sentinel, literals := check.store, check.binary, check.evidence, check.marker, check.data, check.home, check.sentinel, check.literals
-	runExternalUntilObserved(t, store, binary, evidence)
+	store, evidence, marker, data, home, sentinel, literals := check.store, check.evidence, check.marker, check.data, check.home, check.sentinel, check.literals
+	runExternalUntilObserved(t, store, evidence)
 	var observed externalEvidence
 	raw, err := os.ReadFile(evidence)
 	if err != nil || json.Unmarshal(raw, &observed) != nil {

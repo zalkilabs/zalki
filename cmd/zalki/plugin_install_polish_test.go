@@ -67,7 +67,7 @@ func TestPluginOwnerCommandsSayWhatTheyDid(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"add", "fake-notifier"}, "Added fake-notifier (disabled).\n"},
+		{[]string{"add", "fake-notifier", "--exec", feedFixture(t)}, "Added fake-notifier (disabled).\n"},
 		{[]string{"configure", "fake-notifier", "--session", session.ID}, "Configured fake-notifier: 1 session(s).\n"},
 		{[]string{"enable", "fake-notifier"}, "Enabled fake-notifier.\n"},
 		{[]string{"disable", "fake-notifier"}, "Disabled fake-notifier.\n"},

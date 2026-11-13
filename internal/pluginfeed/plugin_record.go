@@ -236,10 +236,8 @@ func (p pluginRecord) validIdentityAndLaunch(name string) bool {
 	if !model.IsCanonicalUUID(p.ID) || p.Name != name || (p.Install != nil && (p.Launch == nil || !p.Install.valid())) {
 		return false
 	}
-	if p.Launch == nil {
-		return true
-	}
-	return name != "fake-notifier" && p.Launch.validate() == nil && validPluginSHA(p.Launch.SHA256) && validPluginSHA(p.Launch.PinSHA256)
+	// Every installation runs an external, pinned executable.
+	return p.Launch != nil && p.Launch.validate() == nil && validPluginSHA(p.Launch.SHA256) && validPluginSHA(p.Launch.PinSHA256)
 }
 
 func (p *pluginRecord) applyLaunchPin(launch *PluginLaunch, prior [32]byte, raw []byte) error {

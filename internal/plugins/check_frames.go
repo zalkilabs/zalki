@@ -11,7 +11,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-//go:embed testdata/conformance/frames.jsonl
+//go:embed testdata/plugin-wire/frames.jsonl
 var checkFrameVectors string
 
 func checkOffers() ([]frame, error) {

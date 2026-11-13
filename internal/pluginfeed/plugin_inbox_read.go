@@ -117,12 +117,19 @@ func sameRevision(a, b *PluginCapabilities) bool {
 }
 
 // PluginBindingCode reports whether a running child with this launch snapshot
-// may still use its capabilities: "ok", "revoked" or "stale_binding".
+// may still run: "ok", "revoked" or "stale_binding". A launch with message
+// grants must still hold them, bound to this installation and pin. A
+// feed-only launch is checked by its launch binding alone, which also stops
+// it when grants appear after it started.
 func (s PluginFeed) PluginBindingCode(launch *PluginFeedStatus) string {
 	code := "stale_binding"
 	_ = bus.WithJournalRead(s.store, func(bus.JournalView) error { // a failed read keeps "stale_binding"
 		p, _, err := s.loadPlugin()
-		if err == nil {
+		switch {
+		case err != nil:
+		case launch != nil && launch.Capabilities == nil:
+			code = launchBindingCode(p, launch)
+		default:
 			code = pluginBindingCode(p, launch)
 		}
 		return err

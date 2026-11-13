@@ -32,7 +32,7 @@ func gracefulChildFixture(t *testing.T, mode string) (*child, context.CancelFunc
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
-	c, err := startChild(ctx, binary, filepath.Join(data, "outbox"), lease)
+	c, err := launchChild(ctx, binary, []string{"host-fake-child"}, data, "", lease)
 	if err != nil {
 		cancel()
 		_ = lease.Close()
@@ -40,7 +40,7 @@ func gracefulChildFixture(t *testing.T, mode string) (*child, context.CancelFunc
 	}
 	t.Cleanup(func() { cancel(); _ = c.stop(nil); _ = lease.Close() })
 	header, err := c.receive(2 * time.Second)
-	if err != nil || !header.validHello() {
+	if err != nil || !isHello(header) {
 		t.Fatal("fixture hello", err)
 	}
 	return c, cancel, feed, lease, data
@@ -133,7 +133,7 @@ func TestPluginAlreadyCanceledContextDoesNotLaunch(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	c, err := startChild(ctx, binary, filepath.Join(hostData(store), "outbox"), lease)
+	c, err := launchChild(ctx, binary, []string{"host-fake-child"}, hostData(store), "", lease)
 	if c != nil {
 		_ = c.stop(nil)
 		t.Fatal("already-canceled context launched a child")
@@ -217,15 +217,16 @@ func cancellationBlockedReceive(t *testing.T, mode string) {
 		t.Fatal(err)
 	}
 	cancel, done := startHost(t, store)
-	eventually(t, func() bool {
-		_, err := os.Stat(filepath.Join(data, ".child-env"))
-		return err == nil && pluginGoroutineContains("plugins.(*child).receive", "internal/poll.(*FD).Read")
-	})
 	if mode == "no-ack" {
+		// The child saw the offer and holds its ACK; the host waits for it.
 		eventually(t, func() bool {
 			matches, err := filepath.Glob(filepath.Join(data, ".seen-*"))
-			return err == nil && len(matches) > 0 &&
-				pluginGoroutineContains("plugins.(*child).exchange", "internal/poll.(*FD).Read")
+			return err == nil && len(matches) > 0
+		})
+	} else {
+		eventually(t, func() bool {
+			_, err := os.Stat(filepath.Join(data, ".child-env"))
+			return err == nil && pluginGoroutineContains("plugins.(*child).receive", "internal/poll.(*FD).Read")
 		})
 	}
 	cancel()

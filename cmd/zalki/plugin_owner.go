@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -33,13 +32,10 @@ func newPluginOwnerCommand(opts *commandOptions, action string) *cobra.Command {
 			feed, name := pluginfeed.NewPluginFeed(service.Store, args[0]), plainText(args[0])
 			switch action {
 			case "add":
-				if executable != "" {
-					return pluginDone(cmd, feed.AddExternalPlugin(executable, args[1:]), "Added %s (disabled).", name)
+				if executable == "" {
+					return errors.New("plugins add requires --exec ABSOLUTE_PATH; or use zalki plugins install FOLDER")
 				}
-				if args[0] != "fake-notifier" || len(args) != 1 {
-					return errors.New("external plugin add requires --exec; fake-notifier accepts no arguments")
-				}
-				return pluginDone(cmd, feed.AddPlugin(), "Added %s (disabled).", name)
+				return pluginDone(cmd, feed.AddExternalPlugin(executable, args[1:]), "Added %s (disabled).", name)
 			case "remove":
 				return pluginDone(cmd, feed.RemovePlugin(), "Removed %s.", name)
 			case "configure":
@@ -78,16 +74,10 @@ func printPluginStatus(cmd *cobra.Command, store bus.Store, name string) error {
 	}
 	value := struct {
 		pluginfeed.PluginFeedStatus
-		Outbox            string `json:"outbox,omitempty"`
-		MaxEvents         int    `json:"max_events,omitempty"`
 		PinMatches        *bool  `json:"pin_matches,omitempty"`
 		PinError          string `json:"pin_error,omitempty"`
 		CapabilitiesBound *bool  `json:"capabilities_bound,omitempty"`
 	}{PluginFeedStatus: status}
-	if name == "fake-notifier" {
-		value.Outbox = filepath.Join(status.DataDir, "outbox")
-		value.MaxEvents = 256
-	}
 	if status.Launch != nil {
 		err := status.Launch.Verify()
 		ok := err == nil

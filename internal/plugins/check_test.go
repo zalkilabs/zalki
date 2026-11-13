@@ -52,7 +52,7 @@ func checkTestChild(mode, report string) error {
 	if err := os.WriteFile(filepath.Join(cwd, ".child-mode"), []byte(mode), 0600); err != nil {
 		return err
 	}
-	return fakeChild(filepath.Join(cwd, "outbox"))
+	return fakeChild(cwd)
 }
 
 func checkFixture(t *testing.T, mode string) (CheckTarget, string) {
@@ -110,7 +110,7 @@ func TestPluginCheckAcceptsASlowHello(t *testing.T) {
 }
 
 func TestPluginCheckReportsObservedFailuresAndAlwaysReaps(t *testing.T) {
-	cases := map[string]string{"exit": "FAIL hello", "no-hello": "FAIL hello", "bad-hello": "FAIL hello", "bad-ack": "FAIL enabled-gap", "ignore-eof": "FAIL stdin-eof", "close-stdout": "FAIL stream", "oversize": "FAIL stream"}
+	cases := map[string]string{"exit": "FAIL hello", "no-hello": "FAIL hello", "bad-hello": "FAIL hello", "bad-ack": "FAIL enabled-gap", "ignore-eof": "FAIL stdin-eof", "close-stdout": "FAIL stream", "oversize": "FAIL stream", "v1-hello": "FAIL hello", "needs-members": "FAIL hello"}
 	for mode, stage := range cases {
 		t.Run(mode, func(t *testing.T) {
 			target, path := checkFixture(t, mode)
@@ -172,7 +172,7 @@ type framingVector struct {
 }
 
 func TestConformanceFramingVectorsPreserveCurrentDecodedSemantics(t *testing.T) {
-	file, err := os.Open("testdata/conformance/framing.jsonl")
+	file, err := os.Open("testdata/plugin-wire/framing.jsonl")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,8 +217,8 @@ func runFramingVector(t *testing.T, row framingVector) {
 	accepted := map[string]bool{
 		"decode":                              err == nil,
 		"decode_one_frame":                    err == nil,
-		"last_key_wins_in_current_go_decoder": err == nil && value.validHello(),
-		"decode_then_semantic_reject":         err == nil && !value.validHello(),
+		"last_key_wins_in_current_go_decoder": err == nil && isHello(value),
+		"decode_then_semantic_reject":         err == nil && !isHello(value),
 		"eof":                                 errors.Is(err, io.EOF),
 		"unexpected_eof":                      errors.Is(err, io.ErrUnexpectedEOF),
 		"reject_not_clean_eof":                err != nil && !errors.Is(err, io.EOF),
@@ -232,79 +232,4 @@ func runFramingVector(t *testing.T, row framingVector) {
 		t.Fatal("decoder expectation changed", row.Expect, err)
 	}
 
-}
-
-func TestConformanceReferenceVectorsUseOnlyReferenceOutboxOracle(t *testing.T) {
-	file, err := os.Open("testdata/conformance/reference-notifier.jsonl")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer file.Close()
-	decoder := json.NewDecoder(file)
-	for {
-		var row struct {
-			ID    string `json:"id"`
-			Input string `json:"host_stdin_utf8"`
-		}
-		err := decoder.Decode(&row)
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		if row.ID == "state_change" || row.ID == "duplicate_same_event" || row.ID == "duplicate_id_different_event_bytes" || row.ID == "registration_ack_no_notification" {
-			t.Run(row.ID, func(t *testing.T) { runReferenceVector(t, row.ID, row.Input) })
-		}
-	}
-}
-
-func runReferenceVector(t *testing.T, id, input string) {
-	t.Helper()
-	outbox := filepath.Join(notifierTemp(t), "outbox")
-	if err := prepareOutbox(outbox); err != nil {
-		t.Fatal(err)
-	}
-	reader := bufio.NewReaderSize(strings.NewReader(input), maxFrame+1)
-	calls := 0
-	var last error
-	for {
-		value, err := readFrame(reader)
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		last = notify(outbox, value)
-		calls++
-		if last != nil {
-			break
-		}
-	}
-	if id == "duplicate_id_different_event_bytes" {
-		if last == nil || calls != 2 {
-			t.Fatal("conflicting replay accepted", last, calls)
-		}
-	} else if last != nil {
-		t.Fatal(last)
-	}
-	wantCalls := 1
-	if strings.HasPrefix(id, "duplicate_") {
-		wantCalls = 2
-	}
-	if calls != wantCalls {
-		t.Fatal("vector delivery count changed", calls, wantCalls)
-	}
-	files, err := os.ReadDir(outbox)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := 1
-	if id == "registration_ack_no_notification" {
-		want = 0
-	}
-	if len(files) != want {
-		t.Fatal("reference-only outbox oracle mismatch", len(files), want)
-	}
 }

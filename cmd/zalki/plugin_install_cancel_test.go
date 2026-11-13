@@ -80,7 +80,7 @@ func fakeGoFolder(t *testing.T, script string) string {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin+":/usr/bin:/bin")
-	manifest := `{"name":"demo","language":"go","purpose":"cancel test","build":["go","build","-o","plugin","."],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":true}}`
+	manifest := `{"api":"zalki-plugin/1","id":"local/demo","version":"0.1.0","name":"demo","language":"go","purpose":"cancel test","build":["go","build","-o","plugin","."],"artifact":"plugin","access":{"status":true,"receive":false,"send":false,"read":true}}`
 	return writeInstallFolder(t, manifest, map[string]string{"main.go": "package main\n\nfunc main() {}\n", "go.mod": "module example.com/demo\n\ngo 1.22\n"})
 }
 

@@ -14,19 +14,20 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func TestPluginReadV1ActualCLIWithholdsEchoedBodyStderr(t *testing.T) {
+func TestPluginReadActualCLIWithholdsEchoedBodyStderr(t *testing.T) {
 	binary := checkRealBinary(t)
 	store, session := pluginOwnerFixture(t)
 	result := filepath.Join(t.TempDir(), "result.json")
 	executable := filepath.Join(t.TempDir(), "reader")
 	script := `#!/bin/sh
-printf '{"hello":{"version":"v1-read"}}\n'
-IFS= read -r confirmation || exit 2
+printf '{"hello":{"wire":"zalki-plugin/1","requires":["feed","read"]}}\n'
+IFS= read -r host_hello || exit 2
+IFS= read -r hello_ok || exit 2
 IFS= read -r offer || exit 3
 id=${offer#*\"id\":\"}
 id=${id%%\"*}
 printf '{"ack":"%s"}\n' "$id"
-printf '{"read":{"session":"%s","message":"%s"}}\n' "$2" "$3"
+printf '{"op":"read","request_id":"r1","args":{"session":"%s","message":"%s"}}\n' "$2" "$3"
 IFS= read -r result || exit 4
 printf '%s\n' "$result" > "$1"
 printf '%s\n' "$result" >&2
@@ -70,13 +71,19 @@ exit 17
 func assertCLIReadReceipt(t *testing.T, path, body string) {
 	t.Helper()
 	raw, err := os.ReadFile(path)
-	var result struct {
-		Code    string `json:"code"`
-		Message *struct {
-			Body string `json:"body"`
-		} `json:"message"`
+	var frame struct {
+		Reply struct {
+			Op     string `json:"op"`
+			Code   string `json:"code"`
+			Result struct {
+				Message *struct {
+					Body string `json:"body"`
+				} `json:"message"`
+			} `json:"result"`
+		} `json:"reply"`
 	}
-	if err != nil || json.Unmarshal(raw, &result) != nil || result.Code != "ok" || result.Message == nil || result.Message.Body != body {
+	result := &frame.Reply
+	if err != nil || json.Unmarshal(raw, &frame) != nil || result.Op != "read" || result.Code != "ok" || result.Result.Message == nil || result.Result.Message.Body != body {
 		t.Fatal("actual child did not receive the granted body", err)
 	}
 }

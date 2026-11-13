@@ -80,11 +80,23 @@ func (x *v2Fixture) record(t *testing.T, id string) model.Message {
 
 type v2TestOutcome struct {
 	Inbox    pluginfeed.PluginInboxMessage `json:"inbox"`
-	Consumed v2Result                      `json:"consumed"`
-	Send     v2Result                      `json:"send"`
-	Resend   v2Result                      `json:"resend"`
+	Consumed v2TestResult                  `json:"consumed"`
+	Send     v2TestResult                  `json:"send"`
+	Resend   v2TestResult                  `json:"resend"`
 	// The feed v1 message events the child saw for these messages.
 	Acked, Created model.EventMessage
+}
+
+// v2TestResult is one reply as a plugin decodes it.
+type v2TestResult struct {
+	Op        string `json:"op"`
+	RequestID string `json:"request_id"`
+	Code      string `json:"code"`
+	Result    struct {
+		Message any    `json:"message"`
+		Status  string `json:"status"`
+		RetryAt string `json:"retry_at"`
+	} `json:"result"`
 }
 
 func TestV2HostRoundTripWithRealChild(t *testing.T) {
@@ -94,7 +106,7 @@ func TestV2HostRoundTripWithRealChild(t *testing.T) {
 	if in.ID != x.request.ID || in.From != x.asker.ID || in.SenderGeneration != x.asker.Generation || in.To != "plugin:"+x.status.ID || in.Body != v2TestBody {
 		t.Fatalf("inbox envelope lost core provenance: %+v", in)
 	}
-	if out.Consumed.Code != "ok" || out.Consumed.Message != x.request.ID || x.record(t, x.request.ID).AcknowledgedAt == "" {
+	if out.Consumed.Code != "ok" || out.Consumed.Op != "inbox_consume" || out.Consumed.Result.Message != x.request.ID || x.record(t, x.request.ID).AcknowledgedAt == "" {
 		t.Fatalf("consume was not durable: %+v", out.Consumed)
 	}
 	x.checkSend(t, out)
@@ -106,7 +118,7 @@ func (x *v2Fixture) runChild(t *testing.T) v2TestOutcome {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, x.store, x.binary, "arbiter", &x.output) }()
+	go func() { done <- Run(ctx, x.store, "arbiter", &x.output) }()
 	var out v2TestOutcome
 	eventually(t, func() bool {
 		raw, err := os.ReadFile(x.result)
@@ -124,11 +136,11 @@ func (x *v2Fixture) runChild(t *testing.T) v2TestOutcome {
 func (x *v2Fixture) checkSend(t *testing.T, out v2TestOutcome) {
 	t.Helper()
 	want := model.DeriveUUID("zalki/plugin-send/v1", x.status.ID, "c1")
-	if out.Send.Code != "ok" || out.Send.Message != want || out.Send.ClientMessageID != "c1" || out.Send.Status != string(model.StatusPendingActivity) {
+	if out.Send.Code != "ok" || out.Send.Op != "send" || out.Send.RequestID != "s1" || out.Send.Result.Message != want || out.Send.Result.Status != string(model.StatusPendingActivity) {
 		t.Fatalf("send result: %+v", out.Send)
 	}
-	if out.Resend.Code != "ok" || out.Resend.Message != want {
-		t.Fatalf("retry with the same client id: %+v", out.Resend)
+	if out.Resend.Code != "ok" || out.Resend.RequestID != "s2" || out.Resend.Result.Message != want {
+		t.Fatalf("retry with the same idempotency key: %+v", out.Resend)
 	}
 	sent := x.record(t, want)
 	if sent.From != "plugin:"+x.status.ID || sent.To != x.asker.ID || sent.Body != "reply: "+v2TestBody || sent.ReplyTo != x.request.ID {
@@ -175,7 +187,7 @@ func TestV2HostStopsAStaleChildBeforeItSends(t *testing.T) {
 	defer wr.Close()
 	service := &bus.Service{Store: x.store, PluginSend: pluginfeed.BoundPluginSend(&x.status)}
 	h := &v2Host{ctx: t.Context(), feed: x.feed, service: service, binding: &x.status, child: &child{input: wr}}
-	if h.handle(&v2Command{Send: &v2Send{RequestID: "old", ClientMessageID: "c1", To: target.ID, Body: "hello"}}) == nil {
+	if h.handle(&v2Command{Op: "send", RequestID: "old", IdempotencyKey: "c1", Send: &v2Send{To: target.ID, Body: "hello"}}) == nil {
 		t.Fatal("the stale child was not stopped")
 	}
 	line, err := bufio.NewReader(rd).ReadString('\n')
@@ -190,8 +202,8 @@ func TestV2HostStopsAStaleChildBeforeItSends(t *testing.T) {
 
 func TestV2HostAllowsOneOperationAndOneAckInFlight(t *testing.T) {
 	h := &v2Host{acks: make(chan string, 1), ops: make(chan *v2Command, 1)}
-	op := &v2Command{Next: &v2Next{RequestID: "a"}}
-	if !h.queue(op) || h.queue(&v2Command{Next: &v2Next{RequestID: "b"}}) {
+	op := &v2Command{Op: "inbox_next", RequestID: "a"}
+	if !h.queue(op) || h.queue(&v2Command{Op: "inbox_next", RequestID: "b"}) {
 		t.Fatal("a second operation before the first result was accepted")
 	}
 	if !h.queue(&v2Command{Ack: "1"}) {
@@ -202,38 +214,72 @@ func TestV2HostAllowsOneOperationAndOneAckInFlight(t *testing.T) {
 	}
 	<-h.ops
 	h.busy.Store(false) // what handle does before it writes the result
-	if !h.queue(&v2Command{Send: &v2Send{RequestID: "c"}}) {
+	if !h.queue(&v2Command{Op: "send", RequestID: "c", Send: &v2Send{}}) {
 		t.Fatal("the next operation after a result was refused")
 	}
 }
 
 func TestV2CommandShape(t *testing.T) {
 	for _, test := range []struct {
-		name string
-		f    v2Command
-		ok   bool
+		name, raw string
+		ok        bool
 	}{
-		{"ack", v2Command{Ack: "x"}, true},
-		{"next", v2Command{Next: &v2Next{RequestID: "r-1_A"}}, true},
-		{"consume", v2Command{Consume: &v2Consume{RequestID: "r", Message: "m"}}, true},
-		{"send", v2Command{Send: &v2Send{RequestID: "r"}}, true},
-		{"empty", v2Command{}, false},
-		{"two ops", v2Command{Next: &v2Next{RequestID: "a"}, Send: &v2Send{RequestID: "b"}}, false},
-		{"ack and op", v2Command{Ack: "x", Next: &v2Next{RequestID: "a"}}, false},
-		{"no request id", v2Command{Next: &v2Next{}}, false},
-		{"long request id", v2Command{Next: &v2Next{RequestID: strings.Repeat("a", 65)}}, false},
-		{"bad request id", v2Command{Next: &v2Next{RequestID: "a b"}}, false},
+		{"ack", `{"ack":"x"}`, true},
+		{"next", `{"op":"inbox_next","request_id":"r-1_A"}`, true},
+		{"next with empty args", `{"op":"inbox_next","request_id":"r","args":{}}`, true},
+		{"consume", `{"op":"inbox_consume","request_id":"r","args":{"message":"m"}}`, true},
+		{"send", `{"op":"send","request_id":"r","idempotency_key":"k","args":{"to":"t","body":"b"}}`, true},
+		{"read with a key", `{"op":"read","request_id":"r","idempotency_key":"k","args":{"session":"s","message":"m"}}`, true},
+		{"empty", `{}`, false},
+		{"unknown op", `{"op":"members","request_id":"r","args":{}}`, false},
+		{"ack and op", `{"ack":"x","op":"inbox_next","request_id":"a"}`, false},
+		{"no request id", `{"op":"inbox_next"}`, false},
+		{"long request id", `{"op":"inbox_next","request_id":"` + strings.Repeat("a", 65) + `"}`, false},
+		{"bad request id", `{"op":"inbox_next","request_id":"a b"}`, false},
+		{"bad key", `{"op":"send","request_id":"r","idempotency_key":"a b","args":{"to":"t","body":"b"}}`, false},
+		{"send without a key", `{"op":"send","request_id":"r","args":{"to":"t","body":"b"}}`, false},
+		{"send without args", `{"op":"send","request_id":"r","idempotency_key":"k"}`, false},
+		{"unknown args field", `{"op":"inbox_consume","request_id":"r","args":{"message":"m","x":1}}`, false},
+		{"old client id", `{"op":"send","request_id":"r","idempotency_key":"k","args":{"client_message_id":"c","to":"t","body":"b"}}`, false},
+		{"args on next", `{"op":"inbox_next","request_id":"r","args":{"x":1}}`, false},
 	} {
-		if got := test.f.valid(); got != test.ok {
-			t.Errorf("%s: valid = %v", test.name, got)
+		var f frame
+		ok := decodeFrame([]byte(test.raw), &f) == nil
+		if ok {
+			_, ok = parseCommand(f)
+		}
+		if ok != test.ok {
+			t.Errorf("%s: accepted = %v", test.name, ok)
+		}
+	}
+}
+
+// A request for a capability the hello did not enable is refused.
+func TestV2HostRefusesAnOpTheHelloDidNotEnable(t *testing.T) {
+	feedOnly := &v2Host{enabled: []string{"feed"}}
+	inbox := &v2Host{enabled: []string{"feed", "inbox", "reply"}}
+	for _, test := range []struct {
+		cmd           v2Command
+		feed, replies bool
+	}{
+		{v2Command{Ack: "x"}, true, true},
+		{v2Command{Op: "inbox_next"}, false, true},
+		{v2Command{Op: "inbox_consume", Consume: &v2Consume{}}, false, true},
+		{v2Command{Op: "send", Send: &v2Send{ReplyTo: "m"}}, false, true},
+		{v2Command{Op: "send", Send: &v2Send{}}, false, false},
+		{v2Command{Op: "read", Read: &v2Read{}}, false, false},
+	} {
+		if feedOnly.allowed(&test.cmd) != test.feed || inbox.allowed(&test.cmd) != test.replies {
+			t.Errorf("%+v: feed-only %v, inbox %v", test.cmd, feedOnly.allowed(&test.cmd), inbox.allowed(&test.cmd))
 		}
 	}
 }
 
 func TestV2EmptyPollIsRateLimited(t *testing.T) {
 	h := &v2Host{emptyAt: time.Now()}
-	r := h.next(&v2Next{RequestID: "p"})
-	if r.Code != "rate_limited" || r.RetryAt == "" || r.Message != nil || r.RequestID != "p" {
+	r := &v2Result{Op: "inbox_next", RequestID: "p"}
+	h.next(r)
+	if r.Code != "rate_limited" || r.Result["retry_at"] == "" || r.Result["message"] != nil || r.RequestID != "p" {
 		t.Fatalf("fast empty poll: %+v", r)
 	}
 }
@@ -308,15 +354,26 @@ func (c v2TestPeer) ackOffer(f map[string]json.RawMessage) error {
 	return v2TestWrite(map[string]string{"ack": id})
 }
 
-func (c v2TestPeer) call(op string, args map[string]string, want string, out *v2Result) error {
-	if err := v2TestWrite(map[string]map[string]string{op: args}); err != nil {
+// call sends one request in the envelope and waits for its reply.
+func (c v2TestPeer) call(op, requestID, key string, args map[string]string, out *v2TestResult) error {
+	request := map[string]any{"op": op, "request_id": requestID, "args": args}
+	if key != "" {
+		request["idempotency_key"] = key
+	}
+	if err := v2TestWrite(request); err != nil {
 		return err
 	}
-	raw, err := c.next(want)
+	raw, err := c.next("reply")
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(raw, out)
+	if err := json.Unmarshal(raw, out); err != nil {
+		return err
+	}
+	if out.Op != op || out.RequestID != requestID {
+		return fmt.Errorf("reply for another request: %s", raw)
+	}
+	return nil
 }
 
 // seen stores the first feed event of message id that matches.
@@ -352,12 +409,12 @@ func v2TestWrite(value any) error {
 func (c v2TestPeer) pollInbox() (pluginfeed.PluginInboxMessage, error) {
 	var m pluginfeed.PluginInboxMessage
 	for i := 0; i <= 5; i++ {
-		var r v2Result
-		if err := c.call("inbox_next", map[string]string{"request_id": fmt.Sprintf("n%d", i)}, "inbox_result", &r); err != nil {
+		var r v2TestResult
+		if err := c.call("inbox_next", fmt.Sprintf("n%d", i), "", map[string]string{}, &r); err != nil {
 			return m, err
 		}
-		if r.Code == "ok" && r.Message != nil {
-			raw, err := json.Marshal(r.Message)
+		if r.Code == "ok" && r.Result.Message != nil {
+			raw, err := json.Marshal(r.Result.Message)
 			if err != nil {
 				return m, err
 			}
@@ -374,7 +431,7 @@ func (c v2TestPeer) pollInbox() (pluginfeed.PluginInboxMessage, error) {
 // waitEvents acks offers until the feed showed the consume and the send.
 func (c v2TestPeer) waitEvents(out *v2TestOutcome) error {
 	for !c.seen(out.Inbox.ID, func(m model.EventMessage) bool { return m.Acknowledged }, &out.Acked) ||
-		!c.seen(fmt.Sprint(out.Send.Message), func(m model.EventMessage) bool { return m.Previous == "" }, &out.Created) {
+		!c.seen(fmt.Sprint(out.Send.Result.Message), func(m model.EventMessage) bool { return m.Previous == "" }, &out.Created) {
 		if _, err := c.next(""); err != nil {
 			return fmt.Errorf("waiting for feed events: %w", err)
 		}
@@ -383,28 +440,30 @@ func (c v2TestPeer) waitEvents(out *v2TestOutcome) error {
 }
 
 func v2TestChild(resultPath, to string) error {
-	if err := v2TestWrite(frame{Hello: &hello{Version: "v2"}}); err != nil {
+	c := v2TestPeer{bufio.NewReaderSize(os.Stdin, maxFrame+1), map[string][]model.EventMessage{}}
+	if raw, err := c.next("hello"); err != nil || !bytes.Contains(raw, []byte(`"zalki-plugin/1"`)) || !bytes.Contains(raw, []byte(`"reply"`)) {
+		return errors.New("missing host hello with reply")
+	}
+	if err := v2TestWrite(frame{Hello: &hello{Wire: wireName, Requires: []string{"feed", "inbox", "reply"}, Optional: []string{"members"}}}); err != nil {
 		return err
 	}
-	c := v2TestPeer{bufio.NewReaderSize(os.Stdin, maxFrame+1), map[string][]model.EventMessage{}}
-	if raw, err := c.next("hello"); err != nil || !bytes.Contains(raw, []byte(`"v2"`)) {
-		return errors.New("missing v2 confirmation")
+	if raw, err := c.next("hello_ok"); err != nil || !bytes.Contains(raw, []byte(`"missing_optional":["members"]`)) {
+		return errors.New("missing hello_ok")
 	}
 	var out v2TestOutcome
 	var err error
 	if out.Inbox, err = c.pollInbox(); err != nil {
 		return err
 	}
-	if err := c.call("inbox_consume", map[string]string{"request_id": "c", "message": out.Inbox.ID}, "inbox_consumed", &out.Consumed); err != nil {
+	if err := c.call("inbox_consume", "c", "", map[string]string{"message": out.Inbox.ID}, &out.Consumed); err != nil {
 		return err
 	}
 	// An answer under the reply rule: it names the inbox message it answers.
-	send := map[string]string{"request_id": "s1", "client_message_id": "c1", "reply_to": out.Inbox.ID, "to": to, "body": "reply: " + out.Inbox.Body}
-	if err := c.call("send", send, "send_result", &out.Send); err != nil {
+	send := map[string]string{"reply_to": out.Inbox.ID, "to": to, "body": "reply: " + out.Inbox.Body}
+	if err := c.call("send", "s1", "c1", send, &out.Send); err != nil {
 		return err
 	}
-	send["request_id"] = "s2"
-	if err := c.call("send", send, "send_result", &out.Resend); err != nil {
+	if err := c.call("send", "s2", "c1", send, &out.Resend); err != nil {
 		return err
 	}
 	if err := c.waitEvents(&out); err != nil {

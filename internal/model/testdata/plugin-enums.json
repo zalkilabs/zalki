@@ -1,0 +1,44 @@
+{
+  "event_type": [
+    {"value": "message.status_changed", "meaning": "a message's delivery status, hold or acknowledgement changed"},
+    {"value": "session.registered", "meaning": "a session registered or registered again"},
+    {"value": "session.state_changed", "meaning": "a session's state or retirement changed"}
+  ],
+  "session_state": [
+    {"value": "approval", "meaning": "the session waits for a permission prompt"},
+    {"value": "busy", "meaning": "the session is working on a turn"},
+    {"value": "ready", "meaning": "the session ended its turn and can take work; not a claim that a task is done"},
+    {"value": "retired", "meaning": "the session ended or was retired; it gets no more messages"}
+  ],
+  "event_cause": [
+    {"value": "cleanup", "meaning": "a cleanup step (for example prune) changed the session"},
+    {"value": "interrupt", "meaning": "the owner interrupted the turn"},
+    {"value": "owner_exited", "meaning": "the session's owner process exited"},
+    {"value": "permission", "meaning": "the client asked the owner for a permission"},
+    {"value": "prompt", "meaning": "a new prompt started a turn"},
+    {"value": "recovery", "meaning": "the state was repaired after a crash"},
+    {"value": "register", "meaning": "the session registered"},
+    {"value": "session_end", "meaning": "the client reported that the session ended"},
+    {"value": "stop", "meaning": "the turn stopped normally"},
+    {"value": "tool", "meaning": "a tool call is running"}
+  ],
+  "delivery_status": [
+    {"value": "attempting", "meaning": "delivery started; the result is not known yet"},
+    {"value": "command_failed", "meaning": "the delivery command failed; the message was not delivered"},
+    {"value": "hook_context_emitted", "meaning": "the message was put into the session's hook context; not proof that it was read"},
+    {"value": "not_sent", "meaning": "the message was refused before it was sent; final"},
+    {"value": "not_sent_pending_approval", "meaning": "the session waits for an approval, so the message is held or refused"},
+    {"value": "pending_next_activity", "meaning": "the message waits for the session's next activity"},
+    {"value": "queued_for_approval", "meaning": "a reply value only; never stored and never in an event"},
+    {"value": "submitted", "meaning": "the transport accepted the message; not read, not acted on"},
+    {"value": "transport_written", "meaning": "written to the session's transport; not read, not acted on"},
+    {"value": "unknown_after_timeout", "meaning": "the transport timed out; the message may or may not have arrived"},
+    {"value": "unknown_after_write", "meaning": "the write ended without a clear result; the message may or may not have arrived"},
+    {"value": "wake_hint_uncertain", "meaning": "a wake hint was tried; it is not known whether it arrived"},
+    {"value": "wake_hint_written", "meaning": "a wake hint was written for the session"}
+  ],
+  "message_kind": [
+    {"value": "", "meaning": "a normal message"},
+    {"value": "notice", "meaning": "an automatic completion notice, not a message an agent wrote"}
+  ]
+}
