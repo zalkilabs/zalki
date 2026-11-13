@@ -102,6 +102,15 @@ var required = []requiredTest{
 	{"plugins", "TestPluginManualRuntimeEnvironment"},
 	{"plugins", "TestPluginHomeMustBeCleanAbsolute"},
 	{"plugins", "TestPluginPinIdentityAfterStart"},
+	{"adapters/codex", "TestCodexSessionEndBoundUpdateAndError"},
+	{"adapters", "TestCodexSessionEndKeepsListedAndQueues"},
+	{"adapters", "TestCodexSessionEndPreservesQueueOptIn"},
+	{"adapters", "TestCodexSessionEndPreservesPendingMessages"},
+	{"adapters", "TestOtherSessionEndStillRetires"},
+	{"adapters", "TestCodexSessionStartAfterEndKeepsActorID"},
+	{"adapters", "TestCodexSessionEndRestartBurstKeepsAllSessions"},
+	{"adapters", "TestPruneCodexNeedsEvidenceOrExplicitID"},
+	{"adapters", "TestCodexSessionEndLeavesHeldUntilNormalRelease"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

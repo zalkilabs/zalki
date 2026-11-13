@@ -50,6 +50,7 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 func (Adapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Notes: []string{
 		"A Codex backend can outlive its terminal.",
+		"Ended Codex threads stay listed until zalki prune --session codex:UUID.",
 		"Codex 0.164.0 or newer can receive tool output on a loaded thread without resuming or steering it. Between-tool delivery is advertised only after this process has verified that app-server. Otherwise delivery requires the owner to enable codex.allow_queue_fallback; queue passes message text in process arguments. An unconfirmed or ambiguous write is not retried.",
 	}}
 }
@@ -109,6 +110,10 @@ func (Adapter) RegisterHook(event agent.HookInput) (agent.HookRegistration, erro
 }
 
 func (Adapter) HandleHook(s agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error) {
+	// SessionEnd also covers unloading; its reason does not prove user closure.
+	if event.Event == "SessionEnd" {
+		return true, s.UpdateSession(id, model.StateReady, false)
+	}
 	if event.Event != "UserPromptSubmit" {
 		return false, nil
 	}
