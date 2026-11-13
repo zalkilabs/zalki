@@ -2,7 +2,6 @@ package bus
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -24,6 +23,7 @@ type journalScope struct {
 	store    *Store
 	writable bool
 	active   sync.WaitGroup
+	members  *pluginMemberCache
 }
 
 // WithJournalRead runs fn under the exclusive journal lock, not a shared read
@@ -53,9 +53,12 @@ func withJournalView(store Store, readOnly bool, fn func(JournalView) error) err
 
 func (s *journalScope) expire() {
 	s.mu.Lock()
+	cache := s.members
+	s.members = nil
 	s.store = nil
 	s.mu.Unlock()
 	s.active.Wait()
+	releasePluginMembers(cache)
 }
 
 func (v JournalView) acquire(writeRoot *string) (Store, func(), error) {
@@ -193,19 +196,8 @@ func (v JournalView) SessionGeneration(id string) (generation string, err error)
 // sessions the owner sees. A session that was never registered gives false
 // with no error; any read failure gives false and the error, so callers fail
 // closed. ZAL-6 adds the session's own plugin policy for plugin here.
-func (v JournalView) PluginMember(session, plugin string) (member bool, err error) {
-	err = v.use(func(store Store) error {
-		record, readErr := store.session(session)
-		if errors.Is(readErr, os.ErrNotExist) {
-			return nil
-		}
-		if readErr != nil {
-			return readErr
-		}
-		member = !record.Retired && store.sessionLiveness(record) != model.LivenessExited && sessionAllowsPlugin(record, plugin)
-		return nil
-	})
-	return member && err == nil, err
+func (v JournalView) PluginMember(session, plugin string) (bool, error) {
+	return v.pluginMember(session, plugin)
 }
 
 // AuthenticatedSessionLabel proves actor with its capability inside this

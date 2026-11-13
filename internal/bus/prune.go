@@ -223,6 +223,7 @@ func (r *pruneRun) deleteRetired(v model.Session) error {
 	if dryRun {
 		return nil
 	}
+	invalidatePluginMember(s.Dir, v.ID)
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}

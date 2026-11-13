@@ -126,7 +126,7 @@ func TestFiveChecksUseTheSameMembership(t *testing.T) {
 func fiveChecks(view bus.JournalView, p pluginRecord, session string) map[string]bool {
 	status := PluginFeedStatus{ID: p.ID, Launch: p.Launch, Enabled: true, Revision: p.Revision, Epoch: p.Epoch}
 	event := model.Event{Session: model.EventSession{ID: session, State: model.StateBusy, Previous: model.StateReady}}
-	_, feed := feedView(feedMembers(view, p), event)
+	_, feed := feedView(func(id string) bool { return standardMember(view, p, id) }, event)
 	return map[string]bool{
 		"A feed":      p.Access.Status && feed,
 		"B admission": pluginInboxAdmissionAllowed(view, p, session),

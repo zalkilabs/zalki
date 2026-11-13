@@ -23,6 +23,12 @@ func (t requiredTest) importPath() string {
 }
 
 var required = []requiredTest{
+	{"bus", "TestFeedMemberZeroReferenceCacheCannotBeRevived"},
+	{"bus", "TestFeedMemberReadsAndDecodesNativeOncePerView"},
+	{"bus", "TestFeedMemberEvidenceIsOncePerViewAndPluginIsolated"},
+	{"bus", "TestFeedMemberCacheInvalidatesOnNativeWrite"},
+	{"bus", "TestFeedMemberCacheDoesNotShareEvidenceAcrossRoots"},
+	{"pluginfeed", "TestPluginInstallEnabledRecordHasEnableIncarnation"},
 	{"adapters", "TestCursorPromptRegistersAndArmsResumedChat"},
 	{"adapters", "TestCursorStaleHookCannotTouchReplacementGeneration"},
 	{"bus", "TestPromptRegistrationConcurrentProcesses"},

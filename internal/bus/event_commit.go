@@ -21,6 +21,7 @@ func saveSessionWith(s Store, next model.Session, cause model.EventCause, writer
 	if err != nil {
 		return err
 	}
+	invalidatePluginMember(s.Dir, record.value.ID)
 	prior, err := journal.ReadBytes(record.path, maxStateFileBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		prior, err = nil, nil
