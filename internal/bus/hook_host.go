@@ -20,6 +20,7 @@ type hookRuntime struct {
 	actor, kind, event string
 	generation         string
 	generationBound    bool
+	pluginStartup      pluginStartupFormat
 }
 
 func (h hookRuntime) UpdateSession(id string, state model.SessionState, retired bool) error {

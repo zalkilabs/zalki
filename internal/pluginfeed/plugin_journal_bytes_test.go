@@ -72,6 +72,7 @@ func seedPluginJournalMessages(f PluginFeed, view bus.JournalView, now time.Time
 	at := now.Format(time.RFC3339Nano)
 	session := model.Session{Schema: recordSchema, NativeID: strings.TrimPrefix(byteFixtureActor, "cursor:"), ID: byteFixtureActor,
 		Kind: "cursor", Name: "Golden native", CWD: "/fixture/workspace", Generation: byteFixtureGen, State: model.StateReady, UpdatedAt: at}
+	session.PluginPolicy = json.RawMessage(`{"mode":"owner","last_change":{"id":"` + byteFixtureRequest + `","actor":"` + byteFixtureActor + `","at":"` + at + `"}}`)
 	path, err := sessionTestPath(f.store, session.ID)
 	if err != nil {
 		return err

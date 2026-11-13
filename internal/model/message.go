@@ -7,6 +7,8 @@ const NoticeKind = "notice"
 // Message is the shared message record and response value. Its field tags
 // distinguish persisted data from render-only metadata.
 type Message struct {
+	// PluginBinding is persisted by bus only; it never enters a public JSON projection.
+	PluginBinding string `json:"-"`
 	// BusyDelivery describes the target at this delivery attempt, not the
 	// current state of a historical message. It is never persisted.
 	BusyDelivery DeliveryTiming `json:"-"`

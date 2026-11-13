@@ -116,7 +116,7 @@ func (s pluginFiles) readPluginMessageAt(view bus.JournalView, before *PluginFee
 		}
 	}
 	if result.Code == "ok" {
-		result.Message, result.Code = pluginNativeReadMessage(view, session, id)
+		result.Message, result.Code = pluginNativeReadMessage(view, p, session, id)
 	}
 	return finishPluginReadResult(before, session, id, result, rows, now, s.savePluginReadAudit)
 }
@@ -179,10 +179,14 @@ func finishPluginReadResult(before *PluginFeedStatus, session, id string, result
 	return raw, result.Code, nil
 }
 
-func pluginNativeReadMessage(view bus.JournalView, session, id string) (*pluginReadMessage, string) {
+func pluginNativeReadMessage(view bus.JournalView, p pluginRecord, session, id string) (*pluginReadMessage, string) {
 	message, outcome := view.NativeInboxMessage(session, id)
 	if outcome != "ok" && outcome != "native_deferred" {
 		return nil, outcome
+	}
+	member, err := view.PluginMember(message.From, p.Name)
+	if err != nil || !member {
+		return nil, "denied"
 	}
 	result := &pluginReadMessage{ID: message.ID, From: message.From, To: message.To, Kind: message.Kind}
 	if outcome == "ok" {

@@ -13,7 +13,8 @@ import (
 )
 
 type Store struct {
-	Dir string
+	PluginDelivery pluginDeliveryCheck
+	Dir            string
 	// Registry is required; NewStore rejects a nil or empty registry.
 	Registry *agent.Registry
 	Logger   *slog.Logger
@@ -76,12 +77,27 @@ func (s Store) locked(fn func() error) error {
 const maxStateFileBytes = 128 * 1024
 
 func readJSON(path string, target any) error {
+	if message, ok := target.(*model.Message); ok {
+		var disk storedPluginMessage
+		err := journal.ReadJSON(path, maxStateFileBytes, &disk)
+		*message = disk.Message
+		message.PluginBinding = disk.Binding
+		return err
+	}
 	return journal.ReadJSON(path, maxStateFileBytes, target)
 }
 
 // encodeStateJSON validates exactly what will reach disk, not the compact
 // input. No writer may publish bytes that readJSON would reject by size.
 func encodeStateJSON(value any) ([]byte, error) {
+	switch message := value.(type) {
+	case model.Message:
+		value = storedPluginMessage{Message: message, Binding: message.PluginBinding}
+	case *model.Message:
+		if message != nil {
+			value = storedPluginMessage{Message: *message, Binding: message.PluginBinding}
+		}
+	}
 	b, err := journal.EncodeJSON(value, maxStateFileBytes)
 	if size, ok := err.(*journal.SizeError); ok { //nolint:errorlint // Only the direct limit error is ours; wrapped encoder failures pass through.
 		return nil, model.NewError(model.CodeInvalidInput, "encoded state record is %d bytes; limit is %d bytes", size.Size, size.Limit)

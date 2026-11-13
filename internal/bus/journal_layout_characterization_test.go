@@ -142,6 +142,10 @@ file sessions/alpha_<uuid>.json
        .key_hash = "<hash>"
        .kind = "alpha"
        .native_id = "<uuid>"
+       .plugin_policy.last_change.actor = "alpha:<uuid>"
+       .plugin_policy.last_change.at = "<time>"
+       .plugin_policy.last_change.id = "<uuid>"
+       .plugin_policy.mode = "owner"
        .receive.busy_delivery = "next_turn"
        .receive.delivery = "fake_native"
        .receive.experimental = false
@@ -275,6 +279,10 @@ file sessions/beta_<uuid>.json
        .key_hash = "<hash>"
        .kind = "beta"
        .native_id = "<uuid>"
+       .plugin_policy.last_change.actor = "beta:<uuid>"
+       .plugin_policy.last_change.at = "<time>"
+       .plugin_policy.last_change.id = "<uuid>"
+       .plugin_policy.mode = "owner"
        .retired = false
        .schema = 1
        .state = "approval"
@@ -299,6 +307,10 @@ file sessions/beta_<uuid>.json
        .key_hash = "<hash>"
        .kind = "beta"
        .native_id = "<uuid>"
+       .plugin_policy.last_change.actor = "beta:<uuid>"
+       .plugin_policy.last_change.at = "<time>"
+       .plugin_policy.last_change.id = "<uuid>"
+       .plugin_policy.mode = "owner"
        .retired = true
        .retired_reason = "session_end"
        .schema = 1

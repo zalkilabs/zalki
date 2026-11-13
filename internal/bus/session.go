@@ -96,6 +96,9 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
+		if err := retainSessionPluginPolicy(s, current, &session, compact, exists); err != nil {
+			return err
+		}
 		if compact && exists && !current.Retired {
 			preserved = true
 			session.Generation = current.Generation
@@ -148,6 +151,10 @@ func newRegistration(s Store, kind, id, cwd string, endpoint *model.Endpoint, in
 		session.NativeConfigDir = names.ConfigDir()
 	}
 	session.AdapterState, err = s.decodeAdapterState(kind, agent.StateInput{})
+	if err != nil {
+		return session, "", err
+	}
+	session.PluginPolicy, err = initialSessionPluginPolicy(session.ID)
 	if err != nil {
 		return session, "", err
 	}
@@ -242,6 +249,7 @@ func (s Store) sessionsWithWarnings() ([]model.Session, int, error) {
 		sessions[i].Receive = adapter.ReceiveCapabilities(sessions[i])
 		sessions[i].NativeConfigDir = ""
 		sessions[i].AdapterState = nil
+		sessions[i].PluginPolicy = nil
 		sessions[i].Listener = nil
 		sessions[i].NativeID = ""
 	}

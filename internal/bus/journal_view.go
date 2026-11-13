@@ -167,7 +167,7 @@ func currentMessage(store Store, id string) (model.Message, int, error) {
 		return model.Message{}, 0, err
 	}
 	var message model.Message
-	if err := DecodeStrictRecordJSON(raw, &message); err != nil {
+	if err := decodeStoredMessage(raw, &message); err != nil {
 		return model.Message{}, 0, err
 	}
 	if message.Schema != recordSchema || message.ID != id || (message.Kind != "" && message.Kind != model.NoticeKind) {
@@ -202,7 +202,7 @@ func (v JournalView) PluginMember(session, plugin string) (member bool, err erro
 		if readErr != nil {
 			return readErr
 		}
-		member = !record.Retired && store.sessionLiveness(record) != model.LivenessExited
+		member = !record.Retired && store.sessionLiveness(record) != model.LivenessExited && sessionAllowsPlugin(record, plugin)
 		return nil
 	})
 	return member && err == nil, err

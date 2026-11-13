@@ -20,8 +20,9 @@ type ReplyRequest struct {
 }
 
 type Service struct {
-	Store   Store
-	Runtime *RuntimeLease
+	PluginStartup pluginStartupFormat
+	Store         Store
+	Runtime       *RuntimeLease
 	// PluginInbox is the composition root's local inbox admission policy.
 	PluginInbox pluginInboxAdmit
 	// PluginSend is the composition root's plugin send-grant check.
@@ -95,6 +96,13 @@ func (s *Service) deliverReserved(ctx context.Context, msg model.Message, target
 func (s *Service) revalidateTarget(id string, target model.Session) (current model.Session, held model.Message, err error) {
 	err = s.Store.locked(func() error {
 		var err error
+		stored, err := s.Store.message(id)
+		if err != nil {
+			return err
+		}
+		if err := checkPluginMessageDelivery(s.Store, stored); err != nil {
+			return err
+		}
 		current, err = s.Store.session(target.ID)
 		if err != nil {
 			return err
@@ -107,10 +115,6 @@ func (s *Service) revalidateTarget(id string, target model.Session) (current mod
 		}
 		if current.State != model.StateApproval {
 			return nil
-		}
-		stored, err := s.Store.message(id)
-		if err != nil {
-			return err
 		}
 		if err := s.Store.holdForApproval(&stored); err != nil {
 			return err

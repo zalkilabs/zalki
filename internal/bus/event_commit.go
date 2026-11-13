@@ -28,6 +28,9 @@ func saveSessionWith(s Store, next model.Session, cause model.EventCause, writer
 	if err != nil {
 		return err
 	}
+	if err := refreshSessionPluginAudit(prior, &record.value); err != nil {
+		return err
+	}
 	event, err := sessionEvent(prior, record.value, cause)
 	if err != nil {
 		return err

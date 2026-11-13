@@ -15,7 +15,8 @@ import (
 // producer. It does not build a general raw-IO dependency framework.
 func TestSessionWriterInventory(t *testing.T) {
 	expected := map[string]int{
-		"approval.go:rememberApprovalHold": 1, "approval.go:clearApprovalHeld": 1, "approval.go:reconcileSessionHold": 1,
+		"session_plugins_mutate.go:SetSessionPlugin": 1,
+		"approval.go:rememberApprovalHold":           1, "approval.go:clearApprovalHeld": 1, "approval.go:reconcileSessionHold": 1,
 		"hook_lifecycle.go:ApplyLifecycle": 1, "hook_lifecycle.go:ClaimRecovery": 1,
 		"hook_registration.go:registerPromptAbsent": 1,
 		"listener.go:Arm": 1, "listener.go:Confirm": 1, "listener.go:Close": 1,

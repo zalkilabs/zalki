@@ -44,6 +44,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 			return err
 		}
 	}
+	runtime.pluginStartup = s.PluginStartup
 	trace.stage = "handler"
 	handled, err := hooks.HandleHook(runtime, event, id, output)
 	if err != nil {
@@ -165,14 +166,8 @@ func (s *Service) startSession(kind string, hooks agent.HookAdapter, event agent
 			return err
 		}
 	}
-	context := startupInstructions(id, key)
 	trace.stage = "startup"
-	result, err := hooks.StartupOutput(agent.StartupContext{Actor: id, Capability: key, StateDir: s.Store.Dir, ConfigFile: s.Store.ConfigFile, Instructions: context})
-	if err != nil {
-		return err
-	}
-	trace.stage = "output"
-	return json.NewEncoder(output).Encode(result)
+	return s.sessionStartupOutput(hooks, session, key, !registration.PreserveGeneration, output, trace)
 }
 
 func startupInstructions(id, key string) string {
