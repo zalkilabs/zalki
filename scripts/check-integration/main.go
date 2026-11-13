@@ -99,6 +99,9 @@ var required = []requiredTest{
 	{"pluginfeed", "TestPluginRebindPublicationUncertainty"},
 	{"pluginfeed", "TestPluginPublicationOutcomeIsProvenOrUnknown"},
 	{"plugins", "TestPluginRunNamedRefusal"},
+	{"plugins", "TestPluginManualRuntimeEnvironment"},
+	{"plugins", "TestPluginHomeMustBeCleanAbsolute"},
+	{"plugins", "TestPluginPinIdentityAfterStart"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

@@ -71,7 +71,7 @@ func TestSecurityExplicitFD3TransferAndLifetime(t *testing.T) {
 	if err := unix.Fstat(int(lease.Fd()), &info); err != nil {
 		t.Fatal(err)
 	}
-	c, err := launchChild(t.Context(), os.Args[0], []string{"-test.run=^TestSecurityFD3Child$"}, dir, dir, lease)
+	c, err := launchChild(t.Context(), os.Args[0], identityOf(t, os.Args[0]), []string{"-test.run=^TestSecurityFD3Child$"}, dir, dir, lease)
 	if err != nil {
 		t.Fatal(err)
 	}

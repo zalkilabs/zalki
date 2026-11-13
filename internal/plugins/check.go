@@ -46,11 +46,11 @@ func Check(ctx context.Context, target CheckTarget, output io.Writer) (result er
 		}
 		defer lease.Close() //nolint:errcheck // Child is reaped by the later defer first.
 	}
-	launch, err := checkLaunch(target)
+	launch, pinned, err := checkLaunch(target)
 	if err != nil {
 		return reportCheck(output, "launch", err)
 	}
-	c, err := launchChild(ctx, launch.Executable, launch.Args, cwd, home, lease)
+	c, err := launchChild(ctx, launch.Executable, pinned, launch.Args, cwd, home, lease)
 	if err != nil {
 		return reportCheck(output, "launch", err)
 	}
@@ -76,11 +76,15 @@ func Check(ctx context.Context, target CheckTarget, output io.Writer) (result er
 	return checkExchanges(c, offers, output)
 }
 
-func checkLaunch(target CheckTarget) (pluginfeed.PluginLaunch, error) {
+func checkLaunch(target CheckTarget) (pluginfeed.PluginLaunch, fileIdentity, error) {
 	if target.Launch == nil {
-		return pluginfeed.PluginLaunch{}, errors.New("plugin has no external executable")
+		return pluginfeed.PluginLaunch{}, fileIdentity{}, errors.New("plugin has no external executable")
 	}
-	return *target.Launch, target.Launch.Verify()
+	pinned, err := pinnedIdentity(target.Launch.Executable)
+	if err != nil {
+		return pluginfeed.PluginLaunch{}, fileIdentity{}, err
+	}
+	return *target.Launch, pinned, target.Launch.Verify()
 }
 
 func reportCheck(output io.Writer, stage string, err error) error {

@@ -84,7 +84,7 @@ func TestPluginCheckObservesTransportWithPrivateHomeCwdAndReap(t *testing.T) {
 	if err != nil || json.Unmarshal(raw, &observed) != nil {
 		t.Fatal("missing observation", err)
 	}
-	if observed.EnvironmentCount != 1 || observed.Home == os.Getenv("HOME") || filepath.Dir(observed.Home) != filepath.Dir(observed.Cwd) {
+	if observed.EnvironmentCount != 2 || observed.Home == os.Getenv("HOME") || filepath.Dir(observed.Home) != filepath.Dir(observed.Cwd) {
 		t.Fatal("check inherited real environment or cwd", observed)
 	}
 	if root := filepath.Dir(observed.Cwd); strings.HasPrefix(filepath.Base(root), "zalki-plugin-check-") {
