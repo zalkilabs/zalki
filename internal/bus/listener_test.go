@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -35,7 +36,7 @@ func listenSocket(t *testing.T) *model.Endpoint {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { listener.Close() })
-	endpoint, err := InspectEndpoint(listener.Addr().String())
+	endpoint, err := agent.InspectEndpoint(listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}

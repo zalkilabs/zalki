@@ -200,7 +200,7 @@ func listenSocket(t *testing.T) *model.Endpoint {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { listener.Close() })
-	endpoint, err := bus.InspectEndpoint(listener.Addr().String())
+	endpoint, err := agentapi.InspectEndpoint(listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}

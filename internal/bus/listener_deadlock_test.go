@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	agentapi "github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -21,7 +22,7 @@ func TestLeaseOperationsAndPruneDoNotDeadlock(t *testing.T) {
 		store := newStore(t, listenerAdapter("cursor"))
 		a := register(t, store, "cursor")
 		other := restart(t, store)
-		endpoint, err := bus.InspectEndpoint(os.Getenv("ZALKI_TEST_LEASE_ENDPOINT"))
+		endpoint, err := agentapi.InspectEndpoint(os.Getenv("ZALKI_TEST_LEASE_ENDPOINT"))
 		if err != nil {
 			t.Fatal(err)
 		}

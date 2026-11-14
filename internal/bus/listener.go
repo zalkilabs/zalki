@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -85,7 +86,7 @@ func (s Store) lockHeld(v model.Session) bool {
 func (s Store) listenerStatus(v model.Session) model.ListenerStatus {
 	held := s.lockHeld(v)
 	switch {
-	case v.Listener != nil && held && v.Listener.Generation == v.Generation && CheckEndpoint(&v.Listener.Endpoint) == nil:
+	case v.Listener != nil && held && v.Listener.Generation == v.Generation && agent.CheckEndpoint(&v.Listener.Endpoint) == nil:
 		return model.ListenerRunning
 	case v.Listener != nil:
 		return model.ListenerStale
@@ -177,7 +178,7 @@ func (l *Lease) Arm(endpoint *model.Endpoint) error {
 	if l.closed || l.endpoint != nil {
 		return errors.New("listener lease is closed or already armed")
 	}
-	if err := CheckEndpoint(endpoint); err != nil {
+	if err := agent.CheckEndpoint(endpoint); err != nil {
 		return err
 	}
 	bound := *endpoint

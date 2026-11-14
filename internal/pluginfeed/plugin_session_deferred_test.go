@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -109,7 +110,7 @@ func sessionControlEndpoint(t *testing.T) *model.Endpoint {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = listener.Close() })
-	endpoint, err := bus.InspectEndpoint(listener.Addr().String())
+	endpoint, err := agent.InspectEndpoint(listener.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}

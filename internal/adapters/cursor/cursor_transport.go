@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/adapters/internal/socketio"
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func signalCursor(ctx context.Context, message model.Message, target model.Session) model.Receipt {
 	receipt := model.NewReceipt(model.StatusPendingActivity)
 	endpoint := &target.Listener.Endpoint
-	if err := bus.CheckEndpoint(endpoint); err != nil {
+	if err := agent.CheckEndpoint(endpoint); err != nil {
 		receipt.Error = "Cursor listener unavailable: " + err.Error()
 		receipt = receipt.WithCause(err)
 		return receipt
@@ -27,7 +27,7 @@ func signalCursor(ctx context.Context, message model.Message, target model.Sessi
 		return receipt
 	}
 	defer conn.Close() //nolint:errcheck // The wake receipt is determined before connection cleanup.
-	if err := bus.CheckEndpoint(endpoint); err != nil {
+	if err := agent.CheckEndpoint(endpoint); err != nil {
 		receipt.Error = err.Error()
 		receipt = receipt.WithCause(err)
 		return receipt

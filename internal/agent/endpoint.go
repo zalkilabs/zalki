@@ -1,14 +1,15 @@
-package bus
+package agent
 
 import (
 	"errors"
 
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 // InspectEndpoint returns the recorded form of the socket identity at path.
 func InspectEndpoint(path string) (*model.Endpoint, error) {
-	id, err := InspectSocket(path)
+	id, err := platform.InspectSocket(path)
 	if err != nil {
 		return nil, err
 	}

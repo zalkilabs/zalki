@@ -20,6 +20,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/adapters/cursor"
+	agentapi "github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/config"
 	"github.com/zalkilabs/zalki/internal/fsutil"
@@ -38,7 +39,7 @@ func listenSmokeCursor(ctx context.Context, store bus.Store, actor, key string, 
 		}
 		return lease, nil
 	}
-	return cursor.Listen(ctx, acquire, bus.InspectEndpoint, actor, key, output)
+	return cursor.Listen(ctx, acquire, agentapi.InspectEndpoint, actor, key, output)
 }
 
 type smokeObservation struct {
