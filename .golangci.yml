@@ -42,6 +42,7 @@ linters:
             - github.com/zalkilabs/zalki/internal/journal$
             - github.com/zalkilabs/zalki/internal/logging$
             - github.com/zalkilabs/zalki/internal/model$
+            - github.com/zalkilabs/zalki/internal/platform$
             - github.com/zalkilabs/zalki/internal/procwatch$
         process-mechanisms:
           files: ["**/internal/procwatch/*.go", "!$test"]
@@ -63,6 +64,12 @@ linters:
             - $gostd
             - github.com/zalkilabs/zalki/internal/fsutil$
             - github.com/zalkilabs/zalki/internal/model$
+            - github.com/zalkilabs/zalki/internal/platform$
+        platform:
+          files: ["**/internal/platform/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
         model:
           files: ["**/internal/model/*.go", "!$test"]
           list-mode: strict
@@ -111,7 +118,7 @@ linters:
           list-mode: strict
           allow:
             - $gostd
-        # Only procwatch may use raw OS calls. The files listed below are the
+        # Only procwatch and platform may use raw OS calls. The files listed below are the
         # current users; remove a line when its file moves behind a platform API.
         # This list may only shrink; a file move or rename must update its line.
         os-calls:
@@ -120,6 +127,7 @@ linters:
             - "!$test"
             - "!**/scripts/**"
             - "!**/internal/procwatch/*.go"
+            - "!**/internal/platform/*.go"
             - "!**/cmd/zalki/main.go"
             - "!**/cmd/zalki/plugin_install_term.go"
             - "!**/cmd/zalki/plugin_install_term_darwin.go"
@@ -139,10 +147,7 @@ linters:
             - "!**/internal/bus/listener.go"
             - "!**/internal/bus/liveness.go"
             - "!**/internal/bus/process.go"
-            - "!**/internal/bus/process_stat_darwin.go"
-            - "!**/internal/bus/process_stat_linux.go"
             - "!**/internal/bus/runtime.go"
-            - "!**/internal/bus/socket.go"
             - "!**/internal/config/file.go"
             - "!**/internal/fsutil/fsutil.go"
             - "!**/internal/install/installation_lock.go"
@@ -171,9 +176,9 @@ linters:
           list-mode: lax
           deny:
             - pkg: syscall
-              desc: Only procwatch may use raw OS calls; use a platform API instead.
+              desc: Only procwatch and platform may use raw OS calls; use a platform API instead.
             - pkg: golang.org/x/sys
-              desc: Only procwatch may use raw OS calls; use a platform API instead.
+              desc: Only procwatch and platform may use raw OS calls; use a platform API instead.
         pluginfeed-importers:
           files: ["$all", "!$test", "!**/cmd/zalki/*.go", "!**/internal/plugins/*.go"]
           list-mode: lax
@@ -205,6 +210,19 @@ linters:
           deny:
             - pkg: github.com/zalkilabs/zalki/internal/adapters
               desc: Clients must not import the composition root or each other; only socketio is shared.
+        # Client production code reaches bus only through the agent contract.
+        # codex_app_server.go still reads the build version from bus.
+        client-bus:
+          files:
+            - "**/internal/adapters/codex/*.go"
+            - "**/internal/adapters/claude/*.go"
+            - "**/internal/adapters/cursor/*.go"
+            - "!$test"
+            - "!**/internal/adapters/codex/codex_app_server.go"
+          list-mode: lax
+          deny:
+            - pkg: github.com/zalkilabs/zalki/internal/bus
+              desc: Clients use the agent contract, not bus.
         socket-io:
           files: ["**/internal/adapters/internal/socketio/**"]
           list-mode: strict

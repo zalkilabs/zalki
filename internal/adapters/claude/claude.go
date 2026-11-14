@@ -18,7 +18,6 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters/internal/socketio"
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -73,12 +72,12 @@ func (Adapter) RegisterHook(event agent.HookInput) (agent.HookRegistration, erro
 	if value := os.Getenv("CLAUDE_CODE_SESSION_ID"); value != "" && !strings.EqualFold(value, event.SessionID) {
 		return agent.HookRegistration{}, errors.New("hook session/environment identity mismatch")
 	}
-	endpoint, err := bus.InspectEndpoint(os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET"))
+	endpoint, err := agent.InspectEndpoint(os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET"))
 	return agent.HookRegistration{Endpoint: endpoint}, err
 }
 
 func (Adapter) Health(_ agent.HealthHost, v model.Session) (string, string) {
-	if bus.CheckEndpoint(v.Endpoint) == nil {
+	if agent.CheckEndpoint(v.Endpoint) == nil {
 		return "bound_socket_present", ""
 	}
 	return "socket_unavailable", ""
@@ -92,7 +91,7 @@ func (Adapter) RecoveryHint(d model.SessionDiagnostic) string {
 }
 
 func writeClaude(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
-	if err := bus.CheckEndpoint(target.Endpoint); err != nil {
+	if err := agent.CheckEndpoint(target.Endpoint); err != nil {
 		return failedReceipt(model.StatusNotSent, err)
 	}
 	// This undocumented wire format may change between client versions.
@@ -114,7 +113,7 @@ func writeClaude(ctx context.Context, msg model.Message, target model.Session) m
 		return failedReceipt(model.StatusNotSent, err)
 	}
 	defer conn.Close() //nolint:errcheck // Delivery reports write errors before connection cleanup.
-	if err := bus.CheckEndpoint(target.Endpoint); err != nil {
+	if err := agent.CheckEndpoint(target.Endpoint); err != nil {
 		return failedReceipt(model.StatusNotSent, err)
 	}
 	return writeClaudeFrame(ctx, conn, encoded)

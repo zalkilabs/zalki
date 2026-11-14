@@ -39,7 +39,7 @@ func (s Store) sessionLiveness(v model.Session) model.Liveness {
 
 func (s Store) livenessProbes() agent.LivenessProbes {
 	return agent.LivenessProbes{
-		Endpoint: CheckEndpoint,
+		Endpoint: agent.CheckEndpoint,
 		Presence: func(pid int) model.Liveness { return processPresence(pid, procwatch.Read) },
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/adapters/cursor"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/mcpserver"
 
@@ -108,7 +109,7 @@ func newCursorListenCommand(opts *commandOptions) *cobra.Command {
 				}
 				return lease, nil
 			}
-			return cursor.Listen(cmd.Context(), acquire, bus.InspectEndpoint, actor, key, cmd.OutOrStdout())
+			return cursor.Listen(cmd.Context(), acquire, agent.InspectEndpoint, actor, key, cmd.OutOrStdout())
 		},
 	}
 	cmd.Flags().StringVar(&actor, "actor", os.Getenv("ZALKI_ACTOR"), "your own Cursor actor ID (defaults to ZALKI_ACTOR)")

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -33,7 +33,7 @@ func listenClaudeSocket(t *testing.T) (*net.UnixListener, *model.Endpoint) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { listener.Close() })
-	endpoint, err := bus.InspectEndpoint(path)
+	endpoint, err := agent.InspectEndpoint(path)
 	if err != nil {
 		t.Fatal(err)
 	}

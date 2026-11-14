@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -42,7 +42,7 @@ func TestCursorSenderRequiresExactHintEcho(t *testing.T) {
 			if err := listener.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 				t.Fatal(err)
 			}
-			endpoint, err := bus.InspectEndpoint(listener.Addr().String())
+			endpoint, err := agent.InspectEndpoint(listener.Addr().String())
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -220,14 +221,14 @@ func TestEndpointRejectsFilesAndSymlinks(t *testing.T) {
 	if err := os.WriteFile(path, nil, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := InspectEndpoint(path); err == nil {
+	if _, err := agent.InspectEndpoint(path); err == nil {
 		t.Fatal("accepted regular file")
 	}
 	link := filepath.Join(dir, "link")
 	if err := os.Symlink(socket.Path, link); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := InspectEndpoint(link); err == nil {
+	if _, err := agent.InspectEndpoint(link); err == nil {
 		t.Fatal("accepted symlink")
 	}
 }
@@ -257,7 +258,7 @@ func TestEndpointRecordsTheResolvedPath(t *testing.T) {
 	if err := os.Symlink(target, filepath.Join(dir, "via")); err != nil {
 		t.Fatal(err)
 	}
-	endpoint, err := InspectEndpoint(filepath.Join(dir, "via", "s.sock"))
+	endpoint, err := agent.InspectEndpoint(filepath.Join(dir, "via", "s.sock"))
 	if err != nil {
 		t.Fatal(err)
 	}

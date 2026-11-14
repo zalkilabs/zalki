@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/adapters"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -168,7 +169,7 @@ func claudeSocket(t *testing.T, clean bool) (*model.Endpoint, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	endpoint, err := bus.InspectEndpoint(strings.TrimSpace(line))
+	endpoint, err := agent.InspectEndpoint(strings.TrimSpace(line))
 	if err != nil {
 		t.Fatal(err)
 	}

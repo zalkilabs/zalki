@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/adapters/cursor"
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -113,7 +114,7 @@ func startReplacementListener(t *testing.T, store bus.Store, actor, key string) 
 			}
 			return &replacementLease{ListenerHandle: lease, setup: setup}, nil
 		}
-		return cursor.Listen(ctx, acquire, bus.InspectEndpoint, actor, key, output)
+		return cursor.Listen(ctx, acquire, agent.InspectEndpoint, actor, key, output)
 	})
 	return stop, output, setup
 }

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 
 	"github.com/zalkilabs/zalki/internal/model"
@@ -63,7 +64,7 @@ func binaryDigest(path string) (string, error) {
 		return "", errors.New("binary is not a regular file")
 	}
 	stat := info.Sys().(*syscall.Stat_t)
-	identity := fileIdentity{uint64(stat.Dev), stat.Ino, info.Size(), info.ModTime().UnixNano(), ChangedNS(stat)} // #nosec G115 -- Preserve opaque device identity; Darwin's dev_t is signed, Linux's is unsigned.
+	identity := fileIdentity{uint64(stat.Dev), stat.Ino, info.Size(), info.ModTime().UnixNano(), platform.ChangedNS(stat)} // #nosec G115 -- Preserve opaque device identity; Darwin's dev_t is signed, Linux's is unsigned.
 	binaryDigests.Lock()
 	defer binaryDigests.Unlock()
 	if previous, ok := binaryDigests.entries[path]; ok && previous.identity == identity {
