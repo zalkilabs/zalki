@@ -1,3 +1,5 @@
+//go:build darwin || linux
+
 package platform
 
 import (
@@ -6,14 +8,6 @@ import (
 	"path/filepath"
 	"syscall"
 )
-
-// SocketID identifies one bound Unix socket file.
-type SocketID struct {
-	Path      string
-	Device    uint64
-	Inode     uint64
-	ChangedNS int64
-}
 
 // InspectSocket returns the identity of a same-user socket at an absolute path
 // whose parent directory is private to this OS user.
