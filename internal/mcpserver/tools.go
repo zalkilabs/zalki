@@ -171,7 +171,7 @@ func toolTable() []toolSpec {
 				Sent: args.Sent, To: args.To, Preview: args.Preview,
 				MessageID: args.MessageID, IncludeBody: args.IncludeBody, Cursor: args.Cursor,
 			})
-			return messagePage(messages, args.MessageID != ""), err
+			return messagePage(messages, args.MessageID != "", args.Actor), err
 		}),
 		defineTool(toolDefinition{
 			name: "watch_agent", description: "One notice when an agent next finishes or ends; expires in 12h.",

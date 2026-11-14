@@ -162,7 +162,7 @@ func newSendCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return encodeOutput(cmd, message)
+			return encodeOutput(cmd, sendOutput(message))
 		},
 	}
 }
