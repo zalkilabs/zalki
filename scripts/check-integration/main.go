@@ -23,6 +23,8 @@ func (t requiredTest) importPath() string {
 }
 
 var required = []requiredTest{
+	{"bus", "TestEndpointRecordsTheResolvedPath"},
+	{"bus", "TestEndpointRejectsFilesAndSymlinks"},
 	{"bus", "TestFeedMemberZeroReferenceCacheCannotBeRevived"},
 	{"bus", "TestFeedMemberReadsAndDecodesNativeOncePerView"},
 	{"bus", "TestFeedMemberEvidenceIsOncePerViewAndPluginIsolated"},
