@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/model"
@@ -208,8 +211,11 @@ func TestCursorPromptReactivatesResumedConversation(t *testing.T) {
 	}
 }
 
+// The paths sit in the private socket directory and the link points to a live
+// socket, so only the file-type and no-symlink checks can refuse them.
 func TestEndpointRejectsFilesAndSymlinks(t *testing.T) {
-	dir := t.TempDir()
+	socket := listenSocket(t)
+	dir := filepath.Dir(socket.Path)
 	path := filepath.Join(dir, "regular")
 	if err := os.WriteFile(path, nil, 0600); err != nil {
 		t.Fatal(err)
@@ -218,10 +224,44 @@ func TestEndpointRejectsFilesAndSymlinks(t *testing.T) {
 		t.Fatal("accepted regular file")
 	}
 	link := filepath.Join(dir, "link")
-	if err := os.Symlink(path, link); err != nil {
+	if err := os.Symlink(socket.Path, link); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := InspectEndpoint(link); err == nil {
 		t.Fatal("accepted symlink")
+	}
+}
+
+// A socket reached through a symlinked directory records the resolved path.
+func TestEndpointRecordsTheResolvedPath(t *testing.T) {
+	dir, err := os.MkdirTemp("/tmp", "zalki-endpoint-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	if dir, err = filepath.EvalSymlinks(dir); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "target")
+	if err := os.Mkdir(target, 0700); err != nil {
+		t.Fatal(err)
+	}
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", filepath.Join(target, "s.sock"))
+	if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+		t.Skipf("execution sandbox forbids binding a Unix socket: %v", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { listener.Close() })
+	if err := os.Symlink(target, filepath.Join(dir, "via")); err != nil {
+		t.Fatal(err)
+	}
+	endpoint, err := InspectEndpoint(filepath.Join(dir, "via", "s.sock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(target, "s.sock"); endpoint.Path != want {
+		t.Fatalf("endpoint path = %q, want the resolved path %q", endpoint.Path, want)
 	}
 }
