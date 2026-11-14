@@ -41,6 +41,9 @@ func messageReceipt(message model.Message, err error) (MessageReceipt, error) {
 		receipt.Error = message.Receipt.Error
 		receipt.Code = message.Receipt.Code
 	}
+	if text := uncertaintyText(message, "", false); text != "" {
+		receipt.Error = text
+	}
 	if err != nil || receipt.Acknowledged {
 		return receipt, err
 	}
@@ -104,7 +107,7 @@ type MessageView struct {
 	Code           model.ErrorCode      `json:"code,omitempty"`
 }
 
-func messageViews(messages []model.Message) []MessageView {
+func messageViews(messages []model.Message, actor string) []MessageView {
 	views := make([]MessageView, 0, len(messages))
 	for _, msg := range messages {
 		view := MessageView{ID: msg.ID, From: msg.From, FromName: msg.FromName, FromLabel: msg.FromLabel, Kind: msg.Kind,
@@ -112,6 +115,9 @@ func messageViews(messages []model.Message) []MessageView {
 			CreatedAt: msg.CreatedAt, Status: msg.Status, AcknowledgedAt: msg.AcknowledgedAt}
 		if msg.Receipt != nil {
 			view.Error, view.Code = msg.Receipt.Error, msg.Receipt.Code
+		}
+		if text := uncertaintyText(msg, actor, true); text != "" {
+			view.Error = text
 		}
 		if msg.IsQueuedForApproval() {
 			view.Status = model.StatusQueuedForApproval
@@ -132,13 +138,13 @@ type MessagePage struct {
 	Unreadable int `json:"unreadable,omitempty"`
 }
 
-func messagePage(batch bus.MessageBatch, exact bool) MessagePage {
+func messagePage(batch bus.MessageBatch, exact bool, actor string) MessagePage {
 	page := MessagePage{Messages: []MessageView{}, More: batch.More, Unreadable: batch.Unreadable}
 	used := len(`{"messages":[],"more":false,"next_cursor":"00000000-0000-4000-8000-000000000000"}`)
 	if page.Unreadable > 0 {
 		used += len(`,"unreadable":`) + len(strconv.Itoa(page.Unreadable))
 	}
-	for _, view := range messageViews(batch.Messages) {
+	for _, view := range messageViews(batch.Messages, actor) {
 		encoded, _ := json.Marshal(view)
 		if !exact && used+len(encoded)+1 > messagePageBytes {
 			if len(page.Messages) != 0 {

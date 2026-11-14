@@ -17,7 +17,7 @@ func TestSessionPluginMCPBindingProjections(t *testing.T) {
 		t.Fatal(err)
 	}
 	batch := bus.MessageBatch{Messages: []model.Message{message}}
-	views := map[string]any{"list": messagePage(batch, false), "get": messagePage(batch, true), "receipt": receipt}
+	views := map[string]any{"list": messagePage(batch, false, ""), "get": messagePage(batch, true, ""), "receipt": receipt}
 	for name, value := range views {
 		raw, err := json.Marshal(value)
 		if err != nil || bytes.Contains(raw, []byte("plugin_binding")) || bytes.Contains(raw, []byte(message.PluginBinding)) {
