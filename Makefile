@@ -1,4 +1,4 @@
-.PHONY: build test test-required test-alias vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check
+.PHONY: build test test-required test-alias vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check windows-vet-test
 
 GORELEASER ?= goreleaser
 GOVULNCHECK ?= govulncheck
@@ -87,3 +87,7 @@ smoke-live:
 cost-check:
 	go test ./internal/bus -run '^$$' -bench '^BenchmarkMessageLookup$$' -benchtime=100ms -benchmem
 	go test ./internal/mcpserver -run '^TestCollaborationCost$$' -v
+
+# Pure fake-Go discovery controls; no real Windows vet or Go compiler is invoked.
+windows-vet-test:
+	bash scripts/test-windows-vet.sh

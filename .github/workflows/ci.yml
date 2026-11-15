@@ -17,6 +17,9 @@ concurrency:
 jobs:
   test:
     name: Test (${{ matrix.os }})
+    # Keep existing required check names authoritative for the new coverage.
+    needs: [test-alias, windows-vet]
+    if: always()
     strategy:
       fail-fast: false
       matrix:
@@ -27,6 +30,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Require completed alias and reporter checks
+        env:
+          ALIAS_RESULT: ${{ needs['test-alias'].result }}
+          WINDOWS_RESULT: ${{ needs['windows-vet'].result }}
+        run: |
+          if [[ "$ALIAS_RESULT" != success || "$WINDOWS_RESULT" != success ]]; then
+            echo "Required coverage incomplete: alias=$ALIAS_RESULT, windows=$WINDOWS_RESULT" >&2
+            exit 1
+          fi
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -37,6 +49,36 @@ jobs:
         run: |
           ruby -c packaging/homebrew/zalki.rb.tmpl
           sh -n scripts/*.sh
+
+  test-alias:
+    name: Alias tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      # The runner disables module/toolchain network access in the test child.
+      - run: go mod download
+      - name: Run the required suite with a proven temporary-path alias
+        env:
+          ZALKI_TEST_ALIAS_REPORT: ${{ runner.temp }}/alias-test.json
+        run: make test-alias
+      - name: Retain the full alias test report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: alias-tests-${{ matrix.os }}
+          path: ${{ runner.temp }}/alias-test.json
+          if-no-files-found: error
 
   lint:
     name: Lint (${{ matrix.os }})
@@ -70,36 +112,17 @@ jobs:
           go-version-file: go.mod
           check-latest: true
       - run: go mod download
+      - name: Verify reporter discovery failures
+        run: make windows-vet-test
       - name: Count failing packages
-        # Each package is vetted alone: go vet ./... reports only the first
-        # failing dependency and hides the packages behind it. Vet failures
-        # are only reported; a failed package list fails the step.
-        run: |
-          summary() { echo "$1" | tee -a "$GITHUB_STEP_SUMMARY"; }
-          discover() {
-            if ! go list ./... > "$1" 2> list.err || [ -s list.err ] || [ ! -s "$1" ]; then
-              summary "package discovery failed or partial ($2): $(head -n 1 list.err)"
-              exit 1
-            fi
-          }
-          discover host.txt host
-          GOOS=windows GOARCH=amd64 discover windows.txt windows
-          failed=0
-          total=0
-          list=""
-          while read -r pkg; do
-            total=$((total + 1))
-            if ! GOOS=windows GOARCH=amd64 go vet "$pkg" > vet.log 2>&1; then
-              failed=$((failed + 1))
-              list="$list- $pkg"$'\n'
-              echo "::warning::GOOS=windows go vet fails: $pkg"
-              head -n 5 vet.log
-            fi
-          done < windows.txt
-          omitted="$(sort host.txt | comm -23 - <(sort windows.txt) | paste -sd ' ' -)"
-          summary "GOOS=windows go vet: $failed of $total Windows-selected packages fail"
-          printf '%s' "$list" | tee -a "$GITHUB_STEP_SUMMARY"
-          summary "not built on windows: ${omitted:-none}"
+        run: bash scripts/windows-vet.sh "${{ runner.temp }}/windows-vet"
+      - name: Retain Windows vet reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-vet
+          path: ${{ runner.temp }}/windows-vet
+          if-no-files-found: error
 
   vulnerabilities:
     name: Vulnerabilities
