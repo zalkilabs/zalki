@@ -8,7 +8,7 @@ import (
 
 // OpenLockFile opens path read-write without following a symbolic link. When
 // create is true it creates a missing file with mode 0600; otherwise it opens
-// only an existing file. It returns the raw descriptor and syscall error,
+// only an existing file. It returns the descriptor on success or -1 and the raw syscall error,
 // with close-on-exec set atomically. The caller owns locking and descriptor cleanup.
 func OpenLockFile(path string, create bool) (int, error) {
 	flags := syscall.O_RDWR | syscall.O_NOFOLLOW | syscall.O_CLOEXEC
@@ -17,7 +17,11 @@ func OpenLockFile(path string, create bool) (int, error) {
 		flags |= syscall.O_CREAT
 		mode = 0600
 	}
-	return syscall.Open(path, flags, mode)
+	fd, err := syscall.Open(path, flags, mode)
+	if err != nil {
+		return -1, err
+	}
+	return fd, nil
 }
 
 // LockExclusive takes an exclusive flock on fd. If nonblocking is true it adds
