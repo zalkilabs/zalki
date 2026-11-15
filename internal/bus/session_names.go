@@ -27,35 +27,6 @@ func (s Store) nativeNames(sessions []model.Session) {
 	}
 }
 
-func (s Store) rememberNativeConfigDir(id, kind string, snapshots ...hookRuntime) error {
-	adapter, err := s.registry().Lookup(kind)
-	if err != nil {
-		return err
-	}
-	names, ok := adapter.(agent.NameAdapter)
-	if !ok {
-		return nil
-	}
-	root := names.ConfigDir()
-	if root == "" {
-		return nil
-	}
-	return s.locked(func() error {
-		v, err := sessionForHook(s, id, snapshots...)
-		if os.IsNotExist(err) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if v.NativeConfigDir != "" {
-			return nil
-		}
-		v.NativeConfigDir = root
-		return s.saveSession(v)
-	})
-}
-
 // resolve runs under the journal lock so ambiguity detection and reservation
 // share a registry snapshot. Only registered sessions can be addressed by name.
 func (s Store) resolve(destination string) (model.Session, error) {

@@ -41,7 +41,7 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 }
 
 func (Adapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Notes: []string{"A running Cursor listener does not establish an unsuppressed native observer or remaining notification budget."}, Hooks: map[string]string{
+	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Notes: []string{"A running Cursor listener does not establish an unsuppressed native observer or remaining notification budget.", "Check CURSOR_CONFIG_DIR, XDG_CONFIG_HOME and HOME for the native profile. Use absolute UTF-8 paths without control characters; a leading ~ is not expanded."}, Hooks: map[string]string{
 		"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop",
 	}}
 }
@@ -71,17 +71,12 @@ func (Adapter) ConfigDir() string {
 	return configDir("CURSOR_CONFIG_DIR", root)
 }
 
-func (a Adapter) LookupName(v model.Session, _ map[string]map[string]string) (string, string) {
-	root := v.NativeConfigDir
-	if !filepath.IsAbs(root) {
-		root = a.ConfigDir()
+func (Adapter) LookupName(v model.Session, _ map[string]map[string]string) (string, string) {
+	root := absoluteConfigDir(v.NativeConfigDir)
+	if root == "" {
+		return "", ""
 	}
 	roots := []string{root}
-	if v.NativeConfigDir == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			roots = append(roots, filepath.Join(home, ".cursor"), filepath.Join(home, ".config", "cursor"))
-		}
-	}
 	return cursorNameInRoots(roots, v.NativeID), "cursor_session_metadata"
 }
 
@@ -358,10 +353,16 @@ func validCursorName(name string) bool {
 }
 
 func configDir(variable, fallback string) string {
+	root := fallback
 	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
-		if path, err := filepath.Abs(value); err == nil {
-			return path
-		}
+		root = value
 	}
-	return fallback
+	return absoluteConfigDir(root)
+}
+
+func absoluteConfigDir(root string) string {
+	if !filepath.IsAbs(root) || !utf8.ValidString(root) || strings.ContainsFunc(root, unicode.IsControl) {
+		return ""
+	}
+	return filepath.Clean(root)
 }

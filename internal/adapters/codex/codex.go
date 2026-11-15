@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/install"
@@ -52,6 +54,7 @@ func (Adapter) Descriptor() agent.AdapterDescriptor {
 		"A Codex backend can outlive its terminal.",
 		"Ended Codex threads stay listed until zalki prune --session codex:UUID.",
 		"Codex 0.164.0 or newer can receive tool output on a loaded thread without resuming or steering it. Between-tool delivery is advertised only after this process has verified that app-server. Otherwise delivery requires the owner to enable codex.allow_queue_fallback; queue passes message text in process arguments. An unconfirmed or ambiguous write is not retried.",
+		"Check CODEX_HOME and HOME for the native profile. Use absolute UTF-8 paths without control characters; a leading ~ is not expanded.",
 	}}
 }
 
@@ -62,7 +65,11 @@ func (a Adapter) ReceiveCapabilities(v model.Session) model.ReceiveCapabilities 
 		c.Delivery = "native_queue_next_turn"
 		c.BusyDelivery = model.DeliveryNextTurn
 	}
-	root := codexConfigRoot(v)
+	root := capabilityConfigRoot(v)
+	if root == "" {
+		c.IdleWake = false
+		return c
+	}
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {
 		return c
@@ -93,10 +100,10 @@ func (Adapter) ConfigDir() string {
 	return configDir("CODEX_HOME", filepath.Join(home, ".codex"))
 }
 
-func (a Adapter) LookupName(v model.Session, indexes map[string]map[string]string) (string, string) {
-	root := v.NativeConfigDir
-	if !filepath.IsAbs(root) {
-		root = a.ConfigDir()
+func (Adapter) LookupName(v model.Session, indexes map[string]map[string]string) (string, string) {
+	root := absoluteConfigDir(v.NativeConfigDir)
+	if root == "" {
+		return "", ""
 	}
 	index := "codex:" + root
 	if _, ok := indexes[index]; !ok {
@@ -154,6 +161,10 @@ func (a Adapter) Health(_ agent.HealthHost, v model.Session) (string, string) {
 }
 
 func queueCodex(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
+	root := codexConfigRoot(target)
+	if root == "" {
+		return failedReceipt(model.StatusNotSent, errCodexProfile)
+	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	id := target.NativeID
@@ -162,9 +173,7 @@ func queueCodex(ctx context.Context, msg model.Message, target model.Session) mo
 	}
 	command := exec.CommandContext(ctx, "codex", //nolint:gosec // G204: fixed executable; thread id is a validated bus.UUID
 		"queue", "--thread", id, "--message", model.Envelope(msg))
-	if filepath.IsAbs(target.NativeConfigDir) {
-		command.Env = append(os.Environ(), "CODEX_HOME="+target.NativeConfigDir)
-	}
+	command.Env = append(os.Environ(), "CODEX_HOME="+root)
 	output, err := command.CombinedOutput()
 	receipt := model.NewReceipt(model.StatusSubmitted)
 	receipt.Output = string(output)
@@ -219,12 +228,18 @@ func codexNames(root string) map[string]string {
 }
 
 func configDir(variable, fallback string) string {
+	root := fallback
 	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
-		if path, err := filepath.Abs(value); err == nil {
-			return path
-		}
+		root = value
 	}
-	return fallback
+	return absoluteConfigDir(root)
+}
+
+func absoluteConfigDir(root string) string {
+	if !filepath.IsAbs(root) || !utf8.ValidString(root) || strings.ContainsFunc(root, unicode.IsControl) {
+		return ""
+	}
+	return filepath.Clean(root)
 }
 
 func failedReceipt(status model.DeliveryStatus, err error) model.Receipt {

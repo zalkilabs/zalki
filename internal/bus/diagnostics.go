@@ -75,6 +75,7 @@ func (s Store) diagnoseAgents(ctx context.Context, report *DiagnosticReport) {
 	for _, kind := range s.registry().Kinds() {
 		adapter, _ := s.registry().Lookup(kind)
 		d := adapter.Descriptor()
+		diagnoseNativeProfile(report, adapter)
 		binary, err := exec.LookPath(d.Executable)
 		diagnostic := AgentDiagnostic{Kind: kind, Label: d.Label, Binary: binary, Found: err == nil, Receive: adapter.ReceiveCapabilities(model.Session{})}
 		annotateClientCompatibility(ctx, &diagnostic)

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -29,6 +30,7 @@ const (
 )
 
 var (
+	errCodexProfile     = model.NewError(model.CodeUnavailable, "native profile root must be absolute; check CODEX_HOME and HOME. Use UTF-8 without control characters; a leading ~ is not expanded.")
 	errCodexUnavailable = errors.New("codex app-server unavailable")
 	errCodexUnsupported = errors.New("codex app-server does not support tool output")
 	errCodexNotLoaded   = errors.New("codex thread is not loaded")
@@ -61,10 +63,16 @@ type codexSocket struct {
 }
 
 func codexConfigRoot(target model.Session) string {
-	if filepath.IsAbs(target.NativeConfigDir) {
-		return filepath.Clean(target.NativeConfigDir)
+	return absoluteConfigDir(target.NativeConfigDir)
+}
+
+// Only the existing zero-identity registry/registration/doctor probes use the
+// process profile. A stored recipient never selects its sender's profile.
+func capabilityConfigRoot(v model.Session) string {
+	if reflect.ValueOf(v).IsZero() {
+		return (Adapter{}).ConfigDir()
 	}
-	return (Adapter{}).ConfigDir()
+	return codexConfigRoot(v)
 }
 
 func inspectCodexControl(root string) (codexSocket, error) {
@@ -155,6 +163,9 @@ func (a Adapter) deliverCodex(ctx context.Context, msg model.Message, target mod
 
 func deliverCodexAppServer(ctx context.Context, msg model.Message, target model.Session, threadID string) (model.Receipt, bool) {
 	root := codexConfigRoot(target)
+	if root == "" {
+		return failedReceipt(model.StatusNotSent, errCodexProfile), false
+	}
 	endpoint, err := inspectCodexControl(root)
 	if err != nil {
 		return model.Receipt{}, true

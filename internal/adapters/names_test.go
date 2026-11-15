@@ -320,57 +320,57 @@ func TestNamesUseOwningSessionConfigDirectory(t *testing.T) {
 	}
 }
 
-func TestLegacyCursorNameLookupWithoutXDGEnvironment(t *testing.T) {
+// C4-PORT: old HOME search behavior is characterized on the parent. Rootless
+// stored records now refuse; existing metadata remains untouched and unread.
+func TestLegacyCursorNameRootsAreRefused(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("CURSOR_CONFIG_DIR", "")
 	t.Setenv("XDG_CONFIG_HOME", "")
 	store := adapterTestStore(t)
 	session, _ := registerAdapterSession(t, store, "cursor")
-	// Simulate an existing record created before config-root capture existed.
 	session.NativeConfigDir = ""
 	if err := saveAdapterTestSession(store, session); err != nil {
 		t.Fatal(err)
 	}
 	nativeNameFixture(t, filepath.Join(home, ".config"), session, "Zalki ID Report")
-	items, err := store.List()
-	if err != nil || len(items) != 1 || items[0].Name != "Zalki ID Report" {
-		t.Fatalf("lost legacy Cursor title without XDG env: %+v %v", items, err)
+	for range 2 {
+		rows, skipped, err := store.ListWithWarnings()
+		if err != nil || len(rows) != 0 || skipped != 1 {
+			t.Fatal("LEGACY_CURSOR_ROOT_NOT_REFUSED", rows, skipped, err)
+		}
+		nativeNameFixture(t, home, session, "Conflicting title")
 	}
-	// Different labels for the UUID across standard locations are not guessed.
-	path := filepath.Join(home, ".cursor", "chats", "other", strings.TrimPrefix(session.ID, "cursor:"), "meta.json")
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeTestJSON(path, map[string]any{"schemaVersion": 1, "title": "Conflicting title"}); err != nil {
-		t.Fatal(err)
-	}
-	items, err = store.List()
-	if err != nil || items[0].Name != "" {
-		t.Fatalf("guessed between conflicting legacy roots: %+v %v", items, err)
+	if current := adapterTestSession(t, store, session.ID); current.NativeConfigDir != "" || current.Generation != session.Generation {
+		t.Fatal("LEGACY_CURSOR_ROOT_WAS_REPAIRED")
 	}
 }
 
-func TestHookBackfillsNativeConfigWithoutReregistering(t *testing.T) {
-	root := nameFixture(t)
+// C4-PORT: hooks must not backfill the sender's current environment into an old
+// record. Preserve the saved identity and refuse use of its old capability.
+func TestHookDoesNotBackfillNativeConfig(t *testing.T) {
+	nameFixture(t)
 	store := adapterTestStore(t)
 	session, key := registerAdapterSession(t, store, "cursor")
 	session.NativeConfigDir = ""
 	if err := saveAdapterTestSession(store, session); err != nil {
 		t.Fatal(err)
 	}
-	service := bus.Service{Store: store}
-	input := `{"conversation_id":"` + strings.TrimPrefix(session.ID, "cursor:") + `","hook_event_name":"stop","status":"aborted"}`
-	if err := service.Hook(t.Context(), "cursor", strings.NewReader(input), &bytes.Buffer{}); err != nil {
+	path := filepath.Join(store.Dir, "sessions", strings.ReplaceAll(session.ID, ":", "_")+".json")
+	before, err := os.ReadFile(path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	nativeNameFixture(t, root, session, "Captured title")
-	t.Setenv("CURSOR_CONFIG_DIR", filepath.Join(t.TempDir(), "sender"))
-	items, err := store.List()
-	if err != nil || items[0].Name != "Captured title" || items[0].Generation != session.Generation {
-		t.Fatalf("hook did not preserve identity and capture root: %+v %v", items, err)
+	service := bus.Service{Store: store}
+	input := `{"conversation_id":"` + session.NativeID + `","hook_event_name":"stop","status":"aborted"}`
+	if err := service.Hook(t.Context(), "cursor", strings.NewReader(input), &bytes.Buffer{}); model.ErrorCodeOf(err) != model.CodeUnavailable {
+		t.Fatal("HOOK_BACKFILLED_NATIVE_ROOT", err)
 	}
-	if _, err := store.Messages(session.ID, key); err != nil {
-		t.Fatal("backfill changed capability", err)
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("HOOK_ROOT_REFUSAL_CHANGED_RECORD", err)
+	}
+	if _, err := store.Messages(session.ID, key); model.ErrorCodeOf(err) != model.CodeUnavailable {
+		t.Fatal("ROOTLESS_CAPABILITY_WAS_ACCEPTED", err)
 	}
 }
