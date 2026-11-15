@@ -84,6 +84,9 @@ func readJSON(path string, target any) error {
 		message.PluginBinding = disk.Binding
 		return err
 	}
+	if runtime, ok := target.(*RuntimeInfo); ok {
+		return readRuntimeRecord(path, runtime)
+	}
 	return journal.ReadJSON(path, maxStateFileBytes, target)
 }
 
@@ -93,6 +96,12 @@ func encodeStateJSON(value any) ([]byte, error) {
 	switch message := value.(type) {
 	case model.Message:
 		value = storedPluginMessage{Message: message, Binding: message.PluginBinding}
+	case RuntimeInfo:
+		value = runtimeRecord{Schema: recordSchema, RuntimeInfo: message}
+	case *RuntimeInfo:
+		if message != nil {
+			value = runtimeRecord{Schema: recordSchema, RuntimeInfo: *message}
+		}
 	case *model.Message:
 		if message != nil {
 			value = storedPluginMessage{Message: *message, Binding: message.PluginBinding}

@@ -156,6 +156,8 @@ var required = []requiredTest{
 	{"bus", "TestHookStageInventoryRejectsDynamicForms"},
 	{"cmd/zalki", "TestPluginSupervisorRealChildrenCLI"},
 	{"cmd/zalki", "TestPluginSupervisorForegroundAndStopCLI"},
+	{"bus", "TestRuntimeActorUpdateSurvivesSchemaGuard"},
+	{"bus", "TestRuntimeRecordHeaderIsPrivateAndExact"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

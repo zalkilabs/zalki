@@ -296,7 +296,7 @@ func TestTypedErrorsDescribeLimits(t *testing.T) {
 	if got := (&journal.SizeError{Size: 7, Limit: 5}).Error(); got != "encoded record is 7 bytes; limit is 5 bytes" {
 		t.Fatalf("SizeError text %q", got)
 	}
-	if got := (&journal.SchemaError{Version: 3, Supported: 2}).Error(); got != "unsupported record schema 3; supported up to 2" {
+	if got := (&journal.SchemaError{Version: 3, Supported: 2}).Error(); got != "unsupported record schema 3; expected 2" {
 		t.Fatalf("SchemaError text %q", got)
 	}
 }

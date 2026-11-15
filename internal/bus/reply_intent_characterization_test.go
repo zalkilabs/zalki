@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
@@ -102,6 +103,9 @@ func TestDamagedReplyIntentBlocksReadsAndSendsWithoutChangingState(t *testing.T)
 		want   model.ErrorCode
 	}{
 		{"unsupported intent schema", func(tx map[string]any) { tx["schema"] = 2 }, "unsupported_schema"},
+		{"zero reply record schema", func(tx map[string]any) { tx["reply"].(map[string]any)["schema"] = 0 }, "unsupported_schema"},
+		{"missing reply record schema", func(tx map[string]any) { delete(tx["reply"].(map[string]any), "schema") }, "unsupported_schema"},
+		{"null reply record schema", func(tx map[string]any) { tx["reply"].(map[string]any)["schema"] = nil }, "unsupported_schema"},
 		{"unsupported reply record schema", func(tx map[string]any) { tx["reply"].(map[string]any)["schema"] = 99 }, "unsupported_schema"},
 		{"parent differs from reply_to", func(tx map[string]any) { tx["parent_id"] = "11111111-1111-4111-8111-111111111111" }, "invalid_identity"},
 		{"missing acknowledgement time", func(tx map[string]any) { tx["acknowledged_at"] = "" }, "invalid_identity"},
@@ -123,12 +127,14 @@ func TestDamagedReplyIntentBlocksReadsAndSendsWithoutChangingState(t *testing.T)
 			// Keep the file name equal to the original reply ID, so the
 			// damage under test is the content and not the path.
 			f.writeIntent(t, tx)
+			setReplyProtectedTimes(t, f)
+			beforeTimes := replyProtectedTimes(t, f)
 			before := snapshot(t, f.store.Dir)
 
 			restarted := restart(t, f.store)
 			for attempt := 1; attempt <= 2; attempt++ {
 				if _, err := restarted.List(); model.ErrorCodeOf(err) != test.want {
-					t.Fatalf("attempt %d: List error code = %q (%v), want %q", attempt, model.ErrorCodeOf(err), err, test.want)
+					t.Fatalf("reply recovery did not refuse invalid intent: attempt %d: List error code = %q (%v), want %q", attempt, model.ErrorCodeOf(err), err, test.want)
 				}
 			}
 			svc := bus.Service{Store: restarted}
@@ -138,6 +144,8 @@ func TestDamagedReplyIntentBlocksReadsAndSendsWithoutChangingState(t *testing.T)
 			if after := snapshot(t, f.store.Dir); !maps.Equal(before, after) {
 				t.Fatalf("state changed while rejecting a damaged intent:\nbefore %v\nafter  %v", keys(before), keys(after))
 			}
+
+			checkReplyProtectedTimes(t, f, beforeTimes)
 
 			// Removing the damaged file restores normal operation.
 			if err := os.Remove(f.intentPath()); err != nil {
@@ -241,4 +249,34 @@ func keys(files map[string]string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// Fixed old mtimes detect a rewrite even if its bytes happen to be unchanged.
+func setReplyProtectedTimes(t *testing.T, f replyFixture) {
+	t.Helper()
+	for _, path := range []string{f.intentPath(), filepath.Join(f.store.Dir, "messages", f.parent.ID+".json")} {
+		if err := os.Chtimes(path, time.Unix(1000, 0), time.Unix(1000, 0)); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func replyProtectedTimes(t *testing.T, f replyFixture) map[string]int64 {
+	t.Helper()
+	result := map[string]int64{}
+	for _, path := range []string{f.intentPath(), filepath.Join(f.store.Dir, "messages", f.parent.ID+".json")} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result[path] = info.ModTime().UnixNano()
+	}
+	return result
+}
+
+func checkReplyProtectedTimes(t *testing.T, f replyFixture, before map[string]int64) {
+	t.Helper()
+	if !maps.Equal(before, replyProtectedTimes(t, f)) {
+		t.Fatal("invalid reply recovery changed protected mtimes")
+	}
 }
