@@ -39,7 +39,7 @@ func TestCodexTransportPinsUUIDAndNeverUsesShell(t *testing.T) {
 	t.Setenv("ZALKI_TEST_ARGS", output)
 	id := newTestID()
 	msg := model.Message{ID: newTestID(), From: "cursor:" + newTestID(), FromLabel: "Cursor", To: "codex:" + id, Body: "literal $(not-a-command) `also-literal`"}
-	receipt := queueCodex(context.Background(), msg, model.Session{ID: msg.To, Kind: "codex", NativeID: id})
+	receipt := queueCodex(context.Background(), msg, model.Session{ID: msg.To, Kind: "codex", NativeID: id, NativeConfigDir: dir})
 	if receipt.Status != "submitted" {
 		t.Fatalf("%+v", receipt)
 	}

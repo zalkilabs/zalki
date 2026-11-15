@@ -12,6 +12,7 @@ const oldSessionGuidance = "Old records are not migrated. Start a new native ses
 
 var (
 	errSessionUnexpectedOwner = model.NewError(model.CodeUnavailable, "session record is not supported (unexpected process owner). "+oldSessionGuidance)
+	errSessionMissingRoot     = model.NewError(model.CodeUnavailable, "session record is not supported (missing absolute config root). "+oldSessionGuidance)
 	errSessionMissingPolicy   = model.NewError(model.CodeUnavailable, "session record is not supported (missing plugin policy). "+oldSessionGuidance)
 )
 
@@ -21,6 +22,8 @@ func sessionIssueReason(err error) string {
 		return "session_unexpected_owner"
 	case errors.Is(err, errSessionMissingPolicy):
 		return "session_missing_policy"
+	case errors.Is(err, errSessionMissingRoot):
+		return "session_missing_root"
 	case model.ErrorCodeOf(err) == model.CodeUnsupportedSchema:
 		return "session_unsupported_schema"
 	case model.ErrorCodeOf(err) == model.CodeInvalidIdentity:
@@ -36,6 +39,8 @@ func sessionIssueLabel(reason string) string {
 		return "unexpected process owner"
 	case "session_missing_policy":
 		return "missing plugin policy"
+	case "session_missing_root":
+		return "missing absolute config root"
 	case "session_unsupported_schema":
 		return "unsupported schema"
 	case "session_identity_mismatch":

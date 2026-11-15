@@ -91,9 +91,10 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 		preserved := false
 		current, err := s.session(full)
 		exists := err == nil
-		if exists && current.NativeID != native {
-			return model.NewError(model.CodeConflict, "native session identity collision")
-		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := registrationReadError(current, native, err); err != nil {
+			return err
+		}
+		if err := checkCompactConfigRoot(current, session, compact && exists); err != nil {
 			return err
 		}
 		if err := retainSessionPluginPolicy(s, current, &session, compact, exists); err != nil {
@@ -122,7 +123,10 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 		s.logEvent(slog.LevelInfo, "session.registered", eventData{Actor: session.ID, Agent: kind, Generation: session.Generation, State: session.State, Reused: preserved})
 		return nil
 	})
-	return session, key, err
+	if err != nil {
+		return session, "", err
+	}
+	return session, key, nil
 }
 
 // All creation paths share this initialization boundary. Future per-session
@@ -140,16 +144,17 @@ func newRegistration(s Store, kind, id, cwd string, endpoint *model.Endpoint, in
 	if err != nil {
 		return session, "", err
 	}
+	root, err := registrationConfigRoot(adapter)
+	if err != nil {
+		return session, "", err
+	}
 	if adapter.ReceiveCapabilities(model.Session{}).RequiresEndpoint && endpoint == nil {
 		return session, "", fmt.Errorf("%s registration requires its own socket", adapter.Descriptor().Label)
 	}
 	key := newID() + newID()
 	hash := sha256.Sum256([]byte(key))
 	native, _ := canonicalNativeID(id)
-	session = model.Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: model.StateReady, UpdatedAt: model.Timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:])}
-	if names, ok := adapter.(agent.NameAdapter); ok {
-		session.NativeConfigDir = names.ConfigDir()
-	}
+	session = model.Session{Schema: recordSchema, NativeID: native, ID: full, Kind: kind, CWD: cwd, Generation: newID(), State: model.StateReady, UpdatedAt: model.Timestamp(), Endpoint: endpoint, KeyHash: hex.EncodeToString(hash[:]), NativeConfigDir: root}
 	session.AdapterState, err = s.decodeAdapterState(kind, agent.StateInput{})
 	if err != nil {
 		return session, "", err

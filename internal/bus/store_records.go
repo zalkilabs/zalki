@@ -123,5 +123,5 @@ func validateSessionBackfills(s Store, v model.Session) error {
 	if len(policy) == 0 || bytes.Equal(policy, []byte("null")) {
 		return errSessionMissingPolicy
 	}
-	return nil
+	return validateStoredConfigRoot(s, v)
 }

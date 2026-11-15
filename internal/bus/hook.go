@@ -232,9 +232,6 @@ func prepareLifecycleHook(store Store, kind, actor string, event agent.HookInput
 		return runtime, err
 	}
 	trace.stage = "owner"
-	if err := store.rememberNativeConfigDir(actor, kind, runtime); err != nil {
-		return runtime, err
-	}
 	if err := store.rememberOwner(actor, kind, event.Event == "UserPromptSubmit", runtime); err != nil {
 		return runtime, err
 	}

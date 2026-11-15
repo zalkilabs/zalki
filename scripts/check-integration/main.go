@@ -25,6 +25,7 @@ func (t requiredTest) importPath() string {
 var required = []requiredTest{
 	{"bus", "TestEndpointRecordsTheResolvedPath"},
 	{"bus", "TestEndpointRejectsFilesAndSymlinks"},
+	{"bus", "TestReleaseLinkerFlagNamesTheVersionVariable"},
 	{"bus", "TestFeedMemberZeroReferenceCacheCannotBeRevived"},
 	{"bus", "TestFeedMemberReadsAndDecodesNativeOncePerView"},
 	{"bus", "TestFeedMemberEvidenceIsOncePerViewAndPluginIsolated"},
@@ -162,6 +163,17 @@ var required = []requiredTest{
 	{"bus", "TestObsoleteSessionBackfillsAreRefused"},
 	{"adapters", "TestCodexUnlabeledPromptFilterSemantics"},
 	{"cmd/zalki", "TestOldSessionGuidanceKeepsHealthyRows"},
+	{"bus", "TestRegistrationRequiresAbsoluteNativeProfile"},
+	{"bus", "TestStoredNativeProfileRefusalKeepsAuthorityAndMail"},
+	{"bus", "TestCompactionCannotChangeNativeProfile"},
+	{"bus", "TestCompactionComparesProfileAfterTakingJournalLock"},
+	{"adapters", "TestNativeProfileSelectionIsAbsoluteAndExact"},
+	{"adapters", "TestNativeProfileCreationRoutes"},
+	{"adapters", "TestCursorPromptProfileRefusalDoesNotDebitQuota"},
+	{"adapters", "TestNativeNameLookupNeverUsesForeignProfile"},
+	{"adapters/codex", "TestCodexBoundProfileNeverUsesSenderRPC"},
+	{"adapters/codex", "TestCodexBoundQueueRequiresCapturedProfile"},
+	{"adapters/codex", "TestCodexUnboundProfileProbeRemainsReadOnly"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

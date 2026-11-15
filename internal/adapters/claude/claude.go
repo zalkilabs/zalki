@@ -40,7 +40,7 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 }
 
 func (Adapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
+	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude", Notes: []string{"Check CLAUDE_CONFIG_DIR and HOME for the native profile. Use absolute UTF-8 paths without control characters; a leading ~ is not expanded."}}
 }
 
 func (Adapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
@@ -56,10 +56,10 @@ func (Adapter) ConfigDir() string {
 	return configDir("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 }
 
-func (a Adapter) LookupName(v model.Session, indexes map[string]map[string]string) (string, string) {
-	root := v.NativeConfigDir
-	if !filepath.IsAbs(root) {
-		root = a.ConfigDir()
+func (Adapter) LookupName(v model.Session, indexes map[string]map[string]string) (string, string) {
+	root := absoluteConfigDir(v.NativeConfigDir)
+	if root == "" {
+		return "", ""
 	}
 	index := "claude:" + root
 	if _, ok := indexes[index]; !ok {
@@ -203,12 +203,18 @@ func validClaudeName(name string) bool {
 }
 
 func configDir(variable, fallback string) string {
+	root := fallback
 	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
-		if path, err := filepath.Abs(value); err == nil {
-			return path
-		}
+		root = value
 	}
-	return fallback
+	return absoluteConfigDir(root)
+}
+
+func absoluteConfigDir(root string) string {
+	if !filepath.IsAbs(root) || !utf8.ValidString(root) || strings.ContainsFunc(root, unicode.IsControl) {
+		return ""
+	}
+	return filepath.Clean(root)
 }
 
 func failedReceipt(status model.DeliveryStatus, err error) model.Receipt {

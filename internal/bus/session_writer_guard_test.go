@@ -23,7 +23,7 @@ func TestSessionWriterInventory(t *testing.T) {
 		"process.go:rememberOwner": 1, "prune.go:sweepRetired": 1, "prune.go:retireIfDue": 1,
 		"event_commit.go:saveSessionWith": 1, "event_commit.go:saveSessionFor": 1,
 		"session.go:register": 1, "session.go:updateSession": 1, "session.go:saveSession": 1,
-		"session_names.go:rememberNativeConfigDir": 1, "session_names.go:hookName": 1, "task.go:SetTask": 1,
+		"session_names.go:hookName": 1, "task.go:SetTask": 1,
 	}
 	found := map[string]int{}
 	files, err := filepath.Glob("*.go")
