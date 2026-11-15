@@ -162,7 +162,7 @@ func TestEmitPendingStopsAtFiveMessagesInCreationOrder(t *testing.T) {
 // contextBytes is what one message adds to the context.
 func (f emitFixture) contextBytes(t *testing.T, id string) int {
 	t.Helper()
-	return len(model.Envelope(f.store.withLabel(f.read(t, id)))) + len("\n\n")
+	return len(model.Envelope(f.read(t, id))) + len("\n\n")
 }
 
 func TestEmitPendingStopsBeforeTheMessageThatWouldOverflow(t *testing.T) {

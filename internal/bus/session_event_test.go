@@ -250,6 +250,12 @@ func assertInitialSessionCut(t *testing.T, applied int) {
 	store := fixtureStore(t)
 	native := newID()
 	next := model.Session{Schema: recordSchema, ID: "cursor:" + native, NativeID: native, Kind: "cursor", Generation: newID(), State: model.StateReady, CWD: "/workspace", KeyHash: "private test key", UpdatedAt: model.Timestamp()}
+	// PORT: the crash fixture must carry the current registration policy.
+	var err error
+	next.PluginPolicy, err = initialSessionPluginPolicy(next.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	batch := stageInitialSessionCut(t, store, next, applied)
 	sessions, err := store.List()
 	if err != nil || len(sessions) != 1 || sessions[0].ID != next.ID {

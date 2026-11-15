@@ -21,7 +21,7 @@ func newListCommand(opts *commandOptions) *cobra.Command {
 				return err
 			}
 			if skipped > 0 {
-				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: skipped %d unreadable or unsupported session records.\n", skipped)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: skipped %d unreadable or unsupported session records; run zalki doctor.\n", skipped)
 			}
 			if err := noticeExitedSessions(cmd, service); err != nil {
 				return err

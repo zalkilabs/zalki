@@ -34,7 +34,7 @@ func (s Store) completedNativePrompt(actor, prompt string) (string, error) {
 		if err != nil {
 			return err
 		}
-		if message.To != actor || !sameNativePresentation(s.withLabel(message), prompt) {
+		if message.To != actor || !sameNativePresentation(message, prompt) {
 			return nil
 		}
 		current, err := s.session(actor)

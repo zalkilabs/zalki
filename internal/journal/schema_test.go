@@ -16,9 +16,12 @@ func TestCheckSchema(t *testing.T) {
 		want      int
 		wantErr   string // "schema", "json" or empty
 	}{
-		{"missing field is version 0", `{"id":"a"}`, 2, 0, ""},
+		{"missing field is refused", `{"id":"a"}`, 2, 0, "schema"},
+		{"zero version", `{"schema":0}`, 2, 0, "schema"},
+		{"null schema", `{"schema":null}`, 2, 0, "schema"},
+		{"null record", `null`, 2, 0, "schema"},
 		{"current version", `{"schema":2}`, 2, 2, ""},
-		{"older version", `{"schema":1,"x":true}`, 2, 1, ""},
+		{"older version", `{"schema":1,"x":true}`, 2, 0, "schema"},
 		{"newer version", `{"schema":3}`, 2, 0, "schema"},
 		{"negative version", `{"schema":-1}`, 2, 0, "schema"},
 		{"zero supported rejects any positive version", `{"schema":1}`, 0, 0, "schema"},
@@ -37,7 +40,7 @@ func TestCheckSchema(t *testing.T) {
 				}
 			case "schema":
 				if !errors.As(err, &schema) || schema.Supported != test.supported || got != 0 {
-					t.Fatalf("got %d, %v; want a SchemaError", got, err)
+					t.Fatalf("noncurrent schema was not refused: got %d, %v; want a SchemaError", got, err)
 				}
 			default:
 				if err == nil || errors.As(err, &schema) {

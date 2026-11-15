@@ -94,17 +94,13 @@ func (s Store) rememberOwner(id, kind string, refresh bool, snapshots ...hookRun
 
 // updateOwner decides the owner of a session and reports whether it changed v.
 // A shared helper or daemon is not this session, so an adapter that does not
-// track its own process never gets an owner, and a refresh drops one that an
-// older build recorded. Otherwise an owner is looked up when there is none or
+// track its own process never gets an owner. Otherwise an owner is looked up
+// when there is none or
 // on refresh: a found one is recorded, and if none is found a refresh drops a
 // recorded owner that has exited. A trusted new prompt proves resumed activity
 // even when the OS cannot supply a replacement owner fingerprint.
 func (s Store) updateOwner(v *model.Session, kind string, refresh bool) bool {
 	if !s.tracksOwnProcess(kind) {
-		if refresh && v.Owner != nil {
-			v.Owner = nil
-			return true
-		}
 		return false
 	}
 	if v.Owner != nil && !refresh {

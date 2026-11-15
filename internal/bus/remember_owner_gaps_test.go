@@ -31,7 +31,7 @@ import (
 //  1. Load the session. A missing session is not an error: nothing is done.
 //  2. If the session is not retired, or this is a refresh:
 //     a. an adapter that does not track its own process (a shared daemon): on
-//     refresh, a recorded owner is dropped; otherwise nothing;
+//     old stored owners are refused before refresh; no owner is captured;
 //     b. otherwise, if there is no owner, or this is a refresh: look for the
 //     native owner process; if found, record it (even when it is the owner
 //     already recorded); if not found, on refresh, drop a recorded owner that
@@ -120,18 +120,18 @@ func TestRememberOwnerForAnAdapterThatSharesItsProcess(t *testing.T) {
 	// A live process, so that only the adapter's policy can explain a drop.
 	recorded := *selfOwner(t)
 	build := func(v *model.Session) { v.HookBuild = currentExecutable.loadedBuild }
-	t.Run("a recorded owner is kept without refresh", func(t *testing.T) {
+	// M2-PORT: old shared-process owners are refused, not kept or repaired.
+	for _, refresh := range []bool{false, true} {
 		v := ownedSession(t, store, func(v *model.Session) { build(v); v.Owner = &recorded })
-		if current := remembered(t, store, v, false); !sameOwner(current.Owner, &recorded) {
-			t.Fatalf("owner = %+v, want it kept", current.Owner)
+		path, _ := store.sessionPath(v.ID)
+		before := readCommitFile(t, path)
+		if err := store.rememberOwner(v.ID, "cursor", refresh); model.ErrorCodeOf(err) != model.CodeUnavailable {
+			t.Fatal("OLD_OWNER_REFRESH_NOT_REFUSED", refresh, err)
 		}
-	})
-	t.Run("a recorded owner is dropped on refresh", func(t *testing.T) {
-		v := ownedSession(t, store, func(v *model.Session) { build(v); v.Owner = &recorded })
-		if current := remembered(t, store, v, true); current.Owner != nil {
-			t.Fatalf("owner = %+v, want it dropped", current.Owner)
+		if !bytes.Equal(before, readCommitFile(t, path)) {
+			t.Fatal("OLD_OWNER_REFRESH_CHANGED_RECORD")
 		}
-	})
+	}
 	t.Run("no owner is recorded on refresh", func(t *testing.T) {
 		v := ownedSession(t, store, build)
 		if current := remembered(t, store, v, true); current.Owner != nil {

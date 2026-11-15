@@ -349,7 +349,7 @@ func (s Store) emitPendingContext(pending []model.Message, out *strings.Builder)
 		if checkPluginMessageDelivery(s, msg) != nil {
 			continue
 		}
-		body := model.Envelope(s.withLabel(msg)) + "\n\n"
+		body := model.Envelope(msg) + "\n\n"
 		if i >= hookContextMessages || out.Len()+len(body) > hookContextBytes {
 			break
 		}

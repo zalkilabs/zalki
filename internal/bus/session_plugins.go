@@ -12,7 +12,7 @@ import (
 
 const sessionPluginBytes = 24 << 10
 const sessionPluginNames = 64
-const pluginPolicyUnavailable = "session plugin policy is unavailable; register this session again\nAfter upgrading to rc.8, restart existing sessions to include them in plugin access."
+const pluginPolicyUnavailable = "session plugin policy is unavailable; run zalki doctor"
 
 type sessionPluginPolicy struct {
 	Mode       string                       `json:"mode"`

@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"bytes"
 	"encoding/json"
 	"path/filepath"
 	"sort"
@@ -39,6 +40,9 @@ func (s Store) readSession(path string) (model.Session, error) {
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return v, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")
+	}
+	if err := validateSessionBackfills(s, v); err != nil {
+		return v, err
 	}
 	var err error
 	v.AdapterState, err = s.decodeAdapterState(v.Kind, agent.StateInput{State: v.AdapterState})
@@ -83,7 +87,6 @@ func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
 			continue
 		}
 		v, readErr := s.readSession(path)
-		reason := "session_unreadable"
 		if readErr == nil {
 			expected, pathErr := s.sessionPath(v.ID)
 			if pathErr != nil || expected != path || v.ID != id || !strings.HasPrefix(v.ID, v.Kind+":") {
@@ -91,11 +94,7 @@ func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
 			}
 		}
 		if readErr != nil {
-			if model.ErrorCodeOf(readErr) == model.CodeUnsupportedSchema {
-				reason = "session_unsupported_schema"
-			} else if model.ErrorCodeOf(readErr) == model.CodeInvalidIdentity {
-				reason = "session_identity_mismatch"
-			}
+			reason := sessionIssueReason(readErr)
 			kind, _, _ := strings.Cut(id, ":")
 			if _, err := s.registry().Lookup(kind); err != nil {
 				reason = "session_adapter_missing"
@@ -112,4 +111,17 @@ func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
 func (s Store) rawSessions() ([]model.Session, error) {
 	sessions, _, err := s.scanSessions()
 	return sessions, err
+}
+
+// Old session shapes are refused before authority or liveness is used. Present
+// damaged policy remains closed by its existing parser and explicit-off repair.
+func validateSessionBackfills(s Store, v model.Session) error {
+	if !s.tracksOwnProcess(v.Kind) && v.Owner != nil {
+		return errSessionUnexpectedOwner
+	}
+	policy := bytes.TrimSpace(v.PluginPolicy)
+	if len(policy) == 0 || bytes.Equal(policy, []byte("null")) {
+		return errSessionMissingPolicy
+	}
+	return nil
 }

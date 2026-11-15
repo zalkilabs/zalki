@@ -211,7 +211,7 @@ func (s Store) applyReplyTransaction(path string, tx replyTransaction) error {
 // order: schema, reply ID is a UUID, file name / parent / acknowledgement time,
 // the ID the reply must have, and the delivery status.
 func validateReplyTransaction(dir, path string, tx replyTransaction) error {
-	if tx.Schema != 1 || tx.Reply.Schema < 0 || tx.Reply.Schema > recordSchema {
+	if tx.Schema != 1 || tx.Reply.Schema != recordSchema {
 		return model.NewError(model.CodeUnsupportedSchema, "unsupported reply transaction schema")
 	}
 	if _, err := model.UUID(tx.Reply.ID); err != nil {

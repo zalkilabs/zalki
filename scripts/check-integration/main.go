@@ -156,6 +156,12 @@ var required = []requiredTest{
 	{"bus", "TestHookStageInventoryRejectsDynamicForms"},
 	{"cmd/zalki", "TestPluginSupervisorRealChildrenCLI"},
 	{"cmd/zalki", "TestPluginSupervisorForegroundAndStopCLI"},
+	{"bus", "TestRuntimeActorUpdateSurvivesSchemaGuard"},
+	{"bus", "TestRuntimeRecordHeaderIsPrivateAndExact"},
+	{"bus", "TestMixedRuntimeHeadersKeepDoctorAndPruneAvailable"},
+	{"bus", "TestObsoleteSessionBackfillsAreRefused"},
+	{"adapters", "TestCodexUnlabeledPromptFilterSemantics"},
+	{"cmd/zalki", "TestOldSessionGuidanceKeepsHealthyRows"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

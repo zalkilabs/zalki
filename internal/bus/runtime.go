@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -229,22 +230,35 @@ func (s *Service) RuntimeInfo() RuntimeInfo {
 	return CurrentRuntimeInfo()
 }
 
-func (s Store) rawRuntimes() ([]RuntimeInfo, error) {
-	files, err := filepath.Glob(filepath.Join(s.Dir, "runtimes", "*.json"))
+// Unsupported headers are counted separately, never decoded for liveness or cleanup.
+func (s Store) rawRuntimes() ([]RuntimeInfo, int, error) {
+	root := filepath.Join(s.Dir, "runtimes")
+	files, err := os.ReadDir(root)
+	if errors.Is(err, os.ErrNotExist) {
+		return []RuntimeInfo{}, 0, nil
+	}
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	items := []RuntimeInfo{}
-	for _, path := range files {
-		var v RuntimeInfo
-		if err := readJSON(path, &v); err != nil {
-			return nil, err
+	skipped := 0
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), ".json") {
+			continue
 		}
-		if _, err := model.UUID(v.ID); err != nil || filepath.Base(path) != v.ID+".json" {
-			return nil, errors.New("runtime file identity mismatch")
+		var v RuntimeInfo
+		if err := readJSON(filepath.Join(root, file.Name()), &v); err != nil {
+			if model.ErrorCodeOf(err) == model.CodeUnsupportedSchema {
+				skipped++
+				continue
+			}
+			return nil, skipped, err
+		}
+		if _, err := model.UUID(v.ID); err != nil || file.Name() != v.ID+".json" {
+			return nil, skipped, errors.New("runtime file identity mismatch")
 		}
 		items = append(items, v)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].StartedAt < items[j].StartedAt })
-	return items, nil
+	return items, skipped, nil
 }

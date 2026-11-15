@@ -17,19 +17,9 @@ import (
 // retired session that has no queue, and quota files whose kind is not valid.
 // They pin today's behavior; it is not judged here.
 
-// A message written before labels were stored has no FromLabel. EmitPending
-// renders it with the label of the sender's adapter, and does not save that
-// label. Without it the envelope would say "Agent".
-func TestEmitPendingRendersTheAdapterLabelOfARecordWithoutOne(t *testing.T) {
+// PORT: an unlabeled old message now uses Agent, without registry backfill.
+func TestEmitPendingUsesGenericLabelOfARecordWithoutOne(t *testing.T) {
 	f := newEmitFixture(t)
-	adapter, err := f.store.registry().Lookup("codex")
-	if err != nil {
-		t.Fatal(err)
-	}
-	label := adapter.Descriptor().Label
-	if label == "" || label == "Agent" {
-		t.Fatalf("the test needs a real adapter label, got %q", label)
-	}
 	msg := f.queue(t, "hello", time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC))
 	f.rewrite(t, msg.ID, func(m *model.Message) { m.FromLabel = "" })
 
@@ -40,11 +30,8 @@ func TestEmitPendingRendersTheAdapterLabelOfARecordWithoutOne(t *testing.T) {
 	if !strings.Contains(context, msg.ID) {
 		t.Fatalf("the message was not emitted: %q", context)
 	}
-	if want := "From: " + label + " · "; !strings.Contains(context, want) {
-		t.Fatalf("the envelope has no sender label %q: %q", label, context)
-	}
-	if strings.Contains(context, "From: Agent") {
-		t.Fatalf("the envelope fell back to the generic label: %q", context)
+	if !strings.Contains(context, "From: Agent · ") {
+		t.Fatal("UNLABELED_MESSAGE_USED_REGISTRY_LABEL", context)
 	}
 	if saved := f.read(t, msg.ID); saved.FromLabel != "" {
 		t.Fatalf("the rendered label was saved: %+v", saved)

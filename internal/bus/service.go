@@ -135,7 +135,7 @@ func (s *Service) revalidateTarget(id string, target model.Session) (current mod
 func (s *Service) runTransport(ctx context.Context, deliver func(context.Context, model.Message, model.Session) model.Receipt, msg model.Message, target model.Session) model.Receipt {
 	s.Store.logEvent(slog.LevelDebug, "transport.started", messageEvent(msg))
 	started := time.Now()
-	receipt := deliver(ctx, s.Store.withLabel(msg), target)
+	receipt := deliver(ctx, msg, target)
 	data := messageEvent(msg)
 	data.ReceiptStatus = receipt.Status
 	data.Code = receipt.Code

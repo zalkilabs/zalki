@@ -14,8 +14,8 @@ import (
 // writeRecord is called under the journal lock. It writes exactly the typed
 // value, so a field the value omits is not kept from an earlier record. It never
 // overwrites a record it cannot trust: an existing file that cannot be read, or
-// whose schema is outside 0..recordSchema, is refused and left unchanged (a
-// missing schema reads as 0; readers that need the exact schema use readRecord).
+// whose schema is not recordSchema, is refused and left unchanged. A missing
+// schema reads as 0 and is refused, just as it is by readRecord.
 func (s Store) writeRecord(path string, value any) error {
 	var previous json.RawMessage
 	if err := readJSON(path, &previous); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -41,7 +41,7 @@ func (s Store) writeRecord(path string, value any) error {
 	return journal.WriteAtomic(path, encoded)
 }
 
-// checkSchema rejects a record whose schema is outside 0..recordSchema.
+// checkSchema rejects a record whose schema is not recordSchema.
 func checkSchema(raw json.RawMessage) error {
 	_, err := journal.CheckSchema(raw, recordSchema)
 	var schema *journal.SchemaError

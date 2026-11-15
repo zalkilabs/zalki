@@ -2,6 +2,7 @@ package bus
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -49,21 +50,30 @@ func TestCompactEnvelopeKeepsRoutingPrivate(t *testing.T) {
 	}
 }
 
-func TestLegacyMessageLabelResolvedThroughRegistryOnly(t *testing.T) {
+// PORT: old unlabeled records render without registry reconstruction.
+func TestUnlabeledMessageDoesNotUseRegistry(t *testing.T) {
 	store := fixtureStore(t)
-	legacy := model.Message{ID: newID(), From: "claude:" + newID(), To: "codex:" + newID(), Body: "old", CreatedAt: "2026-10-23T10:07:26.021145000Z"}
-	if !strings.Contains(model.Envelope(legacy), "From: Agent ") {
-		t.Fatal("envelope must not consult a global registry for unlabeled records")
+	from, key, to, _ := registerPair(t, store, "claude", "codex")
+	service := Service{Store: store, Deliver: func(_ context.Context, msg model.Message, _ model.Session) model.Receipt {
+		if msg.FromLabel != "" || !strings.Contains(model.Envelope(msg), "From: Agent ") {
+			t.Fatal("UNLABELED_MESSAGE_USED_REGISTRY_LABEL")
+		}
+		return model.NewReceipt(model.StatusSubmitted)
+	}}
+	msg, _, _, err := store.ReserveMessage(SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newID(), Body: "old"})
+	if err != nil {
+		t.Fatal(err)
 	}
-	labeled := store.withLabel(legacy)
-	if labeled.FromLabel != "Claude" || legacy.FromLabel != "" {
-		t.Fatalf("label not resolved from the injected registry without mutating the record: %q", labeled.FromLabel)
+	msg.FromLabel = ""
+	if err := writeJSON(filepath.Join(store.Dir, "messages", msg.ID+".json"), msg); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(model.Envelope(labeled), `From: Claude · "unnamed"`) {
-		t.Fatal(model.Envelope(labeled))
+	if _, err := service.deliverReserved(t.Context(), msg, to); err != nil {
+		t.Fatal(err)
 	}
-	if got := (Store{}).withLabel(legacy).FromLabel; got != "" {
-		t.Fatalf("a store without a registry guessed a label: %q", got)
+	saved := journalMessage(t, store, msg.ID)
+	if saved.FromLabel != "" {
+		t.Fatal("UNLABELED_PRESENTATION_CHANGED_RECORD")
 	}
 }
 

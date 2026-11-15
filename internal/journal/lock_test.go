@@ -50,6 +50,8 @@ func lockPathFixture(t *testing.T, shape string) string {
 		}
 	case "directory":
 		path = dir
+	case "invalid path":
+		path += "\x00"
 	case "missing parent":
 		path = filepath.Join(dir, "missing", "lock")
 	}
@@ -59,7 +61,7 @@ func lockPathFixture(t *testing.T, shape string) string {
 func checkFailedLockOpen(t *testing.T, shape, path string, fd int, err error, want syscall.Errno) {
 	t.Helper()
 	if fd != -1 {
-		syscall.Close(fd)
+		// An error result does not transfer ownership of any descriptor.
 		t.Fatalf("failed open returned fd %d", fd)
 	}
 	requireErrno(t, err, want)
@@ -110,6 +112,7 @@ func TestOpenLockFile(t *testing.T) {
 			{"symbolic link", syscall.ELOOP},
 			{"directory", syscall.EISDIR},
 			{"missing parent", syscall.ENOENT},
+			{"invalid path", syscall.EINVAL},
 			{"permission denied", syscall.EACCES},
 		} {
 			mode := "existing only/"
