@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"bytes"
 	"encoding/json"
 	"path/filepath"
 	"sort"
@@ -39,6 +40,9 @@ func (s Store) readSession(path string) (model.Session, error) {
 	}
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return v, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")
+	}
+	if err := validateSessionBackfills(s, v); err != nil {
+		return v, err
 	}
 	var err error
 	v.AdapterState, err = s.decodeAdapterState(v.Kind, agent.StateInput{State: v.AdapterState})
@@ -112,4 +116,17 @@ func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
 func (s Store) rawSessions() ([]model.Session, error) {
 	sessions, _, err := s.scanSessions()
 	return sessions, err
+}
+
+// Old session shapes are refused before authority or liveness is used. Present
+// damaged policy remains closed by its existing parser and explicit-off repair.
+func validateSessionBackfills(s Store, v model.Session) error {
+	if !s.tracksOwnProcess(v.Kind) && v.Owner != nil {
+		return model.NewError(model.CodeUnavailable, "session record is not supported (unexpected process owner); run zalki doctor")
+	}
+	policy := bytes.TrimSpace(v.PluginPolicy)
+	if len(policy) == 0 || bytes.Equal(policy, []byte("null")) {
+		return model.NewError(model.CodeUnavailable, "session record is not supported (missing plugin policy); run zalki doctor")
+	}
+	return nil
 }

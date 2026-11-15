@@ -158,6 +158,9 @@ var required = []requiredTest{
 	{"cmd/zalki", "TestPluginSupervisorForegroundAndStopCLI"},
 	{"bus", "TestRuntimeActorUpdateSurvivesSchemaGuard"},
 	{"bus", "TestRuntimeRecordHeaderIsPrivateAndExact"},
+	{"bus", "TestObsoleteSessionBackfillsAreRefused"},
+	{"adapters", "TestCodexUnlabeledPromptFilterSemantics"},
+	{"cmd/zalki", "TestOldSessionGuidanceKeepsHealthyRows"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

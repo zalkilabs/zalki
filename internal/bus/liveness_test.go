@@ -86,22 +86,24 @@ func TestSharedProcessOwnerIsNotRecorded(t *testing.T) {
 		t.Fatal(err)
 	}
 	session, _, err := store.Register("fixture", newID(), "/workspace", nil)
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || session.Owner != nil {
+		t.Fatal("SHARED_PROCESS_OWNER_WAS_CAPTURED", err)
 	}
+	// PORT: a pre-existing helper owner is refused instead of silently cleared.
 	session.Owner = &model.ProcessRef{PID: 7, Start: "helper", Role: "client"}
 	if err := store.locked(func() error { return store.saveSession(session) }); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.rememberOwner(session.ID, session.Kind, true); err != nil {
-		t.Fatal(err)
-	}
-	current, err := store.session(session.ID)
-	if err != nil || current.Owner != nil {
-		t.Fatalf("shared helper stayed recorded: %+v %v", current.Owner, err)
+	if err := store.rememberOwner(session.ID, session.Kind, true); model.ErrorCodeOf(err) != model.CodeUnavailable {
+		t.Fatal("OLD_SHARED_OWNER_NOT_REFUSED", err)
 	}
 	report, err := store.Prune(false, nil)
-	if err != nil || len(report.Sessions) != 0 {
-		t.Fatalf("unknown liveness pruned a session: %+v %v", report, err)
+	if err != nil || len(report.Sessions) != 1 || report.Sessions[0].Reason != "session_unreadable" {
+		t.Fatal("UNKNOWN_OWNER_RECORD_NOT_REPORTED", report, err)
+	}
+	path, _ := store.sessionPath(session.ID)
+	var after model.Session
+	if err := readJSON(path, &after); err != nil || !sameOwner(after.Owner, session.Owner) || after.Retired {
+		t.Fatal("OLD_SHARED_OWNER_WAS_REPAIRED_OR_RETIRED", err)
 	}
 }

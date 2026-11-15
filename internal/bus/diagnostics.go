@@ -49,7 +49,7 @@ func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
 		sessions, issues, err = s.scanSessions()
 		report.SessionScanComplete = err == nil && len(issues) == 0
 		if len(issues) > 0 {
-			report.Notes = append(report.Notes, fmt.Sprintf("Skipped %d unreadable or unsupported session records.", len(issues)))
+			report.Notes = append(report.Notes, fmt.Sprintf("Skipped %d unreadable or unsupported session records; run zalki doctor.", len(issues)))
 		}
 		if err != nil {
 			return err

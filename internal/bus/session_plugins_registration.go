@@ -17,9 +17,6 @@ func retainSessionPluginPolicy(s Store, current model.Session, next *model.Sessi
 		next.PluginPolicy = bytes.Clone(current.PluginPolicy)
 		return nil
 	}
-	if len(current.PluginPolicy) == 0 {
-		return nil
-	}
 	old, valid := decodeSessionPluginPolicy(current)
 	fresh, initialized := decodeSessionPluginPolicy(*next)
 	if !initialized {
