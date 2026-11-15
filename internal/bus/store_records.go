@@ -87,7 +87,6 @@ func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
 			continue
 		}
 		v, readErr := s.readSession(path)
-		reason := "session_unreadable"
 		if readErr == nil {
 			expected, pathErr := s.sessionPath(v.ID)
 			if pathErr != nil || expected != path || v.ID != id || !strings.HasPrefix(v.ID, v.Kind+":") {
@@ -95,11 +94,7 @@ func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
 			}
 		}
 		if readErr != nil {
-			if model.ErrorCodeOf(readErr) == model.CodeUnsupportedSchema {
-				reason = "session_unsupported_schema"
-			} else if model.ErrorCodeOf(readErr) == model.CodeInvalidIdentity {
-				reason = "session_identity_mismatch"
-			}
+			reason := sessionIssueReason(readErr)
 			kind, _, _ := strings.Cut(id, ":")
 			if _, err := s.registry().Lookup(kind); err != nil {
 				reason = "session_adapter_missing"
@@ -122,11 +117,11 @@ func (s Store) rawSessions() ([]model.Session, error) {
 // damaged policy remains closed by its existing parser and explicit-off repair.
 func validateSessionBackfills(s Store, v model.Session) error {
 	if !s.tracksOwnProcess(v.Kind) && v.Owner != nil {
-		return model.NewError(model.CodeUnavailable, "session record is not supported (unexpected process owner); run zalki doctor")
+		return errSessionUnexpectedOwner
 	}
 	policy := bytes.TrimSpace(v.PluginPolicy)
 	if len(policy) == 0 || bytes.Equal(policy, []byte("null")) {
-		return model.NewError(model.CodeUnavailable, "session record is not supported (missing plugin policy); run zalki doctor")
+		return errSessionMissingPolicy
 	}
 	return nil
 }

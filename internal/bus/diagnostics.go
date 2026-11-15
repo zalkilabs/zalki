@@ -48,13 +48,15 @@ func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
 		var issues []SessionIssue
 		sessions, issues, err = s.scanSessions()
 		report.SessionScanComplete = err == nil && len(issues) == 0
-		if len(issues) > 0 {
-			report.Notes = append(report.Notes, fmt.Sprintf("Skipped %d unreadable or unsupported session records; run zalki doctor.", len(issues)))
-		}
+		diagnoseSessionIssues(&report, issues)
 		if err != nil {
 			return err
 		}
-		runtimes, err = s.rawRuntimes()
+		var skipped int
+		runtimes, skipped, err = s.rawRuntimes()
+		if skipped > 0 {
+			report.Notes = append(report.Notes, fmt.Sprintf("Skipped %d unsupported runtime records; stop the old clients and keep old state until the offline archive and clean install.", skipped))
+		}
 		return err
 	})
 	if err != nil {

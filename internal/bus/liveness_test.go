@@ -98,7 +98,7 @@ func TestSharedProcessOwnerIsNotRecorded(t *testing.T) {
 		t.Fatal("OLD_SHARED_OWNER_NOT_REFUSED", err)
 	}
 	report, err := store.Prune(false, nil)
-	if err != nil || len(report.Sessions) != 1 || report.Sessions[0].Reason != "session_unreadable" {
+	if err != nil || len(report.Sessions) != 1 || report.Sessions[0].Reason != "session_unexpected_owner" {
 		t.Fatal("UNKNOWN_OWNER_RECORD_NOT_REPORTED", report, err)
 	}
 	path, _ := store.sessionPath(session.ID)

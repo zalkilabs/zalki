@@ -94,7 +94,7 @@ func (r *pruneRun) execute() error {
 	if err != nil {
 		return err
 	}
-	runtimes, err := r.store.rawRuntimes()
+	runtimes, _, err := r.store.rawRuntimes()
 	if err != nil {
 		return err
 	}
