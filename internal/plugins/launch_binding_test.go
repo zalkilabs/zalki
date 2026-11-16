@@ -14,13 +14,13 @@ import (
 )
 
 // ownerChangesBetweenTicks is what an owner can do between two pump ticks of
-// a running child: disable, set new feed sessions (if any), enable again.
-func ownerChangesBetweenTicks(t *testing.T, feed pluginfeed.PluginFeed, sessions ...string) {
+// a running child: disable, optionally regrant scope/access, enable again.
+func ownerChangesBetweenTicks(t *testing.T, feed pluginfeed.PluginFeed, regrant bool) {
 	t.Helper()
 	if err := feed.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
-	if len(sessions) > 0 {
+	if regrant {
 		if err := feed.ConfigurePluginScope("all"); err != nil {
 			t.Fatal(err)
 		}
@@ -62,15 +62,12 @@ func TestV2HostOldChildGetsNoNewFeedGrant(t *testing.T) {
 func checkV2OldChild(t *testing.T, newSessions bool) {
 	t.Helper()
 	x := v2HostFixture(t)
-	var sessions []string
 	if newSessions {
-		other, _, err := x.store.Register("codex", model.NewUUID(), t.TempDir(), nil)
-		if err != nil {
+		if _, _, err := x.store.Register("codex", model.NewUUID(), t.TempDir(), nil); err != nil {
 			t.Fatal(err)
 		}
-		sessions = []string{other.ID}
 	}
-	ownerChangesBetweenTicks(t, x.feed, sessions...)
+	ownerChangesBetweenTicks(t, x.feed, newSessions)
 	c, frames := pipeChild(t)
 	h := &v2Host{ctx: t.Context(), feed: x.feed, binding: &x.status, child: c, enabled: []string{"feed"}}
 	if h.tick() == nil {
@@ -90,7 +87,7 @@ func checkV2OldChild(t *testing.T, newSessions bool) {
 
 func TestOldChildCannotSendAfterDisableAndEnable(t *testing.T) {
 	x := v2HostFixture(t)
-	ownerChangesBetweenTicks(t, x.feed)
+	ownerChangesBetweenTicks(t, x.feed, false)
 	c, frames := pipeChild(t)
 	service := &bus.Service{Store: x.store, PluginSend: pluginfeed.BoundPluginSend(&x.status)}
 	h := &v2Host{ctx: t.Context(), feed: x.feed, service: service, binding: &x.status, child: c}
@@ -102,22 +99,22 @@ func TestOldChildCannotSendAfterDisableAndEnable(t *testing.T) {
 	}
 }
 
-// TestHostRealChildGetsNoNewFeedGrant runs a real child, changes the feed
-// grant from A to B while it runs, and makes a B event. The child must never
-// see B, and the host must end with a named reason: disabled, or grants changed.
+// TestHostRealChildGetsNoNewFeedGrant runs a real child and regrants its feed.
+// Only then is B registered and updated, so every B event belongs to the new
+// grant. The old child must never see B and must end after the owner change.
 func TestHostRealChildGetsNoNewFeedGrant(t *testing.T) {
 	store, _ := hostStore(t)
 	feed := pluginfeed.NewPluginFeed(store, "fake-notifier")
-	b, _, err := store.Register("codex", model.NewUUID(), t.TempDir(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
 	_, done := startHost(t, store)
 	eventually(t, func() bool {
 		s, err := feed.PluginStatus()
 		return err == nil && !s.GapPending
 	})
-	ownerChangesBetweenTicks(t, feed, b.ID)
+	ownerChangesBetweenTicks(t, feed, true)
+	b, _, err := store.Register("codex", model.NewUUID(), t.TempDir(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := store.Update(b.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +131,15 @@ func TestHostRealChildGetsNoNewFeedGrant(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range seen {
-		if raw, _ := os.ReadFile(path); strings.Contains(string(raw), b.ID) {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal("read the old child's recorded frame", err)
+		}
+		var value frame
+		if err := decodeFrame(raw, &value); err != nil {
+			t.Fatal("decode the old child's recorded frame", err)
+		}
+		if strings.Contains(string(raw), b.ID) {
 			t.Fatal("the old child saw an event of the new grant", string(raw))
 		}
 	}
