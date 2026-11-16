@@ -278,5 +278,87 @@
       }
     },
     "reason": "Reviewed R7 login-item consent and background lifecycle: ManagedLoginItem export, seven Request/Report fields, named private implementation receivers, cmd-to-procwatch dependency, and exact login-item/supervisor raw OS import changes."
+  },
+  {
+    "base_commit": "cbf95f19235dcdca456fa0f11f9043a3ac0364eb",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 112,
+              "Files": 25
+            },
+            "after": {
+              "Methods": 113,
+              "Files": 26
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "One cohesive private Store prompt-registration diagnostic helper declared in hook.go; no new exports, API shapes, internal import edges, or raw OS imports."
+  },
+  {
+    "base_commit": "cbf95f19235dcdca456fa0f11f9043a3ac0364eb",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 112,
+              "Files": 25
+            },
+            "after": {
+              "Methods": 113,
+              "Files": 26
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "One cohesive private Store prompt-registration diagnostic helper declared in hook.go; no new exports, API shapes, internal import edges, or raw OS imports."
   }
 ]
