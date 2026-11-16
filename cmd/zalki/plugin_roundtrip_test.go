@@ -38,6 +38,11 @@ func TestPluginOwnerBinaryRoundtrip(t *testing.T) {
 	}
 	assertPluginOwnerStatus(t, binary, state, true, true)
 	first, firstDone := startPluginOwnerHost(t, binary, state)
+	// The ready line precedes processing the feed acknowledgement.
+	pluginOwnerEventually(t, func() bool {
+		status, err := pluginfeed.NewPluginFeed(store, "fake-notifier").PluginStatus()
+		return err == nil && !status.GapPending
+	})
 	assertPluginOwnerStatus(t, binary, state, true, false)
 	outbox := filepath.Join(state, "plugins", "fake-notifier.data", "events")
 	pluginOwnerEventually(t, func() bool { _, err := os.Stat(outbox); return err == nil })
