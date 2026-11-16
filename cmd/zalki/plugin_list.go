@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
@@ -42,12 +43,15 @@ func pluginListLines(store bus.Store) ([]string, error) {
 	if errors.Is(err, os.ErrNotExist) {
 		return []string{"No plugins are installed."}, nil
 	}
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return nil, errors.New("cannot safely read the plugins folder; run zalki doctor")
+	if err != nil {
+		return nil, pluginsFolderProblem(dir, err)
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return nil, pluginsFolderProblem(dir, nil)
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, errors.New("cannot safely read plugin records; run zalki doctor")
+		return nil, pluginsFolderProblem(dir, err)
 	}
 	groups := map[string][]string{}
 	for _, entry := range entries {
@@ -66,14 +70,17 @@ func pluginListLines(store bus.Store) ([]string, error) {
 
 func pluginListEntry(store bus.Store, name string, regular bool) (string, string) {
 	if !regular {
-		return "Unreadable plugin records", "  " + name + "  unreadable; run zalki doctor"
+		return "Unreadable plugin records", "  " + name + "  unreadable: " + pluginRecordDetail(store, name, pluginRecordCause(journal.ErrInvalidFile))
 	}
-	status, err := pluginStatusForDisplay(store, name)
+	status, err := pluginfeed.NewPluginFeed(store, name).PluginStatus()
 	if errors.Is(err, pluginfeed.ErrOldPluginRecord) {
 		return "Old plugin records", "  " + name + "  " + err.Error()
 	}
 	if err != nil {
-		return "Unreadable plugin records", "  " + name + "  unreadable; run zalki doctor"
+		return "Unreadable plugin records", "  " + name + "  unreadable: " + pluginRecordDetail(store, name, pluginRecordCause(err))
+	}
+	if status.ID == "" {
+		return "Unreadable plugin records", "  " + name + "  unreadable: " + pluginRecordDetail(store, name, "it is no longer installed")
 	}
 	group, version := "Manual plugins (no installation receipt)", "unknown version"
 	if status.Install != nil {

@@ -101,7 +101,7 @@ func (p *pluginInstaller) selectReviewAccess(keys *bufio.Reader, access pluginfe
 func (p *pluginInstaller) reviewTargets() ([]pluginReviewTarget, error) {
 	sessions, skipped, err := p.store.ListWithWarnings()
 	if err != nil || skipped != 0 {
-		return nil, errors.New("could not safely list running sessions; run zalki doctor")
+		return nil, sessionListProblem(err, skipped)
 	}
 	var targets []pluginReviewTarget
 	for _, session := range sessions {
