@@ -1,7 +1,9 @@
 """Pure bundle schema/stream fixtures; synthetic attestations are not Go AST proof."""
 import copy
 import hashlib
+import importlib.util
 import json
+import sys
 from pathlib import Path
 import unittest
 import bundle_inputs as inputs
@@ -55,6 +57,27 @@ def invoke_literal(fixture):
 
 
 class BundleInputs(unittest.TestCase):
+    def test_runner_import_preserves_complete_discovery_and_fixture_origins(self):
+        before=sys.path[:]
+        spec=importlib.util.spec_from_file_location('focused_import_boundary',HERE/'run.py')
+        isolated=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(isolated)
+        self.assertEqual(sys.path,before,'strict helper import contaminated discovery search order')
+        self.assertEqual(Path(isolated.__file__).resolve(),(HERE/'run.py').resolve())
+        self.assertEqual(Path(isolated.source.__file__).resolve(),(HERE.parent/'lint-delta/run.py').resolve())
+        loader=unittest.TestLoader()
+        suite=loader.discover(str(HERE),pattern='test_*.py')
+        self.assertEqual(loader.errors,[])
+        for name in ['test_run','test_profiles','test_bundle_inputs']:
+            self.assertEqual(Path(sys.modules[name].__file__).resolve(),(HERE/(name+'.py')).resolve())
+        pending=[suite];ids=[]
+        while pending:
+            item=pending.pop()
+            if isinstance(item,unittest.TestSuite):pending.extend(item)
+            else:ids.append(item.id())
+        self.assertIn('test_run.FocusedConstruction.test_actual_good_intended_restored_construction_and_exact_source_restore',ids)
+        self.assertIn(__name__+'.BundleInputs.test_two_literals_share_one_fatal_but_keep_their_distinct_runtime_nodes',ids)
+
     def test_all_original_controls_and_bundle26_are_schema_valid(self):
         controls=json.loads((HERE/'controls.json').read_text())
         run.validate_controls(controls)

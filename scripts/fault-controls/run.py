@@ -14,9 +14,15 @@ from pathlib import PurePosixPath
 
 sys.dont_write_bytecode=True
 HERE=Path(__file__).resolve().parent
-sys.path.insert(0,str(HERE.parent/'lint-delta'))
-spec=importlib.util.spec_from_file_location('strict_source_runner',HERE.parent/'lint-delta/run.py')
-source=importlib.util.module_from_spec(spec);spec.loader.exec_module(source)
+# The strict helper needs its own sibling imports only while being loaded.
+# Restore the caller's exact search path before importing focused fixtures.
+_strict_import_path=sys.path[:]
+try:
+    sys.path.insert(0,str(HERE.parent/'lint-delta'))
+    spec=importlib.util.spec_from_file_location('strict_source_runner',HERE.parent/'lint-delta/run.py')
+    source=importlib.util.module_from_spec(spec);spec.loader.exec_module(source)
+finally:
+    sys.path[:]=_strict_import_path
 from oracle import require,sha,source_digest,validate
 from execution import profile,native_platforms,applicable
 import cli
