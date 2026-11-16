@@ -14,15 +14,20 @@ import (
 type requiredTest struct{ pkg, name string }
 
 // importPath maps a required package to its import path: "cmd/..." is under
-// the module root, everything else under internal/.
+// the module root, as are scripts; everything else is under internal/.
 func (t requiredTest) importPath() string {
-	if strings.HasPrefix(t.pkg, "cmd/") {
+	if strings.HasPrefix(t.pkg, "cmd/") || strings.HasPrefix(t.pkg, "scripts/") {
 		return "github.com/zalkilabs/zalki/" + t.pkg
 	}
 	return "github.com/zalkilabs/zalki/internal/" + t.pkg
 }
 
 var required = []requiredTest{
+	{"scripts/issue-scopes", "TestStrictScopeRejectsSourceSymlinks"},
+	{"scripts/check-integration", "TestRequiredIntegrationGateScriptPackage"},
+	{"scripts/issue-scopes", "TestLiteralScopeSurvivesLineMovement"},
+	{"scripts/issue-scopes", "TestStrictReportRequiresAnExplicitIssueCollection"},
+	{"scripts/issue-scopes", "TestStrictScopeRejectsMissingEscapedAndOutOfBoundsSource"},
 	{"bus", "TestEndpointRecordsTheResolvedPath"},
 	{"bus", "TestEndpointRejectsFilesAndSymlinks"},
 	{"bus", "TestReleaseLinkerFlagNamesTheVersionVariable"},

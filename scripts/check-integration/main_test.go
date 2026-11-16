@@ -194,3 +194,31 @@ func requiredEvent(t *testing.T, action string, target requiredTest) string {
 	}
 	return string(raw) + "\n"
 }
+
+func TestRequiredIntegrationGateScriptPackage(t *testing.T) {
+	target := requiredTest{"scripts/issue-scopes", "TestScopeFixture"}
+	const expected = "github.com/zalkilabs/zalki/scripts/issue-scopes"
+	if target.importPath() != expected {
+		t.Fatalf("script package mapped to %s, want %s", target.importPath(), expected)
+	}
+	event := func(action, path, name string) string {
+		data, err := json.Marshal(map[string]string{"Action": action, "Package": path, "Test": name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data) + "\n"
+	}
+	good := event("run", expected, target.name) + event("pass", expected, target.name)
+	if err := check(strings.NewReader(good), []requiredTest{target}); err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{
+		event("run", expected, target.name) + event("skip", expected, target.name),
+		event("run", expected, target.name) + event("skip", expected, target.name+"/child") + event("pass", expected, target.name),
+		event("run", "github.com/zalkilabs/zalki/internal/scripts/issue-scopes", target.name) + event("pass", "github.com/zalkilabs/zalki/internal/scripts/issue-scopes", target.name),
+	} {
+		if err := check(strings.NewReader(bad), []requiredTest{target}); err == nil {
+			t.Fatal("missing or skipped script coverage was accepted")
+		}
+	}
+}
