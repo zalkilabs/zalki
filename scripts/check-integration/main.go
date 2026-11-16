@@ -227,6 +227,8 @@ var required = []requiredTest{
 	{"cmd/zalki", "TestPluginNotificationCustomStateSendsNothing"},
 	{"cmd/zalki", "TestPluginLoginItemPendingNamesRepair"},
 	{"cmd/zalki", "TestPluginGroupGraceExceedsPluginGrace"},
+	{"cmd/zalki", "TestPluginSuperviseStateFollowsEnvironment"},
+	{"cmd/zalki", "TestPluginSuperviseEnvironmentSelectionCLI"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

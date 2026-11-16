@@ -37,13 +37,13 @@ func TestSessionStartupTruthAndScopeCeiling(t *testing.T) {
 	}
 	s, key := register(t, f.store, "cursor")
 	text := startupText(t, f, s, false, nil)
-	if text != "Plugins active for this session: external." {
+	if text != "Plugins with access to this session: external." {
 		t.Fatal("Z6_STARTUP_TRUTHFUL_ACTIVE", text)
 	}
 	if err := bus.SetSessionPlugin(f.store, s.ID, key, "external", true); err != nil {
 		t.Fatal(err)
 	}
-	if text := startupText(t, f, s, false, nil); text != "Plugins active for this session: none." {
+	if text := startupText(t, f, s, false, nil); text != "Plugins with access to this session: none." {
 		t.Fatal("Z6_STARTUP_CURRENT_MUTE", text)
 	}
 	for _, env := range []string{"off", "external", "other", " bad "} {
@@ -133,7 +133,7 @@ func TestSessionStartupSortedBoundedSummary(t *testing.T) {
 	if err := bus.WithJournalRead(f.store, func(v bus.JournalView) error { text = sessionStartupSummary(v, session, records); return nil }); err != nil {
 		t.Fatal(err)
 	}
-	want := "Plugins active for this session: p00, p01, p02, p03, p04, p05, p06, p07, p08, p09, p10, p11, p12, p13, p14, p15, +2 more. See: zalki plugins list"
+	want := "Plugins with access to this session: p00, p01, p02, p03, p04, p05, p06, p07, p08, p09, p10, p11, p12, p13, p14, p15, +2 more. See: zalki plugins list"
 	if text != want {
 		t.Fatal("Z6_SORTED_SIXTEEN_WITH_OVERFLOW", text)
 	}

@@ -24,13 +24,13 @@ func TestSessionPluginStartupPortScopeAndGeneration(t *testing.T) {
 		if err := v.WithWriteScope(root, func() error { return nil }); err != nil {
 			t.Fatal("Z6_STARTUP_SAME_WRITE_SCOPE", err)
 		}
-		return "Plugins active for this session: none.", nil
+		return "Plugins with access to this session: none.", nil
 	}}
 	var out bytes.Buffer
 	if err := service.sessionStartupOutput(stubCursorAdapter{}, current, key, true, &out); err != nil {
 		t.Fatal(err)
 	}
-	if calls != 1 || !strings.Contains(out.String(), "Plugins active for this session: none.") {
+	if calls != 1 || !strings.Contains(out.String(), "Plugins with access to this session: none.") {
 		t.Fatal("Z6_STARTUP_MANDATORY_DISCLOSURE")
 	}
 	if err := captured.WithWriteScope(s.Dir, func() error { return nil }); err == nil {
@@ -59,7 +59,7 @@ func TestSessionPluginFullJSONBudgetBeforeNotice(t *testing.T) {
 	current, key := register(t, s, "cursor")
 	selected := 0
 	service := Service{Store: s, PluginStartup: func(_ JournalView, _ string, _ model.Session, _ bool, fits func(string) (bool, error)) (string, error) {
-		summary := "Plugins active for this session: none."
+		summary := "Plugins with access to this session: none."
 		if ok, err := fits(summary); err != nil || !ok {
 			return summary, errors.New("mandatory too large")
 		}
@@ -92,10 +92,10 @@ func TestSessionPluginRecoveryMandatoryDisclosureAndNoNotice(t *testing.T) {
 		if err := v.WithWriteScope(s.Dir, func() error { return nil }); err != nil {
 			t.Fatal("Z6_RECOVERY_SAME_WRITE_SCOPE", err)
 		}
-		return "Plugins active for this session: none (ZALKI_PLUGINS=off).", nil
+		return "Plugins with access to this session: none (ZALKI_PLUGINS=off).", nil
 	}}
 	grant, err := h.ClaimRecovery(stubClaimRecovery)
-	if err != nil || !strings.Contains(grant.Instructions, "Plugins active for this session: none (ZALKI_PLUGINS=off).") {
+	if err != nil || !strings.Contains(grant.Instructions, "Plugins with access to this session: none (ZALKI_PLUGINS=off).") {
 		t.Fatal("Z6_RECOVERY_MANDATORY_DISCLOSURE", err)
 	}
 	if err := view.WithWriteScope(s.Dir, func() error { return nil }); err == nil {
@@ -127,7 +127,7 @@ func TestSessionPluginCompactionDoesNotReserveNotice(t *testing.T) {
 		if reserve {
 			t.Fatal("Z6_COMPACTION_SUMMARY_ONLY_PHASE")
 		}
-		return "Plugins active for this session: none.", nil
+		return "Plugins with access to this session: none.", nil
 	}}
 	input := `{"session_id":"` + current.NativeID + `","cwd":"/workspace","hook_event_name":"sessionStart","source":"compact"}`
 	var out bytes.Buffer

@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/config"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
@@ -73,9 +74,9 @@ const supervisePoll = 5 * time.Second
 func newPluginSuperviseCommand(opts *commandOptions) *cobra.Command {
 	return &cobra.Command{
 		Use: "supervise", Short: "Run all enabled plugins and restart them after failures", Args: cobra.NoArgs,
-		Long: "Runs in the foreground until stopped. Each enabled plugin runs in its own host process; a failing plugin is restarted with growing waits, and after 5 failures in 10 minutes it stays stopped until you run zalki plugins restart NAME. Output goes only to private logs. " + notifyOwnerCopy,
-		// supervise ignores config, logging and state selectors from the
-		// environment: it uses only --state, or the default state.
+		Long: "Runs in the foreground until stopped. State follows --state, ZALKI_STATE, absolute XDG_STATE_HOME/zalki, then ~/.local/state/zalki. Each enabled plugin runs in its own host process; a failing plugin is restarted with growing waits, and after 5 failures in 10 minutes it stays stopped until you run zalki plugins restart NAME. Output goes only to private logs. " + notifyOwnerCopy,
+		// State follows the shared environment/default resolver. Config and
+		// logging flags stay unsupported; no settings file is loaded here.
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			for _, flag := range []string{"config", "log-level", "log-file"} {
 				if cmd.Flags().Changed(flag) {
@@ -101,11 +102,9 @@ func runSupervisor(ctx context.Context, explicitState string, stateGiven bool) e
 	if err != nil {
 		return model.NewError(model.CodeInvalidInput, "zalki plugins supervise needs a clean absolute HOME")
 	}
-	state := filepath.Join(home, ".local", "state", "zalki")
-	if stateGiven {
-		if state, err = filepath.Abs(explicitState); err != nil {
-			return err
-		}
+	state, err := superviseState(home, explicitState, stateGiven)
+	if err != nil {
+		return err
 	}
 	binary, err := stableBinary()
 	if err != nil {
@@ -691,6 +690,21 @@ func (s *supervisor) finish(name string, p *supervised) {
 	}
 	s.logf("%s: host ended: %s", name, reason)
 	s.save(name, p)
+}
+
+// superviseState preserves explicit --state selection and otherwise shares
+// the resolver used by enable and other commands. ResolvePaths validates the
+// selected config path too, but does not load configuration or create files.
+func superviseState(home, explicitState string, stateGiven bool) (string, error) {
+	if stateGiven {
+		return filepath.Abs(explicitState)
+	}
+	cwd, _ := os.Getwd() // Only relative selections need a usable cwd.
+	paths, err := config.ResolvePaths(config.Inputs{Home: home, Cwd: cwd})
+	if err != nil {
+		return "", model.NewError(model.CodeInvalidInput, "zalki plugins supervise: %s", plainText(err.Error()))
+	}
+	return paths.StateDir.Value, nil
 }
 
 // bindingEnded reports why the binding a host ran for no longer holds, or
