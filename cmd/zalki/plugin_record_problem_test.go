@@ -35,14 +35,13 @@ func TestPluginUnreadableRecordNamesCause(t *testing.T) {
 	if err := os.WriteFile(record, edited, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// The state path may be shown resolved (macOS /var -> /private/var).
-	cause := "its content is not a valid plugin record; the record is " + shellQuote(pluginDiagnosticPath(t, record))
+	cause := "its content is not a valid plugin record; the record is "
 	out, err := pluginOwnerLocal(t, store.Dir, "show", "demo")
-	if err == nil || !strings.HasPrefix(err.Error(), `cannot safely read plugin "demo": `) || !strings.Contains(err.Error(), cause) {
+	if err == nil || !strings.HasPrefix(err.Error(), `cannot safely read plugin "demo": `) || !pluginDiagnosticOutputMatches(t, err.Error(), record, `cannot safely read plugin "demo": `+cause, "") {
 		t.Fatalf("show dropped the cause of an unreadable record: %q %v", out, err)
 	}
 	out, err = pluginOwnerLocal(t, store.Dir, "list")
-	if err != nil || !strings.Contains(string(out), "demo  unreadable: its content") || !strings.Contains(string(out), cause) || strings.Contains(string(out), "doctor") {
+	if err != nil || !strings.Contains(string(out), "demo  unreadable: its content") || !pluginDiagnosticOutputMatches(t, string(out), record, "Unreadable plugin records\n  demo  unreadable: "+cause, "\n") || strings.Contains(string(out), "doctor") {
 		t.Fatalf("list did not name the cause of an unreadable record: %q %v", out, err)
 	}
 	checkPluginsFolderNamed(t)
@@ -93,8 +92,7 @@ func checkPluginsFolderNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err := pluginOwnerLocal(t, store.Dir, "list")
-	want := "the plugins folder " + shellQuote(pluginDiagnosticPath(t, dir)) + " is not a safe folder"
-	if err == nil || !strings.HasPrefix(err.Error(), want) || strings.Contains(err.Error(), "doctor") {
+	if err == nil || !pluginDiagnosticOutputMatches(t, err.Error(), dir, "the plugins folder ", " is not a safe folder (it is a link or a file)") || strings.Contains(err.Error(), "doctor") {
 		t.Fatalf("list did not name an unsafe plugins folder: %q %v", out, err)
 	}
 	if _, _, err := installedPlugins(store); err == nil || !strings.Contains(err.Error(), "plugins") || strings.Contains(err.Error(), "doctor") {
@@ -102,15 +100,59 @@ func checkPluginsFolderNamed(t *testing.T) {
 	}
 }
 
-// Resolve only the parent: a refused symlink record must still be named by
-// its own path, without assuming the temporary root has no spaces or quotes.
-func pluginDiagnosticPath(t *testing.T, path string) string {
+// The command can retain the configured alias or use its resolved parent.
+// Match the complete message for only those two paths; never follow the final
+// record symlink or accept a basename, substring, or a different cause.
+func pluginDiagnosticOutputMatches(t *testing.T, got, path, prefix, suffix string) bool {
 	t.Helper()
+	if got == prefix+shellQuote(path)+suffix {
+		return true
+	}
 	dir, err := filepath.EvalSymlinks(filepath.Dir(path))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return filepath.Join(dir, filepath.Base(path))
+	return got == prefix+shellQuote(filepath.Join(dir, filepath.Base(path)))+suffix
+}
+
+func TestPluginDiagnosticOutputMatchesOnlyEquivalentPaths(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	real := filepath.Join(root, "real with 'quotes'")
+	alias := filepath.Join(root, "alias with 'quotes'")
+	if err := os.MkdirAll(filepath.Join(real, "plugins"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, alias); err != nil {
+		t.Fatal(err)
+	}
+	record := filepath.Join(alias, "plugins", "demo.json")
+	resolved := filepath.Join(real, "plugins", "demo.json")
+	outside := filepath.Join(root, "outside", "demo.json")
+	if err := os.Symlink(outside, record); err != nil {
+		t.Fatal(err)
+	}
+	const prefix = "demo  unreadable: it is not a safe regular file; the record is "
+	const suffix = "\n"
+	for _, path := range []string{record, resolved} {
+		if !pluginDiagnosticOutputMatches(t, prefix+shellQuote(path)+suffix, record, prefix, suffix) {
+			t.Fatal("exact configured or parent-resolved path was rejected", path)
+		}
+	}
+	for _, got := range []string{
+		prefix + shellQuote(outside) + suffix,
+		prefix + shellQuote(filepath.Join(real, "plugins", "other.json")) + suffix,
+		prefix + "demo.json" + suffix,
+		prefix + record + suffix,
+		"a different cause; the record is " + shellQuote(record) + suffix,
+		prefix + shellQuote(record) + " extra" + suffix,
+	} {
+		if pluginDiagnosticOutputMatches(t, got, record, prefix, suffix) {
+			t.Fatal("non-equivalent path, quoting, filename, cause, or suffix was accepted", got)
+		}
+	}
 }
 
 // Decoder field/value strings and filesystem error paths are untrusted. Keep
