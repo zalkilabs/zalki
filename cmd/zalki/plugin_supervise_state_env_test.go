@@ -147,15 +147,22 @@ func TestPluginSuperviseStateKeepsNotificationBoundary(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := notifierFor(state, home, model.NewUUID())
-			if got != nil && got.dir != nil {
-				t.Cleanup(func() {
-					if err := got.dir.Close(); err != nil {
-						t.Error(err)
-					}
-				})
-			}
+			closeNotifierAfterTest(t, got)
 			if (got != nil) != tc.wantNotifier || tc.wantNotifier && got.dir == nil {
 				t.Fatal("environment selection changed default-only notification authority")
+			}
+		})
+	}
+}
+
+// No notification worker is started by these selection-only fixtures; the
+// test retains ownership of the default-state directory handle it opens.
+func closeNotifierAfterTest(t *testing.T, got *notifier) {
+	t.Helper()
+	if got != nil && got.dir != nil {
+		t.Cleanup(func() {
+			if err := got.dir.Close(); err != nil {
+				t.Error(err)
 			}
 		})
 	}

@@ -16,7 +16,7 @@ func newPluginMuteCommand(opts *commandOptions, muted bool) *cobra.Command {
 		action = "mute"
 	}
 	var actor string
-	cmd := &cobra.Command{Use: action + " NAME", Short: "Control a plugin for your authenticated session", Args: cobra.ExactArgs(1), Long: "Affects only your authenticated session. Unmute keeps owner and ZALKI_PLUGINS restrictions. These controls filter Zalki APIs, not OS access. A plugin listed for a session has access to it; that is not proof of a running process.", RunE: func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: action + " NAME", Short: "Control a plugin for your authenticated session", Args: cobra.ExactArgs(1), Long: "Affects only your authenticated session. Unmute keeps owner and ZALKI_PLUGINS restrictions. These controls filter Zalki APIs, not OS access. A plugin listed for a session has authorized access to it; that is not proof of a running process.", RunE: func(cmd *cobra.Command, args []string) error {
 		if !cmd.Flags().Changed("actor") {
 			actor = os.Getenv("ZALKI_ACTOR")
 		}
