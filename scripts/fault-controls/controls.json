@@ -1217,7 +1217,27 @@
       "darwin",
       "linux"
     ],
-    "rebuild_cli_for_mutant": false
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "cmd/zalki/plugin_login_item_test.go",
+        "assertion_function": "consentYesFlag",
+        "fatal_literal": "--yes touched or offered the login item: %v %v\n%s",
+        "fatal_call": "t.Fatalf(\"--yes touched or offered the login item: %v %v\\n%s\", err, fake.changes, output)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemConsentCLI",
+            "callee": "consentYesFlag",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
   },
   {
     "id": "H2F3",
