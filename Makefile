@@ -1,9 +1,11 @@
-.PHONY: build test test-required test-alias vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check windows-vet-test
+.PHONY: build test test-required test-alias vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check windows-vet-test ci-lint-tools lint-delta-test
 
 GORELEASER ?= goreleaser
 GOVULNCHECK ?= govulncheck
-GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
-GOCOGNIT ?= go run github.com/uudashr/gocognit/cmd/gocognit@v1.2.0
+GOLANGCI_LINT_VERSION := v2.8.0
+GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+GOCOGNIT_VERSION := v1.2.0
+GOCOGNIT ?= go run github.com/uudashr/gocognit/cmd/gocognit@$(GOCOGNIT_VERSION)
 
 build:
 	go build -o bin/zalki ./cmd/zalki
@@ -91,3 +93,15 @@ cost-check:
 # Pure fake-Go discovery controls; no real Windows vet or Go compiler is invoked.
 windows-vet-test:
 	bash scripts/test-windows-vet.sh
+
+# The same versioned tools analyze the base and head. Call only in an isolated CI
+# runner or a coordinated local window, with an explicit private output directory.
+ci-lint-tools:
+	@case "$(CI_TOOL_DIR)" in /*) ;; *) echo 'Set CI_TOOL_DIR to an absolute directory.' >&2; exit 2;; esac
+	mkdir -p "$(CI_TOOL_DIR)"
+	GOBIN="$(CI_TOOL_DIR)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	GOBIN="$(CI_TOOL_DIR)" go install github.com/uudashr/gocognit/cmd/gocognit@$(GOCOGNIT_VERSION)
+	go build -mod=readonly -o "$(CI_TOOL_DIR)/issue-scopes" ./scripts/issue-scopes
+
+lint-delta-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/lint-delta -p 'test_*.py' -v

@@ -28,6 +28,22 @@ Partial, diagnostic-bearing or empty discovery fails setup before vet; per-packa
 Windows vet findings remain report-only. CI retains discovery lists, diagnostics,
 and individual vet logs along with its summary.
 
+The existing `Lint` checks also compare strict diagnostics against the actual base
+commit on each OS. Both trees run normal-then-strict and strict-then-normal with
+separate initially empty linter caches. Exact repository-relative file,
+function/declaration, linter, literal message and source-text keys are compared as
+multisets. Extra copies of an existing diagnostic also fail. Physical line-number
+movement is not a new diagnostic; replacing source text under the same other keys
+requires review. Order-dependent reports and malformed input fail the check.
+Source links are unsupported: snapshots reject them, and scoping reads are confined
+to the opened source root before any AST or source-text evidence is accepted.
+The stricter findings remain report-only in `make lint-strict`; CI enforces the
+base/head ratchet without a fixed diagnostic count. Both orders also require
+normal lint to pass. Explicit base/head commits, tree/config/tool hashes, logs
+and raw/scoped reports are retained. Tag/manual runs use the candidate's first
+parent if no event base is available; pull requests and pushes must supply an
+actual base. No local checkpoint is replaced until hosted equivalence is reviewed.
+
 Production core, installer, adapter composition and client dependencies are
 restricted by depguard in `.golangci.yml`; external composition tests are exempt.
 
