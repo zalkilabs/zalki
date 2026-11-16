@@ -126,6 +126,13 @@ zalki uninstall --apply
 Uninstall previews changes when `--apply` is omitted.
 Use `--state` to choose the state directory.
 
+For plugin read failures, `zalki plugins list` and `zalki plugins show NAME`
+report a bounded cause and the affected record's path. Use those details to
+locate file-format or permission problems; `zalki doctor` reports session,
+build, and transport health. A chat setup warning points to the configured log
+when warning logging is enabled, or to `zalki config show` for logging settings
+when it is disabled. Setup failures still allow the chat message to proceed.
+
 ### Retired sessions
 
 `zalki prune --dry-run` previews cleanup; `zalki prune` applies it. Prune retires

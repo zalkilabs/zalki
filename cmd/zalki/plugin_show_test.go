@@ -105,7 +105,8 @@ func TestPluginListRejectsSymlinkRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, err := pluginOwnerLocal(t, store.Dir, "list")
-	if err != nil || !bytes.Contains(raw, []byte("demo  unreadable; run zalki doctor")) || bytes.Contains(raw, []byte("local/demo")) {
+	want := "Unreadable plugin records\n  demo  unreadable: it is not a safe regular file; the record is "
+	if err != nil || !pluginDiagnosticOutputMatches(t, string(raw), record, want, "\n") || bytes.Contains(raw, []byte("local/demo")) {
 		t.Fatal("list followed or hid unsafe record", string(raw), err)
 	}
 }

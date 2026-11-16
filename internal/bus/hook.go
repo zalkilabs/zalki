@@ -201,11 +201,22 @@ var lifecycleCauses = map[string]model.EventCause{
 
 func lifecycleCause(event string) model.EventCause { return lifecycleCauses[event] }
 
+// promptRegistrationFailed says what happened and where the cause is: doctor
+// does not show hook failures, only the log does, and only when it records
+// warnings (ZAL-85).
+func (s Store) promptRegistrationFailed() string {
+	const failed = "Zalki could not safely register this chat. Your message was not blocked."
+	if s.Logger == nil || !s.Logger.Enabled(context.Background(), slog.LevelWarn) {
+		return failed + " Logging is off, so the cause was not saved; zalki config show shows the logging settings."
+	}
+	return failed + " The cause is in the zalki log; zalki config show prints its path."
+}
+
 // Optional setup must never deny the owner's explicit prompt. Cursor's prompt
 // response carries no private setup context; that arrives on a supported hook.
 func finishPromptHook(s Store, output io.Writer, err error) error {
 	if err != nil && !errors.Is(err, errStaleHook) {
-		message := "Zalki could not safely register this chat. Run zalki doctor."
+		message := s.promptRegistrationFailed()
 		if errors.Is(err, errPromptQuota) {
 			message = "Zalki setup is limited right now. Wait 60 seconds, then send another message."
 		}

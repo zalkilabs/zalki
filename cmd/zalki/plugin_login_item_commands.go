@@ -23,7 +23,7 @@ func installedPlugins(store bus.Store) (total, enabled int, err error) {
 		return 0, 0, nil
 	}
 	if err != nil {
-		return 0, 0, errors.New("cannot safely read plugin records; run zalki doctor")
+		return 0, 0, pluginsFolderProblem(dir, err)
 	}
 	for _, entry := range entries {
 		match := pluginRecordName.FindStringSubmatch(entry.Name())
