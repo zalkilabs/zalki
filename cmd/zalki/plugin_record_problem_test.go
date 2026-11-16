@@ -120,16 +120,16 @@ func TestPluginDiagnosticOutputMatchesOnlyEquivalentPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	real := filepath.Join(root, "real with 'quotes'")
+	realDir := filepath.Join(root, "real with 'quotes'")
 	alias := filepath.Join(root, "alias with 'quotes'")
-	if err := os.MkdirAll(filepath.Join(real, "plugins"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(realDir, "plugins"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(real, alias); err != nil {
+	if err := os.Symlink(realDir, alias); err != nil {
 		t.Fatal(err)
 	}
 	record := filepath.Join(alias, "plugins", "demo.json")
-	resolved := filepath.Join(real, "plugins", "demo.json")
+	resolved := filepath.Join(realDir, "plugins", "demo.json")
 	outside := filepath.Join(root, "outside", "demo.json")
 	if err := os.Symlink(outside, record); err != nil {
 		t.Fatal(err)
@@ -143,7 +143,7 @@ func TestPluginDiagnosticOutputMatchesOnlyEquivalentPaths(t *testing.T) {
 	}
 	for _, got := range []string{
 		prefix + shellQuote(outside) + suffix,
-		prefix + shellQuote(filepath.Join(real, "plugins", "other.json")) + suffix,
+		prefix + shellQuote(filepath.Join(realDir, "plugins", "other.json")) + suffix,
 		prefix + "demo.json" + suffix,
 		prefix + record + suffix,
 		"a different cause; the record is " + shellQuote(record) + suffix,
