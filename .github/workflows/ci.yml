@@ -115,6 +115,14 @@ jobs:
           python3 scripts/architecture-delta/run.py \
             --lint-result "${{ runner.temp }}/lint-delta/result.json" \
             --tools "${{ runner.temp }}/lint-tools" --output "${{ runner.temp }}/architecture-delta"
+      - name: Verify CGO-disabled compile discovery and failure fixtures
+        if: matrix.os == 'ubuntu-latest'
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/platform-compile -p 'test_*.py' -v
+      - name: Compile the original Linux CGO-disabled profiles
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          python3 scripts/platform-compile/run.py --repo "$GITHUB_WORKSPACE" \
+            --output "${{ runner.temp }}/platform-compile"
       - name: Retain strict and architecture comparison evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -132,6 +140,9 @@ jobs:
             ${{ runner.temp }}/lint-delta/head/*/scoped.json
             ${{ runner.temp }}/lint-delta/base/*/make.log
             ${{ runner.temp }}/lint-delta/head/*/make.log
+            ${{ runner.temp }}/platform-compile/**/*.json
+            ${{ runner.temp }}/platform-compile/**/*.stdout
+            ${{ runner.temp }}/platform-compile/**/*.stderr
 
   fault-controls:
     name: Focused mutation controls (${{ matrix.os }})
