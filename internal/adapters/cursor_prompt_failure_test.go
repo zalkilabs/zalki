@@ -49,7 +49,7 @@ func assertCursorPromptFailure(t *testing.T, limited bool) {
 	store := adapterTestStore(t)
 	registerAdapterSession(t, store, "codex") // Create a private state directory.
 	raw := []byte("{broken")
-	message := "Zalki could not safely register this chat. Run zalki doctor.\n"
+	message := "Zalki could not safely register this chat. Your message was not blocked. Logging is off, so the cause was not saved; zalki config show shows the logging settings.\n"
 	if limited {
 		rows := make([]map[string]string, 0, 20)
 		for range 20 {

@@ -101,7 +101,7 @@ func pluginStatusForDisplay(store bus.Store, name string) (pluginfeed.PluginFeed
 		return status, err // backend owns the bounded, shell-quoted recovery route
 	}
 	if err != nil {
-		return status, fmt.Errorf("cannot safely read plugin %s; run zalki doctor", strconv.QuoteToASCII(name))
+		return status, pluginRecordProblem(store, name, err)
 	}
 	if status.ID == "" {
 		return status, fmt.Errorf("plugin %s is not installed", strconv.QuoteToASCII(name))
