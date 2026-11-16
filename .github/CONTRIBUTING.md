@@ -14,6 +14,20 @@ requiring real adapter transports, Cursor listener/recovery, and the emulated
 bidirectional roundtrip. Missing tests or skipped required tests/subtests fail
 the gate on both Linux and macOS. Ordinary `make test` permits local socket
 sandbox skips. Live model tests stay opt-in; subprocess helper skips are valid.
+CI also runs `make test-alias` on Linux and macOS. It proves that the test child
+uses an owned symlinked temporary root, runs the full race suite, and rejects
+missing or skipped required tests with the alias coverage checker. The ordinary
+and alias passes keep separate reports. These checks use the versioned required
+test list; adding a required test updates both modes without a workflow count.
+The existing `Test` checks wait for alias coverage and the Windows reporter
+controls. They explicitly fail if either dependency fails, is cancelled or is
+skipped; adding these jobs does not require a branch-protection settings change.
+
+`make windows-vet-test` runs fake-Go discovery controls before the Windows report.
+Partial, diagnostic-bearing or empty discovery fails setup before vet; per-package
+Windows vet findings remain report-only. CI retains discovery lists, diagnostics,
+and individual vet logs along with its summary.
+
 Production core, installer, adapter composition and client dependencies are
 restricted by depguard in `.golangci.yml`; external composition tests are exempt.
 
