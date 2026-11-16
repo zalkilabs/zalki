@@ -15,7 +15,7 @@ import (
 // grants of before receive), or an install receipt without the manifest id
 // (before zalki-plugin/1), or a receipt without its installer and declared
 // access (before install provenance). There is no
-// conversion: the owner removes the plugin and installs it again.
+// conversion: keep its record and data, and install a separate instance.
 var ErrOldPluginRecord = errors.New("plugin record from an older Zalki")
 
 // oldPluginRecord reports the fix for a record with the old grant keys, or nil.
@@ -30,10 +30,8 @@ func oldPluginRecord(name string, raw []byte) error {
 	if filepath.IsAbs(source) && printableText(source, 1024) {
 		install = "zalki plugins install " + shellWord(source)
 	}
-	// --as keeps this instance's name even when the manifest's default
-	// name differs (a second instance, or a renamed manifest).
-	install += " --as " + shellWord(name)
-	return fmt.Errorf("%s: %w. Run: zalki plugins remove %s && %s", name, ErrOldPluginRecord, name, install)
+	// A separate name leaves the old record and data intact if install refuses.
+	return fmt.Errorf("%s: %w. Keep the old record and its data. To install a separate instance, choose an unused name and run: %s --as NEW_NAME", name, ErrOldPluginRecord, install)
 }
 
 // shellWord quotes a path for a POSIX shell when it has any character outside
