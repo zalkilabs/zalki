@@ -259,3 +259,36 @@ After the first push, configure GitHub to require the CI checks and pull request
 on `main`, block force pushes/deletion, and protect release tags. Solo maintainers
 can merge their own passing PRs. Repository protection and private vulnerability
 reporting are GitHub settings, not enabled by adding these files.
+
+### Exact API and architecture comparison
+
+The native Linux and macOS Lint jobs also run the versioned `arch-metrics -json`
+collector against the same immutable base and head worktrees used for strict
+lint. The normal human-readable `make arch-metrics` report remains available.
+Both snapshots retain the selected Go build identity, the repository's named
+export ledger, declaration shapes, every receiver's method/file counts, internal
+import edges, and raw OS-import users across all production OS files. Fields and
+interface members contribute to type shapes, not additional named-export counts.
+Exported methods on private receivers are counted, as in the existing report.
+Scripts are tooling rather than application API. The raw OS exception list must
+match measured users exactly; wildcard growth is refused.
+
+These are source declaration shapes, including wire tags, type aliases, function
+signatures, pointer/value receivers, and full constant-group initializer context.
+They are not a universal ABI or constant-evaluation guarantee. Native build
+selection is measured on both operating systems; it is not inferred from one OS
+or from old numeric totals.
+
+An unreviewed added, removed, or changed identity fails the comparison, including
+a change that preserves a numeric total. An intentional change requires an exact
+entry in `scripts/architecture-delta/approved.json`, containing the actual base
+commit, native OS, complete `delta` object from that failed run's result, and a
+review reason. Review the measured changes before adding an entry. A stale base,
+other OS, partial delta, numeric ceiling, or duplicate matching allowance cannot
+supply review credit. Historical entries are not replayed on a new base.
+
+Run `make architecture-delta-test` for pure orchestration/policy fixtures. The
+native collector roots are required in ordinary and alias coverage. Fake tools
+prove failure handling; actual compiler, snapshot, keyed lint, timeout margins,
+exact-head hosted coverage and final-main review remain required before retiring
+any equivalent local gate. Live client installation and smoke checks are separate.

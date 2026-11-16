@@ -1,4 +1,4 @@
-.PHONY: build test test-required test-alias vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check windows-vet-test ci-lint-tools lint-delta-test
+.PHONY: build test test-required test-alias vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check windows-vet-test ci-lint-tools lint-delta-test architecture-delta-test
 
 GORELEASER ?= goreleaser
 GOVULNCHECK ?= govulncheck
@@ -102,6 +102,10 @@ ci-lint-tools:
 	GOBIN="$(CI_TOOL_DIR)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	GOBIN="$(CI_TOOL_DIR)" go install github.com/uudashr/gocognit/cmd/gocognit@$(GOCOGNIT_VERSION)
 	go build -mod=readonly -o "$(CI_TOOL_DIR)/issue-scopes" ./scripts/issue-scopes
+	go build -mod=readonly -o "$(CI_TOOL_DIR)/arch-metrics" ./scripts/arch-metrics
 
 lint-delta-test:
 	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/lint-delta -p 'test_*.py' -v
+
+architecture-delta-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/architecture-delta -p 'test_*.py' -v

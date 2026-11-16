@@ -23,6 +23,14 @@ func (t requiredTest) importPath() string {
 }
 
 var required = []requiredTest{
+	{"scripts/arch-metrics", "TestSnapshotShapeIgnoresDeclarationMovement"},
+	{"scripts/arch-metrics", "TestSnapshotRejectsPartialDiscovery"},
+	{"scripts/arch-metrics", "TestSnapshotUsesTheRepoNamedExportRule"},
+	{"scripts/arch-metrics", "TestSnapshotUsesSelectedFilesAndRefusesDuplicateDeclarations"},
+	{"scripts/arch-metrics", "TestSnapshotRetainsAliasReceiverAndWireShapeChanges"},
+	{"scripts/arch-metrics", "TestSnapshotNeverReadsLinkedOutsideSource"},
+	{"scripts/arch-metrics", "TestSnapshotRetainsImplicitConstantGroupContext"},
+	{"scripts/arch-metrics", "TestSnapshotRawOSExceptionsAreExactNotWildcardBudgets"},
 	{"scripts/issue-scopes", "TestStrictScopeRejectsSourceSymlinks"},
 	{"scripts/check-integration", "TestRequiredIntegrationGateScriptPackage"},
 	{"scripts/issue-scopes", "TestLiteralScopeSurvivesLineMovement"},
