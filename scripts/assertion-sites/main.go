@@ -23,6 +23,7 @@ import (
 )
 
 type caller struct {
+	Kind         string `json:"kind,omitempty"`
 	Caller       string `json:"caller"`
 	Callee       string `json:"callee"`
 	CallerHelper bool   `json:"caller_is_helper"`
@@ -42,6 +43,7 @@ type request struct {
 }
 
 type mutationRequest struct {
+	Kind   string `json:"declaration_kind,omitempty"`
 	File   string `json:"path"`
 	Symbol string `json:"symbol"`
 	Old    string `json:"old"`
@@ -49,6 +51,7 @@ type mutationRequest struct {
 }
 
 type mutationProof struct {
+	Kind   string `json:"declaration_kind,omitempty"`
 	File   string `json:"file"`
 	Symbol string `json:"symbol"`
 	SHA256 string `json:"source_sha256"`
@@ -56,18 +59,19 @@ type mutationProof struct {
 }
 
 type response struct {
-	File             string         `json:"file"`
-	SHA256           string         `json:"source_sha256"`
-	Function         string         `json:"function"`
-	Literal          string         `json:"literal"`
-	AssertionLines   []int          `json:"assertion_lines"`
-	ReportLines      []int          `json:"report_lines"`
-	FileSites        int            `json:"file_sites"`
-	AssertionSites   int            `json:"assertion_sites"`
-	HelperChainValid bool           `json:"helper_chain_valid"`
-	ReviewedCall     string         `json:"reviewed_call"`
-	CallbackSites    int            `json:"callback_sites"`
-	Mutation         *mutationProof `json:"mutation,omitempty"`
+	NamedCallbackSites int            `json:"named_callback_sites,omitempty"`
+	File               string         `json:"file"`
+	SHA256             string         `json:"source_sha256"`
+	Function           string         `json:"function"`
+	Literal            string         `json:"literal"`
+	AssertionLines     []int          `json:"assertion_lines"`
+	ReportLines        []int          `json:"report_lines"`
+	FileSites          int            `json:"file_sites"`
+	AssertionSites     int            `json:"assertion_sites"`
+	HelperChainValid   bool           `json:"helper_chain_valid"`
+	ReviewedCall       string         `json:"reviewed_call"`
+	CallbackSites      int            `json:"callback_sites"`
+	Mutation           *mutationProof `json:"mutation,omitempty"`
 }
 
 func testArgument(f *ast.FuncDecl) string {
@@ -177,30 +181,10 @@ func resolveChain(fset *token.FileSet, functions map[string]*ast.FuncDecl, r req
 	if len(r.Chain) == 0 {
 		return direct, nil
 	}
-	var reported []int
-	for index, edge := range r.Chain {
-		from, to := functions[edge.Caller], functions[edge.Callee]
-		if from == nil || to == nil || helperMarked(from) != edge.CallerHelper || !helperMarked(to) {
-			return nil, errors.New("assertion caller/helper chain differs from reviewed source")
-		}
-		if index == 0 && edge.CallerHelper {
-			return nil, errors.New("caller chain must start at a non-helper test")
-		}
-		if index > 0 && r.Chain[index-1].Callee != edge.Caller {
-			return nil, errors.New("disconnected helper chain")
-		}
-		found, count := callLines(fset, from, edge.Callee)
-		if count != 1 {
-			return nil, errors.New("helper call must resolve to exactly one current source site")
-		}
-		if index == 0 {
-			reported = found
-		}
+	if len(r.Chain) == 1 && r.Chain[0].Kind == "run_callback" {
+		return namedCallbackLines(functions, &r, direct)
 	}
-	if r.Chain[len(r.Chain)-1].Callee != r.Function || !r.RequireHelpers {
-		return nil, errors.New("helper chain does not end at the intended assertion")
-	}
-	return reported, nil
+	return helperChainLines(fset, functions, &r)
 }
 
 func declarationMap(file *ast.File) (map[string]*ast.FuncDecl, error) {
@@ -284,6 +268,11 @@ func sourceAssertions(fset *token.FileSet, functions map[string]*ast.FuncDecl, r
 	return counter.result, nil
 }
 
+func completeRequest(r *request, functions map[string]*ast.FuncDecl) bool {
+	return r.ExpectedSites >= 1 && r.ExpectedFileSites >= r.ExpectedSites && r.Literal != "" &&
+		functions[r.Function] != nil && r.Call != ""
+}
+
 func resolve(raw []byte, r request) (response, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, r.File, raw, parser.SkipObjectResolution)
@@ -294,7 +283,7 @@ func resolve(raw []byte, r request) (response, error) {
 	if err != nil {
 		return response{}, err
 	}
-	if r.ExpectedSites < 1 || r.ExpectedFileSites < r.ExpectedSites || r.Literal == "" || functions[r.Function] == nil || r.Call == "" {
+	if !completeRequest(&r, functions) {
 		return response{}, errors.New("incomplete reviewed assertion identity")
 	}
 	expression, err := parser.ParseExpr(r.Call)
@@ -318,6 +307,9 @@ func resolve(raw []byte, r request) (response, error) {
 			return response{}, errors.New("direct callback attribution lacks a fresh non-helper testing callback")
 		}
 		result.ReportLines = result.AssertionLines
+	}
+	if len(r.Chain) == 1 && r.Chain[0].Kind == "run_callback" {
+		result.NamedCallbackSites = 1
 	}
 	result.HelperChainValid = true
 	sum := sha256.Sum256(raw)
@@ -354,32 +346,19 @@ func rootedSource(root, name string) ([]byte, error) {
 }
 
 func bindMutation(raw []byte, r mutationRequest) (*mutationProof, error) {
-	if r.Count != 1 || r.Old == "" || strings.Count(string(raw), r.Old) != 1 {
+	if r.Count != 1 || strings.TrimSpace(r.Old) == "" || strings.Count(string(raw), r.Old) != 1 {
 		return nil, errors.New("mutation preimage must occur exactly once")
 	}
 	offset := strings.Index(string(raw), r.Old)
 	if r.File != ".goreleaser.yaml" || r.Symbol != "builds[0].ldflags" {
-		fset := token.NewFileSet()
-		file, err := parser.ParseFile(fset, r.File, raw, parser.SkipObjectResolution)
-		if err != nil {
+		if err := mutationDeclaration(raw, r, offset); err != nil {
 			return nil, err
 		}
-		matches := 0
-		for _, declaration := range file.Decls {
-			function, ok := declaration.(*ast.FuncDecl)
-			if !ok || function.Name.Name != r.Symbol || function.Body == nil {
-				continue
-			}
-			if fset.Position(function.Body.Pos()).Offset <= offset && offset+len(r.Old) <= fset.Position(function.Body.End()).Offset {
-				matches++
-			}
-		}
-		if matches != 1 {
-			return nil, errors.New("mutation preimage is outside its reviewed function")
-		}
+	} else if r.Kind != "" && r.Kind != "function" {
+		return nil, errors.New("configuration mutation cannot claim a Go declaration")
 	}
 	sum := sha256.Sum256(raw)
-	return &mutationProof{File: r.File, Symbol: r.Symbol, SHA256: hex.EncodeToString(sum[:]), Offset: offset}, nil
+	return &mutationProof{File: r.File, Kind: r.Kind, Symbol: r.Symbol, SHA256: hex.EncodeToString(sum[:]), Offset: offset}, nil
 }
 
 func run(root string, in io.Reader, out io.Writer) error {

@@ -23,6 +23,11 @@ func (t requiredTest) importPath() string {
 }
 
 var required = []requiredTest{
+	{"scripts/assertion-sites", "TestMutationValuesStayInsideNamedPackageDeclaration"},
+	{"scripts/assertion-sites", "TestMutationValueBoundsRejectAdjacentAndWrongKinds"},
+	{"scripts/assertion-sites", "TestNamedCallbackLineageUsesItsOwnFatal"},
+	{"scripts/assertion-sites", "TestNamedCallbackLineageRejectsHelperOrAmbiguousReferences"},
+	{"scripts/assertion-sites", "TestNamedCallbackLineageRejectsWrongReceiverAndMixedEdges"},
 	{"scripts/check-integration", "TestRequiredJSONPreservesTheCurrentOrdinaryRootLedger"},
 	{"scripts/assertion-sites", "TestAssertionSitesResolveCurrentHelperAndDescendantSource"},
 	{"scripts/assertion-sites", "TestAssertionSitesRejectExtraRPCBranchAndMissingHelper"},

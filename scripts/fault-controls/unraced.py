@@ -13,6 +13,7 @@ spec=importlib.util.spec_from_file_location('focused_control_runner',HERE/'run.p
 controls=importlib.util.module_from_spec(spec);spec.loader.exec_module(controls)
 source,require=controls.source,controls.require
 from oracle import descendant
+from cli import identity as cli_identity,clone_source,build as build_cli
 PREFIX='github.com/zalkilabs/zalki'
 
 
@@ -162,34 +163,12 @@ def coverage(raw,packages,required):
     return dict(packages=len(names),required_roots=len(roots),nonrequired_skips=skips)
 
 
-def cli_identity(info,head,paths):
-    require(info.get('Path')==PREFIX+'/cmd/zalki' and info.get('GoVersion')==paths['GOVERSION'],'fresh CLI identity differs')
-    require(type(info.get('Settings')) is list,'missing CLI build settings')
-    settings={}
-    for item in info['Settings']:
-        require(type(item) is dict and set(item)<= {'Key','Value'} and
-                type(item.get('Key')) is str and bool(item['Key']) and
-                type(item.get('Value','')) is str,'invalid CLI build setting')
-        require(item['Key'] not in settings,'duplicate CLI build setting')
-        settings[item['Key']]=item.get('Value','')
-    require(settings.get('-race','false')=='false','CLI was built with race instrumentation')
-    require(settings.get('vcs.revision')==head and settings.get('vcs.modified')=='false','CLI VCS identity differs from clean actual head')
-    for key in ['GOOS','GOARCH','CGO_ENABLED']:require(settings.get(key)==paths[key],'CLI native build identity differs')
-    return settings
-
 
 def execute(options):
     repo,output,tools=options.repo.resolve(),options.output.resolve(),options.tools.resolve()
     base,head=source.revisions(repo,options.base,options.head,options.event)
     output.mkdir(mode=0o700);options.owns_output=True
-    # Go's VCS discovery requires a .git directory; a linked worktree's
-    # .git file can silently omit VCS stamps even with -buildvcs=true.
-    tree=output/'source'
-    subprocess.run(['git','-C',str(repo),'clone','--no-hardlinks','--no-checkout','--',str(repo),str(tree)],check=True,timeout=120)
-    subprocess.run(['git','-C',str(tree),'checkout','--detach',head],check=True,timeout=120)
-    require((tree/'.git').is_dir() and not (tree/'.git').is_symlink(),'fresh CLI source requires a real Git directory')
-    require(source.git(tree,'rev-parse','HEAD')==head and not source.git(tree,'status','--porcelain','--untracked-files=all'),
-            'fresh CLI source is not the clean actual head')
+    tree=output/'source';clone_source(repo,head,tree,source)
     before=source.source_fingerprint(tree)
     go=source.shutil.which('go');require(go is not None,'Go is unavailable')
     paths=source.go_paths(str(Path(go).resolve()));require(paths['GOOS'] in ['darwin','linux'],'unraced job must run natively')
@@ -211,11 +190,12 @@ def execute(options):
     result=dict(base=base,head=head,source_fingerprint=before,platform={k:paths[k] for k in ['GOOS','GOARCH','CGO_ENABLED','GOVERSION']},
                 modules=modules,input_bindings=bindings,input_policy_sha256=source.digest(policy_file),selected_packages=[p['ImportPath'] for p in rows],omitted_directories=omitted,commands=commands)
     if rows:
-        binary=output/'zalki-unraced';require(not binary.exists(),'fresh CLI output already exists')
-        commands['build-cli']=controls.command([go,'build','-race=false','-buildvcs=true','-o',str(binary),'./cmd/zalki'],tree,env,output/'cli-build.log',0,timeout=300)
-        commands['cli-buildinfo']=controls.command([go,'version','-m','-json',str(binary)],tree,env,output/'cli-buildinfo.json',0)
-        result['cli_settings']=cli_identity(source.read_json(output/'cli-buildinfo.json'),head,paths)
-        result['cli_sha256']=source.digest(binary);env['ZALKI_TEST_BINARY']=str(binary)
+        binary,cli_record=build_cli(tree,head,paths,output/'cli',source,controls.command)
+        commands['build-cli']=cli_record['build'];commands['cli-buildinfo']=cli_record['metadata']
+        source.shutil.copyfile(output/'cli/build.log',output/'cli-build.log')
+        source.shutil.copyfile(output/'cli/buildinfo.json',output/'cli-buildinfo.json')
+        result['cli']=cli_record;result['cli_settings']=cli_record['settings']
+        result['cli_sha256']=cli_record['binary_sha256'];env['ZALKI_TEST_BINARY']=str(binary)
         commands['required-ledger']=controls.command([str(tools/'required-coverage'),'--list-required'],tree,env,output/'required-ledger.json',0)
         raw=output/'unraced-test2json.log'
         commands['tests']=controls.command([go,'test','-race=false','-count=1','-p=1','-json','-timeout=10m',
@@ -225,7 +205,7 @@ def execute(options):
     require(source.source_fingerprint(tree)==before and not source.git(tree,'status','--porcelain','--untracked-files=all'),
             'unraced validation changed source')
     result.update(passed=True,executed_packages=len(rows),required_tool_sha256=source.digest(tools/'required-coverage'),
-                  runner_sha256=source.digest(HERE/'unraced.py'))
+                  runner_sha256=source.digest(HERE/'unraced.py'),cli_helper_sha256=source.digest(HERE/'cli.py'))
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(dict(passed=True,executed_packages=len(rows))))
     return 0
 

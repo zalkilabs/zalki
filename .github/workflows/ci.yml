@@ -196,6 +196,8 @@ jobs:
             ${{ runner.temp }}/fault-controls/modules.log
             ${{ runner.temp }}/fault-controls/*/*.json
             ${{ runner.temp }}/fault-controls/*/*/*.log
+            ${{ runner.temp }}/fault-controls/*/baseline-cli/buildinfo.json
+            ${{ runner.temp }}/fault-controls/*/mutant-cli/buildinfo.json
 
   windows-vet:
     # Report only: the count of packages that fail GOOS=windows go vet.

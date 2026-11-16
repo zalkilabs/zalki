@@ -1,15 +1,9 @@
 """Attribute complete compiled mutation phases to source-bound named assertions."""
-import hashlib
 import json
 from pathlib import PurePosixPath
 import re
+from checks import require,sha
 
-
-def require(ok,message):
-    if not ok:raise ValueError(message)
-
-
-def sha(raw):return hashlib.sha256(raw).hexdigest()
 
 
 def source_digest(files):
@@ -49,8 +43,8 @@ def selected_events(phase,package,selected,intended):
     phase_status(phase,intended)
     raw=phase.get('raw_test2json_override',phase['test2json_ndjson'])
     events=event_stream(raw)
-    tests={};package_status=[];outputs=[]
-    for event in events:
+    tests={};package_status=[];outputs=[];observed=set();runs={};terminals={}
+    for index,event in enumerate(events):
         action,name=event['Action'],event.get('Test')
         require(action not in ['build-fail','build-output'],'build diagnostics cannot kill a source mutation')
         if action=='output':
@@ -61,25 +55,33 @@ def selected_events(phase,package,selected,intended):
                     'runtime/build/setup diagnostic cannot kill a source mutation')
         require(event.get('Package')==package,'test2json contains the wrong package')
         if name is None:
-            if action in ['pass','fail','skip']:package_status.append(action)
+            if action in ['pass','fail','skip']:
+                package_status.append(action)
+                require(all(len(v)==2 for v in tests.values()),'unfinished selected node at package terminal')
             continue
         require(type(name) is str,'invalid test name')
         relevant=descendant(name,selected)
         if not relevant:
             require(selected.startswith(name+'/'),'test2json contains an unselected sibling or prefix lookalike')
             continue
-        states=tests.setdefault(name,[])
+        require(not package_status,'selected event follows the package terminal')
+        observed.add(name)
         if action=='run':
-            require(not states,'duplicate or late selected RUN');states.append('run')
+            require(name not in tests,'duplicate or late selected RUN')
+            tests[name]=['run'];runs[name]=index
         elif action in ['pass','fail','skip']:
-            require(states==['run'],'selected terminal lacks a unique RUN');states.append(action)
-        elif action=='output':outputs.append((name,event.get('Output','')))
+            require(tests.get(name)==['run'],'selected terminal lacks a unique RUN')
+            tests[name].append(action);terminals[name]=index
+        elif action=='output':outputs.append((name,event['Output'],index))
     required='fail' if intended else 'pass'
     require(tests.get(selected)==['run',required],'exact selected RUN/outcome is missing')
     require(package_status==[required],'package outcome differs from intended selected result')
+    require(observed==set(tests),'observed selected node lacks complete RUN/terminal')
     require(all(v==['run',required] or (intended and v==['run','pass']) for v in tests.values()),
             'selected descendant skipped, unfinished or inconsistent')
-    return outputs,tests
+    for name,text,index in outputs:
+        require(runs[name]<index<terminals[name],'selected output is outside its RUN/terminal interval')
+    return [(name,text) for name,text,index in outputs],tests
 
 
 def validate_sources(context):
@@ -100,42 +102,94 @@ def validate_sources(context):
     return phases
 
 
-def validate(context,selected,assertion,resolved,output_fragment):
-    """resolved must be produced from current source by versioned assertion-sites."""
-    phases=validate_sources(context)
-    file=assertion['file'];source=phases['good']['source_files'][file]
+def attested_site(files,assertion,resolved,selected):
+    file=assertion['file'];source=files[file]
     require(resolved['file']==file and resolved['source_sha256']==sha(source.encode()) and
             resolved['function']==assertion['assertion_function'] and resolved['literal']==assertion['fatal_literal'] and
             resolved['reviewed_call']==assertion['fatal_call'],
             'AST attribution is not bound to the actual test source')
     require(resolved['file_sites']==assertion['expected_file_assertion_sites'] and
-            resolved['assertion_sites']==assertion['expected_assertion_sites'],
-            'AST assertion inventory differs')
+            resolved['assertion_sites']==assertion['expected_assertion_sites'],'AST assertion inventory differs')
     require(resolved['helper_chain_valid'] is True,'AST helper chain is not attested')
     if assertion.get('callback_direct') is True:
         require(resolved['callback_sites']==resolved['assertion_sites'] and assertion['call_chain'],
                 'fresh callback attribution is not attested')
+    if any(edge.get('kind')=='run_callback' for edge in assertion['call_chain']):
+        require(len(assertion['call_chain'])==1 and resolved.get('named_callback_sites')==1,
+                'named callback lineage is not attested')
     allowed=resolved['report_lines']
     require(type(allowed) is list and allowed and all(type(n) is int and n>0 for n in allowed),
             'missing source-derived report positions')
-    chain=assertion['call_chain']
-    root=selected['test'].split('/')[0]
+    chain=assertion['call_chain'];root=selected['test'].split('/')[0]
     require((chain[0]['caller'] if chain else assertion['assertion_function'])==root,
             'assertion caller is not the selected test root')
-    selected_events(phases['good'],selected['package'],selected['test'],False)
-    outputs,states=selected_events(phases['intended'],selected['package'],selected['test'],True)
-    selected_events(phases['restored'],selected['package'],selected['test'],False)
+    return file,allowed
+
+
+def assertion_matches(outputs,file,allowed,fragment=None):
     matched=[]
     for name,text in outputs:
-        require(type(text) is str,'nontext test output')
         for line in text.splitlines():
             found=re.match(r'^\s*([^:\s]+):(\d+):\s?(.*)$',line)
-            if found and found[1]==PurePosixPath(file).name and int(found[2]) in allowed and output_fragment in found[3]:
-                require(states.get(name)==['run','fail'],'intended marker belongs to a nonfailing test')
+            if found and found[1]==PurePosixPath(file).name and int(found[2]) in allowed and (fragment is None or fragment in found[3]):
                 matched.append(dict(test=name,file=found[1],line=int(found[2])))
+    return matched
+
+
+def validate(context,selected,assertion,resolved,output_fragment,secondary=(),cli_required=False,mutant_cli_required=False,functional_sites=False):
+    """All resolved sites must come from the same current versioned Go resolver."""
+    phases=validate_sources(context)
+    file,allowed=attested_site(phases['good']['source_files'],assertion,resolved,selected)
+    _,baseline=selected_events(phases['good'],selected['package'],selected['test'],False)
+    outputs,states=selected_events(phases['intended'],selected['package'],selected['test'],True)
+    selected_events(phases['restored'],selected['package'],selected['test'],False)
+    failures={name for name,state in states.items() if state==['run','fail']}
+    require(failures<=set(baseline),'mutant failure is not registered by the clean positive')
+    matched=assertion_matches(outputs,file,allowed,output_fragment)
     require(matched,'no intended source-bound assertion in selected failing test/descendant')
-    attributed={item['test'] for item in matched}
-    require(all(state!=['run','fail'] or any(descendant(name,test) for name in attributed)
-                for test,state in states.items()),'failing selected descendant lacks the intended assertion')
-    return dict(passed=True,matched=matched,source_sha256=resolved['source_sha256'],
+    require(all(item['test'] in failures for item in matched),'intended marker belongs to a nonfailing test')
+    require(not secondary or functional_sites,'secondary functional sites require their reviewed event policy')
+    primary_functional=assertion_matches(outputs,file,allowed) if functional_sites else matched
+    require(all(item['test'] in failures for item in primary_functional),'functional assertion belongs to a nonfailing test')
+    functional={item['test'] for item in primary_functional};secondary_matched=[];seen=set()
+    for site in secondary:
+        identity=site['assertion'];attestation=site['attribution']
+        require(re.match(r'^[A-Za-z_][A-Za-z0-9_]*\.(?:Fatal|Fatalf)\(',identity['fatal_call']) is not None,
+                'secondary functional site must be an exact Fatal call')
+        other,positions=attested_site(phases['good']['source_files'],identity,attestation,selected)
+        key=(other,identity['assertion_function'],identity['fatal_call'])
+        require(key not in seen,'duplicate secondary functional assertion');seen.add(key)
+        hits=assertion_matches(outputs,other,positions)
+        require(all(item['test'] in failures for item in hits),'secondary assertion belongs to a nonfailing test')
+        secondary_matched.extend(hits);functional.update(item['test'] for item in hits)
+    explained={test for test in baseline if any(descendant(name,test) for name in functional)}
+    require(failures==explained,'failing selected descendant lacks the intended assertion')
+    result=dict(passed=True,matched=matched,source_sha256=resolved['source_sha256'],
                 phase_binary_sha256={k:v['build']['binary_sha256'] for k,v in phases.items()})
+    if secondary:result['secondary_functional_matches']=secondary_matched
+    if functional_sites:result['functional_site_matches']=primary_functional+secondary_matched
+    require(not mutant_cli_required or cli_required,'mutant CLI requires a CLI execution profile')
+    require(not cli_required or context.get('cli_policy') is not None,'required phase CLI policy is missing')
+    if cli_required:
+        require(context['cli_policy']['rebuild_mutant'] is mutant_cli_required,'phase CLI rebuild policy differs from recipe')
+    if context.get('cli_policy') is not None:
+        result['phase_CLI_sha256']=validate_cli_phases(context)
+    return result
+
+
+def validate_cli_phases(context):
+    from cli import verify
+    policy=context['cli_policy']
+    require(type(policy) is dict and set(policy)=={'head','platform','baseline_fingerprint','rebuild_mutant'},
+            'invalid phase CLI policy')
+    require(type(policy['rebuild_mutant']) is bool,'invalid mutant CLI policy')
+    phases=context['phases'];baseline=None;hashes={}
+    for name in ['good','intended','restored']:
+        phase=phases[name];mutant=name=='intended' and policy['rebuild_mutant']
+        fingerprint=phase.get('source_fingerprint') if mutant else policy['baseline_fingerprint']
+        if mutant:require(fingerprint!=policy['baseline_fingerprint'],'mutant CLI source is still the clean baseline')
+        verify(phase.get('cli'),policy['head'],policy['platform'],fingerprint,mutant)
+        hashes[name]=phase['cli']['binary_sha256']
+        if name=='good':baseline=hashes[name]
+        elif not mutant:require(hashes[name]==baseline,'baseline/restored CLI identity changed')
+    return hashes

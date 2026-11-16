@@ -553,5 +553,1427 @@
       "callback_direct": false
     },
     "output_fragment": "found 2 -X flags, want 1"
+  },
+  {
+    "id": "H1F1",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/install/login_item_launchd.go",
+      "symbol": "launchctlOutput",
+      "old": "\tlaunchctlOutput  = 1 << 20",
+      "new": "\tlaunchctlOutput  = 64 << 10",
+      "required_occurrences": 1,
+      "declaration_kind": "const"
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/install",
+      "directory": "./internal/install",
+      "test": "TestPluginLoginItemRealLaunchctlOutputs"
+    },
+    "assertion": {
+      "file": "internal/install/login_item_launchctl_real_test.go",
+      "assertion_function": "checkRealOutputThroughAdapter",
+      "fatal_literal": "a real-size launchctl output did not pass the adapter: %d bytes, exit %d, %v",
+      "fatal_call": "t.Fatalf(\"a real-size launchctl output did not pass the adapter: %d bytes, exit %d, %v\", len(got), exit, err)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+          "callee": "checkRealOutputThroughAdapter",
+          "caller_is_helper": false,
+          "kind": "run_callback"
+        }
+      ],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "a real-size launchctl output did not pass the adapter",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDomainOutput",
+        "fatal_literal": "a real service list was not read completely: complete=%t, %d labels",
+        "fatal_call": "t.Fatalf(\"a real service list was not read completely: complete=%t, %d labels\", complete, len(labels))",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDomainOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDisabledOutput",
+        "fatal_literal": "a real disabled list was not read (%s): known=%t disabled=%t",
+        "fatal_call": "t.Fatalf(\"a real disabled list was not read (%s): known=%t disabled=%t\", name, known, disabled)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDisabledOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDisabledOutput",
+        "fatal_literal": "two disabled lists were read as one",
+        "fatal_call": "t.Fatal(\"two disabled lists were read as one\")",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDisabledOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDomainOutput",
+        "fatal_literal": "a truncated service list was read as complete",
+        "fatal_call": "t.Fatal(\"a truncated service list was read as complete\")",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDomainOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
+  },
+  {
+    "id": "H1F2",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/install/login_item_launchd.go",
+      "symbol": "serviceRow",
+      "old": "(?:-|-?[0-9]+|\\([a-z]+\\))",
+      "new": "(?:-|-?[0-9]+)",
+      "required_occurrences": 1,
+      "declaration_kind": "var"
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/install",
+      "directory": "./internal/install",
+      "test": "TestPluginLoginItemRealLaunchctlOutputs"
+    },
+    "assertion": {
+      "file": "internal/install/login_item_launchctl_real_test.go",
+      "assertion_function": "checkRealDomainOutput",
+      "fatal_literal": "a real service list was not read completely: complete=%t, %d labels",
+      "fatal_call": "t.Fatalf(\"a real service list was not read completely: complete=%t, %d labels\", complete, len(labels))",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+          "callee": "checkRealDomainOutput",
+          "caller_is_helper": false,
+          "kind": "run_callback"
+        }
+      ],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "a real service list was not read completely",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealOutputThroughAdapter",
+        "fatal_literal": "a real-size launchctl output did not pass the adapter: %d bytes, exit %d, %v",
+        "fatal_call": "t.Fatalf(\"a real-size launchctl output did not pass the adapter: %d bytes, exit %d, %v\", len(got), exit, err)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealOutputThroughAdapter",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDisabledOutput",
+        "fatal_literal": "a real disabled list was not read (%s): known=%t disabled=%t",
+        "fatal_call": "t.Fatalf(\"a real disabled list was not read (%s): known=%t disabled=%t\", name, known, disabled)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDisabledOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDisabledOutput",
+        "fatal_literal": "two disabled lists were read as one",
+        "fatal_call": "t.Fatal(\"two disabled lists were read as one\")",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDisabledOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDomainOutput",
+        "fatal_literal": "a truncated service list was read as complete",
+        "fatal_call": "t.Fatal(\"a truncated service list was read as complete\")",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDomainOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
+  },
+  {
+    "id": "H1F3",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/install/login_item_launchd.go",
+      "symbol": "disabledState",
+      "old": "\t\tcase strings.HasSuffix(line, \"{\"): // \"name = {\" or \"name => {\"\n\t\t\tif depth == 0 && line == \"disabled services = {\" {",
+      "new": "\t\tcase strings.HasSuffix(line, \"= {\"):\n\t\t\tif depth == 0 && line == \"disabled services = {\" {",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/install",
+      "directory": "./internal/install",
+      "test": "TestPluginLoginItemRealLaunchctlOutputs"
+    },
+    "assertion": {
+      "file": "internal/install/login_item_launchctl_real_test.go",
+      "assertion_function": "checkRealDisabledOutput",
+      "fatal_literal": "a real disabled list was not read (%s): known=%t disabled=%t",
+      "fatal_call": "t.Fatalf(\"a real disabled list was not read (%s): known=%t disabled=%t\", name, known, disabled)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+          "callee": "checkRealDisabledOutput",
+          "caller_is_helper": false,
+          "kind": "run_callback"
+        }
+      ],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "a real disabled list was not read (print-disabled-two-blocks-synthetic.txt)",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealOutputThroughAdapter",
+        "fatal_literal": "a real-size launchctl output did not pass the adapter: %d bytes, exit %d, %v",
+        "fatal_call": "t.Fatalf(\"a real-size launchctl output did not pass the adapter: %d bytes, exit %d, %v\", len(got), exit, err)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealOutputThroughAdapter",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDomainOutput",
+        "fatal_literal": "a real service list was not read completely: complete=%t, %d labels",
+        "fatal_call": "t.Fatalf(\"a real service list was not read completely: complete=%t, %d labels\", complete, len(labels))",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDomainOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDisabledOutput",
+        "fatal_literal": "two disabled lists were read as one",
+        "fatal_call": "t.Fatal(\"two disabled lists were read as one\")",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDisabledOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDomainOutput",
+        "fatal_literal": "a truncated service list was read as complete",
+        "fatal_call": "t.Fatal(\"a truncated service list was read as complete\")",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDomainOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
+  },
+  {
+    "id": "H1F4",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/install/login_item_launchd.go",
+      "symbol": "disabledState",
+      "old": "\treturn disabled, blocks == 1 && depth == 0 && !inList",
+      "new": "\treturn disabled, blocks >= 1 && depth == 0 && !inList",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/install",
+      "directory": "./internal/install",
+      "test": "TestPluginLoginItemRealLaunchctlOutputs"
+    },
+    "assertion": {
+      "file": "internal/install/login_item_launchctl_real_test.go",
+      "assertion_function": "checkRealDisabledOutput",
+      "fatal_literal": "two disabled lists were read as one",
+      "fatal_call": "t.Fatal(\"two disabled lists were read as one\")",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+          "callee": "checkRealDisabledOutput",
+          "caller_is_helper": false,
+          "kind": "run_callback"
+        }
+      ],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "two disabled lists were read as one",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealOutputThroughAdapter",
+        "fatal_literal": "a real-size launchctl output did not pass the adapter: %d bytes, exit %d, %v",
+        "fatal_call": "t.Fatalf(\"a real-size launchctl output did not pass the adapter: %d bytes, exit %d, %v\", len(got), exit, err)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealOutputThroughAdapter",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDomainOutput",
+        "fatal_literal": "a real service list was not read completely: complete=%t, %d labels",
+        "fatal_call": "t.Fatalf(\"a real service list was not read completely: complete=%t, %d labels\", complete, len(labels))",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDomainOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDisabledOutput",
+        "fatal_literal": "a real disabled list was not read (%s): known=%t disabled=%t",
+        "fatal_call": "t.Fatalf(\"a real disabled list was not read (%s): known=%t disabled=%t\", name, known, disabled)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDisabledOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDomainOutput",
+        "fatal_literal": "a truncated service list was read as complete",
+        "fatal_call": "t.Fatal(\"a truncated service list was read as complete\")",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDomainOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
+  },
+  {
+    "id": "H1F5",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/install/login_item_launchd.go",
+      "symbol": "domainServices",
+      "old": " || strings.TrimSpace(lines[len(lines)-1]) != \"}\" {\n\t\treturn nil, false",
+      "new": " {\n\t\treturn nil, false",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/install",
+      "directory": "./internal/install",
+      "test": "TestPluginLoginItemRealLaunchctlOutputs"
+    },
+    "assertion": {
+      "file": "internal/install/login_item_launchctl_real_test.go",
+      "assertion_function": "checkRealDomainOutput",
+      "fatal_literal": "a truncated service list was read as complete",
+      "fatal_call": "t.Fatal(\"a truncated service list was read as complete\")",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+          "callee": "checkRealDomainOutput",
+          "caller_is_helper": false,
+          "kind": "run_callback"
+        }
+      ],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "a truncated service list was read as complete",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealOutputThroughAdapter",
+        "fatal_literal": "a real-size launchctl output did not pass the adapter: %d bytes, exit %d, %v",
+        "fatal_call": "t.Fatalf(\"a real-size launchctl output did not pass the adapter: %d bytes, exit %d, %v\", len(got), exit, err)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealOutputThroughAdapter",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDomainOutput",
+        "fatal_literal": "a real service list was not read completely: complete=%t, %d labels",
+        "fatal_call": "t.Fatalf(\"a real service list was not read completely: complete=%t, %d labels\", complete, len(labels))",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDomainOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDisabledOutput",
+        "fatal_literal": "a real disabled list was not read (%s): known=%t disabled=%t",
+        "fatal_call": "t.Fatalf(\"a real disabled list was not read (%s): known=%t disabled=%t\", name, known, disabled)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDisabledOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      },
+      {
+        "file": "internal/install/login_item_launchctl_real_test.go",
+        "assertion_function": "checkRealDisabledOutput",
+        "fatal_literal": "two disabled lists were read as one",
+        "fatal_call": "t.Fatal(\"two disabled lists were read as one\")",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [
+          {
+            "caller": "TestPluginLoginItemRealLaunchctlOutputs",
+            "callee": "checkRealDisabledOutput",
+            "caller_is_helper": false,
+            "kind": "run_callback"
+          }
+        ],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
+  },
+  {
+    "id": "H2F1",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_owner.go",
+      "symbol": "enablePluginOwner",
+      "old": "\tif result := wakeSupervisor(cmd.Context(), target, state); result != wakeManual {",
+      "new": "\tif result := wakeManual; result != wakeManual {",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginEnableWakesSupervisor"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_wake_test.go",
+      "assertion_function": "TestPluginEnableWakesSupervisor",
+      "fatal_literal": "an enable did not wake the supervisor as allowed: %v, want %v",
+      "fatal_call": "t.Fatalf(\"an enable did not wake the supervisor as allowed: %v, want %v\", fake.changes, tc.changes)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "an enable did not wake the supervisor as allowed",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "cmd/zalki/plugin_wake_test.go",
+        "assertion_function": "TestPluginEnableWakesSupervisor",
+        "fatal_literal": "an enable did not say what happens next: %q %v",
+        "fatal_call": "t.Fatalf(\"an enable did not say what happens next: %q %v\", out, err)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
+  },
+  {
+    "id": "H2F2",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_install_review_controller.go",
+      "symbol": "reportBackground",
+      "old": "wakeInstallLine(wakeSupervisor(ctx, p.background, p.store.Dir), p.name)",
+      "new": "wakeInstallLine(wakeManual, p.name)",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginLoginItemConsentCLI"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_login_item_test.go",
+      "assertion_function": "consentYesFlagOwnedItem",
+      "fatal_literal": "--yes with an owned item did not wake the supervisor: %v %v\n%s",
+      "fatal_call": "t.Fatalf(\"--yes with an owned item did not wake the supervisor: %v %v\\n%s\", err, fake.changes, output)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestPluginLoginItemConsentCLI",
+          "callee": "consentYesFlagOwnedItem",
+          "caller_is_helper": false,
+          "kind": "run_callback"
+        }
+      ],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "--yes with an owned item did not wake the supervisor",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "H2F3",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_wake.go",
+      "symbol": "wakeSupervisor",
+      "old": "\tcase plan.row != rowOwned || plan.seen.service != \"loaded\" || plan.seen.loaded != \"matches\":\n\t\treturn wakeUnknown\n",
+      "new": "",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginEnableWakesSupervisor"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_wake_test.go",
+      "assertion_function": "TestPluginEnableWakesSupervisor",
+      "fatal_literal": "an enable did not wake the supervisor as allowed: %v, want %v",
+      "fatal_call": "t.Fatalf(\"an enable did not wake the supervisor as allowed: %v, want %v\", fake.changes, tc.changes)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "an enable did not wake the supervisor as allowed",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "cmd/zalki/plugin_wake_test.go",
+        "assertion_function": "TestPluginEnableWakesSupervisor",
+        "fatal_literal": "an enable did not say what happens next: %q %v",
+        "fatal_call": "t.Fatalf(\"an enable did not say what happens next: %q %v\", out, err)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
+  },
+  {
+    "id": "H2F4",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_wake.go",
+      "symbol": "wakeSupervisor",
+      "old": "\tcase plan.row == rowFirst:\n\t\treturn wakeNotSetUp\n",
+      "new": "",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginEnableWakesSupervisor"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_wake_test.go",
+      "assertion_function": "TestPluginEnableWakesSupervisor",
+      "fatal_literal": "an enable did not say what happens next: %q %v",
+      "fatal_call": "t.Fatalf(\"an enable did not say what happens next: %q %v\", out, err)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "an enable did not say what happens next",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "cmd/zalki/plugin_wake_test.go",
+        "assertion_function": "TestPluginEnableWakesSupervisor",
+        "fatal_literal": "an enable did not wake the supervisor as allowed: %v, want %v",
+        "fatal_call": "t.Fatalf(\"an enable did not wake the supervisor as allowed: %v, want %v\", fake.changes, tc.changes)",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
+  },
+  {
+    "id": "M1F1",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_supervise.go",
+      "symbol": "finish",
+      "old": "\tcase waitingReasons[reason]:\n\t\ts.wait(p, now, reason)",
+      "new": "\tcase waitingReasons[reason]:\n\t\tp.run.recordStopped(now, reason)",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginSupervisorLeaseHeldIsNotACrash"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_supervise_test.go",
+      "assertion_function": "TestPluginSupervisorLeaseHeldIsNotACrash",
+      "fatal_literal": "a held lease was retried without backoff: %s, step %d",
+      "fatal_call": "t.Fatalf(\"a held lease was retried without backoff: %s, step %d\", now.State, now.BackoffStep)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "a held lease was retried without backoff",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": true
+  },
+  {
+    "id": "M1F2",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_supervise.go",
+      "symbol": "start",
+      "old": "\tif err != nil {\n\t\ts.wait(p, now, \"log_failed\")",
+      "new": "\tif err != nil {\n\t\tp.run.recordStopped(now, \"log_failed\")",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginLogFailureWaits"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_supervise_review_test.go",
+      "assertion_function": "TestPluginLogFailureWaits",
+      "fatal_literal": "a failed log was retried without backoff: %+v",
+      "fatal_call": "t.Fatalf(\"a failed log was retried without backoff: %+v\", p.run)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "a failed log was retried without backoff",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "M1F3",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_supervise_state.go",
+      "symbol": "validBackoff",
+      "old": "\tcounted := len(r.Restarts) > 0 || waitingReasons[r.ReasonCode]",
+      "new": "\tcounted := len(r.Restarts) > 0",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginStopKinds"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_supervise_state_test.go",
+      "assertion_function": "TestPluginStopKinds",
+      "fatal_literal": "a %s wait was charged or is not a valid state: %+v",
+      "fatal_call": "t.Fatalf(\"a %s wait was charged or is not a valid state: %+v\", reason, run)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "wait was charged or is not a valid state",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "M1F4",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_runtime_view.go",
+      "symbol": "runPhrase",
+      "old": "\tcase run.State == runBackoff && run.NextRetryAt != nil && len(run.Restarts) == 0:",
+      "new": "\tcase false && run.State == runBackoff && run.NextRetryAt != nil && len(run.Restarts) == 0:",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginRuntimeListLines"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_runtime_view_test.go",
+      "assertion_function": "TestPluginRuntimeListLines",
+      "fatal_literal": "%s line: got %q\nwant %q",
+      "fatal_call": "t.Fatalf(\"%s line: got %q\\nwant %q\", tc.name, got, tc.want)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "lease held line: got",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "M3F1",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_runtime_view.go",
+      "symbol": "crashedPhrase",
+      "old": "\tcase reinstallReasons[run.ReasonCode]:",
+      "new": "\tcase false && reinstallReasons[run.ReasonCode]:",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginRuntimeListLines"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_runtime_view_test.go",
+      "assertion_function": "TestPluginRuntimeListLines",
+      "fatal_literal": "%s line: got %q\nwant %q",
+      "fatal_call": "t.Fatalf(\"%s line: got %q\\nwant %q\", tc.name, got, tc.want)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "needs owner line: got",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "M3F2",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_runtime_view.go",
+      "symbol": "crashedPhrase",
+      "old": "\tcase permanentReasons[run.ReasonCode] || len(run.Restarts) < crashLimit:",
+      "new": "\tcase permanentReasons[run.ReasonCode]:",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginRuntimeListLines"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_runtime_view_test.go",
+      "assertion_function": "TestPluginRuntimeListLines",
+      "fatal_literal": "%s line: got %q\nwant %q",
+      "fatal_call": "t.Fatalf(\"%s line: got %q\\nwant %q\", tc.name, got, tc.want)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "prior run line: got",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "M3F3",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_wake.go",
+      "symbol": "wakeSupervisor",
+      "old": "\tcase supervisorRunning(state):\n\t\treturn wakeRunning\n",
+      "new": "",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginInstallLineWithRunningSupervisor"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_wake_test.go",
+      "assertion_function": "TestPluginInstallLineWithRunningSupervisor",
+      "fatal_literal": "a running supervisor was answered with %q",
+      "fatal_call": "t.Fatalf(\"a running supervisor was answered with %q\", line)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "a running supervisor was answered with",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "M2F1",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_notify.go",
+      "symbol": "notifyNotes",
+      "old": "\t\treturn []string{noteNotifyUnfinished, resume}",
+      "new": "\t\treturn []string{noteNotifyUnfinished}",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginNotificationLines"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_notify_test.go",
+      "assertion_function": "TestPluginNotificationLines",
+      "fatal_literal": "doctor unfinished note: %q",
+      "fatal_call": "t.Fatalf(\"doctor unfinished note: %q\", notes)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "doctor unfinished note",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "M4F1",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_notify.go",
+      "symbol": "notifierFor",
+      "old": "!sameResolvedDir(state, filepath.Join(home, \".local\", \"state\", \"zalki\"))",
+      "new": "state != filepath.Join(home, \".local\", \"state\", \"zalki\")",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginNotificationCustomStateSendsNothing"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_notify_test.go",
+      "assertion_function": "TestPluginNotificationCustomStateSendsNothing",
+      "fatal_literal": "the default state given through a link has no notifier",
+      "fatal_call": "t.Fatal(\"the default state given through a link has no notifier\")",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "the default state given through a link has no notifier",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "cmd/zalki/plugin_notify_test.go",
+        "assertion_function": "TestPluginNotificationCustomStateSendsNothing",
+        "fatal_literal": "a state that cannot be resolved got a notifier",
+        "fatal_call": "t.Fatal(\"a state that cannot be resolved got a notifier\")",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
+  },
+  {
+    "id": "M4F2",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_notify.go",
+      "symbol": "sameResolvedDir",
+      "old": "\tra, err := filepath.EvalSymlinks(a)\n\tif err != nil {\n\t\treturn false",
+      "new": "\tra, err := filepath.EvalSymlinks(a)\n\tif err != nil {\n\t\treturn true",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginNotificationCustomStateSendsNothing"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_notify_test.go",
+      "assertion_function": "TestPluginNotificationCustomStateSendsNothing",
+      "fatal_literal": "a state that cannot be resolved got a notifier",
+      "fatal_call": "t.Fatal(\"a state that cannot be resolved got a notifier\")",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "a state that cannot be resolved got a notifier",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false,
+    "secondary_assertions": [
+      {
+        "file": "cmd/zalki/plugin_notify_test.go",
+        "assertion_function": "TestPluginNotificationCustomStateSendsNothing",
+        "fatal_literal": "the default state given through a link has no notifier",
+        "fatal_call": "t.Fatal(\"the default state given through a link has no notifier\")",
+        "expected_assertion_sites": 1,
+        "expected_file_assertion_sites": 1,
+        "call_chain": [],
+        "require_helper_markers_in_callees": false,
+        "callback_direct": false
+      }
+    ]
+  },
+  {
+    "id": "L2F1",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_login_item.go",
+      "symbol": "classifyLoginItem",
+      "old": "\t\tplan.reason = loginItemPendingReason // R7-L2: names the one repair",
+      "new": "\t\tplan.reason = \"an earlier login-item change did not finish\"",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginLoginItemDecisionTable"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_login_item_test.go",
+      "assertion_function": "TestPluginLoginItemDecisionTable",
+      "fatal_literal": "row lines/question:\n%s\nwant:\n%s",
+      "fatal_call": "t.Fatalf(\"row lines/question:\\n%s\\nwant:\\n%s\", output, want)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "row lines/question",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "L2F2",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_login_item.go",
+      "symbol": "loginItemPendingReason",
+      "old": "; run zalki install --apply in your own terminal to finish it\"",
+      "new": "\"",
+      "required_occurrences": 1,
+      "declaration_kind": "const"
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginLoginItemPendingNamesRepair"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_wake_test.go",
+      "assertion_function": "TestPluginLoginItemPendingNamesRepair",
+      "fatal_literal": "the unfinished-change reason names no repair: %q",
+      "fatal_call": "t.Fatalf(\"the unfinished-change reason names no repair: %q\", loginItemPendingReason)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "the unfinished-change reason names no repair",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "L6F1",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_login_item_commands.go",
+      "symbol": "uninstallNote",
+      "old": "\t\t\treturn t.manualRemoval(), err // R7-L6: the way out by hand",
+      "new": "\t\t\treturn \"\", err",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginLoginItemUninstallCLI"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_login_item_test.go",
+      "assertion_function": "checkUninstallManualSteps",
+      "fatal_literal": "an unknown uninstall gave no manual route (missing %q): %q",
+      "fatal_call": "t.Fatalf(\"an unknown uninstall gave no manual route (missing %q): %q\", want, note)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestPluginLoginItemUninstallCLI",
+          "callee": "checkUninstallManualSteps",
+          "caller_is_helper": false,
+          "kind": "run_callback"
+        }
+      ],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "an unknown uninstall gave no manual route",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "L6F3",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_login_item.go",
+      "symbol": "loginItemManualRemoval",
+      "old": "only when both match, delete the plist and that record",
+      "new": "delete the plist and that record",
+      "required_occurrences": 1,
+      "declaration_kind": "const"
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginLoginItemUninstallCLI"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_login_item_test.go",
+      "assertion_function": "checkUninstallManualSteps",
+      "fatal_literal": "an unknown uninstall gave no manual route (missing %q): %q",
+      "fatal_call": "t.Fatalf(\"an unknown uninstall gave no manual route (missing %q): %q\", want, note)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestPluginLoginItemUninstallCLI",
+          "callee": "checkUninstallManualSteps",
+          "caller_is_helper": false,
+          "kind": "run_callback"
+        }
+      ],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "an unknown uninstall gave no manual route",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "L6F2",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_login_item.go",
+      "symbol": "loginItemManualRemoval",
+      "old": "says the service is not found, compare shasum -a 256 %s",
+      "new": "runs, compare shasum -a 256 %s",
+      "required_occurrences": 1,
+      "declaration_kind": "const"
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginLoginItemUninstallCLI"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_login_item_test.go",
+      "assertion_function": "checkUninstallManualSteps",
+      "fatal_literal": "an unknown uninstall gave no manual route (missing %q): %q",
+      "fatal_call": "t.Fatalf(\"an unknown uninstall gave no manual route (missing %q): %q\", want, note)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestPluginLoginItemUninstallCLI",
+          "callee": "checkUninstallManualSteps",
+          "caller_is_helper": false,
+          "kind": "run_callback"
+        }
+      ],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "an unknown uninstall gave no manual route",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "L1F1",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_supervise_process.go",
+      "symbol": "waitGroupGone",
+      "old": " || errors.Is(err, syscall.EPERM) && groupOnlyZombies(pgid) {",
+      "new": " {",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginStopWaitSeesZombieOnlyGroup"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_supervise_group_darwin_test.go",
+      "assertion_function": "TestPluginStopWaitSeesZombieOnlyGroup",
+      "fatal_literal": "a zombie-only group was waited for the full grace: %v",
+      "fatal_call": "t.Fatalf(\"a zombie-only group was waited for the full grace: %v\", elapsed)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "a zombie-only group was waited for the full grace",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "L1F2",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_supervise_process.go",
+      "symbol": "groupGrace",
+      "old": "const groupGrace = 3 * time.Second",
+      "new": "const groupGrace = 2 * time.Second",
+      "required_occurrences": 1,
+      "declaration_kind": "const"
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginGroupGraceExceedsPluginGrace"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_supervise_review_test.go",
+      "assertion_function": "TestPluginGroupGraceExceedsPluginGrace",
+      "fatal_literal": "the group grace %v does not exceed the plugin's 2 s EOF grace",
+      "fatal_call": "t.Fatalf(\"the group grace %v does not exceed the plugin's 2 s EOF grace\", groupGrace)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "does not exceed the plugin",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
+  },
+  {
+    "id": "L5F1",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/plugin_notify.go",
+      "symbol": "notifyTextSession",
+      "old": "installed by session \"%s\"` // the label quoted (R7-L5)",
+      "new": "installed by session %s`",
+      "required_occurrences": 1,
+      "declaration_kind": "const"
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestPluginBackgroundInstalledBy"
+    },
+    "assertion": {
+      "file": "cmd/zalki/plugin_notify_test.go",
+      "assertion_function": "TestPluginBackgroundInstalledBy",
+      "fatal_literal": "%s: the banner says %q",
+      "fatal_call": "t.Fatalf(\"%s: the banner says %q\", tc.name, got)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "session label: the banner says",
+    "profile": "r7_background",
+    "native_os": [
+      "darwin",
+      "linux"
+    ],
+    "rebuild_cli_for_mutant": false
   }
 ]
