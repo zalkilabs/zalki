@@ -101,18 +101,50 @@ class UnracedSelection(unittest.TestCase):
         with self.assertRaises(ValueError):unraced.cli_identity(info,'b'*40,paths)
 
 
+    def test_hosted_cli_metadata_empty_values_keep_missing_vcs_a_closed_error(self):
+        for native in ['linux','macos']:
+            info=json.loads((Path(__file__).resolve().parent/'fixtures'/('cli-buildinfo-'+native+'-empty-settings.json')).read_text())
+            settings={s['Key']:s.get('Value','') for s in info['Settings']}
+            paths=dict(GOVERSION=info['GoVersion'],**{k:settings[k] for k in ['GOOS','GOARCH','CGO_ENABLED']})
+            with self.subTest(native=native):
+                with self.assertRaisesRegex(ValueError,'VCS identity differs'):unraced.cli_identity(info,'b'*40,paths)
+                # Synthetic stamped metadata demonstrates normalization only;
+                # it is not a claim that the original hosted CLI was stamped.
+                info['Settings'] += [dict(Key='vcs.revision',Value='b'*40),dict(Key='vcs.modified',Value='false')]
+                self.assertEqual(unraced.cli_identity(info,'b'*40,paths)['CGO_CFLAGS'],'', 'EMPTY_BUILD_SETTING_MUST_DECODE_AS_EMPTY')
+
+    def test_cli_empty_setting_value_is_optional_but_identity_is_required(self):
+        paths=dict(GOVERSION='fixture-go',GOOS='linux',GOARCH='fixture',CGO_ENABLED='1')
+        values=dict(GOOS='linux',GOARCH='fixture',CGO_ENABLED='1',**{'vcs.revision':'b'*40,'vcs.modified':'false'})
+        def info():
+            return dict(Path=PREFIX+'/cmd/zalki',GoVersion='fixture-go',Settings=[dict(Key=k,Value=v) for k,v in values.items()]+[dict(Key='CGO_CFLAGS')])
+        try:normalized=unraced.cli_identity(info(),'b'*40,paths)
+        except KeyError:self.fail('EMPTY_BUILD_SETTING_MUST_DECODE_AS_EMPTY')
+        self.assertEqual(normalized['CGO_CFLAGS'],'', 'EMPTY_BUILD_SETTING_MUST_DECODE_AS_EMPTY')
+        for setting in [dict(Key='CGO_CFLAGS',Value=None),dict(Key=1),dict(Value='x'),dict(Key=''),dict(Key='GOOS',Value='linux')]:
+            candidate=info();candidate['Settings'].append(setting)
+            with self.subTest(setting=setting),self.assertRaises(ValueError):unraced.cli_identity(candidate,'b'*40,paths)
+        for key in ['GOOS','GOARCH','CGO_ENABLED','vcs.revision','vcs.modified']:
+            candidate=info();candidate['Settings']=[s for s in candidate['Settings'] if s['Key']!=key]
+            with self.subTest(missing=key),self.assertRaises(ValueError):unraced.cli_identity(candidate,'b'*40,paths)
+
+
 class UnracedConstruction(unittest.TestCase):
     def test_actual_fresh_cli_and_full_selected_package_argv_with_fake_tools(self):
         item=fixtures.FocusedConstruction();item.setUp();self.addCleanup(item.doCleanups)
+        git=item.bin/'git';git_text=git.read_text()
+        git_text=git_text.replace("elif a[0]=='rev-parse':", "elif a[0]=='clone':\n assert a[1:4]==['--no-hardlinks','--no-checkout','--']\n target=Path(a[-1]);shutil.copytree(ROOT/'repo',target);(target/'.git').mkdir()\nelif a[0]=='checkout':assert a==['checkout','--detach','b'*40]\nelif a[0]=='rev-parse':")
+        git.write_text(git_text)
         script=item.bin/'go';text=script.read_text()
         addition='''elif a[0]=='list':
  print(json.dumps(dict(Dir=str(Path.cwd()/'internal/fixture'),ImportPath='github.com/zalkilabs/zalki/internal/fixture',TestGoFiles=['guard_test.go'])))
 elif a[0]=='build':
  assert '-race=false' in a and '-buildvcs=true' in a
+ assert Path('.git').is_dir(),'FRESH_CLI_REAL_GIT_DIRECTORY_REQUIRED'
  Path(a[a.index('-o')+1]).write_bytes(b'fresh nonrace CLI')
 elif a[0]=='version':
  settings=dict(GOOS='linux',GOARCH='fixture-arch',CGO_ENABLED='1',**{'vcs.revision':'b'*40,'vcs.modified':'false'})
- print(json.dumps(dict(Path='github.com/zalkilabs/zalki/cmd/zalki',GoVersion='fixture-go',Settings=[dict(Key=k,Value=v) for k,v in settings.items()])))
+ print(json.dumps(dict(Path='github.com/zalkilabs/zalki/cmd/zalki',GoVersion='fixture-go',Settings=[dict(Key=k,Value=v) for k,v in settings.items()]+[dict(Key='CGO_CFLAGS')])))
 elif a[0]=='test' and '-c' not in a:
  assert '-race=false' in a and not any(x.startswith('-run') for x in a)
  assert Path(os.environ['ZALKI_TEST_BINARY']).read_bytes()==b'fresh nonrace CLI'

@@ -164,8 +164,14 @@ def coverage(raw,packages,required):
 
 def cli_identity(info,head,paths):
     require(info.get('Path')==PREFIX+'/cmd/zalki' and info.get('GoVersion')==paths['GOVERSION'],'fresh CLI identity differs')
-    settings={item['Key']:item['Value'] for item in info['Settings']}
-    require(len(settings)==len(info['Settings']),'duplicate CLI build setting')
+    require(type(info.get('Settings')) is list,'missing CLI build settings')
+    settings={}
+    for item in info['Settings']:
+        require(type(item) is dict and set(item)<= {'Key','Value'} and
+                type(item.get('Key')) is str and bool(item['Key']) and
+                type(item.get('Value','')) is str,'invalid CLI build setting')
+        require(item['Key'] not in settings,'duplicate CLI build setting')
+        settings[item['Key']]=item.get('Value','')
     require(settings.get('-race','false')=='false','CLI was built with race instrumentation')
     require(settings.get('vcs.revision')==head and settings.get('vcs.modified')=='false','CLI VCS identity differs from clean actual head')
     for key in ['GOOS','GOARCH','CGO_ENABLED']:require(settings.get(key)==paths[key],'CLI native build identity differs')
@@ -176,7 +182,14 @@ def execute(options):
     repo,output,tools=options.repo.resolve(),options.output.resolve(),options.tools.resolve()
     base,head=source.revisions(repo,options.base,options.head,options.event)
     output.mkdir(mode=0o700);options.owns_output=True
-    tree=output/'source';subprocess.run(['git','-C',str(repo),'worktree','add','--detach',str(tree),head],check=True)
+    # Go's VCS discovery requires a .git directory; a linked worktree's
+    # .git file can silently omit VCS stamps even with -buildvcs=true.
+    tree=output/'source'
+    subprocess.run(['git','-C',str(repo),'clone','--no-hardlinks','--no-checkout','--',str(repo),str(tree)],check=True,timeout=120)
+    subprocess.run(['git','-C',str(tree),'checkout','--detach',head],check=True,timeout=120)
+    require((tree/'.git').is_dir() and not (tree/'.git').is_symlink(),'fresh CLI source requires a real Git directory')
+    require(source.git(tree,'rev-parse','HEAD')==head and not source.git(tree,'status','--porcelain','--untracked-files=all'),
+            'fresh CLI source is not the clean actual head')
     before=source.source_fingerprint(tree)
     go=source.shutil.which('go');require(go is not None,'Go is unavailable')
     paths=source.go_paths(str(Path(go).resolve()));require(paths['GOOS'] in ['darwin','linux'],'unraced job must run natively')
