@@ -135,8 +135,15 @@ func listPackages(ctx context.Context, dir string) ([]listedPackage, error) {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("go list: %w: %s", err, strings.TrimSpace(stderr.String()))
+	return decodePackages(out, stderr.String(), err)
+}
+
+func decodePackages(out []byte, stderr string, commandErr error) ([]listedPackage, error) {
+	if commandErr != nil {
+		return nil, fmt.Errorf("go list: %w: %s", commandErr, strings.TrimSpace(stderr))
+	}
+	if stderr != "" {
+		return nil, fmt.Errorf("go list returned diagnostics: %s", strings.TrimSpace(stderr))
 	}
 	var pkgs []listedPackage
 	dec := json.NewDecoder(bytes.NewReader(out))
@@ -325,9 +332,15 @@ func run(ctx context.Context, dir string, w io.Writer) error {
 
 func main() {
 	dir := flag.String("C", ".", "module root directory")
+	jsonSnapshot := flag.Bool("json", false, "emit native build-selected architecture facts as JSON")
 	flag.Parse()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	err := run(ctx, *dir, os.Stdout)
+	var err error
+	if *jsonSnapshot {
+		err = runSnapshot(ctx, *dir, os.Stdout)
+	} else {
+		err = run(ctx, *dir, os.Stdout)
+	}
 	stop()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "arch-metrics:", err)

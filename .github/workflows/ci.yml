@@ -98,7 +98,7 @@ jobs:
           go-version-file: go.mod
           check-latest: true
       - name: Verify strict comparison fixtures
-        run: make lint-delta-test
+        run: make lint-delta-test architecture-delta-test
       - name: Build the versioned analysis tools
         run: make ci-lint-tools CI_TOOL_DIR="${{ runner.temp }}/lint-tools"
       - name: Compare base and head in both lint orders
@@ -109,7 +109,12 @@ jobs:
           python3 scripts/lint-delta/run.py --repo "$GITHUB_WORKSPACE" \
             --base "$LINT_BASE" --head "$(git rev-parse HEAD)" --event "$LINT_EVENT" \
             --tools "${{ runner.temp }}/lint-tools" --output "${{ runner.temp }}/lint-delta"
-      - name: Retain strict comparison evidence
+      - name: Compare exact API shapes and architecture budgets
+        run: |
+          python3 scripts/architecture-delta/run.py \
+            --lint-result "${{ runner.temp }}/lint-delta/result.json" \
+            --tools "${{ runner.temp }}/lint-tools" --output "${{ runner.temp }}/architecture-delta"
+      - name: Retain strict and architecture comparison evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -117,6 +122,7 @@ jobs:
           if-no-files-found: error
           path: |
             ${{ runner.temp }}/lint-delta/*.json
+            ${{ runner.temp }}/architecture-delta/*.json
             ${{ runner.temp }}/lint-delta/base/modules.log
             ${{ runner.temp }}/lint-delta/head/modules.log
             ${{ runner.temp }}/lint-delta/base/*/strict.json
