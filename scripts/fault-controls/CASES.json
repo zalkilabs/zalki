@@ -1,0 +1,164 @@
+{
+  "kind": "SYNTHETIC_SELECTOR_INPUTS_ONLY",
+  "cases": [
+    {
+      "case_id": "direct-named-assertion-positive",
+      "path": "fixtures/direct-named-assertion-positive.json",
+      "expected_accept": true,
+      "expected_reason": "complete good/intended/restored proof with intended named assertion in allowed source/test context"
+    },
+    {
+      "case_id": "helper-two-level-caller-positive",
+      "path": "fixtures/helper-two-level-caller-positive.json",
+      "expected_accept": true,
+      "expected_reason": "complete good/intended/restored proof with intended named assertion in allowed source/test context"
+    },
+    {
+      "case_id": "named-descendant-group-positive",
+      "path": "fixtures/named-descendant-group-positive.json",
+      "expected_accept": true,
+      "expected_reason": "complete good/intended/restored proof with intended named assertion in allowed source/test context"
+    },
+    {
+      "case_id": "two-rpc-assertion-sites-positive",
+      "path": "fixtures/two-rpc-assertion-sites-positive.json",
+      "expected_accept": true,
+      "expected_reason": "complete good/intended/restored proof with intended named assertion in allowed source/test context"
+    },
+    {
+      "case_id": "helper-source-lines-shift-positive",
+      "path": "fixtures/helper-source-lines-shift-positive.json",
+      "expected_accept": true,
+      "expected_reason": "complete good/intended/restored proof with intended named assertion in allowed source/test context"
+    },
+    {
+      "case_id": "wrong-package",
+      "path": "fixtures/wrong-package.json",
+      "expected_accept": false,
+      "expected_reason": "named failure belongs to another package"
+    },
+    {
+      "case_id": "sibling-subtest",
+      "path": "fixtures/sibling-subtest.json",
+      "expected_accept": false,
+      "expected_reason": "failure is outside exact selected test or slash descendants"
+    },
+    {
+      "case_id": "prefix-lookalike",
+      "path": "fixtures/prefix-lookalike.json",
+      "expected_accept": false,
+      "expected_reason": "lexical test-name prefix is not an allowed descendant"
+    },
+    {
+      "case_id": "missing-selected-run",
+      "path": "fixtures/missing-selected-run.json",
+      "expected_accept": false,
+      "expected_reason": "selected RUN is required even if marker and FAIL exist"
+    },
+    {
+      "case_id": "skipped-descendant",
+      "path": "fixtures/skipped-descendant.json",
+      "expected_accept": false,
+      "expected_reason": "an emitted skipped descendant invalidates the control"
+    },
+    {
+      "case_id": "timeout",
+      "path": "fixtures/timeout.json",
+      "expected_accept": false,
+      "expected_reason": "timeout termination cannot substitute for intended assertion proof"
+    },
+    {
+      "case_id": "compile-error",
+      "path": "fixtures/compile-error.json",
+      "expected_accept": false,
+      "expected_reason": "mutant must compile; compile failure is not a killed control"
+    },
+    {
+      "case_id": "setup-error",
+      "path": "fixtures/setup-error.json",
+      "expected_accept": false,
+      "expected_reason": "setup refusal is not an intended product assertion"
+    },
+    {
+      "case_id": "incomplete-stream",
+      "path": "fixtures/incomplete-stream.json",
+      "expected_accept": false,
+      "expected_reason": "truncated stdout cannot prove a complete selected result"
+    },
+    {
+      "case_id": "wrong-assertion",
+      "path": "fixtures/wrong-assertion.json",
+      "expected_accept": false,
+      "expected_reason": "different fatal text is not the intended assertion"
+    },
+    {
+      "case_id": "wrong-reported-file",
+      "path": "fixtures/wrong-reported-file.json",
+      "expected_accept": false,
+      "expected_reason": "same text in an unrelated source file is not allowed attribution"
+    },
+    {
+      "case_id": "wrong-caller-position",
+      "path": "fixtures/wrong-caller-position.json",
+      "expected_accept": false,
+      "expected_reason": "same helper marker at unrelated source position is not allowed"
+    },
+    {
+      "case_id": "selected-pass-instead-of-fail",
+      "path": "fixtures/selected-pass-instead-of-fail.json",
+      "expected_accept": false,
+      "expected_reason": "marker output does not replace required selected FAIL"
+    },
+    {
+      "case_id": "package-pass-instead-of-fail",
+      "path": "fixtures/package-pass-instead-of-fail.json",
+      "expected_accept": false,
+      "expected_reason": "intended assertion must have consistent package/process outcome"
+    },
+    {
+      "case_id": "missing-restored-phase",
+      "path": "fixtures/missing-restored-phase.json",
+      "expected_accept": false,
+      "expected_reason": "restored positive proof cannot be omitted"
+    },
+    {
+      "case_id": "restoration-byte-mismatch",
+      "path": "fixtures/restoration-byte-mismatch.json",
+      "expected_accept": false,
+      "expected_reason": "restored files must equal good source bytes"
+    },
+    {
+      "case_id": "restoration-mode-mismatch",
+      "path": "fixtures/restoration-mode-mismatch.json",
+      "expected_accept": false,
+      "expected_reason": "restored source modes must also match"
+    },
+    {
+      "case_id": "bad-good-phase",
+      "path": "fixtures/bad-good-phase.json",
+      "expected_accept": false,
+      "expected_reason": "positive phase cannot itself fail or skip"
+    },
+    {
+      "case_id": "extra-third-rpc-marker-site",
+      "path": "fixtures/extra-third-rpc-marker-site.json",
+      "expected_accept": false,
+      "expected_reason": "unexpected extra assertion site violates versioned source-site inventory"
+    },
+    {
+      "case_id": "helper-marker-removed",
+      "path": "fixtures/helper-marker-removed.json",
+      "expected_accept": false,
+      "expected_reason": "caller attribution requires every claimed intermediate helper to remain marked"
+    },
+    {
+      "case_id": "non-json-event-stream",
+      "path": "fixtures/non-json-event-stream.json",
+      "expected_accept": false,
+      "expected_reason": "malformed JSON must refuse stream attribution"
+    }
+  ],
+  "positives": 5,
+  "negatives": 21,
+  "execution_claim": false
+}

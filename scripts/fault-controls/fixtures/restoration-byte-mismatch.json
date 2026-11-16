@@ -1,0 +1,204 @@
+{
+  "case_id": "restoration-byte-mismatch",
+  "synthetic_only": true,
+  "expected_accept": false,
+  "expected_reason": "restored files must equal good source bytes",
+  "selected": {
+    "package": "example.test/synthetic/fixture",
+    "test": "TestSentinel/blue"
+  },
+  "allowed_source_sites_and_caller_mapping": {
+    "file": "oracle_fixture_test.go",
+    "assertion_function": "TestSentinel",
+    "fatal_literal": "SYNTHETIC_GUARD_FAILED",
+    "fatal_call": "t.Fatal(\"SYNTHETIC_GUARD_FAILED\")",
+    "expected_assertion_sites": 1,
+    "call_chain": [],
+    "require_helper_markers_in_callees": false,
+    "branch_roles": [
+      "single guard assertion"
+    ],
+    "position_policy": "derive from source AST and helper/caller graph; numbers below are synthetic observations only",
+    "expected_file_assertion_sites": 1
+  },
+  "context": {
+    "mutation": {
+      "path": "guard_fixture.go",
+      "old": "return false",
+      "new": "return true",
+      "required_occurrences": 1
+    },
+    "phases": {
+      "good": {
+        "build": {
+          "exit_code": 0,
+          "compiled": true,
+          "binary_sha256": "770e607624d689265ca6c44884d0807d9b054d23c473c106c72be9de08b7376c",
+          "setup_ok": true
+        },
+        "process_outcome": {
+          "exit_code": 0,
+          "timed_out": false,
+          "signalled": false,
+          "streams_complete": true,
+          "setup_ok": true
+        },
+        "source_files": {
+          "oracle_fixture_test.go": "package fixture\nimport \"testing\"\nfunc TestSentinel(t *testing.T) {\n for _, name := range []string{\"blue\", \"green\"} {\n  t.Run(name, func(t *testing.T) {\n   if permitSynthetic() {\n    t.Fatal(\"SYNTHETIC_GUARD_FAILED\")\n   }\n  })\n }\n}\n",
+          "guard_fixture.go": "package fixture\nfunc permitSynthetic() bool { return false }\nfunc observedSynthetic() bool { return true }\n"
+        },
+        "source_digest": "26fec02d1a6e10f928b19b23117a96b078515df3893d4cbb292b1d17968e8715",
+        "events": [
+          {
+            "Action": "start",
+            "Package": "example.test/synthetic/fixture"
+          },
+          {
+            "Action": "run",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel"
+          },
+          {
+            "Action": "run",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel/blue"
+          },
+          {
+            "Action": "pass",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel/blue"
+          },
+          {
+            "Action": "pass",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel"
+          },
+          {
+            "Action": "pass",
+            "Package": "example.test/synthetic/fixture"
+          }
+        ],
+        "test2json_ndjson": "{\"Action\":\"start\",\"Package\":\"example.test/synthetic/fixture\"}\n{\"Action\":\"run\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel\"}\n{\"Action\":\"run\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel/blue\"}\n{\"Action\":\"pass\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel/blue\"}\n{\"Action\":\"pass\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel\"}\n{\"Action\":\"pass\",\"Package\":\"example.test/synthetic/fixture\"}\n"
+      },
+      "intended": {
+        "build": {
+          "exit_code": 0,
+          "compiled": true,
+          "binary_sha256": "09e886debb5a0412d1899d253b2e4514d396b1e63ff219fda2dbc4a6cc35b386",
+          "setup_ok": true
+        },
+        "process_outcome": {
+          "exit_code": 1,
+          "timed_out": false,
+          "signalled": false,
+          "streams_complete": true,
+          "setup_ok": true
+        },
+        "source_files": {
+          "oracle_fixture_test.go": "package fixture\nimport \"testing\"\nfunc TestSentinel(t *testing.T) {\n for _, name := range []string{\"blue\", \"green\"} {\n  t.Run(name, func(t *testing.T) {\n   if permitSynthetic() {\n    t.Fatal(\"SYNTHETIC_GUARD_FAILED\")\n   }\n  })\n }\n}\n",
+          "guard_fixture.go": "package fixture\nfunc permitSynthetic() bool { return true }\nfunc observedSynthetic() bool { return true }\n"
+        },
+        "source_digest": "ee97c0f6e7280a01311504e6c71d69659b3bbbf8bb3e426dc9fc063df0ae7960",
+        "events": [
+          {
+            "Action": "start",
+            "Package": "example.test/synthetic/fixture"
+          },
+          {
+            "Action": "run",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel"
+          },
+          {
+            "Action": "run",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel/blue"
+          },
+          {
+            "Action": "output",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel/blue",
+            "Output": "    oracle_fixture_test.go:7: SYNTHETIC_GUARD_FAILED\n"
+          },
+          {
+            "Action": "fail",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel/blue"
+          },
+          {
+            "Action": "fail",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel"
+          },
+          {
+            "Action": "fail",
+            "Package": "example.test/synthetic/fixture"
+          }
+        ],
+        "test2json_ndjson": "{\"Action\":\"start\",\"Package\":\"example.test/synthetic/fixture\"}\n{\"Action\":\"run\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel\"}\n{\"Action\":\"run\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel/blue\"}\n{\"Action\":\"output\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel/blue\",\"Output\":\"    oracle_fixture_test.go:7: SYNTHETIC_GUARD_FAILED\\n\"}\n{\"Action\":\"fail\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel/blue\"}\n{\"Action\":\"fail\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel\"}\n{\"Action\":\"fail\",\"Package\":\"example.test/synthetic/fixture\"}\n"
+      },
+      "restored": {
+        "build": {
+          "exit_code": 0,
+          "compiled": true,
+          "binary_sha256": "770e607624d689265ca6c44884d0807d9b054d23c473c106c72be9de08b7376c",
+          "setup_ok": true
+        },
+        "process_outcome": {
+          "exit_code": 0,
+          "timed_out": false,
+          "signalled": false,
+          "streams_complete": true,
+          "setup_ok": true
+        },
+        "source_files": {
+          "oracle_fixture_test.go": "package fixture\nimport \"testing\"\nfunc TestSentinel(t *testing.T) {\n for _, name := range []string{\"blue\", \"green\"} {\n  t.Run(name, func(t *testing.T) {\n   if permitSynthetic() {\n    t.Fatal(\"SYNTHETIC_GUARD_FAILED\")\n   }\n  })\n }\n}\n",
+          "guard_fixture.go": "package fixture\n// unexpected remaining change\n"
+        },
+        "source_digest": "b9988f3c240323a9c92749ecd00b151b165f82bdefa54a7f8eb9508fc390ef9c",
+        "events": [
+          {
+            "Action": "start",
+            "Package": "example.test/synthetic/fixture"
+          },
+          {
+            "Action": "run",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel"
+          },
+          {
+            "Action": "run",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel/blue"
+          },
+          {
+            "Action": "pass",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel/blue"
+          },
+          {
+            "Action": "pass",
+            "Package": "example.test/synthetic/fixture",
+            "Test": "TestSentinel"
+          },
+          {
+            "Action": "pass",
+            "Package": "example.test/synthetic/fixture"
+          }
+        ],
+        "test2json_ndjson": "{\"Action\":\"start\",\"Package\":\"example.test/synthetic/fixture\"}\n{\"Action\":\"run\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel\"}\n{\"Action\":\"run\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel/blue\"}\n{\"Action\":\"pass\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel/blue\"}\n{\"Action\":\"pass\",\"Package\":\"example.test/synthetic/fixture\",\"Test\":\"TestSentinel\"}\n{\"Action\":\"pass\",\"Package\":\"example.test/synthetic/fixture\"}\n"
+      }
+    },
+    "restore_required": true,
+    "allow_skips": false,
+    "source_mode_before": "0644",
+    "source_mode_restored": "0644"
+  },
+  "expected_event_assertion_positions": {
+    "synthetic_reported_line": 7,
+    "synthetic_declared_fatal_lines": [
+      7
+    ],
+    "not_fixed_selectors": true
+  }
+}

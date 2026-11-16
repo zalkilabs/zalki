@@ -1,0 +1,42 @@
+{
+  "paths": {
+    ".golangci.yml": [
+      "scripts/arch-metrics"
+    ],
+    "Makefile": [
+      "scripts/test-alias",
+      "scripts"
+    ],
+    ".gitignore": [
+      "scripts/test-alias"
+    ],
+    ".gitattributes": [
+      "scripts/test-alias"
+    ],
+    "internal/model/testdata/plugin-enums.json": [
+      "internal/plugins"
+    ]
+  },
+  "prefixes": {
+    "packaging/": [
+      "scripts"
+    ],
+    "completions/": [
+      "scripts"
+    ],
+    "scripts/fault-controls/fixtures/": [
+      "scripts/assertion-sites"
+    ]
+  },
+  "non_runtime_paths": [
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.txt"
+  ],
+  "non_runtime_prefixes": [
+    ".github/",
+    "docs/"
+  ]
+}

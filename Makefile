@@ -1,4 +1,4 @@
-.PHONY: build test test-required test-alias vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check windows-vet-test ci-lint-tools lint-delta-test architecture-delta-test
+.PHONY: build test test-required test-alias vet lint lint-strict arch-metrics fmt fmt-check vulncheck completions release-check release-snapshot release-cask package-check smoke-live cost-check windows-vet-test ci-lint-tools lint-delta-test architecture-delta-test ci-fault-tools fault-controls-test
 
 GORELEASER ?= goreleaser
 GOVULNCHECK ?= govulncheck
@@ -109,3 +109,13 @@ lint-delta-test:
 
 architecture-delta-test:
 	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/architecture-delta -p 'test_*.py' -v
+
+# Versioned assertion attribution; no external tool install or runtime setup.
+ci-fault-tools:
+	@case "$(CI_TOOL_DIR)" in /*) ;; *) echo 'Set CI_TOOL_DIR to an absolute directory.' >&2; exit 2;; esac
+	mkdir -p "$(CI_TOOL_DIR)"
+	go build -mod=readonly -o "$(CI_TOOL_DIR)/assertion-sites" ./scripts/assertion-sites
+	go build -mod=readonly -o "$(CI_TOOL_DIR)/required-coverage" ./scripts/check-integration
+
+fault-controls-test:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/fault-controls -p 'test_*.py' -v

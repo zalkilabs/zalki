@@ -292,3 +292,69 @@ native collector roots are required in ordinary and alias coverage. Fake tools
 prove failure handling; actual compiler, snapshot, keyed lint, timeout margins,
 exact-head hosted coverage and final-main review remain required before retiring
 any equivalent local gate. Live client installation and smoke checks are separate.
+
+### Focused compiled mutation controls
+
+The native focused-control jobs retain the reviewed production and runtime
+configuration mutations in `scripts/fault-controls/controls.json`. Application Go,
+module, build, release configuration, workflow or tooling changes run the complete
+current focused plan. Other changes produce an explicit zero-execution result;
+the job still runs and the protected Test dependency requires its success. Base
+and head are actual event commits. Control IDs already present in the base plan
+cannot silently disappear from the head plan.
+
+Each selection runs in a disposable head worktree with synthetic native-client
+homes, a private temporary directory, offline module use after explicit warming,
+and bounded commands. Good, mutated and restored source are compiled separately.
+Every phase retains source identity, build and test receipts, binary hashes and
+raw test2json. Restoration checks all source bytes and modes. Compile/setup errors,
+timeouts, races, panics, skips, incomplete streams, foreign packages and sibling
+or prefix-lookalike tests cannot count as an intended assertion failure.
+
+The versioned `assertion-sites` tool parses the current Go test source and binds
+the complete quoted fatal call, exact site count, helper/caller graph and report
+positions. It checks production mutation preimages inside their named function;
+the release-linker configuration control remains a runtime-file mutation. No
+historical line number is an assertion selector. A new testing callback has its
+own testing context: a helper-marked parent does not make its child's fatal line
+report as the parent's caller. Both the callback context and the root-to-helper
+connection are verified for that control. The two reviewed RPC branches are one
+explicit site set; an extra site is refused.
+
+The stream checker requires an exact selected RUN/outcome, consistent package
+outcome, and current source-bound intended assertions for failing selected leaves.
+It reports assertion selections, unique source mutants and unique compiled mutant
+hashes separately. Test binaries stay on the isolated runner; artifacts retain
+hashes, logs and source/receipt records rather than uploading every binary.
+Synthetic parser fixtures and fake tools are not evidence of actual compiled
+controls. Native unit tests, the real focused plan on both operating systems,
+keyed strict comparisons, exact-head coverage, timeout margins and final-main
+review remain necessary before equivalent local controls can be retired.
+
+The same native job also runs full, uncached **unraced** tests of directly touched
+native package directories, with a fresh unraced CLI supplied to their integration
+tests. Module/dependency changes select all current native packages; runtime file
+changes select packages declared by their control recipes. The runner derives
+package identities from Go discovery, explicitly records deleted or native-excluded
+directories, and rejects unknown/partial discovery. It uses no test-name filter and
+projects the current compiled `check-integration --list-required` ledger onto the
+selected packages. Missing required RUN/PASS, required descendant skips and missing
+package outcomes fail. Optional skips and verified no-test-files packages remain
+explicit in the result, as in ordinary required coverage.
+
+The fresh CLI is built with race instrumentation disabled and VCS stamping required.
+Its embedded JSON build information must match the clean actual head, native SDK
+identity and non-race mode; its hash must remain unchanged through the tests. This
+path replaces neither the raced ordinary suite nor the symlink-temp alias suite.
+Actual source-head package selection, raw reports and measured timeout margins are
+required before a corresponding local unraced package run is replaced. Real-host
+installation, migration and client smoke remain separate.
+
+Native fixture changes also select their owning package: for example a change
+only to `cmd/zalki/testdata/fdprobe.c` runs full unraced `cmd/zalki` tests. Packages
+own their input subtrees, with nested `testdata` Go programs kept as fixtures.
+`input-owners.json` records additional consumers for shared fixtures and explicit
+runtime inputs. Deleted fixtures keep their current owner; whole-package removal
+is reported explicitly. Unknown runtime inputs and stale mapped owners refuse
+coverage rather than returning an unqualified zero-package success. Reviewed
+non-runtime documentation/CI classifications are retained in the input bindings.
