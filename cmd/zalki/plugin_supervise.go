@@ -249,6 +249,10 @@ type supervised struct {
 	// recoverUntil is set while a run of an earlier controller is not yet
 	// confirmed ended; no start happens before it is.
 	recoverUntil time.Time
+	// pendingEnd is the end reason of a host that ended while its record
+	// was unreadable: unknown, neither a crash nor a stop, until the next
+	// readable snapshot classifies it. Memory only.
+	pendingEnd string
 }
 
 type supervisor struct {
@@ -267,6 +271,16 @@ type supervisor struct {
 	notify  *notifier
 	offered map[string]bool
 	rotate  int
+	// snapshot reads a plugin record; nil reads the real one (a test seam).
+	snapshot func(name string) (pluginfeed.PluginFeedStatus, error)
+}
+
+// readSnapshot is the current record of name.
+func (s *supervisor) readSnapshot(name string) (pluginfeed.PluginFeedStatus, error) {
+	if s.snapshot != nil {
+		return s.snapshot(name)
+	}
+	return pluginfeed.NewPluginFeed(bus.Store{Dir: s.state}, name).PluginSnapshot()
 }
 
 // run is one event loop: host events, one 5-second poll, and a wake-up at
@@ -369,17 +383,52 @@ func (s *supervisor) scan() (bool, error) {
 			active = true
 		}
 	}
-	s.offerQueued(names)
 	for name, p := range s.plugins {
-		if !seen[name] && p.host != nil {
-			s.stopHost(name, p, "removed")
+		if !seen[name] && s.forget(name, p) {
+			active = true // its save is retried at the next scan
 		}
 	}
+	s.pruneOffered()
+	s.offerQueued(names)
 	return active, nil
 }
 
+// forget ends a removed name: its host is stopped and reaped through its
+// own handle, a pending end is classified, and the entry is dropped once
+// its run state is durable. An unsaved entry stays (the save fence) and
+// keeps the controller running, so the next scan saves it again (ZAL-68).
+// retained reports that case.
+func (s *supervisor) forget(name string, p *supervised) (retained bool) {
+	if p.host != nil {
+		s.stopHost(name, p, "removed")
+	}
+	if p.pendingEnd != "" {
+		s.classifyEnd(name, p, "removed", p.pendingEnd)
+	}
+	if !s.durable(name, p) {
+		return true
+	}
+	delete(s.plugins, name)
+	return false
+}
+
+// pruneOffered keeps only the installations of the remaining entries, also
+// for an empty listing: a replaced or removed UUID never comes back, so the
+// set stays as small as the plugin list.
+func (s *supervisor) pruneOffered() {
+	current := map[string]bool{}
+	for _, p := range s.plugins {
+		current[p.run.Installation] = true
+	}
+	for id := range s.offered {
+		if !current[id] {
+			delete(s.offered, id)
+		}
+	}
+}
+
 func (s *supervisor) reconcile(name string) bool {
-	snap, err := pluginfeed.NewPluginFeed(bus.Store{Dir: s.state}, name).PluginSnapshot()
+	snap, err := s.readSnapshot(name)
 	p := s.plugins[name]
 	if err != nil {
 		// Retried at the next poll; never treated as disabled or enabled.
@@ -387,6 +436,10 @@ func (s *supervisor) reconcile(name string) bool {
 			s.stopHost(name, p, "record_unreadable")
 		}
 		return true // unknown is not "disabled": keep supervising and retry
+	}
+	if p != nil && p.pendingEnd != "" {
+		// Classified before any stop, start or replacement.
+		s.classifyEnd(name, p, endedFor(snap, p.binding), p.pendingEnd)
 	}
 	if snap.ID == "" || !snap.Enabled {
 		if p != nil && p.host != nil {
@@ -584,17 +637,6 @@ func (s *supervisor) offerQueued(names []string) {
 	if s.notify == nil || len(names) == 0 {
 		return
 	}
-	// Only current installations are remembered: a replaced UUID never
-	// comes back, so the set stays as small as the plugin list.
-	current := map[string]bool{}
-	for _, p := range s.plugins {
-		current[p.run.Installation] = true
-	}
-	for id := range s.offered {
-		if !current[id] {
-			delete(s.offered, id)
-		}
-	}
 	s.rotate = (s.rotate + 1) % len(names)
 	for i := range names {
 		name := names[(s.rotate+i)%len(names)]
@@ -660,31 +702,41 @@ func (s *supervisor) handle(ev hostEvent) {
 }
 
 // finish cleans up a host that ended on its own and classifies the end.
+// While the record is unreadable the end stays unknown (ZAL-74).
 func (s *supervisor) finish(name string, p *supervised) {
 	status := p.host.stop()
 	p.host = nil
-	now := s.now()
 	reason := p.lastReason
-	if changed := s.bindingEnded(name, p.binding); changed != "" {
-		// The host saw its binding end (disable, revoke, scope or access
-		// change) before our poll did: a stop, never a failure.
-		p.run.recordStopped(now, changed)
-		s.logf("%s: host ended: %s", name, changed)
-		s.save(name, p)
+	if reason == "" {
+		reason = "failed"
+		if status != nil && !status.Exited() {
+			reason = "killed"
+		}
+	}
+	changed, known := s.bindingEnded(name, p.binding)
+	if !known {
+		p.pendingEnd = reason
+		s.logf("%s: host ended; record unreadable, end not classified yet", name)
 		return
 	}
+	s.classifyEnd(name, p, changed, reason)
+}
+
+// classifyEnd records one host end: changed (the binding ended: disable,
+// revoke, scope or access change, removal) is a stop, never a failure;
+// otherwise reason decides.
+func (s *supervisor) classifyEnd(name string, p *supervised, changed, reason string) {
+	now := s.now()
+	p.pendingEnd = ""
 	switch {
+	case changed != "":
+		p.run.recordStopped(now, changed)
+		reason = changed
 	case waitingReasons[reason]:
 		s.wait(p, now, reason)
 	case permanentReasons[reason]:
 		p.run.recordPermanent(now, reason)
 	default:
-		if reason == "" {
-			reason = "failed"
-			if status != nil && !status.Exited() {
-				reason = "killed"
-			}
-		}
 		// An exit while still enabled is unexpected, even with status 0.
 		s.fail(p, now, reason)
 	}
@@ -708,12 +760,19 @@ func superviseState(home, explicitState string, stateGiven bool) (string, error)
 }
 
 // bindingEnded reports why the binding a host ran for no longer holds, or
-// "" while it is still the current, enabled one.
-func (s *supervisor) bindingEnded(name string, ran bindingKey) string {
-	snap, err := pluginfeed.NewPluginFeed(bus.Store{Dir: s.state}, name).PluginSnapshot()
+// "" while it is still the current, enabled one. known is false when the
+// record could not be read.
+func (s *supervisor) bindingEnded(name string, ran bindingKey) (changed string, known bool) {
+	snap, err := s.readSnapshot(name)
+	if err != nil {
+		return "", false
+	}
+	return endedFor(snap, ran), true
+}
+
+// endedFor compares a readable record with the binding a host ran for.
+func endedFor(snap pluginfeed.PluginFeedStatus, ran bindingKey) string {
 	switch {
-	case err != nil:
-		return ""
 	case snap.ID == "" || !snap.Enabled:
 		return "disabled"
 	case (bindingKey{snap.ID, snap.Epoch, snap.Revision}) != ran:

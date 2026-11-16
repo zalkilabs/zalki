@@ -93,21 +93,27 @@ type v2Host struct {
 	// the hello did not enable. Set by the pump, read by the loop; never
 	// plugin text.
 	refusedOp atomic.Value
+	// requested: terminal stopped the child because the owner disabled
+	// this installation. Set only there; read by runV2Host after loop.
+	requested bool
 }
 
 // runV2Host serves one child after its hello, with the enabled names.
-func runV2Host(ctx context.Context, feed pluginfeed.PluginFeed, service *bus.Service, binding *pluginfeed.PluginFeedStatus, c *child, out io.Writer, ready string, enabled []string) error {
+// requested is true only when the host itself stopped the child because the
+// owner disabled this installation; err is then nil.
+func runV2Host(ctx context.Context, feed pluginfeed.PluginFeed, service *bus.Service, binding *pluginfeed.PluginFeedStatus, c *child, out io.Writer, ready string, enabled []string) (requested bool, err error) {
 	if c.reader.Buffered() != 0 {
-		return errHelloVersion // a frame before hello_ok: the plugin did not wait for it
+		return false, errHelloVersion // a frame before hello_ok: the plugin did not wait for it
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	h := &v2Host{ctx: ctx, feed: feed, service: service, binding: binding, child: c, acks: make(chan string, 1), ops: make(chan *v2Command, 1), failed: make(chan string, 1), done: make(chan struct{}), enabled: enabled}
 	go h.pump()
 	defer func() { cancel(); c.cancel(); <-h.done }()
-	if err := h.loop(out, ready); !errors.Is(err, errDisabled) {
-		return err
+	err = h.loop(out, ready)
+	if !h.requested {
+		return false, err
 	}
-	return nil
+	return true, nil
 }
 
 func (h *v2Host) pump() {
@@ -336,6 +342,7 @@ func (h *v2Host) terminal(code string) error {
 	}
 	_ = h.write(map[string]string{"code": code})
 	if code == "revoked" && h.ctx.Err() == nil {
+		h.requested = true
 		return errDisabled // the owner disabled it: a quiet, normal stop
 	}
 	if op, _ := h.refusedOp.Load().(string); op != "" && h.ctx.Err() == nil {
@@ -347,8 +354,8 @@ func (h *v2Host) terminal(code string) error {
 	return h.failure()
 }
 
-// errDisabled ends the host loop when the owner disabled the plugin;
-// runV2Host returns nil for it.
+// errDisabled ends the host loop when the owner disabled the plugin; the
+// requested flag, not this value, tells runV2Host it was a requested stop.
 var errDisabled = errors.New("plugin disabled")
 
 func (h *v2Host) write(value any) error {

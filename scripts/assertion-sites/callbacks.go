@@ -30,18 +30,50 @@ func namedCallbackCount(f *ast.FuncDecl, callee string) int {
 	return count
 }
 
-func namedCallbackLines(functions map[string]*ast.FuncDecl, r *request, direct []int) ([]int, error) {
-	edge := r.Chain[0]
+func callbackEdge(functions map[string]*ast.FuncDecl, edge caller, nested bool) error {
+	if edge.ExpectedCalls != 0 && edge.ExpectedCalls != 1 {
+		return errors.New("named callback registration count must be one")
+	}
 	from, to := functions[edge.Caller], functions[edge.Callee]
-	if from == nil || to == nil || from.Body == nil || to.Body == nil || edge.CallerHelper || helperMarked(from) || helperMarked(to) ||
-		testArgument(from) == "" || testArgument(to) == "" || edge.Callee != r.Function ||
-		r.RequireHelpers || r.CallbackDirect {
-		return nil, errors.New("named callback lineage differs from its fresh non-helper source")
+	if from == nil || to == nil || from.Body == nil || to.Body == nil || edge.CallerHelper || helperMarked(from) ||
+		testArgument(from) == "" || testArgument(to) == "" || (helperMarked(to) && !nested) {
+		return errors.New("named callback lineage differs from its fresh source")
 	}
 	if namedCallbackCount(from, edge.Callee) != 1 {
-		return nil, errors.New("named callback must have exactly one current testing Run reference")
+		return errors.New("named callback must have exactly one current testing Run reference")
 	}
-	return direct, nil
+	return nil
+}
+
+func namedCallbackLines(fset *token.FileSet, functions map[string]*ast.FuncDecl, r *request, direct []int) ([]int, error) {
+	named := 0
+	seen := map[string]bool{r.Chain[0].Caller: true}
+	for index, edge := range r.Chain {
+		if edge.Kind != "run_callback" {
+			break
+		}
+		if (index > 0 && r.Chain[index-1].Callee != edge.Caller) || seen[edge.Callee] {
+			return nil, errors.New("disconnected or cyclic registered callback path")
+		}
+		nested := index == len(r.Chain)-1 && r.CallbackDirect
+		if err := callbackEdge(functions, edge, nested); err != nil {
+			return nil, err
+		}
+		seen[edge.Callee] = true
+		named++
+	}
+	if named == len(r.Chain) {
+		if r.Chain[named-1].Callee != r.Function || r.RequireHelpers {
+			return nil, errors.New("registered callback path misses the intended assertion")
+		}
+		return direct, nil
+	}
+	if r.CallbackDirect || r.Chain[named].Caller != r.Chain[named-1].Callee {
+		return nil, errors.New("registered callback and helper path differ")
+	}
+	tail := *r
+	tail.Chain = r.Chain[named:]
+	return helperChainLines(fset, functions, &tail)
 }
 
 func helperEdge(functions map[string]*ast.FuncDecl, edge caller, index int) (*ast.FuncDecl, error) {
@@ -69,8 +101,12 @@ func helperChainLines(fset *token.FileSet, functions map[string]*ast.FuncDecl, r
 			return nil, errors.New("disconnected helper chain")
 		}
 		found, count := callLines(fset, from, edge.Callee)
-		if count != 1 {
-			return nil, errors.New("helper call must resolve to exactly one current source site")
+		expected := edge.ExpectedCalls
+		if expected == 0 {
+			expected = 1
+		}
+		if expected < 1 || count != expected {
+			return nil, errors.New("helper call count differs from the exact reviewed source")
 		}
 		if index == 0 {
 			reported = found
