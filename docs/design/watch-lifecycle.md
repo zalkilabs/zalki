@@ -59,22 +59,36 @@ applying `zalki prune` still deliver notices for exits they observe.
 
 ### Platform ports
 
-The portable observer (`exit_observer.go`) depends only on the small `exitSource`
-interface in `exit_source.go`. It is handle-based: nothing outside the platform
-files touches file descriptors or `unix.*` types. Each platform implements it
-once: `exit_source_darwin.go` (kqueue), `exit_source_linux.go` (pidfd, inotify and
-epoll) and `exit_source_other.go` (reports the platform as unsupported, so the
-observer sweeps). A Windows port needs `exit_source_windows.go`, mapping
+The portable observer (`internal/bus/exit_observer.go`) consumes the raw
+`procwatch.Source` interface and `procwatch.NewSource` from
+`internal/procwatch/source.go`. OS handles and `unix.*` operations belong to that
+leaf, with `source_darwin.go` (kqueue), `source_linux.go` (pidfd, inotify and
+epoll) and `source_other.go` (unsupported, so the observer sweeps). There is no
+remaining bus `exit_source.go` forwarding wrapper. A Windows source would map
 `WatchProcess` to `OpenProcess(SYNCHRONIZE)` with `WaitForMultipleObjects` or
 `RegisterWaitForSingleObject` and `WatchDir` to `ReadDirectoryChangesW`, plus
-ports of the existing journal lock (`Flock`) and process probe
-(`readProcess`). The observer itself does not change.
+ports of the existing journal lock and `procwatch.Read` process probe.
+The observer retains domain liveness translation, journal fences, notice
+decisions and source/Close ownership; `procwatch.Identity` is a raw PID/start
+identity, distinct from `model.ProcessRef`. Unknown evidence is still not exit.
 
 Notice delivery failures from the CLI paths warn on stderr while list/prune still
 return their JSON results; journal observation errors can fail the command.
 Unknown liveness and idle age never count as evidence of exit.
 
-The lazy `state-formats.json` marker is ignored by rc.5. An unreadable or
-unsupported marker fences writes with "upgrade zalki": the observer releases
-its kernel watches, logs once and stays idle until shutdown, creating no watch directory or stamp and sending
-no notices. For unreadable-marker recovery, see [Upgrading](../../README.md#upgrading).
+### Retired global format fence
+
+The earlier rc.5 `state-formats.json` fencing description is historical.
+[Commit 396669e](https://github.com/zalkilabs/zalki/commit/396669e645860e9a941811e1dbe15b81d77a5602),
+an ancestor of the inspected source, removed that fence and its observer/MCP
+marker tests. The current observer creates its watch directory, opens the raw
+source and synchronizes without a global marker check; it does not promise to
+stay idle or send no notices because such a marker is unreadable.
+
+Current record handling is operation-specific: see
+`internal/bus/unsupported_record_test.go` for skip/count/warn and exact-read
+cases. This is not a guarantee that arbitrary mixed-build writes are safe.
+The source-lifetime and unknown-liveness rules above remain unchanged. Archive,
+StageB/release authority and any future migration policy remain separate open
+follow-ups, not a fence implementation requested or deferred by this docs change.
+Do not delete marker or state files to bypass an unsupported record.

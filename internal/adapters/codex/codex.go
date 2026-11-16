@@ -171,7 +171,7 @@ func queueCodex(ctx context.Context, msg model.Message, target model.Session) mo
 	if _, err := model.UUID(id); err != nil {
 		return failedReceipt(model.StatusNotSent, err)
 	}
-	command := exec.CommandContext(ctx, "codex", //nolint:gosec // G204: fixed executable; thread id is a validated bus.UUID
+	command := exec.CommandContext(ctx, "codex", //nolint:gosec // G204: fixed executable; thread id is a validated model UUID
 		"queue", "--thread", id, "--message", model.Envelope(msg))
 	command.Env = append(os.Environ(), "CODEX_HOME="+root)
 	output, err := command.CombinedOutput()

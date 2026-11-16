@@ -41,7 +41,7 @@ var (
 )
 
 // ManagedLoginItem is the one login-item operation: inspect, install,
-// upgrade or uninstall the account's dev.zalki.plugins job for the default
+// upgrade, uninstall or relaunch the account's dev.zalki.plugins job for the default
 // state. A preview (Apply false) only reads: no directory, lock, record,
 // launchctl change or notification. A change holds one operation lock for
 // the whole file and launchctl transaction and writes its pending record
