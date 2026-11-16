@@ -119,7 +119,11 @@ func TestAssertionSitesFreshTestingCallbackReportsItsOwnFatal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	line := strings.Count(source[:strings.Index(source, `t.Fatal("CURRENT_CALLBACK_ASSERTION")`)], "\n") + 1
+	index := strings.Index(source, r.Call)
+	if index < 0 {
+		t.Fatal("fixture is missing the expected callback assertion")
+	}
+	line := strings.Count(source[:index], "\n") + 1
 	if !slices.Equal(result.ReportLines, []int{line}) || result.CallbackSites != 1 {
 		t.Fatalf("fresh callback inherited its parent's helper attribution: %+v", result)
 	}
