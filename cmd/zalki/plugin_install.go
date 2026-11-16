@@ -73,7 +73,8 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return (&pluginInstaller{cmd: cmd, store: service.Store, flags: flags, home: opts.home}).run(args[0])
+			background := newLoginItemTarget(opts, service.Store.Dir)
+			return (&pluginInstaller{cmd: cmd, store: service.Store, flags: flags, home: opts.home, background: background}).run(args[0])
 		},
 	}
 	cmd.Flags().BoolVar(&flags.details, "details", false, "show the captured source, build and trust details before the question")
@@ -98,6 +99,8 @@ type pluginInstaller struct {
 	installerActor, installerCapability string
 	terminalReviewed                    bool
 	update                              *pluginfeed.PluginFeedStatus
+	background                          *loginItemTarget // nil: this install never touches the login item
+	loginPlan                           *loginItemPlan   // what the owner was shown before the question
 }
 
 func (p *pluginInstaller) say(format string, args ...any) error {
@@ -249,7 +252,7 @@ func (p *pluginInstaller) finish(access pluginfeed.PluginAccess) error {
 	if p.update != nil {
 		progress = "Publishing update..."
 	}
-	if err := p.say("%s\n", progress); err != nil {
+	if err := p.beforeEnable(progress); err != nil {
 		return err
 	}
 	installStep("commit")

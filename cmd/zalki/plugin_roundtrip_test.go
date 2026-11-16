@@ -345,13 +345,15 @@ func TestPluginOwnerStatusDoesNotClaimAHostIsRunning(t *testing.T) {
 	if err != nil || json.Unmarshal(raw, &status) != nil {
 		t.Fatal("status failed", string(raw), err)
 	}
-	wanted := []string{"access", "data_dir", "enabled", "epoch", "gap_pending", "id", "last_gap", "launch", "pin_matches", "plugin", "revision", "scope"}
+	wanted := []string{"access", "background", "data_dir", "enabled", "epoch", "gap_pending", "id", "last_gap", "launch", "pin_matches", "plugin", "revision", "run", "scope"}
 	keys := make([]string, 0, len(status))
 	for key := range status {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	if !reflect.DeepEqual(keys, wanted) || string(status["enabled"]) != "true" || string(status["gap_pending"]) != "true" {
+	// No run file and no controller: the runtime is "stopped", never inferred.
+	if !reflect.DeepEqual(keys, wanted) || string(status["enabled"]) != "true" || string(status["gap_pending"]) != "true" ||
+		string(status["run"]) != `{"state":"stopped","observed":"stopped","restarts_10m":0,"installed_by":"unknown"}` {
 		t.Fatal("status inferred runtime state or omitted configuration", string(raw))
 	}
 	for _, name := range []string{"fake-notifier.data/events"} {

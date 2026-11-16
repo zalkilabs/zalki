@@ -395,3 +395,28 @@ func TestPluginRestartPrePublicationFailureKeepsRequest(t *testing.T) {
 		t.Fatalf("after the confirmed save the request was not cleaned up or the mark is missing: %v %v %d", statErr, err, saved.RestartSeq)
 	}
 }
+
+// R7-M1: a log that cannot be opened at start waits with the backoff steps
+// and counts nothing; the next start is not at the next poll.
+func TestPluginLogFailureWaits(t *testing.T) {
+	s, p, key := restartFixture(t)
+	s.binary, s.home, s.events, s.plugins = fakeHost(t), t.TempDir(), make(chan hostEvent, 8), map[string]*supervised{}
+	p.run = pluginRunState{Schema: 1, Installation: key.id, State: runStopped}
+	if err := os.Mkdir(filepath.Join(s.state, "plugins", "demo.log"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	s.start("demo", p, key)
+	if p.host != nil || len(p.run.Restarts) != 0 {
+		t.Fatalf("a failed log was charged as a crash: %+v", p.run)
+	}
+	if p.run.State != runBackoff || p.run.ReasonCode != "log_failed" || p.run.BackoffStep != 1 || s.due(p) {
+		t.Fatalf("a failed log was retried without backoff: %+v", p.run)
+	}
+}
+
+// R7-L1: the supervisor's grace is longer than the host's 2 s EOF grace.
+func TestPluginGroupGraceExceedsPluginGrace(t *testing.T) {
+	if groupGrace <= 2*time.Second {
+		t.Fatalf("the group grace %v does not exceed the plugin's 2 s EOF grace", groupGrace)
+	}
+}

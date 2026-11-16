@@ -1,0 +1,2215 @@
+gui/UID = {
+	type = login
+	handle = 100023
+	active count = 437
+	service count = 436
+	active service count = 186
+	creator = com.example.v1
+	creator euid = 0
+	session = Aqua
+	endpoint destination = com.example.v2
+	auxiliary bootstrapper = com.example.v3
+	security context = {
+		uid = 501
+		asid = 100023
+	}
+
+	bringup time = 132 ms
+	death port = 0x16903
+
+	environment = {
+		SSH_AUTH_SOCK => /private/tmp/com.example/socket
+	}
+
+	services = {
+		   33851      - 	com.example.s1
+		   93191   (pe) 	com.example.s2
+		   68949   (pe) 	com.example.s3
+		   88261   (pe) 	com.example.s4
+		       0      0 	com.example.s5
+		       0      - 	com.example.s6
+		   13206   (pe) 	com.example.s7
+		       0      - 	com.example.s8
+		       0      - 	com.example.s9
+		       0      - 	com.example.s10
+		       0      - 	com.example.s11
+		     676      - 	com.example.s12
+		       0   (pe) 	com.example.s13
+		       0   (pe) 	com.example.s14
+		   30210   (jt) 	com.example.s15
+		   13210   (pe) 	com.example.s16
+		     775      - 	com.example.s17
+		       0      - 	com.example.s18
+		     897      - 	com.example.s19
+		       0      - 	com.example.s20
+		       0   (pe) 	com.example.s21
+		       0      - 	com.example.s22
+		   21090      - 	com.example.s23
+		       0      - 	com.example.s24
+		       0   (pe) 	com.example.s25
+		       0      - 	com.example.s26
+		       0   (pe) 	com.example.s27
+		   98647   (pe) 	com.example.s28
+		   30382      - 	com.example.s29
+		   36270   (pe) 	com.example.s30
+		       0      - 	com.example.s31
+		   13285   (pe) 	com.example.s32
+		       0      - 	com.example.s33
+		       0   (pe) 	com.example.s34
+		   90943   (pe) 	com.example.s35
+		       0      0 	com.example.s36
+		       0      - 	com.example.s37
+		       0      - 	com.example.s38
+		     731      - 	com.example.s39
+		   74862   (pe) 	com.example.s40
+		       0      - 	com.example.s41
+		       0   (pe) 	com.example.s42
+		   54321   (pe) 	com.example.s43
+		   88447   (pe) 	com.example.s44
+		       0      - 	com.example.s45
+		       0   (pe) 	com.example.s46
+		   30358   (jt) 	com.example.s47
+		   73561   (pe) 	com.example.s48
+		       0      - 	com.example.s49
+		   96063   (pe) 	com.example.s50
+		       0      - 	com.example.s51
+		     721      - 	com.example.s52
+		   89911   (pe) 	com.example.s53
+		     618      - 	com.example.s54
+		   88530   (pe) 	com.example.s55
+		       0      - 	com.example.s56
+		   29452   (jt) 	com.example.s57
+		   38480      - 	com.example.s58
+		   89573   (pe) 	com.example.s59
+		       0      - 	com.example.s60
+		       0      - 	com.example.s61
+		       0      - 	com.example.s62
+		       0      - 	com.example.s63
+		       0   (pe) 	com.example.s64
+		       0   (pe) 	com.example.s65
+		       0      - 	com.example.s66
+		       0      - 	com.example.s67
+		     606      - 	com.example.s68
+		       0      - 	com.example.s69
+		       0   (pe) 	com.example.s70
+		   28990   (jt) 	com.example.s71
+		       0      - 	com.example.s72
+		   31412   (pe) 	com.example.s73
+		     642      - 	com.example.s74
+		       0      - 	com.example.s75
+		       0   (pe) 	com.example.s76
+		       0      0 	com.example.s77
+		   93192      - 	com.example.s78
+		   90026   (pe) 	com.example.s79
+		   30353   (jt) 	com.example.s80
+		       0      - 	com.example.s81
+		   96335   (pe) 	com.example.s82
+		     730      - 	com.example.s83
+		   13207   (pe) 	com.example.s84
+		    5278   (pe) 	com.example.s85
+		   96616   (jt) 	com.example.s86
+		       0      - 	com.example.s87
+		     658      - 	com.example.s88
+		   14186   (pe) 	com.example.s89
+		       0      - 	com.example.s90
+		   13401   (pe) 	com.example.s91
+		       0      - 	com.example.s92
+		       0      0 	com.example.s93
+		       0     78 	com.example.s94
+		   88291   (pe) 	com.example.s95
+		   89583   (pe) 	com.example.s96
+		   88296   (pe) 	com.example.s97
+		   88960   (pe) 	com.example.s98
+		       0      - 	com.example.s99
+		   89575   (pe) 	com.example.s100
+		       0      - 	com.example.s101
+		       0      - 	com.example.s102
+		   14227   (pe) 	com.example.s103
+		       0   (pe) 	com.example.s104
+		       0      0 	com.example.s105
+		     614      - 	com.example.s106
+		       0      0 	com.example.s107
+		       0      - 	com.example.s108
+		   89914   (pe) 	com.example.s109
+		     711      - 	com.example.s110
+		       0   (jt) 	com.example.s111
+		   90080   (pe) 	com.example.s112
+		   98765   (pe) 	com.example.s113
+		       0      0 	com.example.s114
+		   96061   (pe) 	com.example.s115
+		       0      - 	com.example.s116
+		       0      - 	com.example.s117
+		   88441   (pe) 	com.example.s118
+		       0      - 	com.example.s119
+		       0      - 	com.example.s120
+		       0      - 	com.example.s121
+		     703      - 	com.example.s122
+		       0      0 	com.example.s123
+		   82947   (pe) 	com.example.s124
+		       0      - 	com.example.s125
+		   90997      0 	com.example.s126
+		   98763   (pe) 	com.example.s127
+		   98738   (pe) 	com.example.s128
+		       0      - 	com.example.s129
+		       0   (pe) 	com.example.s130
+		   89750   (pe) 	com.example.s131
+		   40720      - 	com.example.s132
+		       0      - 	com.example.s133
+		   90049   (pe) 	com.example.s134
+		       0      - 	com.example.s135
+		       0      - 	com.example.s136
+		       0      - 	com.example.s137
+		     679      - 	com.example.s138
+		       0   (pe) 	com.example.s139
+		     710      - 	com.example.s140
+		       0   (pe) 	com.example.s141
+		   98766   (pe) 	com.example.s142
+		   95578      - 	com.example.s143
+		   11368   (pe) 	com.example.s144
+		   13213   (pe) 	com.example.s145
+		       0      - 	com.example.s146
+		   73560   (pe) 	com.example.s147
+		     781      - 	com.example.s148
+		       0   (pe) 	com.example.s149
+		     596      - 	com.example.s150
+		     639      - 	com.example.s151
+		       0      0 	com.example.s152
+		     862      - 	com.example.s153
+		    2579   (pe) 	com.example.s154
+		   88306      1 	com.example.s155
+		       0   (pe) 	com.example.s156
+		       0      - 	com.example.s157
+		   89301   (pe) 	com.example.s158
+		       0      - 	com.example.s159
+		       0   (pe) 	com.example.s160
+		   96012   (pe) 	com.example.s161
+		   24208   (pe) 	com.example.s162
+		   29249   (pe) 	com.example.s163
+		   99089   (pe) 	com.example.s164
+		     603      - 	com.example.s165
+		   30302   (jt) 	com.example.s166
+		   14839   (pe) 	com.example.s167
+		       0   (pe) 	com.example.s168
+		   90938   (pe) 	com.example.s169
+		     715      - 	com.example.s170
+		    2578   (pe) 	com.example.s171
+		       0      - 	com.example.s172
+		     653      - 	com.example.s173
+		       0   (pe) 	com.example.s174
+		       0   (pe) 	com.example.s175
+		       0      - 	com.example.s176
+		       0      0 	com.example.s177
+		     784      - 	com.example.s178
+		   30183   (jt) 	com.example.s179
+		       0      - 	com.example.s180
+		       0      - 	com.example.s181
+		       0   (pe) 	com.example.s182
+		       0      - 	com.example.s183
+		       0      - 	com.example.s184
+		   98948   (pe) 	com.example.s185
+		   34554   (pe) 	com.example.s186
+		   24091   (pe) 	com.example.s187
+		       0   (pe) 	com.example.s188
+		   13402   (pe) 	com.example.s189
+		   89967   (pe) 	com.example.s190
+		       0   (pe) 	com.example.s191
+		       0   (pe) 	com.example.s192
+		       0      - 	com.example.s193
+		       0      - 	com.example.s194
+		   34351   (pe) 	com.example.s195
+		       0   (pe) 	com.example.s196
+		       0      - 	com.example.s197
+		   98740   (pe) 	com.example.s198
+		   88522   (pe) 	com.example.s199
+		     785      - 	com.example.s200
+		   36267   (pe) 	com.example.s201
+		       0      - 	com.example.s202
+		       0      - 	com.example.s203
+		       0   (pe) 	com.example.s204
+		       0      - 	com.example.s205
+		   88341   (pe) 	com.example.s206
+		       0   (pe) 	com.example.s207
+		   13211   (pe) 	com.example.s208
+		       0   (pe) 	com.example.s209
+		       0      - 	com.example.s210
+		       0      - 	com.example.s211
+		   90603   (pe) 	com.example.s212
+		       0   (pe) 	com.example.s213
+		       0      0 	com.example.s214
+		     773      - 	com.example.s215
+		   94500   (pe) 	com.example.s216
+		   87495      - 	com.example.s217
+		     632      - 	com.example.s218
+		       0      - 	com.example.s219
+		       0      - 	com.example.s220
+		     697      - 	com.example.s221
+		   73562   (pe) 	com.example.s222
+		   32637      - 	com.example.s223
+		       0      - 	com.example.s224
+		   88525   (pe) 	com.example.s225
+		       0      0 	com.example.s226
+		       0      - 	com.example.s227
+		   13960   (pe) 	com.example.s228
+		   30294   (jt) 	com.example.s229
+		       0      0 	com.example.s230
+		       0      - 	com.example.s231
+		     662      - 	com.example.s232
+		   74188   (pe) 	com.example.s233
+		   37516   (pe) 	com.example.s234
+		       0      - 	com.example.s235
+		       0      - 	com.example.s236
+		       0      - 	com.example.s237
+		       0      - 	com.example.s238
+		       0      0 	com.example.s239
+		       0      0 	com.example.s240
+		   96017   (pe) 	com.example.s241
+		       0      - 	com.example.s242
+		       0      0 	com.example.s243
+		       0   (pe) 	com.example.s244
+		       0      - 	com.example.s245
+		       0   (pe) 	com.example.s246
+		       0      0 	com.example.s247
+		       0      0 	com.example.s248
+		       0      - 	com.example.s249
+		       0   (pe) 	com.example.s250
+		   89915   (pe) 	com.example.s251
+		   89843   (pe) 	com.example.s252
+		       0      - 	com.example.s253
+		       0      0 	com.example.s254
+		       0   (pe) 	com.example.s255
+		   37246   (pe) 	com.example.s256
+		       0      - 	com.example.s257
+		       0      - 	com.example.s258
+		       0   (pe) 	com.example.s259
+		       0      - 	com.example.s260
+		       0      0 	com.example.s261
+		       0      - 	com.example.s262
+		       0      - 	com.example.s263
+		    2575   (pe) 	com.example.s264
+		       0   (pe) 	com.example.s265
+		       0   (pe) 	com.example.s266
+		       0      - 	com.example.s267
+		       0   (pe) 	com.example.s268
+		       0      - 	com.example.s269
+		       0      - 	com.example.s270
+		       0      0 	com.example.s271
+		       0      - 	com.example.s272
+		       0      - 	com.example.s273
+		   88268   (pe) 	com.example.s274
+		       0      - 	com.example.s275
+		       0      - 	com.example.s276
+		   34533      - 	com.example.s277
+		   72677      - 	com.example.s278
+		       0      0 	com.example.s279
+		       0      - 	com.example.s280
+		       0      - 	com.example.s281
+		       0      - 	com.example.s282
+		       0      - 	com.example.s283
+		       0      - 	com.example.s284
+		       0      0 	com.example.s285
+		       0      - 	com.example.s286
+		     650      - 	com.example.s287
+		       0   (pe) 	com.example.s288
+		       0      - 	com.example.s289
+		   59047   (pe) 	com.example.s290
+		       0   (pe) 	com.example.s291
+		       0      - 	com.example.s292
+		       0      - 	com.example.s293
+		       0      - 	com.example.s294
+		   96062   (pe) 	com.example.s295
+		       0      - 	com.example.s296
+		       0   (pe) 	com.example.s297
+		   38310   (pe) 	com.example.s298
+		       0   (pe) 	com.example.s299
+		   14291   (pe) 	com.example.s300
+		       0      - 	com.example.s301
+		       0      - 	com.example.s302
+		       0      - 	com.example.s303
+		   96042   (pe) 	com.example.s304
+		   13078   (pe) 	com.example.s305
+		     713      - 	com.example.s306
+		       0   (pe) 	com.example.s307
+		   89294   (pe) 	com.example.s308
+		       0      0 	com.example.s309
+		       0      - 	com.example.s310
+		     788      - 	com.example.s311
+		       0      - 	com.example.s312
+		       0   (pe) 	com.example.s313
+		   89717   (pe) 	com.example.s314
+		       0      - 	com.example.s315
+		       0      - 	com.example.s316
+		       0   (pe) 	com.example.s317
+		       0      - 	com.example.s318
+		   13208   (pe) 	com.example.s319
+		       0      - 	com.example.s320
+		       0   (pe) 	com.example.s321
+		       0      - 	com.example.s322
+		       0      0 	com.example.s323
+		     657      - 	com.example.s324
+		       0      - 	com.example.s325
+		       0      0 	com.example.s326
+		   91492      - 	com.example.s327
+		     623      - 	com.example.s328
+		       0      0 	com.example.s329
+		   33213   (pe) 	com.example.s330
+		       0      - 	com.example.s331
+		       0   (pe) 	com.example.s332
+		       0      - 	com.example.s333
+		       0      - 	com.example.s334
+		   25355      0 	com.example.s335
+		   88349   (pe) 	com.example.s336
+		       0   (pe) 	com.example.s337
+		       0      - 	com.example.s338
+		     951      - 	com.example.s339
+		       0      - 	com.example.s340
+		   89467   (pe) 	com.example.s341
+		       0      - 	com.example.s342
+		       0   (pe) 	com.example.s343
+		       0   (pe) 	com.example.s344
+		       0      0 	com.example.s345
+		     681      - 	com.example.s346
+		       0      - 	com.example.s347
+		   93168   (pe) 	com.example.s348
+		       0      - 	com.example.s349
+		   94302   (pe) 	com.example.s350
+		       0      - 	com.example.s351
+		       0      0 	com.example.s352
+		       0      0 	com.example.s353
+		       0      0 	com.example.s354
+		       0      - 	com.example.s355
+		       0      - 	com.example.s356
+		       0      - 	com.example.s357
+		       0   (pe) 	com.example.s358
+		   13312   (pe) 	com.example.s359
+		     669      - 	com.example.s360
+		     748      - 	com.example.s361
+		     814      - 	com.example.s362
+		       0      - 	com.example.s363
+		       0      - 	com.example.s364
+		       0   (pe) 	com.example.s365
+		       0      - 	com.example.s366
+		     791      - 	com.example.s367
+		     638      - 	com.example.s368
+		   89515   (pe) 	com.example.s369
+		   92253   (pe) 	com.example.s370
+		     604      - 	com.example.s371
+		       0      - 	com.example.s372
+		   41245      - 	com.example.s373
+		       0      - 	com.example.s374
+		     617      - 	com.example.s375
+		       0      0 	com.example.s376
+		       0      - 	com.example.s377
+		       0      - 	com.example.s378
+		     792      - 	com.example.s379
+		       0      - 	com.example.s380
+		   97900   (pe) 	com.example.s381
+		     651      - 	com.example.s382
+		       0      - 	com.example.s383
+		   89713   (pe) 	com.example.s384
+		       0      - 	com.example.s385
+		     809      - 	com.example.s386
+		   68595   (pe) 	com.example.s387
+		       0      - 	com.example.s388
+		       0      - 	com.example.s389
+		       0      - 	com.example.s390
+		       0   (pe) 	com.example.s391
+		       0      - 	com.example.s392
+		       0   (pe) 	com.example.s393
+		   87412      0 	com.example.s394
+		       0      - 	com.example.s395
+		       0   (pe) 	com.example.s396
+		       0      - 	com.example.s397
+		       0      - 	com.example.s398
+		       0   (pe) 	com.example.s399
+		       0      - 	com.example.s400
+		       0   (pe) 	com.example.s401
+		       0      - 	com.example.s402
+		   92220   (pe) 	com.example.s403
+		     615      - 	com.example.s404
+		       0      - 	com.example.s405
+		       0      - 	com.example.s406
+		   96287   (pe) 	com.example.s407
+		   89572   (pe) 	com.example.s408
+		   29631   (jt) 	com.example.s409
+		   96011   (pe) 	com.example.s410
+		       0      0 	com.example.s411
+		   10485   (pe) 	com.example.s412
+		       0      - 	com.example.s413
+		       0      - 	com.example.s414
+		   98373   (pe) 	com.example.s415
+		       0      - 	com.example.s416
+		   32519      - 	com.example.s417
+		   34362   (pe) 	com.example.s418
+		       0      - 	com.example.s419
+		     611      - 	com.example.s420
+		       0      0 	com.example.s421
+		     798      - 	com.example.s422
+		     706      - 	com.example.s423
+		   36268   (pe) 	com.example.s424
+		       0      0 	com.example.s425
+		   92237   (pe) 	com.example.s426
+		       0   (pe) 	com.example.s427
+		       0   (pe) 	com.example.s428
+		     660      - 	com.example.s429
+		       0   (pe) 	com.example.s430
+		   90632      - 	com.example.s431
+		       0      - 	com.example.s432
+		   88857   (pe) 	com.example.s433
+		       0   (pe) 	com.example.s434
+		       0      - 	com.example.s435
+		       0      0 	com.example.s436
+	}
+
+	unmanaged processes = {
+		com.example.b1 = {
+			active count = 3
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+				"com.example.q1" = {
+					port = 0xe0147
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q2" = {
+					port = 0x1125b7
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+		}
+		com.example.b2 = {
+			active count = 4
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+				"com.example.q3" = {
+					port = 0xa38ef
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q4" = {
+					port = 0xb64b7
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q5" = {
+					port = 0xde59b
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+		}
+		com.example.b3 = {
+			active count = 4
+			dynamic endpoints = {
+				"com.example.q6" = {
+					port = 0x7873b
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+			pid-local endpoints = {
+				"com.example.q7" = {
+					port = 0x5cf43
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q8" = {
+					port = 0x790a3
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+		}
+		com.example.b4 = {
+			active count = 1
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+			}
+		}
+		com.example.b5 = {
+			active count = 1
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+			}
+		}
+		com.example.b6 = {
+			active count = 1
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+			}
+		}
+		com.example.b7 = {
+			active count = 6
+			dynamic endpoints = {
+				"com.example.q9" = {
+					port = 0x42633
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q10" = {
+					port = 0x3b603
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+			pid-local endpoints = {
+				"com.example.q11" = {
+					port = 0x67f03
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q12" = {
+					port = 0x3cc0b
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q13" = {
+					port = 0x2d0a3
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+		}
+		com.example.b8 = {
+			active count = 3
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+				"com.example.q14" = {
+					port = 0xd9803
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q15" = {
+					port = 0xed2db
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+		}
+		com.example.b9 = {
+			active count = 1
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+			}
+		}
+		com.example.b10 = {
+			active count = 1
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+			}
+		}
+		com.example.b11 = {
+			active count = 3
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+				"com.example.q16" = {
+					port = 0x71bd3
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q17" = {
+					port = 0x71c93
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+		}
+		com.example.b12 = {
+			active count = 4
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+				"com.example.q18" = {
+					port = 0xe9acf
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q19" = {
+					port = 0x11ff1f
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q20" = {
+					port = 0x8d6c7
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+		}
+		com.example.b13 = {
+			active count = 4
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+				"com.example.q21" = {
+					port = 0xdc4e7
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q22" = {
+					port = 0x11f99f
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q23" = {
+					port = 0xba1db
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+		}
+		com.example.b14 = {
+			active count = 4
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+				"com.example.q24" = {
+					port = 0x3b3db
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q25" = {
+					port = 0x51883
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q26" = {
+					port = 0xb5f4b
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+		}
+		com.example.b15 = {
+			active count = 1
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+			}
+		}
+		com.example.b16 = {
+			active count = 4
+			dynamic endpoints = {
+				"com.example.q27" = {
+					port = 0x98307
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+			pid-local endpoints = {
+				"com.example.q28" = {
+					port = 0x91703
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+				"com.example.q29" = {
+					port = 0x91503
+					active = 1
+					managed = 0
+					reset = 0
+					hide = 0
+					watching = 0
+				}
+			}
+		}
+		com.example.b17 = {
+			active count = 1
+			dynamic endpoints = {
+			}
+			pid-local endpoints = {
+			}
+		}
+	}
+
+	endpoints = {
+	}
+
+	externally-hosted endpoints = {
+		0x1099b3    U   A   com.example.e1
+		0x10762b    M   D   com.example.e2
+		       0    M   D   com.example.e3
+		 0x9ed03    M   A   com.example.e4
+		 0x8a703    M   A   com.example.e5
+		 0x6ee4b    M   A   com.example.e6
+		 0x6f803    M   A   com.example.e7
+		 0x73713    M   A   com.example.e8
+		 0x36a83    M   D   com.example.e9
+		 0x47f03    M   A   com.example.e10
+		 0x47d13    M   A   com.example.e11
+		 0xdae1b    M   A   com.example.e12
+		 0x4442b    M   A   com.example.e13
+		 0x6474b    M   D   com.example.e14
+		 0xb2b03    M   A   com.example.e15
+		 0x6080f    M   A   com.example.e16
+		 0x59603    M   A   com.example.e17
+		 0x86d03    M   D   com.example.e18
+		 0xa1a03    M   A   com.example.e19
+		0x10e3a7    M   D   com.example.e20
+		 0x80403    M   D   com.example.e21
+		 0x6e3d3    M   A   com.example.e22
+		       0    M   D   com.example.e23
+		 0xa2e03    M   A   com.example.e24
+		 0x87203    M   A   com.example.e25
+		 0xcecdb    M   A   com.example.e26
+		 0x5a947    M   A   com.example.e27
+		 0x35cfb    M   A   com.example.e28
+		 0x9a50b    M   A   com.example.e29
+		 0xaed4b    M   A   com.example.e30
+		 0x4bd03    M   D   com.example.e31
+		 0x71303    M   D   com.example.e32
+		 0x40503    M   A   com.example.e33
+		 0x8f3e3    M   D   com.example.e34
+		 0xdf343    M   D   com.example.e35
+		 0x78413    M   D   com.example.e36
+		 0x5010b    M   A   com.example.e37
+		 0x4d503    M   A   com.example.e38
+		 0x4d603    M   A   com.example.e39
+		 0x6ca03    M   D   com.example.e40
+		 0x53f03    M   D   com.example.e41
+		 0x40a33    M   A   com.example.e42
+		 0x55303    M   D   com.example.e43
+		 0xfe08b    M   A   com.example.e44
+		 0xc9bab    U   A   com.example.e45
+		 0xd5cb3    M   A   com.example.e46
+		 0x9f003    M   D   com.example.e47
+		       0    M   D   com.example.e48
+		 0x35e73    M   A   com.example.e49
+		 0xb2903    M   A   com.example.e50
+		       0    M   D   com.example.e51
+		 0x47403    M   A   com.example.e52
+		 0x4c403    M   A   com.example.e53
+		 0xc4a03    M   D   com.example.e54
+		 0x6bc03    M   A   com.example.e55
+		 0x6bd03    M   A   com.example.e56
+		 0x84e03    M   A   com.example.e57
+		 0xda613    M   D   com.example.e58
+		 0xaa403    M   D   com.example.e59
+		 0xc6b03    M   D   com.example.e60
+		 0x87603    M   D   com.example.e61
+		 0x60203    M   A   com.example.e62
+		 0x74403    M   A   com.example.e63
+		 0x562f7    M   A   com.example.e64
+		       0    M   D   com.example.e65
+		       0    M   D   com.example.e66
+		 0xd3edb    M   D   com.example.e67
+		 0xb59eb    M   D   com.example.e68
+		 0x4ed0b    M   A   com.example.e69
+		 0x7532b    M   D   com.example.e70
+		       0    M   D   com.example.e71
+		 0xafe03    M   A   com.example.e72
+		 0xd1473    M   A   com.example.e73
+		 0x6780b    M   A   com.example.e74
+		 0x5333f    M   A   com.example.e75
+		       0    M   D   com.example.e76
+		 0x97d1b    M   A   com.example.e77
+		 0x4d403    M   A   com.example.e78
+		 0x4e003    M   A   com.example.e79
+		       0    M   D   com.example.e80
+		 0x3b603    U   A   com.example.e81
+		       0    M   D   com.example.e82
+		 0x36b3f    M   A   com.example.e83
+		 0x72f03    M   A   com.example.e84
+		 0x35f03    M   A   com.example.e85
+		       0    M   D   com.example.e86
+		 0x83eeb    U   A   com.example.e87
+		 0xc9bab    U   A   com.example.e88
+		 0xc9bab    U   A   com.example.e89
+		 0xc9bab    U   A   com.example.e90
+		 0xcae8f    M   D   com.example.e91
+		       0    M   D   com.example.e92
+		 0x8ab03    M   A   com.example.e93
+		       0    M   D   com.example.e94
+		 0x5391f    M   A   com.example.e95
+		 0x63907    M   D   com.example.e96
+		       0    M   D   com.example.e97
+		 0x5a303    M   A   com.example.e98
+		 0xe18ff    M   D   com.example.e99
+		 0x7c303    M   D   com.example.e100
+		 0x8ebaf    M   A   com.example.e101
+		 0x57203    M   A   com.example.e102
+		 0xed023    M   D   com.example.e103
+		 0x6a50b    M   A   com.example.e104
+		 0xc7003    M   D   com.example.e105
+		       0    M   D   com.example.e106
+		 0x86f03    M   D   com.example.e107
+		 0x64b93    M   A   com.example.e108
+		 0xb79e7    M   D   com.example.e109
+		0x1255b3    M   D   com.example.e110
+		0x125b93    M   D   com.example.e111
+		       0    M   D   com.example.e112
+		0x106f03    M   D   com.example.e113
+		 0x7fe8b    M   A   com.example.e114
+		 0x53003    M   A   com.example.e115
+		 0x41403    M   A   com.example.e116
+		 0x4130f    M   D   com.example.e117
+		 0x56d9b    M   D   com.example.e118
+		 0x7fa03    M   A   com.example.e119
+		       0    M   D   com.example.e120
+		 0x5eaab    M   D   com.example.e121
+		       0    M   D   com.example.e122
+		       0    M   D   com.example.e123
+		       0    M   D   com.example.e124
+		       0    M   D   com.example.e125
+		 0xaf653    M   A   com.example.e126
+		 0x4d103    M   A   com.example.e127
+		 0x45b03    M   A   com.example.e128
+		       0    M   D   com.example.e129
+		 0xf3ce3    M   D   com.example.e130
+		 0x40c03    M   A   com.example.e131
+		 0x34703    M   A   com.example.e132
+		       0    M   D   com.example.e133
+		 0x7a7ff    M   A   com.example.e134
+		 0x36707    M   A   com.example.e135
+		 0x36613    M   A   com.example.e136
+		 0xc9bab    U   A   com.example.e137
+		 0xc9bab    U   A   com.example.e138
+		 0xc9bab    U   A   com.example.e139
+		 0xc9bab    U   A   com.example.e140
+		 0xc9bab    U   A   com.example.e141
+		       0    M   D   com.example.e142
+		       0    M   D   com.example.e143
+		       0    M   D   com.example.e144
+		 0xa4ae3    M   A   com.example.e145
+		       0    M   D   com.example.e146
+		       0    M   D   com.example.e147
+		 0xa1703    M   A   com.example.e148
+		 0x88d03    M   A   com.example.e149
+		 0x4c803    M   A   com.example.e150
+		 0xa693f    M   A   com.example.e151
+		 0x6a617    M   A   com.example.e152
+		 0xa4203    M   A   com.example.e153
+		       0    M   D   com.example.e154
+		 0x7f103    M   A   com.example.e155
+		       0    M   D   com.example.e156
+		       0    M   D   com.example.e157
+		 0x9a473    M   A   com.example.e158
+		       0    M   D   com.example.e159
+		 0x6d947    M   A   com.example.e160
+		0x125ed3    M   A   com.example.e161
+		       0    M   D   com.example.e162
+		 0x70903    M   A   com.example.e163
+		 0x9e487    M   A   com.example.e164
+		 0x4d803    M   D   com.example.e165
+		 0x4de03    M   A   com.example.e166
+		       0    M   D   com.example.e167
+		 0xd8a2f    M   D   com.example.e168
+		       0    M   D   com.example.e169
+		       0    M   D   com.example.e170
+		       0    M   D   com.example.e171
+		 0xc5d0b    M   A   com.example.e172
+		 0x59e53    M   D   com.example.e173
+		 0x65603    M   A   com.example.e174
+		 0x5b703    M   A   com.example.e175
+		 0x73303    M   A   com.example.e176
+		       0    M   D   com.example.e177
+		 0x4b703    M   D   com.example.e178
+		 0xde3c7    M   A   com.example.e179
+		       0    M   D   com.example.e180
+		 0xf93c3    M   D   com.example.e181
+		 0xdce03    M   D   com.example.e182
+		 0xbd84b    M   D   com.example.e183
+		       0    M   D   com.example.e184
+		 0xa2703    M   A   com.example.e185
+		 0xeb763    M   D   com.example.e186
+		 0x59427    M   A   com.example.e187
+		 0x86ad3    M   A   com.example.e188
+		 0x46903    M   A   com.example.e189
+		 0x68273    M   A   com.example.e190
+		 0xa5403    M   A   com.example.e191
+		 0xf9703    M   A   com.example.e192
+		 0x6fe27    M   A   com.example.e193
+		 0x75103    M   A   com.example.e194
+		 0xa0003    M   A   com.example.e195
+		       0    M   D   com.example.e196
+		 0x8e503    M   A   com.example.e197
+		 0x8e403    M   A   com.example.e198
+		 0x4120f    M   D   com.example.e199
+		 0x87e03    M   D   com.example.e200
+		0x100513    M   D   com.example.e201
+		 0xb564b    M   A   com.example.e202
+		 0x7c603    M   A   com.example.e203
+		 0xa1f03    M   A   com.example.e204
+		 0x54303    M   D   com.example.e205
+		 0x754b3    M   D   com.example.e206
+		       0    M   D   com.example.e207
+		 0xa3a03    M   A   com.example.e208
+		 0xa3b13    M   A   com.example.e209
+		 0xf65eb    M   D   com.example.e210
+		 0x6b5bb    M   A   com.example.e211
+		 0x72203    M   A   com.example.e212
+		 0x623e3    M   A   com.example.e213
+		 0x19fe3    M   A   com.example.e214
+		 0xd724b    M   D   com.example.e215
+		 0x46503    M   A   com.example.e216
+		 0x46103    M   A   com.example.e217
+		 0x4e103    M   A   com.example.e218
+		 0x98503    M   D   com.example.e219
+		 0x76a03    M   A   com.example.e220
+		 0x4f45b    M   A   com.example.e221
+		       0    M   D   com.example.e222
+		       0    M   D   com.example.e223
+		 0x79133    M   D   com.example.e224
+		 0xc9bab    U   A   com.example.e225
+		 0xac203    M   A   com.example.e226
+		       0    M   D   com.example.e227
+		 0x66213    M   D   com.example.e228
+		 0x527b3    M   A   com.example.e229
+		 0xdc287    M   A   com.example.e230
+		 0x3270b    M   A   com.example.e231
+		       0    M   D   com.example.e232
+		 0x52d03    M   D   com.example.e233
+		       0    M   D   com.example.e234
+		       0    M   D   com.example.e235
+		       0    M   D   com.example.e236
+		 0xbb403    M   D   com.example.e237
+		 0x97a03    M   D   com.example.e238
+		 0xb163f    M   D   com.example.e239
+		 0xaa603    M   D   com.example.e240
+		 0x6a403    M   A   com.example.e241
+		 0x95ecf    M   D   com.example.e242
+		       0    M   D   com.example.e243
+		 0xb9403    M   D   com.example.e244
+		 0xb8db3    M   D   com.example.e245
+		 0xa1e03    M   A   com.example.e246
+		 0xd5513    M   A   com.example.e247
+		 0x74603    M   A   com.example.e248
+		 0xb9b4b    M   D   com.example.e249
+		 0x15353    M   D   com.example.e250
+		 0x9a803    M   A   com.example.e251
+		 0x8621b    M   D   com.example.e252
+		 0x2c7bf    M   D   com.example.e253
+		       0    M   D   com.example.e254
+		       0    M   D   com.example.e255
+		       0    M   D   com.example.e256
+		 0xcaa9b    M   D   com.example.e257
+		 0x5474b    M   A   com.example.e258
+		 0xb0103    M   A   com.example.e259
+		       0    M   D   com.example.e260
+		 0x7e807    M   A   com.example.e261
+		 0x44363    M   A   com.example.e262
+		       0    M   D   com.example.e263
+		 0x87f03    M   A   com.example.e264
+		 0x64003    M   A   com.example.e265
+		 0x7250f    M   A   com.example.e266
+		       0    M   D   com.example.e267
+		 0x45303    M   A   com.example.e268
+		 0xfc0f3    M   A   com.example.e269
+		       0    M   D   com.example.e270
+		 0x7f90b    M   A   com.example.e271
+		       0    M   D   com.example.e272
+		       0    M   D   com.example.e273
+		 0xc9bab    U   A   com.example.e274
+		 0xc9bab    U   A   com.example.e275
+		 0x9d553    M   A   com.example.e276
+		 0x8a903    M   A   com.example.e277
+		 0x79c03    M   A   com.example.e278
+		 0x66603    M   A   com.example.e279
+		       0    M   D   com.example.e280
+		       0    M   D   com.example.e281
+		0x11b09b    M   D   com.example.e282
+		 0x4c203    M   A   com.example.e283
+		 0x46d03    M   A   com.example.e284
+		 0x46703    M   A   com.example.e285
+		 0xc55a3    M   D   com.example.e286
+		 0x68b03    M   A   com.example.e287
+		 0x6c5cf    M   A   com.example.e288
+		 0xa5603    M   A   com.example.e289
+		 0x84c03    M   A   com.example.e290
+		 0xa9103    M   A   com.example.e291
+		 0xdcb03    M   A   com.example.e292
+		 0xdca03    M   A   com.example.e293
+		 0x7e403    M   A   com.example.e294
+		 0x6a3c3    M   A   com.example.e295
+		 0x916f3    M   D   com.example.e296
+		       0    M   D   com.example.e297
+		 0x87003    M   A   com.example.e298
+		 0x64f03    M   D   com.example.e299
+		       0    M   D   com.example.e300
+		 0x60303    M   A   com.example.e301
+		 0x74503    M   A   com.example.e302
+		 0x60003    M   A   com.example.e303
+		       0    M   D   com.example.e304
+		       0    M   D   com.example.e305
+		 0x7fd83    M   A   com.example.e306
+		 0x41503    M   D   com.example.e307
+		 0x2fb8b    M   A   com.example.e308
+		 0x54403    M   A   com.example.e309
+		 0x56a87    M   A   com.example.e310
+		0x129d13    M   A   com.example.e311
+		       0    M   D   com.example.e312
+		 0x64303    M   A   com.example.e313
+		 0x64203    M   A   com.example.e314
+		 0x76903    M   A   com.example.e315
+		       0    M   D   com.example.e316
+		 0xa8703    M   A   com.example.e317
+		 0x40203    M   A   com.example.e318
+		       0    M   D   com.example.e319
+		 0xc9bab    U   A   com.example.e320
+		       0    M   D   com.example.e321
+		       0    M   D   com.example.e322
+		       0    M   D   com.example.e323
+		       0    M   D   com.example.e324
+		       0    M   D   com.example.e325
+		 0xda127    M   D   com.example.e326
+		 0xa66a3    M   D   com.example.e327
+		       0    M   D   com.example.e328
+		 0x9860f    M   D   com.example.e329
+		       0    M   D   com.example.e330
+		 0x4520b    M   A   com.example.e331
+		 0x88303    M   D   com.example.e332
+		       0    M   D   com.example.e333
+		 0x98c1b    M   A   com.example.e334
+		 0x68a03    M   A   com.example.e335
+		 0xa5503    M   A   com.example.e336
+		 0xa580f    M   A   com.example.e337
+		 0xdc703    M   A   com.example.e338
+		       0    M   D   com.example.e339
+		 0x85c3f    M   A   com.example.e340
+		 0x48d03    M   D   com.example.e341
+		0x11c9b3    M   D   com.example.e342
+		 0x56543    M   D   com.example.e343
+		       0    M   D   com.example.e344
+		       0    M   D   com.example.e345
+		       0    M   D   com.example.e346
+		 0xd18b3    M   A   com.example.e347
+		 0x4a283    M   A   com.example.e348
+		 0xb4b1b    M   A   com.example.e349
+		 0x6d833    M   A   com.example.e350
+		 0xd8d23    M   D   com.example.e351
+		 0x75bdb    M   D   com.example.e352
+		 0x54503    M   A   com.example.e353
+		 0x7551f    M   D   com.example.e354
+		 0x62003    M   A   com.example.e355
+		 0xf2ab3    M   A   com.example.e356
+		       0    M   D   com.example.e357
+		 0x43e3b    M   D   com.example.e358
+		 0x4fd0b    M   A   com.example.e359
+		 0x59d4f    M   A   com.example.e360
+		 0xd7eb3    M   A   com.example.e361
+		 0x46003    M   A   com.example.e362
+		 0x4df03    M   A   com.example.e363
+		       0    M   D   com.example.e364
+		 0x44d53    M   A   com.example.e365
+		 0xc4f03    M   D   com.example.e366
+		 0x34493    M   A   com.example.e367
+		       0    M   D   com.example.e368
+		 0xc9bab    U   A   com.example.e369
+		 0xa1223    U   A   com.example.e370
+		 0xf8703    M   D   com.example.e371
+		 0xb4903    M   D   com.example.e372
+		       0    M   D   com.example.e373
+		 0x8ad03    M   A   com.example.e374
+		 0x86c5f    M   A   com.example.e375
+		 0x8914b    M   A   com.example.e376
+		 0xd4c27    M   A   com.example.e377
+		       0    M   D   com.example.e378
+		 0x43a0f    M   A   com.example.e379
+		 0x33f03    M   A   com.example.e380
+		 0xda403    M   A   com.example.e381
+		 0x4fbdb    M   A   com.example.e382
+		 0x53a73    M   A   com.example.e383
+		 0x58f03    M   A   com.example.e384
+		 0x8f003    M   A   com.example.e385
+		 0xa1903    M   A   com.example.e386
+		 0xa9463    M   A   com.example.e387
+		 0x57403    M   A   com.example.e388
+		 0x57103    M   D   com.example.e389
+		 0x80303    M   A   com.example.e390
+		 0x80203    M   A   com.example.e391
+		 0x8000f    M   A   com.example.e392
+		       0    M   D   com.example.e393
+		 0x87303    M   A   com.example.e394
+		 0x64e03    M   A   com.example.e395
+		 0x48b03    M   A   com.example.e396
+		 0x74203    M   A   com.example.e397
+		 0x5fe03    M   A   com.example.e398
+		 0xc63eb    M   D   com.example.e399
+		 0xc889f    M   D   com.example.e400
+		 0xa059b    M   A   com.example.e401
+		       0    M   D   com.example.e402
+		 0x8d883    M   A   com.example.e403
+		       0    M   D   com.example.e404
+		 0x33783    M   A   com.example.e405
+		 0x33863    M   A   com.example.e406
+		 0xb6f03    M   A   com.example.e407
+		       0    M   D   com.example.e408
+		 0x62f03    M   D   com.example.e409
+		0x11dacf    M   D   com.example.e410
+		 0x72a03    M   A   com.example.e411
+		0x12990b    M   A   com.example.e412
+		 0x8bb03    M   A   com.example.e413
+		 0xd7403    M   D   com.example.e414
+		 0x98107    M   D   com.example.e415
+		 0xeb427    M   D   com.example.e416
+		 0x7f603    M   D   com.example.e417
+		       0    M   D   com.example.e418
+		 0x73953    M   A   com.example.e419
+		 0x6176f    M   A   com.example.e420
+		 0xc9bab    U   A   com.example.e421
+		 0xc9bab    U   A   com.example.e422
+		 0xc9bab    U   A   com.example.e423
+		 0x8a503    M   A   com.example.e424
+		 0xff953    M   D   com.example.e425
+		 0x49803    M   A   com.example.e426
+		 0x5bd03    M   A   com.example.e427
+		 0x5b8a3    M   D   com.example.e428
+		 0x65503    M   A   com.example.e429
+		       0    M   D   com.example.e430
+		 0xd8553    M   A   com.example.e431
+		 0xf9103    M   D   com.example.e432
+		       0    M   D   com.example.e433
+		       0    M   D   com.example.e434
+		 0xa3573    M   A   com.example.e435
+		       0    M   D   com.example.e436
+		       0    M   D   com.example.e437
+		 0xa1803    M   A   com.example.e438
+		 0x47303    M   A   com.example.e439
+		 0xdc803    M   A   com.example.e440
+		       0    M   D   com.example.e441
+		 0x80b03    M   A   com.example.e442
+		 0xc6a03    M   D   com.example.e443
+		       0    M   D   com.example.e444
+		 0xf9c9b    M   D   com.example.e445
+		 0xbd593    M   D   com.example.e446
+		 0x5560f    M   A   com.example.e447
+		 0x73d63    M   D   com.example.e448
+		 0x54807    M   A   com.example.e449
+		 0x9cf6f    M   A   com.example.e450
+		 0x8641b    M   A   com.example.e451
+		 0xf728f    M   D   com.example.e452
+		       0    M   D   com.example.e453
+		 0x63e03    M   A   com.example.e454
+		       0    M   D   com.example.e455
+		 0x2eebb    M   D   com.example.e456
+		       0    M   D   com.example.e457
+		 0x55e03    M   A   com.example.e458
+		       0    M   D   com.example.e459
+		 0x88703    M   A   com.example.e460
+		 0x88503    M   A   com.example.e461
+		 0x736b3    M   A   com.example.e462
+		 0x60b03    M   A   com.example.e463
+		 0xc9bab    U   A   com.example.e464
+		 0x9f603    M   D   com.example.e465
+		       0    M   D   com.example.e466
+		       0    M   D   com.example.e467
+		       0    M   D   com.example.e468
+		 0x35b03    M   A   com.example.e469
+		 0x32517    M   A   com.example.e470
+		 0x6d433    M   A   com.example.e471
+		 0xa3303    M   A   com.example.e472
+		       0    M   D   com.example.e473
+		       0    M   D   com.example.e474
+		 0x77e7b    M   A   com.example.e475
+		 0x56e03    M   A   com.example.e476
+		 0xbd033    M   A   com.example.e477
+		 0xc6d03    M   D   com.example.e478
+		 0x5fc03    M   A   com.example.e479
+		 0xfddf7    M   D   com.example.e480
+		 0x56903    M   D   com.example.e481
+		       0    M   D   com.example.e482
+		 0x67beb    M   D   com.example.e483
+		0x127a57    M   D   com.example.e484
+		 0x50523    M   A   com.example.e485
+		 0x5341b    M   A   com.example.e486
+		       0    M   D   com.example.e487
+		 0xfc7f3    M   A   com.example.e488
+		       0    M   D   com.example.e489
+		 0xca203    M   A   com.example.e490
+		       0    M   D   com.example.e491
+		 0xea3f3    M   D   com.example.e492
+		 0x62e03    M   A   com.example.e493
+		 0x65a03    M   A   com.example.e494
+		       0    M   D   com.example.e495
+		 0xb0873    M   D   com.example.e496
+		       0    M   D   com.example.e497
+		 0xb7103    M   A   com.example.e498
+		 0x72403    M   A   com.example.e499
+		 0x7d503    M   A   com.example.e500
+		 0x8bc03    M   A   com.example.e501
+		       0    M   D   com.example.e502
+		 0xd3a5b    M   D   com.example.e503
+		 0x6f023    M   A   com.example.e504
+		 0x4d903    M   A   com.example.e505
+		 0x7f703    M   D   com.example.e506
+		 0x53e03    M   A   com.example.e507
+		 0x40d03    M   A   com.example.e508
+		       0    M   D   com.example.e509
+		 0x32303    M   D   com.example.e510
+		 0x37d57    M   A   com.example.e511
+		 0x6e403    U   A   com.example.e512
+		 0xc9bab    U   A   com.example.e513
+		 0x942cf    M   D   com.example.e514
+		 0x7bf03    M   A   com.example.e515
+		 0x5a26f    M   D   com.example.e516
+		 0x5b533    M   A   com.example.e517
+		 0x73803    M   A   com.example.e518
+		 0xfffd3    M   A   com.example.e519
+		       0    M   D   com.example.e520
+		       0    M   D   com.example.e521
+		 0x88e03    M   A   com.example.e522
+		 0x4cb03    M   A   com.example.e523
+		 0x4c603    M   A   com.example.e524
+		 0x4c703    M   A   com.example.e525
+		 0x84673    M   A   com.example.e526
+		 0x820fb    M   A   com.example.e527
+		 0xa2d03    M   A   com.example.e528
+		 0x5673b    M   A   com.example.e529
+		 0xb88b3    M   D   com.example.e530
+		 0x7b52f    M   A   com.example.e531
+		 0x3394b    M   A   com.example.e532
+		0x124af3    M   A   com.example.e533
+		 0x91a07    M   D   com.example.e534
+		 0xda303    M   D   com.example.e535
+		 0x71203    M   D   com.example.e536
+		 0x403e3    M   A   com.example.e537
+		 0x5f1b3    M   D   com.example.e538
+		 0x62103    M   A   com.example.e539
+		 0x73013    M   A   com.example.e540
+		 0xced03    M   A   com.example.e541
+		       0    M   D   com.example.e542
+		 0x760f3    M   A   com.example.e543
+		 0x53d03    M   A   com.example.e544
+		 0x40933    M   A   com.example.e545
+		 0xa2a03    M   A   com.example.e546
+		 0x72043    M   A   com.example.e547
+		       0    M   D   com.example.e548
+		 0x4283b    M   A   com.example.e549
+		0x1231f3    M   D   com.example.e550
+		 0xc9bab    U   A   com.example.e551
+		 0x7873b    U   A   com.example.e552
+		 0x9f403    M   A   com.example.e553
+		 0x8aa03    M   A   com.example.e554
+		       0    M   D   com.example.e555
+		 0x6e703    M   A   com.example.e556
+		 0x6e903    M   A   com.example.e557
+		       0    M   D   com.example.e558
+		 0xd9fab    M   A   com.example.e559
+		 0x35903    M   A   com.example.e560
+		       0    M   D   com.example.e561
+		0x1019fb    M   D   com.example.e562
+		 0x9100b    M   D   com.example.e563
+		 0x46b03    M   A   com.example.e564
+		 0x8b87f    M   A   com.example.e565
+		 0xaa503    M   A   com.example.e566
+		 0x88c03    M   A   com.example.e567
+		 0xa3203    M   A   com.example.e568
+		 0x74b03    M   A   com.example.e569
+		 0x5e383    M   D   com.example.e570
+		       0    M   D   com.example.e571
+		       0    M   D   com.example.e572
+		 0x8335b    M   A   com.example.e573
+		 0xfaf03    M   D   com.example.e574
+		       0    M   D   com.example.e575
+		 0x63003    M   A   com.example.e576
+		 0x40603    M   D   com.example.e577
+		 0x8d00b    M   A   com.example.e578
+		 0xdeff3    M   D   com.example.e579
+		 0x8529f    M   A   com.example.e580
+		 0xd7b0b    M   A   com.example.e581
+		       0    M   D   com.example.e582
+		 0x7d9f3    M   D   com.example.e583
+		       0    M   D   com.example.e584
+		 0x33303    M   A   com.example.e585
+		 0x46203    M   A   com.example.e586
+		 0xc9bab    U   A   com.example.e587
+		 0xc9bab    U   A   com.example.e588
+		 0xc9bab    U   A   com.example.e589
+		 0xa9503    M   D   com.example.e590
+		 0x42a0f    M   A   com.example.e591
+		 0xa144b    M   A   com.example.e592
+		 0x2f747    M   A   com.example.e593
+		 0x6e803    M   D   com.example.e594
+		 0x35a03    M   A   com.example.e595
+		 0xb2c03    M   A   com.example.e596
+		 0xd219f    M   D   com.example.e597
+		 0x3a853    M   A   com.example.e598
+		 0x5a403    M   A   com.example.e599
+		 0x7bc13    M   A   com.example.e600
+		       0    M   D   com.example.e601
+		 0x46627    M   D   com.example.e602
+		 0x84303    M   D   com.example.e603
+		 0xf9be3    M   A   com.example.e604
+		       0    M   D   com.example.e605
+		 0xb9303    M   D   com.example.e606
+		 0x4ac03    M   A   com.example.e607
+		 0xa71b7    M   D   com.example.e608
+		       0    M   D   com.example.e609
+		 0xf889f    M   A   com.example.e610
+		       0    M   D   com.example.e611
+		 0x8ec0f    M   A   com.example.e612
+		 0x9b2f3    M   A   com.example.e613
+		 0x4bc03    M   A   com.example.e614
+		       0    M   D   com.example.e615
+		 0x54a13    M   A   com.example.e616
+		 0x72863    M   A   com.example.e617
+		       0    M   D   com.example.e618
+		       0    M   D   com.example.e619
+		 0xd9473    M   A   com.example.e620
+		 0x45603    M   A   com.example.e621
+		       0    M   D   com.example.e622
+		 0x76f0b    M   A   com.example.e623
+		       0    M   D   com.example.e624
+		 0x319f3    M   A   com.example.e625
+		 0xc9bab    U   A   com.example.e626
+		 0x98307    U   A   com.example.e627
+		 0x59c03    M   A   com.example.e628
+		 0x9f303    M   A   com.example.e629
+		 0x9fb03    M   A   com.example.e630
+		 0x4a757    M   A   com.example.e631
+		 0x66303    M   A   com.example.e632
+		 0x33d03    M   A   com.example.e633
+		 0xaae07    M   D   com.example.e634
+		 0x52b03    M   A   com.example.e635
+		 0xf95b3    M   D   com.example.e636
+		       0    M   D   com.example.e637
+		 0x68903    M   A   com.example.e638
+		 0xf9903    M   A   com.example.e639
+		 0xa1d03    M   A   com.example.e640
+		 0x6fc03    M   A   com.example.e641
+		       0    M   D   com.example.e642
+		 0x36ecb    M   A   com.example.e643
+		 0x74303    M   A   com.example.e644
+		 0x60103    M   A   com.example.e645
+		 0xd730b    M   D   com.example.e646
+		       0    M   D   com.example.e647
+		 0x56657    M   A   com.example.e648
+		 0x4a06b    M   A   com.example.e649
+		 0xadc03    M   D   com.example.e650
+		 0xa720b    M   A   com.example.e651
+		 0xd0703    M   D   com.example.e652
+		 0x4e613    M   A   com.example.e653
+		0x129fb3    M   D   com.example.e654
+		 0x61c9f    M   A   com.example.e655
+		 0x425c7    M   A   com.example.e656
+		       0    M   D   com.example.e657
+		 0x35443    M   D   com.example.e658
+		 0x33a03    M   D   com.example.e659
+		 0x72773    M   A   com.example.e660
+		 0x7cf03    M   A   com.example.e661
+		 0x7d003    M   D   com.example.e662
+		 0x58683    M   D   com.example.e663
+		 0xf6333    M   D   com.example.e664
+		       0    M   D   com.example.e665
+		 0x55733    M   A   com.example.e666
+		 0x77ba3    M   D   com.example.e667
+		 0x45c03    M   A   com.example.e668
+		 0x45803    M   A   com.example.e669
+		       0    M   D   com.example.e670
+		       0    M   D   com.example.e671
+		 0x87a03    M   A   com.example.e672
+		 0x87903    M   D   com.example.e673
+		       0    M   D   com.example.e674
+		 0x5f00b    M   A   com.example.e675
+		 0x51c03    M   A   com.example.e676
+		 0xffa67    M   A   com.example.e677
+		       0    M   D   com.example.e678
+		 0x6ea03    M   A   com.example.e679
+		 0x8c883    M   A   com.example.e680
+		 0x7a42b    M   A   com.example.e681
+		 0x61403    M   A   com.example.e682
+		       0    M   D   com.example.e683
+		 0xa4e27    M   A   com.example.e684
+		 0xd00b7    M   D   com.example.e685
+		       0    M   D   com.example.e686
+		       0    M   D   com.example.e687
+		       0    M   D   com.example.e688
+		 0xee013    M   D   com.example.e689
+		 0x46c03    M   A   com.example.e690
+		 0x48903    M   A   com.example.e691
+		 0x39043    M   D   com.example.e692
+		 0x5ff03    M   A   com.example.e693
+		 0x5fd03    M   D   com.example.e694
+		 0x74c93    M   A   com.example.e695
+		 0x6f527    M   D   com.example.e696
+		       0    M   D   com.example.e697
+		 0x53203    M   A   com.example.e698
+		 0x47803    M   A   com.example.e699
+		 0x49f0b    M   A   com.example.e700
+		 0x717bb    M   A   com.example.e701
+		 0x72c9b    M   A   com.example.e702
+		0x129af3    M   A   com.example.e703
+		 0x8519f    M   A   com.example.e704
+		 0x33653    M   D   com.example.e705
+		 0x7d403    M   A   com.example.e706
+		 0x33013    M   A   com.example.e707
+		 0x7ff6b    M   A   com.example.e708
+		       0    M   D   com.example.e709
+		 0x4d203    M   A   com.example.e710
+		 0x4fe5b    M   A   com.example.e711
+		 0x40103    M   D   com.example.e712
+		 0x34b93    M   D   com.example.e713
+		       0    M   D   com.example.e714
+		       0    M   D   com.example.e715
+		 0xd5863    U   A   com.example.e716
+		 0xc9bab    U   A   com.example.e717
+		       0    M   D   com.example.e718
+		 0xae4b7    M   A   com.example.e719
+		 0x73403    M   A   com.example.e720
+		 0x73503    M   A   com.example.e721
+		 0x42303    M   D   com.example.e722
+		       0    M   D   com.example.e723
+		 0x32803    M   A   com.example.e724
+		0x122a83    M   D   com.example.e725
+		       0    M   D   com.example.e726
+		       0    M   D   com.example.e727
+		 0xa2603    M   A   com.example.e728
+		 0xfb403    M   D   com.example.e729
+		       0    M   D   com.example.e730
+		 0xb3743    M   D   com.example.e731
+		 0x46803    M   D   com.example.e732
+		 0xfbf9f    M   D   com.example.e733
+		 0x56fb3    M   D   com.example.e734
+		 0xaa703    M   D   com.example.e735
+		 0x8db23    M   A   com.example.e736
+		       0    M   D   com.example.e737
+		       0    M   D   com.example.e738
+		 0x32ed3    M   A   com.example.e739
+		 0xce25b    M   D   com.example.e740
+		 0x3a5e3    M   D   com.example.e741
+		 0x64103    M   A   com.example.e742
+		 0x70b03    M   A   com.example.e743
+		 0x7d103    M   A   com.example.e744
+		 0x6f3bb    M   D   com.example.e745
+		 0x4dc03    M   A   com.example.e746
+		 0x4ea5b    M   A   com.example.e747
+		       0    M   D   com.example.e748
+		       0    M   D   com.example.e749
+		 0x31d0b    M   A   com.example.e750
+		 0x36513    M   A   com.example.e751
+		 0xc9bab    U   A   com.example.e752
+		0x1071c3    M   D   com.example.e753
+		       0    M   D   com.example.e754
+		 0x51b13    M   D   com.example.e755
+		 0x6541b    M   A   com.example.e756
+		       0    M   D   com.example.e757
+		 0xb2a03    M   A   com.example.e758
+		       0    M   D   com.example.e759
+		       0    M   D   com.example.e760
+		       0    M   D   com.example.e761
+		 0x4b803    M   A   com.example.e762
+		 0xdf9c3    M   D   com.example.e763
+		 0x80103    M   D   com.example.e764
+		 0x4b287    M   A   com.example.e765
+		 0xf84db    M   D   com.example.e766
+		 0xab7c3    M   D   com.example.e767
+		 0x74703    M   D   com.example.e768
+		 0xd805b    M   D   com.example.e769
+		 0x56803    M   A   com.example.e770
+		 0x91203    M   D   com.example.e771
+		       0    M   D   com.example.e772
+		 0x9b6c3    M   A   com.example.e773
+		0x12769b    M   A   com.example.e774
+		       0    M   D   com.example.e775
+		       0    M   D   com.example.e776
+		  0x2b03    M   D   com.example.e777
+		 0x9a903    M   A   com.example.e778
+		 0x53103    M   A   com.example.e779
+		 0x98403    M   A   com.example.e780
+		 0x62cb3    M   D   com.example.e781
+		 0x9181b    M   D   com.example.e782
+		 0x6ae33    M   A   com.example.e783
+		 0xd421b    M   D   com.example.e784
+		 0x8fcd3    M   A   com.example.e785
+		       0    M   D   com.example.e786
+		 0x5e603    M   A   com.example.e787
+		 0x56003    M   A   com.example.e788
+		 0x55f03    M   D   com.example.e789
+		 0x4f2e7    M   A   com.example.e790
+		       0    M   D   com.example.e791
+		 0x55103    M   D   com.example.e792
+		0x102713    U   A   com.example.e793
+		       0    M   D   com.example.e794
+		 0xc9bab    U   A   com.example.e795
+		 0xc9bab    U   A   com.example.e796
+		 0xe2c33    U   A   com.example.e797
+		 0x9f203    M   A   com.example.e798
+		 0x8ac03    M   A   com.example.e799
+		 0x8a803    M   A   com.example.e800
+		 0x7a203    M   A   com.example.e801
+		 0xf790f    M   D   com.example.e802
+		 0x34f03    M   A   com.example.e803
+		 0x9c363    M   A   com.example.e804
+		       0    M   D   com.example.e805
+		 0xb3213    M   A   com.example.e806
+		 0x4bf03    M   A   com.example.e807
+		 0x68803    M   A   com.example.e808
+		 0x6be23    M   A   com.example.e809
+		 0x82103    M   A   com.example.e810
+		 0xdc903    M   A   com.example.e811
+		 0x911ab    M   D   com.example.e812
+		 0xaa803    M   D   com.example.e813
+		 0x97803    M   D   com.example.e814
+		       0    M   D   com.example.e815
+		 0xc6f03    M   D   com.example.e816
+		 0xa459f    M   A   com.example.e817
+		 0x88a03    M   A   com.example.e818
+		 0x87103    M   A   com.example.e819
+		 0xce9eb    M   A   com.example.e820
+		       0    M   D   com.example.e821
+		       0    M   D   com.example.e822
+		 0x168ff    M   A   com.example.e823
+		       0    M   D   com.example.e824
+		       0    M   D   com.example.e825
+		 0x2646b    M   A   com.example.e826
+		 0x5384f    M   A   com.example.e827
+		 0xa6203    M   D   com.example.e828
+		 0xd1703    M   A   com.example.e829
+		 0x41803    M   A   com.example.e830
+		 0x62d4b    M   D   com.example.e831
+		 0xcf543    M   A   com.example.e832
+		       0    M   D   com.example.e833
+		 0x97fb7    M   D   com.example.e834
+		       0    M   D   com.example.e835
+		 0x7614b    M   A   com.example.e836
+		 0xa2903    M   A   com.example.e837
+		 0x63be3    M   A   com.example.e838
+		 0x4e933    M   A   com.example.e839
+		 0x4d703    M   A   com.example.e840
+		 0x4da03    M   A   com.example.e841
+		 0x5e503    M   A   com.example.e842
+		 0x54003    M   A   com.example.e843
+		 0x31c0b    M   A   com.example.e844
+		 0xb0e57    U   A   com.example.e845
+		 0xc9bab    U   A   com.example.e846
+		 0xc9bab    U   A   com.example.e847
+		 0x51f03    M   D   com.example.e848
+		 0x9ee03    M   A   com.example.e849
+		 0x4a403    M   A   com.example.e850
+		 0xad503    M   A   com.example.e851
+		 0x6eb03    M   A   com.example.e852
+		 0x65803    M   A   com.example.e853
+		 0x6f903    M   A   com.example.e854
+		 0x6fa23    M   A   com.example.e855
+		 0x33c53    M   A   com.example.e856
+		       0    M   D   com.example.e857
+		       0    M   D   com.example.e858
+		       0    M   D   com.example.e859
+		       0    M   D   com.example.e860
+		 0xb9203    M   A   com.example.e861
+		       0    M   D   com.example.e862
+		 0x9893f    M   A   com.example.e863
+		 0x46e03    M   A   com.example.e864
+		 0xc4903    M   D   com.example.e865
+		 0x68713    M   A   com.example.e866
+		 0x84007    M   A   com.example.e867
+		 0xdc5f3    M   A   com.example.e868
+		 0x5702f    M   A   com.example.e869
+		 0x6fd03    M   A   com.example.e870
+		 0x48e03    M   A   com.example.e871
+		 0x4af03    M   A   com.example.e872
+		 0x5f9e7    M   A   com.example.e873
+		       0    M   D   com.example.e874
+		 0x6c803    M   A   com.example.e875
+		 0xa65a3    M   D   com.example.e876
+		0x1090cb    M   A   com.example.e877
+		 0x77a23    M   D   com.example.e878
+		 0xcc26b    M   D   com.example.e879
+		       0    M   D   com.example.e880
+		 0x54947    M   A   com.example.e881
+		       0    M   D   com.example.e882
+		       0    M   D   com.example.e883
+		 0xf2247    M   A   com.example.e884
+		 0x1ee73    M   A   com.example.e885
+		       0    M   D   com.example.e886
+		 0x8ba33    M   D   com.example.e887
+		 0x4e203    M   A   com.example.e888
+		 0x76603    M   A   com.example.e889
+		 0xb4003    M   A   com.example.e890
+		       0    M   D   com.example.e891
+		0x105ec7    M   A   com.example.e892
+		 0xc9bab    U   A   com.example.e893
+		 0xc9bab    U   A   com.example.e894
+		       0    M   D   com.example.e895
+		 0x59a03    M   A   com.example.e896
+		 0x5bc4b    M   A   com.example.e897
+		 0x5b2c3    M   A   com.example.e898
+		 0x5b62b    M   A   com.example.e899
+		 0x42203    M   A   com.example.e900
+		       0    M   D   com.example.e901
+		0x10da8b    M   D   com.example.e902
+		 0x77163    M   D   com.example.e903
+		 0x936ff    M   D   com.example.e904
+		 0x4c903    M   A   com.example.e905
+		 0xbb303    M   D   com.example.e906
+		 0x84403    M   D   com.example.e907
+		       0    M   D   com.example.e908
+		 0xa3003    M   D   com.example.e909
+		 0x4ae03    M   A   com.example.e910
+		       0    M   D   com.example.e911
+		 0x74803    M   A   com.example.e912
+		       0    M   D   com.example.e913
+		       0    M   D   com.example.e914
+		 0x5d60b    M   A   com.example.e915
+		 0x88003    M   A   com.example.e916
+		 0x41edb    M   D   com.example.e917
+		 0x7d203    M   D   com.example.e918
+		       0    M   D   com.example.e919
+		 0x46403    M   A   com.example.e920
+		 0x4e303    M   A   com.example.e921
+		 0xa2203    M   A   com.example.e922
+		 0x40b03    M   A   com.example.e923
+		 0xa89e7    M   A   com.example.e924
+		 0xf438f    M   A   com.example.e925
+		       0    M   D   com.example.e926
+		 0xc9bab    U   A   com.example.e927
+		 0xc9bab    U   A   com.example.e928
+		 0x52003    M   A   com.example.e929
+		 0x8b003    M   A   com.example.e930
+		 0x9fa03    M   A   com.example.e931
+		 0x5be03    M   A   com.example.e932
+		 0x6e603    M   A   com.example.e933
+		 0x66503    M   A   com.example.e934
+		 0x42403    M   A   com.example.e935
+		 0x42103    M   A   com.example.e936
+		       0    M   D   com.example.e937
+		 0x44803    M   A   com.example.e938
+		 0x94c93    M   D   com.example.e939
+		 0x8c307    M   A   com.example.e940
+		 0x9dc0f    M   A   com.example.e941
+		 0x7c903    M   A   com.example.e942
+		 0x7c403    M   A   com.example.e943
+		       0    M   D   com.example.e944
+		 0x90d23    M   A   com.example.e945
+		 0xbb203    M   D   com.example.e946
+		 0x85f0f    M   D   com.example.e947
+		 0xa4027    M   D   com.example.e948
+		 0xf9803    M   A   com.example.e949
+		 0x9261b    M   A   com.example.e950
+		 0x80703    M   D   com.example.e951
+		 0x6a753    M   D   com.example.e952
+		 0x64d13    M   D   com.example.e953
+		 0x81903    M   A   com.example.e954
+		       0    M   D   com.example.e955
+		       0    M   D   com.example.e956
+		       0    M   D   com.example.e957
+		 0x68143    M   D   com.example.e958
+		       0    M   D   com.example.e959
+		 0x53503    M   A   com.example.e960
+		 0x28bff    M   A   com.example.e961
+		 0xc009f    M   D   com.example.e962
+		       0    M   D   com.example.e963
+		       0    M   D   com.example.e964
+		 0x8cb6b    M   A   com.example.e965
+		 0x70c03    M   A   com.example.e966
+		 0x9e003    M   A   com.example.e967
+		 0x4d003    M   A   com.example.e968
+		 0x7f813    M   A   com.example.e969
+		       0    M   D   com.example.e970
+		 0x40833    M   D   com.example.e971
+		 0x55403    M   A   com.example.e972
+		 0x43db7    M   A   com.example.e973
+		   0xf83    M   A   com.example.e974
+		 0xba8b7    M   A   com.example.e975
+		 0xc9bab    U   A   com.example.e976
+		 0xc9bab    U   A   com.example.e977
+		0x102d6b    M   D   com.example.e978
+		 0xd860f    M   D   com.example.e979
+		 0xffdd3    M   A   com.example.e980
+		 0x9f703    M   A   com.example.e981
+		 0x9ff53    M   A   com.example.e982
+		 0x49a03    M   A   com.example.e983
+		 0x4a303    M   A   com.example.e984
+		 0x4a503    M   A   com.example.e985
+		 0x79eab    M   A   com.example.e986
+		 0x65313    M   A   com.example.e987
+		 0x7a80b    M   A   com.example.e988
+		 0xf92c3    M   D   com.example.e989
+		 0xc34df    M   D   com.example.e990
+		 0xdf427    M   D   com.example.e991
+		0x11a933    M   D   com.example.e992
+		 0xba713    M   D   com.example.e993
+		 0x960db    M   D   com.example.e994
+		 0x80a03    M   D   com.example.e995
+		 0x80803    M   A   com.example.e996
+		 0x7003f    M   D   com.example.e997
+		 0x49103    M   A   com.example.e998
+		 0x2f5c3    M   D   com.example.e999
+		 0x74903    M   A   com.example.e1000
+		       0    M   D   com.example.e1001
+		 0xfec3b    M   A   com.example.e1002
+		 0x9a703    M   A   com.example.e1003
+		 0x9a607    M   A   com.example.e1004
+		 0x41903    M   A   com.example.e1005
+		 0x41603    M   A   com.example.e1006
+		 0x91c03    M   A   com.example.e1007
+		 0xca6fb    M   D   com.example.e1008
+		       0    M   D   com.example.e1009
+		       0    M   D   com.example.e1010
+		 0xda287    M   D   com.example.e1011
+		 0x98003    M   A   com.example.e1012
+		 0xce647    M   D   com.example.e1013
+		       0    M   D   com.example.e1014
+		 0x70a03    M   A   com.example.e1015
+		 0xe53ab    M   D   com.example.e1016
+		 0x46303    M   D   com.example.e1017
+		 0x4db03    M   A   com.example.e1018
+		 0x76503    M   A   com.example.e1019
+		0x1224f3    M   D   com.example.e1020
+		 0xc9bab    U   A   com.example.e1021
+		 0xc9bab    U   A   com.example.e1022
+		 0x7eb23    M   A   com.example.e1023
+		 0x42633    U   A   com.example.e1024
+		 0x78a03    M   A   com.example.e1025
+		 0x49703    M   A   com.example.e1026
+		 0x49903    M   A   com.example.e1027
+		       0    M   D   com.example.e1028
+		 0x65703    M   D   com.example.e1029
+		 0x35207    M   A   com.example.e1030
+		       0    M   D   com.example.e1031
+		 0x935cb    M   A   com.example.e1032
+		 0x953ab    M   A   com.example.e1033
+		 0x59503    M   D   com.example.e1034
+		       0    M   D   com.example.e1035
+		 0xf9a03    M   A   com.example.e1036
+		 0xaa913    M   A   com.example.e1037
+		 0x97b13    M   D   com.example.e1038
+		 0x956d3    M   D   com.example.e1039
+		 0xb065f    M   D   com.example.e1040
+		 0xc6e03    M   D   com.example.e1041
+		 0x86e03    M   A   com.example.e1042
+		 0x88903    M   A   com.example.e1043
+		       0    M   D   com.example.e1044
+		 0x7f003    M   D   com.example.e1045
+		       0    M   D   com.example.e1046
+		       0    M   D   com.example.e1047
+		0x124643    M   D   com.example.e1048
+		 0xd637b    M   A   com.example.e1049
+		0x127883    M   D   com.example.e1050
+		       0    M   D   com.example.e1051
+		 0x8e303    M   A   com.example.e1052
+		 0xdd587    M   D   com.example.e1053
+		 0x41703    M   A   com.example.e1054
+		 0x6e103    M   A   com.example.e1055
+		 0x5d457    M   A   com.example.e1056
+		 0x85303    M   A   com.example.e1057
+		 0xd77bb    M   A   com.example.e1058
+		 0x4dd03    M   D   com.example.e1059
+		 0x77287    M   A   com.example.e1060
+		 0x3558b    M   A   com.example.e1061
+		       0    M   D   com.example.e1062
+		 0x6221f    M   D   com.example.e1063
+		 0x9fc03    M   D   com.example.e1064
+		       0    M   D   com.example.e1065
+		 0x34003    M   A   com.example.e1066
+		 0x48003    M   A   com.example.e1067
+		 0x32903    M   A   com.example.e1068
+		 0xf1e5f    M   D   com.example.e1069
+		 0x41d03    M   A   com.example.e1070
+		       0    M   D   com.example.e1071
+		 0xe04cb    M   D   com.example.e1072
+		       0    M   D   com.example.e1073
+		 0xa2403    M   D   com.example.e1074
+		 0x47203    M   D   com.example.e1075
+		 0xc4b03    M   D   com.example.e1076
+		 0x84503    M   D   com.example.e1077
+		 0xa90d3    M   D   com.example.e1078
+		 0x84f03    M   A   com.example.e1079
+		       0    M   D   com.example.e1080
+		 0x80903    M   A   com.example.e1081
+		 0xb8ceb    M   D   com.example.e1082
+		 0x1083f    M   A   com.example.e1083
+		 0x708ab    M   A   com.example.e1084
+		 0x4ad03    M   A   com.example.e1085
+		       0    M   D   com.example.e1086
+		 0x8e603    M   A   com.example.e1087
+		 0x9aa03    M   A   com.example.e1088
+		 0x91d03    M   A   com.example.e1089
+		 0x47903    M   A   com.example.e1090
+		 0xf5203    M   D   com.example.e1091
+		 0x71da3    M   D   com.example.e1092
+		 0x71403    M   A   com.example.e1093
+		 0xb0303    M   D   com.example.e1094
+		 0x9823b    M   D   com.example.e1095
+		       0    M   D   com.example.e1096
+		 0x66bd3    M   A   com.example.e1097
+		 0x6d02f    M   A   com.example.e1098
+		 0x56303    M   A   com.example.e1099
+		       0    M   D   com.example.e1100
+		 0x4aa23    M   A   com.example.e1101
+		 0x7525b    M   D   com.example.e1102
+		 0x5e703    M   A   com.example.e1103
+		 0x4f01b    M   A   com.example.e1104
+		 0xa5c73    M   A   com.example.e1105
+		 0x88603    M   A   com.example.e1106
+		 0x54127    M   A   com.example.e1107
+		 0xb1403    M   D   com.example.e1108
+		 0x79213    M   A   com.example.e1109
+		 0x55203    M   A   com.example.e1110
+		 0x3641b    M   A   com.example.e1111
+		 0xc9bab    U   A   com.example.e1112
+		       0    M   D   com.example.e1113
+		       0    M   D   com.example.e1114
+		       0    M   D   com.example.e1115
+		 0x59903    M   A   com.example.e1116
+		 0x9f103    M   A   com.example.e1117
+		 0x97c03    M   A   com.example.e1118
+		       0    M   D   com.example.e1119
+		 0x6500f    M   A   com.example.e1120
+		       0    M   D   com.example.e1121
+		 0x4e81b    M   A   com.example.e1122
+		 0x44903    M   A   com.example.e1123
+		 0x32a03    M   A   com.example.e1124
+		 0x41b03    M   A   com.example.e1125
+		       0    M   D   com.example.e1126
+		       0    M   D   com.example.e1127
+		 0x593cb    M   A   com.example.e1128
+		 0x94fc3    M   D   com.example.e1129
+		 0x4c003    M   A   com.example.e1130
+		 0x4c503    M   A   com.example.e1131
+		 0x46f03    M   A   com.example.e1132
+		 0x46a03    M   A   com.example.e1133
+		 0x84d03    M   A   com.example.e1134
+		 0xc6c03    M   D   com.example.e1135
+		 0xf28a3    M   A   com.example.e1136
+		 0x4e507    M   A   com.example.e1137
+		 0x87403    M   D   com.example.e1138
+		 0x65113    M   D   com.example.e1139
+		       0    M   D   com.example.e1140
+		       0    M   D   com.example.e1141
+		 0xce37b    M   D   com.example.e1142
+		 0x55933    M   D   com.example.e1143
+		       0    M   D   com.example.e1144
+		 0x63103    M   D   com.example.e1145
+		       0    M   D   com.example.e1146
+		 0x59f6b    M   A   com.example.e1147
+		 0xf8b33    M   D   com.example.e1148
+		 0x63f03    M   A   com.example.e1149
+		 0x58a03    M   D   com.example.e1150
+		 0x9e103    M   D   com.example.e1151
+		 0xcfaeb    M   D   com.example.e1152
+		 0x45703    M   A   com.example.e1153
+		 0x76b03    M   A   com.example.e1154
+		 0x55c1b    M   A   com.example.e1155
+		       0    M   D   com.example.e1156
+		 0x5cd0f    M   A   com.example.e1157
+		  0x1a7b    M   A   com.example.e1158
+		 0xc9bab    U   A   com.example.e1159
+		 0xc9bab    U   A   com.example.e1160
+		 0xc9bab    U   A   com.example.e1161
+		 0xc9bab    U   A   com.example.e1162
+		 0x7f407    M   A   com.example.e1163
+		       0    M   D   com.example.e1164
+		 0xde627    M   D   com.example.e1165
+		 0x5265b    M   A   com.example.e1166
+		       0    M   D   com.example.e1167
+		       0    M   D   com.example.e1168
+		       0    M   D   com.example.e1169
+		 0x7b903    M   D   com.example.e1170
+		0x11d0b3    M   A   com.example.e1171
+		 0xb3b03    M   A   com.example.e1172
+		       0    M   D   com.example.e1173
+		 0x4c103    M   A   com.example.e1174
+		 0x4cd33    M   A   com.example.e1175
+		 0xda743    M   D   com.example.e1176
+		 0x57703    M   A   com.example.e1177
+		 0x57503    M   A   com.example.e1178
+		 0x80603    M   D   com.example.e1179
+		 0x80503    M   A   com.example.e1180
+		 0xc6903    M   D   com.example.e1181
+		 0x74a03    M   A   com.example.e1182
+		 0x67cb3    M   A   com.example.e1183
+		 0x98a6f    M   D   com.example.e1184
+		 0xd047b    M   D   com.example.e1185
+		 0xaece7    M   A   com.example.e1186
+		 0x672c3    M   A   com.example.e1187
+		       0    M   D   com.example.e1188
+		 0x8f223    M   D   com.example.e1189
+		       0    M   D   com.example.e1190
+		 0x762cf    M   A   com.example.e1191
+		 0x5df73    M   D   com.example.e1192
+		 0x72303    M   A   com.example.e1193
+		 0xd4033    M   D   com.example.e1194
+		 0x45f03    M   A   com.example.e1195
+		 0x4d303    M   A   com.example.e1196
+		 0x45a03    M   A   com.example.e1197
+		 0x4ee27    M   A   com.example.e1198
+		 0x45033    M   A   com.example.e1199
+		       0    M   D   com.example.e1200
+		 0xc9bab    U   A   com.example.e1201
+		 0x59b03    M   A   com.example.e1202
+		 0x9f803    M   A   com.example.e1203
+		 0x7a103    M   A   com.example.e1204
+		       0    M   D   com.example.e1205
+		       0    M   D   com.example.e1206
+		       0    M   D   com.example.e1207
+		 0x4f913    M   A   com.example.e1208
+		 0x41aa3    M   A   com.example.e1209
+		 0x9db03    M   A   com.example.e1210
+		 0x9dd6b    M   A   com.example.e1211
+		 0x8c60b    M   A   com.example.e1212
+		       0    M   D   com.example.e1213
+		 0x5d923    M   A   com.example.e1214
+		 0x57603    M   A   com.example.e1215
+		 0x88b03    M   A   com.example.e1216
+		 0x49003    M   A   com.example.e1217
+		       0    M   D   com.example.e1218
+		       0    M   D   com.example.e1219
+		 0x50ac3    M   A   com.example.e1220
+		 0x40ff3    M   A   com.example.e1221
+		0x129c0f    M   A   com.example.e1222
+		 0x5f223    M   D   com.example.e1223
+		 0xaff03    M   A   com.example.e1224
+		       0    M   D   com.example.e1225
+		 0x76353    M   D   com.example.e1226
+		 0xcb153    M   D   com.example.e1227
+		       0    M   D   com.example.e1228
+		 0x70d2f    M   A   com.example.e1229
+		       0    M   D   com.example.e1230
+		 0x45d03    M   A   com.example.e1231
+		 0x76703    M   A   com.example.e1232
+		       0    M   D   com.example.e1233
+		 0x4331b    M   D   com.example.e1234
+		 0xc3203    M   A   com.example.e1235
+		 0x8af03    M   A   com.example.e1236
+		 0x9f503    M   A   com.example.e1237
+		 0x9f903    M   A   com.example.e1238
+		 0x496e7    M   D   com.example.e1239
+		 0x6ed57    M   A   com.example.e1240
+		 0x61303    M   A   com.example.e1241
+		       0    M   D   com.example.e1242
+		 0x7b803    M   A   com.example.e1243
+		 0x7cb1b    M   A   com.example.e1244
+		 0xf2087    M   D   com.example.e1245
+		 0xa2503    M   A   com.example.e1246
+		 0x47503    M   A   com.example.e1247
+		 0x4ca03    M   A   com.example.e1248
+		 0x9526b    M   D   com.example.e1249
+		 0x85d03    M   A   com.example.e1250
+		 0xa1c03    M   A   com.example.e1251
+		 0x4ab03    M   A   com.example.e1252
+		 0x5fb93    M   A   com.example.e1253
+		       0    M   D   com.example.e1254
+		       0    M   D   com.example.e1255
+		       0    M   D   com.example.e1256
+		 0x438ab    M   A   com.example.e1257
+		 0x9ab03    M   A   com.example.e1258
+		       0    M   D   com.example.e1259
+		 0x4cc03    M   A   com.example.e1260
+		 0xca3c3    M   D   com.example.e1261
+		       0    M   D   com.example.e1262
+		 0x550b3    M   D   com.example.e1263
+		       0    M   D   com.example.e1264
+		       0    M   D   com.example.e1265
+		 0xb7cb3    M   D   com.example.e1266
+		       0    M   D   com.example.e1267
+		       0    M   D   com.example.e1268
+		       0    M   D   com.example.e1269
+		 0x9df03    M   A   com.example.e1270
+		 0x9e203    M   D   com.example.e1271
+		 0xfdc03    M   D   com.example.e1272
+		 0x45503    M   A   com.example.e1273
+		 0x76803    M   A   com.example.e1274
+		 0x55d93    M   A   com.example.e1275
+		       0    M   D   com.example.e1276
+		 0xd0303    M   A   com.example.e1277
+		 0x34803    M   A   com.example.e1278
+		       0    M   D   com.example.e1279
+		       0    M   D   com.example.e1280
+		 0xccceb    M   D   com.example.e1281
+		 0x61087    M   D   com.example.e1282
+		0x11c3b3    M   D   com.example.e1283
+		 0x517e7    U   A   com.example.e1284
+		 0xec177    M   D   com.example.e1285
+		 0xc9bab    U   A   com.example.e1286
+		 0xc9bab    U   A   com.example.e1287
+		 0x8b103    M   D   com.example.e1288
+		 0x9ef03    M   A   com.example.e1289
+		 0x8ae03    M   A   com.example.e1290
+		 0xfef03    M   A   com.example.e1291
+		 0x97903    M   A   com.example.e1292
+		       0    M   D   com.example.e1293
+		 0x43c07    M   A   com.example.e1294
+		       0    M   D   com.example.e1295
+		 0x66703    M   D   com.example.e1296
+		 0x6ec03    M   A   com.example.e1297
+		 0x34103    M   A   com.example.e1298
+		 0x33e03    M   A   com.example.e1299
+		       0    M   D   com.example.e1300
+		 0x788db    M   D   com.example.e1301
+		 0x97503    M   A   com.example.e1302
+		 0xcd7fb    M   A   com.example.e1303
+		 0x9e74f    M   D   com.example.e1304
+		 0x52c03    M   D   com.example.e1305
+		 0x41c03    M   A   com.example.e1306
+		 0x8c013    M   A   com.example.e1307
+		 0x7c023    M   D   com.example.e1308
+		 0x7ca13    M   A   com.example.e1309
+		 0xdfae3    M   D   com.example.e1310
+		0x10decf    M   D   com.example.e1311
+		 0x47003    M   A   com.example.e1312
+		 0x4c303    M   A   com.example.e1313
+		 0xa3f03    M   D   com.example.e1314
+		 0xa609b    M   D   com.example.e1315
+		 0x96703    M   D   com.example.e1316
+		 0x57303    M   A   com.example.e1317
+		 0xd0a8b    M   D   com.example.e1318
+		 0xece33    M   D   com.example.e1319
+		0x10024b    M   D   com.example.e1320
+		 0x87503    M   D   com.example.e1321
+		 0xa2f03    M   A   com.example.e1322
+		       0    M   D   com.example.e1323
+		       0    M   D   com.example.e1324
+		 0x7ab57    M   A   com.example.e1325
+		 0xfd307    M   D   com.example.e1326
+		 0xfad9f    M   D   com.example.e1327
+		 0xb0003    M   A   com.example.e1328
+		 0x88103    M   A   com.example.e1329
+		       0    M   D   com.example.e1330
+		 0x62403    M   A   com.example.e1331
+		 0x7d303    M   D   com.example.e1332
+		 0x4e46f    M   A   com.example.e1333
+		 0x45e03    M   A   com.example.e1334
+		 0x50cc3    M   A   com.example.e1335
+		 0xd1a03    M   A   com.example.e1336
+		 0xc9bab    U   A   com.example.e1337
+		 0x7ad6b    M   A   com.example.e1338
+		 0x7f3e7    M   A   com.example.e1339
+		 0x8a603    M   A   com.example.e1340
+		 0x66403    M   A   com.example.e1341
+		 0x35003    M   A   com.example.e1342
+		 0xbfbd7    M   D   com.example.e1343
+		 0x53c23    M   A   com.example.e1344
+		 0xaeae3    M   A   com.example.e1345
+		0x118d6f    M   D   com.example.e1346
+		       0    M   D   com.example.e1347
+		 0xeb663    M   D   com.example.e1348
+		       0    M   D   com.example.e1349
+		       0    M   D   com.example.e1350
+		 0x59003    M   A   com.example.e1351
+		 0x88203    M   D   com.example.e1352
+		 0x90e53    M   A   com.example.e1353
+		 0x47103    M   A   com.example.e1354
+		 0x84723    M   A   com.example.e1355
+		 0xa9693    M   A   com.example.e1356
+		 0x57803    M   A   com.example.e1357
+		 0xa3103    M   A   com.example.e1358
+		 0x48f03    M   A   com.example.e1359
+		 0x48c03    M   A   com.example.e1360
+		 0xb4577    M   A   com.example.e1361
+		 0x7ef03    M   D   com.example.e1362
+		 0xdde93    M   A   com.example.e1363
+		 0x63203    M   A   com.example.e1364
+		 0x72963    M   A   com.example.e1365
+		       0    M   D   com.example.e1366
+		 0xcf1eb    M   A   com.example.e1367
+		 0x4fc17    M   D   com.example.e1368
+		 0x75f13    M   D   com.example.e1369
+		       0    M   D   com.example.e1370
+		 0xcf447    M   D   com.example.e1371
+		 0x45903    M   A   com.example.e1372
+		 0x40003    M   D   com.example.e1373
+		       0    M   D   com.example.e1374
+	}
+
+	task-special ports = {
+			 0x1c003 4       bootstrap  com.example.e1375
+			  0x3f03 9          access  (unknown)
+	}
+
+	disabled services = {
+		"com.example.q30" => disabled
+		"com.example.q31" => enabled
+		"com.example.q32" => enabled
+		"com.example.q33" => disabled
+		"com.example.q34" => enabled
+		"com.example.q35" => enabled
+		"com.example.q36" => disabled
+		"com.example.q37" => disabled
+		"com.example.q38" => enabled
+	}
+
+	properties = gui | gui login
+}

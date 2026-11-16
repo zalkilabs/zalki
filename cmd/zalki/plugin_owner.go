@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -46,16 +47,20 @@ func pluginDone(cmd *cobra.Command, err error, format string, args ...any) error
 	return err
 }
 
-func printPluginStatus(cmd *cobra.Command, store bus.Store, name string) error {
+func printPluginStatus(cmd *cobra.Command, store bus.Store, name string, target *loginItemTarget) error {
 	status, err := pluginfeed.NewPluginFeed(store, name).PluginStatus()
 	if err != nil {
 		return err
 	}
+	run, _, _ := readRunView(store.Dir, name, status, time.Now())
+	background, _ := backgroundView(cmd.Context(), target)
 	value := struct {
 		pluginfeed.PluginFeedStatus
-		PinMatches *bool  `json:"pin_matches,omitempty"`
-		PinError   string `json:"pin_error,omitempty"`
-	}{PluginFeedStatus: status}
+		PinMatches *bool                `json:"pin_matches,omitempty"`
+		PinError   string               `json:"pin_error,omitempty"`
+		Run        pluginRunView        `json:"run"`
+		Background pluginBackgroundView `json:"background"`
+	}{PluginFeedStatus: status, Run: run, Background: background}
 	if status.Launch != nil {
 		err := status.Launch.Verify()
 		ok := err == nil
@@ -83,15 +88,23 @@ func runPluginOwner(cmd *cobra.Command, opts *commandOptions, action string, arg
 		}
 		return pluginDone(cmd, feed.AddExternalPlugin(executable, args[1:]), "Added %s (disabled).", name)
 	case "remove":
-		return removePluginOwner(cmd, feed, name)
+		if err := removePluginOwner(cmd, feed, name); err != nil {
+			return err
+		}
+		if target := newLoginItemTarget(opts, service.Store.Dir); target != nil {
+			if line := target.idleLine(cmd.Context(), service.Store); line != "" {
+				return sayLine(cmd, line)
+			}
+		}
+		return nil
 	case "configure":
 		return configurePluginOwner(cmd, feed, name, scope)
 	case "enable":
-		return pluginDone(cmd, feed.EnablePluginFeed(true), "Enabled %s.", name)
+		return enablePluginOwner(cmd, feed, service.Store.Dir, args[0], name, newLoginItemTarget(opts, service.Store.Dir))
 	case "disable":
 		return pluginDone(cmd, feed.EnablePluginFeed(false), "Disabled %s.", name)
 	default:
-		return printPluginStatus(cmd, service.Store, args[0])
+		return printPluginStatus(cmd, service.Store, args[0], newLoginItemTarget(opts, service.Store.Dir))
 	}
 }
 
@@ -117,4 +130,45 @@ func configurePluginOwner(cmd *cobra.Command, feed pluginfeed.PluginFeed, name, 
 		return pluginAccessRecorded(cmd, err, name)
 	}
 	return pluginDone(cmd, err, "Configured %s: scope %s.", name, plainText(scope))
+}
+
+// Owner lines of a direct enable.
+const (
+	enabledLine             = "Enabled %s."
+	enabledResetUnconfirmed = "Enabled %s. Clearing its crash limit could not be confirmed. Run: zalki plugins restart %s"
+)
+
+// enablePluginOwner enables the plugin. A confirmed disabled->enabled change
+// of the same installation also writes a restart request, which clears its
+// crash limit, as zalki plugins restart does. An enable that was already
+// true writes none. A failed request after a good enable is a partial
+// success (exit 1): the request may even be on disk, so the line says only
+// that clearing could not be confirmed.
+func enablePluginOwner(cmd *cobra.Command, feed pluginfeed.PluginFeed, state, raw, name string, target *loginItemTarget) error {
+	before, err := feed.PluginStatus()
+	if err != nil {
+		return pluginDone(cmd, feed.EnablePluginFeed(true), enabledLine, name)
+	}
+	if err := feed.EnablePluginFeed(true); err != nil {
+		return err
+	}
+	if before.Enabled {
+		return pluginDone(cmd, nil, enabledLine, name)
+	}
+	after, err := feed.PluginStatus()
+	if err == nil && (!after.Enabled || after.ID == "" || after.ID != before.ID) {
+		err = errors.New("the enabled installation was not confirmed")
+	}
+	if err == nil {
+		err = requestRestart(state, raw, after, time.Now())
+	}
+	if err != nil {
+		return fmt.Errorf(enabledResetUnconfirmed, name, name)
+	}
+	// A confirmed change: an idle supervisor has exited, so wake it (H2).
+	// Without a login item (a custom state) the line stays as it was.
+	if result := wakeSupervisor(cmd.Context(), target, state); result != wakeManual {
+		return pluginDone(cmd, nil, enabledLine+"\n%s", name, wakeEnableLine(result, name))
+	}
+	return pluginDone(cmd, nil, enabledLine, name)
 }

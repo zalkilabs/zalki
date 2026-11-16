@@ -47,7 +47,8 @@ func newDoctorCommand(opts *commandOptions) *cobra.Command {
 				"agents":  report.Agents,
 				"runtime": report.Runtime, "runtimes": report.Runtimes, "untracked_processes": report.UntrackedProcesses,
 				"sessions": report.Sessions, "notes": report.Notes,
-				"codex_hooks": diagnoseCodexHooks(opts, report)})
+				"codex_hooks":        diagnoseCodexHooks(opts, report),
+				"plugins_background": doctorBackground(cmd, opts, service.Store)})
 		},
 	}
 }

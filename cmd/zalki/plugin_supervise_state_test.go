@@ -84,13 +84,20 @@ func TestPluginBackoffResetsAfterTenHealthyMinutes(t *testing.T) {
 	}
 }
 
-// Permanent reasons crash without counting; held leases and requested stops
-// neither count nor back off.
+// Permanent reasons crash without counting; a held lease or a failed log
+// waits with the backoff steps but counts nothing (R7-M1).
 func TestPluginStopKinds(t *testing.T) {
 	run := pluginRunState{Schema: 1, Installation: model.NewUUID(), State: runRunning}
-	run.recordStopped(stateEpoch, "lease_held")
-	if run.State != runStopped || len(run.Restarts) != 0 || run.BackoffStep != 0 || !run.startDue(stateEpoch) {
-		t.Fatalf("a held lease was charged: %+v", run)
+	for _, reason := range []string{"lease_held", "log_failed"} {
+		run := run
+		run.recordWaiting(stateEpoch, reason)
+		run.recordWaiting(stateEpoch, reason)
+		if len(run.Restarts) != 0 || !run.valid() {
+			t.Fatalf("a %s wait was charged or is not a valid state: %+v", reason, run)
+		}
+		if run.State != runBackoff || run.BackoffStep != 2 || run.startDue(stateEpoch.Add(time.Second)) || !run.startDue(stateEpoch.Add(2*time.Second)) {
+			t.Fatalf("a %s wait did not use the backoff steps: %+v", reason, run)
+		}
 	}
 	run.recordPermanent(stateEpoch, "pin_changed")
 	if run.State != runCrashed || len(run.Restarts) != 0 || run.startDue(stateEpoch.Add(time.Hour)) {

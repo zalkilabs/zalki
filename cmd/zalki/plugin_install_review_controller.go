@@ -52,6 +52,7 @@ func (p *pluginInstaller) review() (pluginfeed.PluginAccess, bool, error) {
 	if err != nil {
 		return access, false, err
 	}
+
 	if err := p.writeReview(lines[:len(lines)-1]); err != nil {
 		return access, false, err
 	}
@@ -156,8 +157,11 @@ func (p *pluginInstaller) writeReview(lines []string) error {
 }
 
 func (p *pluginInstaller) confirmReview(keys *bufio.Reader, raw bool, access pluginfeed.PluginAccess) (bool, error) {
+	if err := p.discloseBackground(); err != nil {
+		return false, err
+	}
 	for range 3 {
-		if err := p.say("%s", installQuestion); err != nil {
+		if err := p.say("%s", p.question()); err != nil {
 			return false, err
 		}
 		answer, err := readPluginReviewAnswer(keys, raw)
@@ -272,7 +276,52 @@ func (p *pluginInstaller) reportInstalled() error {
 			return errors.New("installed, but the installer warning could not be written")
 		}
 	}
-	return p.say("Installed. Start it with: zalki plugins run %s\n", p.name)
+	return p.reportBackground()
+}
+
+// discloseBackground reads the login item (read-only) right before the one
+// question and shows its lines; the same look runs again after the build.
+func (p *pluginInstaller) discloseBackground() error {
+	if p.background == nil {
+		return nil
+	}
+	shown := p.background.inspect(p.cmd.Context())
+	p.loginPlan = &shown
+	return p.say("%s\n", strings.Join(shown.disclosure(), "\n"))
+}
+
+// beforeEnable runs the read-only recheck after the build, then says that
+// enabling starts. A changed login item publishes nothing.
+func (p *pluginInstaller) beforeEnable(progress string) error {
+	if p.loginPlan != nil {
+		if err := p.background.recheck(p.cmd.Context(), *p.loginPlan, p.name); err != nil {
+			return err
+		}
+	}
+	return p.say("%s\n", progress)
+}
+
+// question is the one install question; a relaunch makes it the combined one.
+func (p *pluginInstaller) question() string {
+	if p.loginPlan != nil {
+		return p.loginPlan.question() + " "
+	}
+	return installQuestion
+}
+
+// reportBackground makes the login-item change the owner agreed to and
+// says what happened. Every other route keeps the slice4 line.
+func (p *pluginInstaller) reportBackground() error {
+	ctx := p.cmd.Context()
+	if p.loginPlan != nil && p.loginPlan.changes() {
+		if reason := p.background.apply(ctx, *p.loginPlan); reason != "" {
+			return fmt.Errorf(loginItemPartialLine, p.name, reason, shellQuote(p.background.state))
+		}
+		return p.say(loginItemStartedLine+"\n", p.name, p.name)
+	}
+	// Enabled without a login-item change: make sure a supervisor starts it
+	// (H2) and say what really happens (M3).
+	return p.say("%s\n", wakeInstallLine(wakeSupervisor(ctx, p.background, p.store.Dir), p.name))
 }
 
 // Product-facing consent failures preserve the reviewed sentence verbatim.

@@ -57,7 +57,9 @@ func pluginRecordKeys(t *testing.T, state, name string) []string {
 }
 
 // Pristine characterization of the manual add/configure/grant/enable/status/
-// disable/revoke/remove lifecycle that plugins install must not change.
+// disable/revoke/remove lifecycle that plugins install must not change. The
+// enable writes a restart request for the supervisor (7d4); remove leaves it
+// and its lock as inert files that a new installation ignores (ZAL-66).
 func TestPluginLifecycleCharacterization(t *testing.T) {
 	store, session := pluginOwnerFixture(t)
 	file := filepath.Join(t.TempDir(), "plugin")
@@ -72,12 +74,12 @@ func TestPluginLifecycleCharacterization(t *testing.T) {
 		{[]string{"add", "ext", "--exec", file}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name position revision scope"},
 		{[]string{"configure", "ext", "--scope", "all"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name position revision scope"},
 		{[]string{"grant", "ext", "--status", "--read", session.ID}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name position revision scope"},
-		{[]string{"enable", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
-		{[]string{"status", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
-		{[]string{"disable", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
-		{[]string{"revoke", "ext"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
-		{[]string{"configure", "ext", "--scope", "all"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
-		{[]string{"remove", "ext"}, "ext.lock", ""},
+		{[]string{"enable", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
+		{[]string{"status", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
+		{[]string{"disable", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
+		{[]string{"revoke", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
+		{[]string{"configure", "ext", "--scope", "all"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
+		{[]string{"remove", "ext"}, "ext.lock ext.restart.json ext.restart.lock", ""},
 	}
 	for _, step := range steps {
 		if raw, err := pluginOwnerLocal(t, store.Dir, step.args...); err != nil {

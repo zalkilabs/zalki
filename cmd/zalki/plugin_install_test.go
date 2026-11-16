@@ -182,7 +182,8 @@ func assertInstalledLifecycle(t *testing.T, state, tree string) {
 			t.Fatal(args, string(raw), err)
 		}
 	}
-	if files := strings.Join(pluginStateFiles(t, state), " "); files != ".staging/ gonote.lock" {
+	// The enable's restart request and its lock stay as inert files (7d4, ZAL-66).
+	if files := strings.Join(pluginStateFiles(t, state), " "); files != ".staging/ gonote.lock gonote.restart.json gonote.restart.lock" {
 		t.Fatal("remove left install files:", files)
 	}
 }

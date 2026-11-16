@@ -1,0 +1,12 @@
+
+	disabled services = {
+		"com.example.q1" => disabled
+		"com.example.q2" => enabled
+		"com.example.q3" => enabled
+		"com.example.q4" => disabled
+		"com.example.q5" => enabled
+		"com.example.q6" => enabled
+		"com.example.q7" => disabled
+		"com.example.q8" => disabled
+		"com.example.q9" => enabled
+	}

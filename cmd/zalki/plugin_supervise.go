@@ -48,6 +48,21 @@ var reasonText = map[string]string{
 // permanentReasons need the owner (repair or reinstall): no automatic retry.
 var permanentReasons = map[string]bool{"pin_changed": true, "pin_invalid": true, "unsupported_wire": true, "refused": true}
 
+// reinstallReasons are permanent reasons that only a new install fixes; the
+// owner line gives no restart hint for them.
+var reinstallReasons = map[string]bool{"pin_changed": true, "pin_invalid": true}
+
+// hostStart reads the start fingerprint of the host just started. The host
+// is an unreaped group leader, so its PID cannot be reused yet. Anything
+// unreadable or out of bounds is "": the host is then never shown as running.
+func hostStart(pid int) string {
+	info, err := readProcess(pid)
+	if err != nil || info.PID != pid || !validHostStart(info.Start, pid) {
+		return ""
+	}
+	return info.Start
+}
+
 func validReason(code string) bool {
 	_, ok := reasonText[code]
 	return code == "" || ok
@@ -58,7 +73,7 @@ const supervisePoll = 5 * time.Second
 func newPluginSuperviseCommand(opts *commandOptions) *cobra.Command {
 	return &cobra.Command{
 		Use: "supervise", Short: "Run all enabled plugins and restart them after failures", Args: cobra.NoArgs,
-		Long: "Runs in the foreground until stopped. Each enabled plugin runs in its own host process; a failing plugin is restarted with growing waits, and after 5 failures in 10 minutes it stays stopped until you run zalki plugins restart NAME. Output goes only to private logs.",
+		Long: "Runs in the foreground until stopped. Each enabled plugin runs in its own host process; a failing plugin is restarted with growing waits, and after 5 failures in 10 minutes it stays stopped until you run zalki plugins restart NAME. Output goes only to private logs. " + notifyOwnerCopy,
 		// supervise ignores config, logging and state selectors from the
 		// environment: it uses only --state, or the default state.
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
@@ -123,7 +138,38 @@ func runSupervisor(ctx context.Context, explicitState string, stateGiven bool) e
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
 	s := &supervisor{state: state, home: home, binary: binary, binaryID: binaryID, resolve: resolveBinary, saveRun: saveRunState, instance: model.NewUUID(), log: logs, now: time.Now, plugins: map[string]*supervised{}, events: make(chan hostEvent, 64)}
-	return s.run(ctx)
+	s.notify = notifierFor(state, home, s.instance) // by the resolved path, not by how --state was given (R7-M4)
+	return s.runWithNotifier(ctx)
+}
+
+// runWithNotifier runs the controller and its banner worker. At the end the
+// worker finishes its bounded child first; its last results are still saved.
+func (s *supervisor) runWithNotifier(ctx context.Context) error {
+	if s.notify == nil {
+		return s.run(ctx)
+	}
+	s.offered = map[string]bool{}
+	work, cancel := context.WithCancel(ctx)
+	go s.notify.work(work)
+	err := s.run(ctx)
+	cancel()
+	// Results are applied WHILE the worker ends, so a worker that is sending
+	// one can always finish; then the rest is drained.
+	for {
+		select {
+		case res := <-s.notify.results:
+			s.applyNotify(res)
+		case <-s.notify.done:
+			for {
+				select {
+				case res := <-s.notify.results:
+					s.applyNotify(res)
+				default:
+					return err
+				}
+			}
+		}
+	}
 }
 
 // errUnsafePluginsDir is the permanent setup refusal (exit 0).
@@ -162,15 +208,29 @@ func acquireSupervisorLock(state string) (*os.File, bool, error) {
 		_ = file.Close()
 		return nil, false, unsafeLog(path, err)
 	}
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		_ = file.Close()
-		if errors.Is(err, syscall.EWOULDBLOCK) {
+	// A status or restart probe holds the lock shared for a moment; only a
+	// lock that stays held for the whole bounded wait is another controller
+	// (ZAL-64). The wait never grows beyond supervisorLockWait.
+	deadline := time.Now().Add(supervisorLockWait)
+	for {
+		err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		switch {
+		case err == nil:
+			return file, false, nil
+		case !errors.Is(err, syscall.EWOULDBLOCK):
+			_ = file.Close()
+			return nil, false, err
+		case !time.Now().Before(deadline):
+			_ = file.Close()
 			return nil, true, nil
 		}
-		return nil, false, err
+		time.Sleep(20 * time.Millisecond)
 	}
-	return file, false, nil
 }
+
+// supervisorLockWait bounds how long a starting controller waits for its
+// singleton lock before it concludes that another controller holds it.
+const supervisorLockWait = 2 * time.Second
 
 type bindingKey struct{ id, epoch, revision string }
 
@@ -202,6 +262,12 @@ type supervisor struct {
 	now                           func() time.Time
 	plugins                       map[string]*supervised
 	events                        chan hostEvent
+	// notify is the banner worker (nil: no banners, e.g. a custom state);
+	// offered holds the installations offered in this generation and
+	// rotate makes the rescan fair.
+	notify  *notifier
+	offered map[string]bool
+	rotate  int
 }
 
 // run is one event loop: host events, one 5-second poll, and a wake-up at
@@ -219,6 +285,9 @@ func (s *supervisor) run(ctx context.Context) error {
 		case ev := <-s.events:
 			s.handle(ev)
 			retry.Reset(s.nextRetry())
+			continue
+		case res := <-s.notifyResults():
+			s.applyNotify(res)
 			continue
 		case <-tick.C:
 		case <-retry.C:
@@ -301,6 +370,7 @@ func (s *supervisor) scan() (bool, error) {
 			active = true
 		}
 	}
+	s.offerQueued(names)
 	for name, p := range s.plugins {
 		if !seen[name] && p.host != nil {
 			s.stopHost(name, p, "removed")
@@ -444,6 +514,13 @@ func (s *supervisor) fail(p *supervised, now time.Time, reason string) {
 	}
 }
 
+// wait delays the next start for a cause outside the plugin, anchored on
+// the monotonic clock like a failure, without counting one.
+func (s *supervisor) wait(p *supervised, now time.Time, reason string) {
+	p.run.recordWaiting(now, reason)
+	p.retryAt = now.Add(p.run.NextRetryAt.Sub(now))
+}
+
 // noteHealthy resets the backoff after ten continuously observed healthy
 // minutes on the live monotonic anchor; a handshake alone does not.
 func (p *supervised) noteHealthy(now time.Time) bool {
@@ -458,7 +535,7 @@ func (s *supervisor) start(name string, p *supervised, key bindingKey) {
 	now := s.now()
 	logs, err := openRotatingLog(filepath.Join(s.state, "plugins", name+".log"))
 	if err != nil {
-		p.run.recordStopped(now, "log_failed")
+		s.wait(p, now, "log_failed")
 		s.save(name, p)
 		return
 	}
@@ -472,7 +549,70 @@ func (s *supervisor) start(name string, p *supervised, key bindingKey) {
 	p.host, p.binding, p.lastReason, p.retryAt, p.since = host, key, "", time.Time{}, time.Time{}
 	p.run.Installation, p.run.Epoch, p.run.Revision = key.id, key.epoch, key.revision
 	p.run.ControllerInstance, p.run.State, p.run.PID, p.run.PluginPID, p.run.NextRetryAt = s.instance, runStarting, host.cmd.Process.Pid, 0, nil
+	p.run.HostStart = hostStart(host.cmd.Process.Pid)
+	// The first start of this installation by a controller that sends
+	// banners: the intent is saved in the same write as the start.
+	queued := s.notify != nil && !p.run.Notified
+	if queued {
+		p.run.Notified, p.run.NotificationState, p.run.NotificationReason = true, notifyQueued, ""
+	}
 	s.save(name, p)
+	if queued && !p.unsaved {
+		s.offerNotify(name, p)
+	}
+}
+
+func (s *supervisor) notifyResults() <-chan notifyResult {
+	if s.notify == nil {
+		return nil
+	}
+	return s.notify.results
+}
+
+// offerNotify offers a durable queued intent once per generation. A full
+// queue leaves it queued; the next rescan offers it again.
+func (s *supervisor) offerNotify(name string, p *supervised) {
+	if s.offered[p.run.Installation] {
+		return
+	}
+	if s.notify.offer(notifyIntent{name: name, installation: p.run.Installation}) {
+		s.offered[p.run.Installation] = true
+	}
+}
+
+// offerQueued is the fair rescan: it starts one name later each time.
+func (s *supervisor) offerQueued(names []string) {
+	if s.notify == nil || len(names) == 0 {
+		return
+	}
+	// Only current installations are remembered: a replaced UUID never
+	// comes back, so the set stays as small as the plugin list.
+	current := map[string]bool{}
+	for _, p := range s.plugins {
+		current[p.run.Installation] = true
+	}
+	for id := range s.offered {
+		if !current[id] {
+			delete(s.offered, id)
+		}
+	}
+	s.rotate = (s.rotate + 1) % len(names)
+	for i := range names {
+		name := names[(s.rotate+i)%len(names)]
+		if p := s.plugins[name]; p != nil && !p.unsaved && p.run.NotificationState == notifyQueued {
+			s.offerNotify(name, p)
+		}
+	}
+}
+
+// applyNotify records a dispatch result for the installation it was for.
+func (s *supervisor) applyNotify(res notifyResult) {
+	p := s.plugins[res.name]
+	if p == nil || p.run.Installation != res.installation || !p.run.Notified {
+		return
+	}
+	p.run.NotificationState, p.run.NotificationReason = res.state, res.reason
+	s.save(res.name, p)
 }
 
 // save publishes the in-memory state. A failure (also one after the
@@ -535,8 +675,8 @@ func (s *supervisor) finish(name string, p *supervised) {
 		return
 	}
 	switch {
-	case reason == "lease_held":
-		p.run.recordStopped(now, reason)
+	case waitingReasons[reason]:
+		s.wait(p, now, reason)
 	case permanentReasons[reason]:
 		p.run.recordPermanent(now, reason)
 	default:
