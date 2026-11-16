@@ -123,6 +123,15 @@ jobs:
         run: |
           python3 scripts/platform-compile/run.py --repo "$GITHUB_WORKSPACE" \
             --output "${{ runner.temp }}/platform-compile"
+      - name: Verify on-demand checkpoint failure fixtures
+        if: github.event_name == 'workflow_dispatch' && matrix.os == 'macos-latest'
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/checkpoint-capture -p 'test_*.py' -v
+      - name: Capture the human architecture checkpoint and quiet coverage
+        if: github.event_name == 'workflow_dispatch' && matrix.os == 'macos-latest'
+        timeout-minutes: 20
+        run: |
+          python3 scripts/checkpoint-capture/run.py --repo "$GITHUB_WORKSPACE" \
+            --tools "${{ runner.temp }}/lint-tools" --output "${{ runner.temp }}/checkpoint-capture"
       - name: Retain strict and architecture comparison evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -143,6 +152,15 @@ jobs:
             ${{ runner.temp }}/platform-compile/**/*.json
             ${{ runner.temp }}/platform-compile/**/*.stdout
             ${{ runner.temp }}/platform-compile/**/*.stderr
+            ${{ runner.temp }}/checkpoint-capture/*.json
+            ${{ runner.temp }}/checkpoint-capture/*.stdout
+            ${{ runner.temp }}/checkpoint-capture/*.stderr
+            ${{ runner.temp }}/checkpoint-capture/*.md
+            ${{ runner.temp }}/checkpoint-capture/*.out
+            ${{ runner.temp }}/checkpoint-capture/cli/*.json
+            ${{ runner.temp }}/checkpoint-capture/cli/*.log
+            ${{ runner.temp }}/checkpoint-capture/cli/*.stdout
+            ${{ runner.temp }}/checkpoint-capture/cli/*.stderr
 
   fault-controls:
     name: Focused mutation controls (${{ matrix.os }})
