@@ -1,10 +1,37 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
 )
+
+func TestRequiredJSONPreservesTheCurrentOrdinaryRootLedger(t *testing.T) {
+	var out bytes.Buffer
+	tests := requiredForMode(false)
+	if err := writeRequiredJSON(&out, tests); err != nil {
+		t.Fatal(err)
+	}
+	var rows []map[string]string
+	if err := json.Unmarshal(out.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != len(tests) {
+		t.Fatal("required JSON omitted a current root")
+	}
+	seen := map[requiredTest]bool{}
+	for index, row := range rows {
+		want := tests[index]
+		if len(row) != 2 || row["package"] != want.importPath() || row["test"] != want.name || seen[want] {
+			t.Fatal("required JSON changed package/test identity or duplicated a root")
+		}
+		if want.name == "TestTempAliasEnvironment" {
+			t.Fatal("ordinary ledger gained an unrequested alias root")
+		}
+		seen[want] = true
+	}
+}
 
 func TestRequiredIntegrationGate(t *testing.T) {
 	const pkg = "github.com/zalkilabs/zalki/internal/adapters/cursor"

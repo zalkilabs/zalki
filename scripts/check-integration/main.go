@@ -23,6 +23,14 @@ func (t requiredTest) importPath() string {
 }
 
 var required = []requiredTest{
+	{"scripts/check-integration", "TestRequiredJSONPreservesTheCurrentOrdinaryRootLedger"},
+	{"scripts/assertion-sites", "TestAssertionSitesResolveCurrentHelperAndDescendantSource"},
+	{"scripts/assertion-sites", "TestAssertionSitesRejectExtraRPCBranchAndMissingHelper"},
+	{"scripts/assertion-sites", "TestAssertionSitesRefuseDisconnectedOrAmbiguousCallers"},
+	{"scripts/assertion-sites", "TestAssertionSitesRejectSourceLinksAndMetadata"},
+	{"scripts/assertion-sites", "TestAssertionSitesBindTheWholeQuotedFatalCall"},
+	{"scripts/assertion-sites", "TestAssertionSitesFreshTestingCallbackReportsItsOwnFatal"},
+	{"scripts/assertion-sites", "TestAssertionMutationPreimageStaysInsideItsNamedFunction"},
 	{"scripts/arch-metrics", "TestSnapshotShapeIgnoresDeclarationMovement"},
 	{"scripts/arch-metrics", "TestSnapshotRejectsPartialDiscovery"},
 	{"scripts/arch-metrics", "TestSnapshotUsesTheRepoNamedExportRule"},
@@ -236,6 +244,13 @@ func requiredForMode(alias bool) []requiredTest {
 }
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--list-required" {
+		if err := writeRequiredJSON(os.Stdout, requiredForMode(false)); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	alias, path, err := reportArguments(os.Args[1:])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -247,6 +262,14 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("Required integration coverage passed (%d tests, no skipped descendants).\n", len(tests))
+}
+
+func writeRequiredJSON(out io.Writer, tests []requiredTest) error {
+	rows := make([]map[string]string, 0, len(tests))
+	for _, test := range tests {
+		rows = append(rows, map[string]string{"package": test.importPath(), "test": test.name})
+	}
+	return json.NewEncoder(out).Encode(rows)
 }
 
 func reportArguments(args []string) (bool, string, error) {

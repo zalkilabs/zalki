@@ -1,0 +1,557 @@
+[
+  {
+    "id": "C4-F1-CREATE",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/bus/session_profile.go",
+      "symbol": "registrationConfigRoot",
+      "old": "if !validNativeConfigRoot(root) {",
+      "new": "if false {",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/bus",
+      "directory": "./internal/bus",
+      "test": "TestRegistrationRequiresAbsoluteNativeProfile/relative/profile"
+    },
+    "assertion": {
+      "file": "internal/bus/session_profile_test.go",
+      "assertion_function": "TestRegistrationRequiresAbsoluteNativeProfile",
+      "fatal_literal": "INVALID_ROOT_REGISTERED",
+      "fatal_call": "t.Fatal(\"INVALID_ROOT_REGISTERED\", key != \"\", err)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "INVALID_ROOT_REGISTERED"
+  },
+  {
+    "id": "C4-F2-STORED",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/bus/session_profile.go",
+      "symbol": "validateStoredConfigRoot",
+      "old": "if _, ok := adapter.(agent.NameAdapter); ok && !validNativeConfigRoot(v.NativeConfigDir) {",
+      "new": "if _, ok := adapter.(agent.NameAdapter); false && ok && !validNativeConfigRoot(v.NativeConfigDir) {",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/bus",
+      "directory": "./internal/bus",
+      "test": "TestStoredNativeProfileRefusalKeepsAuthorityAndMail/relative/profile"
+    },
+    "assertion": {
+      "file": "internal/bus/session_profile_test.go",
+      "assertion_function": "checkStoredNativeProfileRefusal",
+      "fatal_literal": "ROOTLESS_SESSION_AUTHENTICATED",
+      "fatal_call": "t.Fatal(\"ROOTLESS_SESSION_AUTHENTICATED\", err)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestStoredNativeProfileRefusalKeepsAuthorityAndMail",
+          "callee": "checkStoredNativeProfileRefusal",
+          "caller_is_helper": false
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": false
+    },
+    "output_fragment": "ROOTLESS_SESSION_AUTHENTICATED"
+  },
+  {
+    "id": "C4-F3-NAME",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/adapters/codex/codex.go",
+      "symbol": "LookupName",
+      "old": "root := absoluteConfigDir(v.NativeConfigDir)\n\tif root == \"\" {\n\t\treturn \"\", \"\"\n\t}",
+      "new": "root := absoluteConfigDir(v.NativeConfigDir)\n\tif root == \"\" {\n\t\troot = (Adapter{}).ConfigDir()\n\t}",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/adapters",
+      "directory": "./internal/adapters",
+      "test": "TestNativeNameLookupNeverUsesForeignProfile/codex"
+    },
+    "assertion": {
+      "file": "internal/adapters/profile_root_test.go",
+      "assertion_function": "TestNativeNameLookupNeverUsesForeignProfile",
+      "fatal_literal": "FOREIGN_PROFILE_NAME_READ",
+      "fatal_call": "t.Fatal(\"FOREIGN_PROFILE_NAME_READ\", name)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "FOREIGN_PROFILE_NAME_READ"
+  },
+  {
+    "id": "C4-F4-RPC",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/adapters/codex/codex_app_server.go",
+      "symbol": "codexConfigRoot",
+      "old": "return absoluteConfigDir(target.NativeConfigDir)",
+      "new": "if root := absoluteConfigDir(target.NativeConfigDir); root != \"\" { return root }; return (Adapter{}).ConfigDir()",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/adapters/codex",
+      "directory": "./internal/adapters/codex",
+      "test": "TestCodexBoundProfileNeverUsesSenderRPC/relative/on"
+    },
+    "assertion": {
+      "file": "internal/adapters/codex/profile_root_test.go",
+      "assertion_function": "checkBoundProfileRPC",
+      "fatal_literal": "FOREIGN_PROFILE_RPC_USED",
+      "fatal_call": "t.Fatal(\"FOREIGN_PROFILE_RPC_USED\")",
+      "expected_assertion_sites": 2,
+      "expected_file_assertion_sites": 2,
+      "call_chain": [
+        {
+          "caller": "TestCodexBoundProfileNeverUsesSenderRPC",
+          "callee": "checkBoundProfileRPC",
+          "caller_is_helper": false
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": false
+    },
+    "output_fragment": "FOREIGN_PROFILE_RPC_USED"
+  },
+  {
+    "id": "C4-F5-QUEUE",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/adapters/codex/codex.go",
+      "symbol": "queueCodex",
+      "old": "\tif root == \"\" {\n\t\treturn failedReceipt(model.StatusNotSent, errCodexProfile)\n\t}",
+      "new": "",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/adapters/codex",
+      "directory": "./internal/adapters/codex",
+      "test": "TestCodexBoundQueueRequiresCapturedProfile/relative"
+    },
+    "assertion": {
+      "file": "internal/adapters/codex/profile_root_test.go",
+      "assertion_function": "TestCodexBoundQueueRequiresCapturedProfile",
+      "fatal_literal": "FOREIGN_PROFILE_QUEUE_STARTED",
+      "fatal_call": "t.Fatal(\"FOREIGN_PROFILE_QUEUE_STARTED\")",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "FOREIGN_PROFILE_QUEUE_STARTED"
+  },
+  {
+    "id": "C4-F6-COMPACT",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/bus/session_profile.go",
+      "symbol": "checkCompactConfigRoot",
+      "old": "if compact && !current.Retired && next.NativeConfigDir != \"\" && current.NativeConfigDir != next.NativeConfigDir {",
+      "new": "if false && compact && !current.Retired && next.NativeConfigDir != \"\" && current.NativeConfigDir != next.NativeConfigDir {",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/bus",
+      "directory": "./internal/bus",
+      "test": "TestCompactionCannotChangeNativeProfile"
+    },
+    "assertion": {
+      "file": "internal/bus/session_profile_test.go",
+      "assertion_function": "TestCompactionCannotChangeNativeProfile",
+      "fatal_literal": "COMPACT_PROFILE_CHANGED",
+      "fatal_call": "t.Fatal(\"COMPACT_PROFILE_CHANGED\", err, replacement != \"\")",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "COMPACT_PROFILE_CHANGED"
+  },
+  {
+    "id": "C4-F7-ZERO",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/adapters/codex/codex_app_server.go",
+      "symbol": "capabilityConfigRoot",
+      "old": "if reflect.ValueOf(v).IsZero() {",
+      "new": "if reflect.ValueOf(v).IsZero() || (v.ID == \"\" && v.NativeID == \"\" && v.Kind == \"\" && v.NativeConfigDir == \"\") {",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/adapters/codex",
+      "directory": "./internal/adapters/codex",
+      "test": "TestCodexUnboundProfileProbeRemainsReadOnly/generation"
+    },
+    "assertion": {
+      "file": "internal/adapters/codex/profile_root_test.go",
+      "assertion_function": "checkCodexPartialBoundProfiles",
+      "fatal_literal": "PARTIAL_BOUND_PROFILE_BECAME_PROBE",
+      "fatal_call": "t.Fatal(\"PARTIAL_BOUND_PROFILE_BECAME_PROBE\", got)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestCodexUnboundProfileProbeRemainsReadOnly",
+          "callee": "checkCodexPartialBoundProfiles",
+          "caller_is_helper": false
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": true
+    },
+    "output_fragment": "PARTIAL_BOUND_PROFILE_BECAME_PROBE"
+  },
+  {
+    "id": "B-M2-COPY",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/bus/session_profile_hint.go",
+      "symbol": "nativeProfileHint",
+      "old": "return nativeProfileRequirement + \" \" + strings.Join(notes, \" \")",
+      "new": "return nativeProfileRequirement + \" \" + strings.Join(notes[:0], \" \")",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/adapters",
+      "directory": "./internal/adapters",
+      "test": "TestNativeProfileCreationRoutes/codex/relative/direct"
+    },
+    "assertion": {
+      "file": "internal/adapters/profile_root_test.go",
+      "assertion_function": "checkInvalidProfileGuidance",
+      "fatal_literal": "PROFILE_REFUSAL_LOST_VARIABLE_GUIDANCE",
+      "fatal_call": "t.Fatal(\"PROFILE_REFUSAL_LOST_VARIABLE_GUIDANCE\", text)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestNativeProfileCreationRoutes",
+          "callee": "checkProfileCreationRoute",
+          "caller_is_helper": false
+        },
+        {
+          "caller": "checkProfileCreationRoute",
+          "callee": "checkInvalidProfileGuidance",
+          "caller_is_helper": true
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": false
+    },
+    "output_fragment": "PROFILE_REFUSAL_LOST_VARIABLE_GUIDANCE"
+  },
+  {
+    "id": "B-M2-DOCTOR",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/bus/diagnostics.go",
+      "symbol": "diagnoseAgents",
+      "old": "\t\tdiagnoseNativeProfile(report, adapter)\n",
+      "new": "",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/adapters",
+      "directory": "./internal/adapters",
+      "test": "TestNativeProfileCreationRoutes/codex/relative/direct"
+    },
+    "assertion": {
+      "file": "internal/adapters/profile_root_test.go",
+      "assertion_function": "checkInvalidProfileGuidance",
+      "fatal_literal": "DOCTOR_LOST_INVALID_PROFILE_SELECTION",
+      "fatal_call": "t.Fatal(\"DOCTOR_LOST_INVALID_PROFILE_SELECTION\", doctorErr, notes)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestNativeProfileCreationRoutes",
+          "callee": "checkProfileCreationRoute",
+          "caller_is_helper": false
+        },
+        {
+          "caller": "checkProfileCreationRoute",
+          "callee": "checkInvalidProfileGuidance",
+          "caller_is_helper": true
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": false
+    },
+    "output_fragment": "DOCTOR_LOST_INVALID_PROFILE_SELECTION"
+  },
+  {
+    "id": "B-M1-ROOT",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/bus/session_scan_notes.go",
+      "symbol": "sessionIssueReason",
+      "old": "return \"session_missing_root\"",
+      "new": "return \"session_unreadable\"",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/bus",
+      "directory": "./internal/bus",
+      "test": "TestStoredNativeProfileRefusalKeepsAuthorityAndMail/relative/profile"
+    },
+    "assertion": {
+      "file": "internal/bus/session_profile_test.go",
+      "assertion_function": "checkStoredNativeProfileRefusal",
+      "fatal_literal": "DOCTOR_LOST_FIXED_ROOT_REASON",
+      "fatal_call": "t.Fatal(\"DOCTOR_LOST_FIXED_ROOT_REASON\", err, report.Notes)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestStoredNativeProfileRefusalKeepsAuthorityAndMail",
+          "callee": "checkStoredNativeProfileRefusal",
+          "caller_is_helper": false
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": false
+    },
+    "output_fragment": "DOCTOR_LOST_FIXED_ROOT_REASON"
+  },
+  {
+    "id": "B-L2-BUS",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/bus/session_profile.go",
+      "symbol": "validNativeConfigRoot",
+      "old": "!strings.ContainsFunc(root, unicode.IsControl)",
+      "new": "!strings.ContainsFunc(root, func(r rune) bool { return !unicode.IsGraphic(r) })",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/bus",
+      "directory": "./internal/bus",
+      "test": "TestRegistrationRequiresAbsoluteNativeProfile"
+    },
+    "assertion": {
+      "file": "internal/bus/session_profile_test.go",
+      "assertion_function": "TestRegistrationRequiresAbsoluteNativeProfile",
+      "fatal_literal": "CONTROL_FREE_ROOT_WAS_REFUSED",
+      "fatal_call": "t.Fatal(\"CONTROL_FREE_ROOT_WAS_REFUSED\", err)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "CONTROL_FREE_ROOT_WAS_REFUSED"
+  },
+  {
+    "id": "B-L2-CODEX",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/adapters/codex/codex.go",
+      "symbol": "absoluteConfigDir",
+      "old": "strings.ContainsFunc(root, unicode.IsControl)",
+      "new": "strings.ContainsFunc(root, func(r rune) bool { return !unicode.IsGraphic(r) })",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/adapters",
+      "directory": "./internal/adapters",
+      "test": "TestNativeProfileSelectionIsAbsoluteAndExact/codex"
+    },
+    "assertion": {
+      "file": "internal/adapters/profile_root_test.go",
+      "assertion_function": "checkProfileCharacterPolicy",
+      "fatal_literal": "CONTROL_FREE_PROFILE_WAS_REFUSED",
+      "fatal_call": "t.Fatal(\"CONTROL_FREE_PROFILE_WAS_REFUSED\", kind, got)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestNativeProfileSelectionIsAbsoluteAndExact",
+          "callee": "checkNativeProfileSelection",
+          "caller_is_helper": false
+        },
+        {
+          "caller": "checkNativeProfileSelection",
+          "callee": "checkProfileCharacterPolicy",
+          "caller_is_helper": true
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": false
+    },
+    "output_fragment": "CONTROL_FREE_PROFILE_WAS_REFUSED"
+  },
+  {
+    "id": "B-L2-CLAUDE",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/adapters/claude/claude.go",
+      "symbol": "absoluteConfigDir",
+      "old": "strings.ContainsFunc(root, unicode.IsControl)",
+      "new": "strings.ContainsFunc(root, func(r rune) bool { return !unicode.IsGraphic(r) })",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/adapters",
+      "directory": "./internal/adapters",
+      "test": "TestNativeProfileSelectionIsAbsoluteAndExact/claude"
+    },
+    "assertion": {
+      "file": "internal/adapters/profile_root_test.go",
+      "assertion_function": "checkProfileCharacterPolicy",
+      "fatal_literal": "CONTROL_FREE_PROFILE_WAS_REFUSED",
+      "fatal_call": "t.Fatal(\"CONTROL_FREE_PROFILE_WAS_REFUSED\", kind, got)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestNativeProfileSelectionIsAbsoluteAndExact",
+          "callee": "checkNativeProfileSelection",
+          "caller_is_helper": false
+        },
+        {
+          "caller": "checkNativeProfileSelection",
+          "callee": "checkProfileCharacterPolicy",
+          "caller_is_helper": true
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": false
+    },
+    "output_fragment": "CONTROL_FREE_PROFILE_WAS_REFUSED"
+  },
+  {
+    "id": "B-L2-CURSOR",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/adapters/cursor/cursor.go",
+      "symbol": "absoluteConfigDir",
+      "old": "strings.ContainsFunc(root, unicode.IsControl)",
+      "new": "strings.ContainsFunc(root, func(r rune) bool { return !unicode.IsGraphic(r) })",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/adapters",
+      "directory": "./internal/adapters",
+      "test": "TestNativeProfileSelectionIsAbsoluteAndExact/cursor"
+    },
+    "assertion": {
+      "file": "internal/adapters/profile_root_test.go",
+      "assertion_function": "checkProfileCharacterPolicy",
+      "fatal_literal": "CONTROL_FREE_PROFILE_WAS_REFUSED",
+      "fatal_call": "t.Fatal(\"CONTROL_FREE_PROFILE_WAS_REFUSED\", kind, got)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestNativeProfileSelectionIsAbsoluteAndExact",
+          "callee": "checkNativeProfileSelection",
+          "caller_is_helper": false
+        },
+        {
+          "caller": "checkNativeProfileSelection",
+          "callee": "checkProfileCharacterPolicy",
+          "caller_is_helper": true
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": false
+    },
+    "output_fragment": "CONTROL_FREE_PROFILE_WAS_REFUSED"
+  },
+  {
+    "id": "Z82-F0",
+    "kind": "runtime_config",
+    "mutation": {
+      "path": ".goreleaser.yaml",
+      "symbol": "builds[0].ldflags",
+      "old": "github.com/zalkilabs/zalki/internal/bus.Version={{ .Version }}",
+      "new": "github.com/zalkilabs/zalki/internal/bus.Versio={{ .Version }}",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/bus",
+      "directory": "./internal/bus",
+      "test": "TestReleaseLinkerFlagNamesTheVersionVariable"
+    },
+    "assertion": {
+      "file": "internal/bus/release_flag_test.go",
+      "assertion_function": "TestReleaseLinkerFlagNamesTheVersionVariable",
+      "fatal_literal": "release linker flag target = %q, want %q",
+      "fatal_call": "t.Fatalf(\"release linker flag target = %q, want %q\", targets[0], want)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "release linker flag target ="
+  },
+  {
+    "id": "Z82-F2",
+    "kind": "runtime_config",
+    "mutation": {
+      "path": ".goreleaser.yaml",
+      "symbol": "builds[0].ldflags",
+      "old": " -X github.com/zalkilabs/zalki/internal/bus.Version={{ .Version }}",
+      "new": "",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/bus",
+      "directory": "./internal/bus",
+      "test": "TestReleaseLinkerFlagNamesTheVersionVariable"
+    },
+    "assertion": {
+      "file": "internal/bus/release_flag_test.go",
+      "assertion_function": "TestReleaseLinkerFlagNamesTheVersionVariable",
+      "fatal_literal": "found %d -X flags, want 1",
+      "fatal_call": "t.Fatalf(\"found %d -X flags, want 1\", len(targets))",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "found 0 -X flags, want 1"
+  },
+  {
+    "id": "Z82-F4",
+    "kind": "runtime_config",
+    "mutation": {
+      "path": ".goreleaser.yaml",
+      "symbol": "builds[0].ldflags",
+      "old": " -X github.com/zalkilabs/zalki/internal/bus.Version={{ .Version }}",
+      "new": " -X github.com/zalkilabs/zalki/internal/bus.Version={{ .Version }} -X github.com/zalkilabs/zalki/internal/bus.Version=extra",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/bus",
+      "directory": "./internal/bus",
+      "test": "TestReleaseLinkerFlagNamesTheVersionVariable"
+    },
+    "assertion": {
+      "file": "internal/bus/release_flag_test.go",
+      "assertion_function": "TestReleaseLinkerFlagNamesTheVersionVariable",
+      "fatal_literal": "found %d -X flags, want 1",
+      "fatal_call": "t.Fatalf(\"found %d -X flags, want 1\", len(targets))",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "found 2 -X flags, want 1"
+  }
+]
