@@ -85,7 +85,7 @@ func sessionStartupSummary(view bus.JournalView, session model.Session, records 
 		Invalid bool   `json:"invalid_env"`
 	}
 	if len(session.PluginPolicy) == 0 || json.Unmarshal(session.PluginPolicy, &policy) != nil {
-		return "Plugins active for this session: none (session plugin policy unavailable)."
+		return "Plugins with access to this session: none (session plugin policy unavailable)."
 	}
 	names := []string{}
 	for _, p := range records {
@@ -94,15 +94,15 @@ func sessionStartupSummary(view bus.JournalView, session model.Session, records 
 		}
 	}
 	slices.Sort(names)
-	line := "Plugins active for this session: none."
+	line := "Plugins with access to this session: none."
 	if policy.Mode == "off" {
-		line = "Plugins active for this session: none (ZALKI_PLUGINS=off)."
+		line = "Plugins with access to this session: none (ZALKI_PLUGINS=off)."
 	}
 	if len(names) > 0 {
-		line = "Plugins active for this session: " + strings.Join(names[:min(len(names), 16)], ", ") + "."
+		line = "Plugins with access to this session: " + strings.Join(names[:min(len(names), 16)], ", ") + "."
 	}
 	if len(names) > 16 {
-		line = "Plugins active for this session: " + strings.Join(names[:16], ", ") + fmt.Sprintf(", +%d more. See: zalki plugins list", len(names)-16)
+		line = "Plugins with access to this session: " + strings.Join(names[:16], ", ") + fmt.Sprintf(", +%d more. See: zalki plugins list", len(names)-16)
 	}
 	if policy.Invalid {
 		line += "\nInvalid ZALKI_PLUGINS; plugins are off for this session. Use off or comma-separated plugin names."

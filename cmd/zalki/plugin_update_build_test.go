@@ -144,7 +144,7 @@ func TestPluginUpdateDisabledStaysDisabled(t *testing.T) {
 		t.Fatal(output, err)
 	}
 	now := readInstallStatus(t, state, "demo")
-	if now.Enabled || now.Epoch != old.Epoch || strings.Contains(output, "Enabling...") || !strings.Contains(output, "Publishing update...") || !strings.Contains(output, "zalki plugins enable demo && zalki plugins run demo") {
+	if now.Enabled || now.Epoch != old.Epoch || strings.Contains(output, "Enabling...") || !strings.Contains(output, "Publishing update...") || !strings.Contains(output, "Enable it with: zalki plugins enable demo; then, if no background supervisor runs, start it with: zalki plugins run demo") {
 		t.Fatal("disabled update enabled or misreported the plugin", output)
 	}
 }
@@ -160,7 +160,7 @@ func TestPluginUpdateDisabledEmptyExplainsGrantBeforeEnable(t *testing.T) {
 		t.Fatal(output, err)
 	}
 	now := readInstallStatus(t, state, "demo")
-	if now.Enabled || now.Access.Status || now.Access.Receive || !strings.Contains(output, "zalki plugins grant demo --status && zalki plugins enable demo && zalki plugins run demo") {
+	if now.Enabled || now.Access.Status || now.Access.Receive || !strings.Contains(output, "Enable it with: zalki plugins grant demo --status && zalki plugins enable demo; then, if no background supervisor runs, start it with: zalki plugins run demo") {
 		t.Fatal("empty disabled update granted access or gave unusable start guidance", output)
 	}
 }

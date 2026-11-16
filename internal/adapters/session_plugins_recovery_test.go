@@ -55,9 +55,9 @@ func assertRealCursorPluginRecovery(t *testing.T, event, env string) {
 
 func assertRealCursorPluginSummary(t *testing.T, out, env string, calls int) {
 	t.Helper()
-	want := "Plugins active for this session: external."
+	want := "Plugins with access to this session: external."
 	if env == "off" || env == "invalid setting" {
-		want = "Plugins active for this session: none (ZALKI_PLUGINS=off)."
+		want = "Plugins with access to this session: none (ZALKI_PLUGINS=off)."
 	}
 	if calls != 1 || !strings.Contains(out, want) || len(out) > 24*1024 {
 		t.Fatal("Z6_REAL_RECOVERY_TRUTHFUL_POLICY_SUMMARY", env)

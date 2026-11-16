@@ -41,7 +41,7 @@ func pluginShowLines(store bus.Store, status pluginfeed.PluginFeedStatus, detail
 	}
 	lines := []string{
 		title,
-		state + "; runtime not checked. Start it with: zalki plugins run " + status.Name,
+		state + "; runtime not checked. " + updateStartHint(status.Name, status.Enabled, ""),
 		"Standard: " + pluginStandardText(status.Access),
 		"Scope: " + pluginScopeText(status.Scope) + "; " + pluginEligibleSnapshot(store, status),
 		"SEND: " + pluginExactTargets(status.Access.Send),

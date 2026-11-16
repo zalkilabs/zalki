@@ -14,7 +14,7 @@ import (
 
 type pluginStartupFormat func(JournalView, string, model.Session, bool, func(string) (bool, error)) (string, error)
 
-const pluginStartupUnavailable = "Plugins active for this session: unavailable. Run: zalki plugins list"
+const pluginStartupUnavailable = "Plugins with access to this session: unavailable. Run: zalki plugins list"
 const startupTooLarge = "Zalki setup instructions are too large. Shorten the configured paths, then start a new chat."
 
 var errPluginStartupSize = errors.New(startupTooLarge)

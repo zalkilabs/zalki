@@ -21,7 +21,7 @@ var pluginAccessTerminal = func(in io.Reader) bool {
 }
 
 func pluginAccessRecorded(cmd *cobra.Command, err error, name string) error {
-	return pluginDone(cmd, err, "Recorded access for %s. Stop any running copy, then start it with: zalki plugins run %s", name, name)
+	return pluginDone(cmd, err, "Recorded access for %s. If no background supervisor runs, stop any running copy, then start it with: zalki plugins run %s", name, name)
 }
 
 func pluginInstallerText(receipt *pluginfeed.PluginInstallReceipt) string {

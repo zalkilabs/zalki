@@ -186,19 +186,29 @@ func (p *pluginInstaller) reportUpdated() error {
 	if err != nil {
 		return fmt.Errorf("updated, but details could not be read; run: zalki plugins show %s", p.name)
 	}
-	start := "zalki plugins run " + p.name
-	if !status.Enabled {
-		start = "zalki plugins enable " + p.name + " && " + start
-		a, declared := status.Access, p.source.Manifest.Access
-		if !a.Status && !a.Receive && len(a.Send)+len(a.Read) == 0 && !declared.Send && !declared.Read {
-			kind := "--receive"
-			if declared.Status {
-				kind = "--status"
-			}
-			start = "zalki plugins grant " + p.name + " " + kind + " && " + start
+	grant := ""
+	if a, declared := status.Access, p.source.Manifest.Access; !status.Enabled && !a.Status && !a.Receive && len(a.Send)+len(a.Read) == 0 && !declared.Send && !declared.Read {
+		grant = "--receive"
+		if declared.Status {
+			grant = "--status"
 		}
 	}
-	return p.say("Updated %s: snapshot %s -> %s. It stays %s. Installer: %s. Start it with: %s\n", p.name, p.update.Install.TreeSHA256[:12], p.source.TreeSHA256[:12], enabledText(status.Enabled), pluginInstallerText(status.Install), start)
+	return p.say("Updated %s: snapshot %s -> %s. It stays %s. Installer: %s. %s\n", p.name, p.update.Install.TreeSHA256[:12], p.source.TreeSHA256[:12], enabledText(status.Enabled), pluginInstallerText(status.Install), updateStartHint(p.name, status.Enabled, grant))
+}
+
+// updateStartHint is what the owner runs after an update. A background
+// supervisor starts an enabled plugin itself, and a foreground run next to
+// it only competes for the lease, so the run step is for the case without
+// one. grant is the access flag a disabled plugin still needs.
+func updateStartHint(name string, enabled bool, grant string) string {
+	if enabled {
+		return "If no background supervisor runs, start it with: zalki plugins run " + name
+	}
+	enable := "zalki plugins enable " + name
+	if grant != "" {
+		enable = "zalki plugins grant " + name + " " + grant + " && " + enable
+	}
+	return "Enable it with: " + enable + "; then, if no background supervisor runs, start it with: zalki plugins run " + name
 }
 
 func enabledText(enabled bool) string {
