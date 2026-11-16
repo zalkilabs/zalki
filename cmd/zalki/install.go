@@ -62,7 +62,13 @@ func applyConfiguration(cmd *cobra.Command, opts *commandOptions) error {
 	if err != nil {
 		return err
 	}
-	return printCodexTrustNotice(cmd)
+	if err := printCodexTrustNotice(cmd); err != nil {
+		return err
+	}
+	if target := newLoginItemTarget(opts, service.Store.Dir); target != nil {
+		return target.rootSetup(cmd, service.Store)
+	}
+	return nil
 }
 
 func printCodexTrustNotice(cmd *cobra.Command) error {

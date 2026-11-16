@@ -86,9 +86,11 @@ func launchChild(ctx context.Context, binary string, pinned fileIdentity, args [
 		c.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: ownGroup}
 		c.cmd.Env = childEnv(home)
 		c.cmd.Stdin, c.cmd.Stdout, c.cmd.Stderr = input, output, c
-		c.cmd.ExtraFiles = []*os.File{lease}
+		c.cmd.ExtraFiles, err = isolatedChildFiles(lease)
 		c.cmd.WaitDelay = time.Second
-		err = c.cmd.Start()
+		if err == nil {
+			err = c.cmd.Start()
+		}
 	}
 	if err != nil {
 		cancel()
@@ -107,6 +109,50 @@ func launchChild(ctx context.Context, binary string, pinned fileIdentity, args [
 		return nil, errPinChangedAtStart
 	}
 	return c, nil
+}
+
+// Unix exec preserves unrelated inherited descriptors without CLOEXEC.
+// Nil ExtraFiles entries close those slots in the forked child; they never
+// close or change flags on the running parent's descriptors. The explicit
+// lease at FD 3 remains the only allowed extra file.
+const maxInheritedPluginFD = 1<<20 - 1 // At most 8 MiB of nil slots on 64-bit hosts.
+
+var childFDInventory = readChildFDNames
+
+// ReadDir may stat DT_UNKNOWN entries. Darwin's descriptor filesystem does
+// not support all such per-entry metadata queries; only the names are needed.
+func readChildFDNames() ([]string, error) {
+	directory, err := os.Open("/dev/fd")
+	if err != nil {
+		return nil, err
+	}
+	names, readErr := directory.Readdirnames(-1)
+	closeErr := directory.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		return nil, err
+	}
+	return names, nil
+}
+
+func isolatedChildFiles(lease *os.File) ([]*os.File, error) {
+	entries, err := childFDInventory()
+	if err != nil {
+		return nil, fmt.Errorf("cannot enumerate inherited plugin descriptors: %w", err)
+	}
+	highest := 3
+	for _, name := range entries {
+		fd, err := strconv.Atoi(name)
+		if err != nil || fd < 0 {
+			return nil, errors.New("invalid inherited plugin descriptor inventory")
+		}
+		if fd > maxInheritedPluginFD {
+			return nil, errors.New("inherited plugin descriptor inventory exceeds isolated launch bound")
+		}
+		highest = max(highest, fd)
+	}
+	files := make([]*os.File, highest-2)
+	files[0] = lease
+	return files, nil
 }
 
 func (c *child) receive(timeout time.Duration) (frame, error) {

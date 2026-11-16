@@ -1,5 +1,7 @@
 # Contributing
 
+Use Conventional Commits subjects for commits and pull request titles: type: summary (or type(scope): summary), choosing feat, fix, refactor, test, ci, docs or chore for the actual change. Squash merges retain the reviewed pull request title.
+
 Use Go 1.26.10 or newer. Work on a short-lived branch and open a focused pull
 request describing the problem, resulting behavior, and validation. Squash
 merge after CI passes. Maintainers are responsible for reviewing and testing

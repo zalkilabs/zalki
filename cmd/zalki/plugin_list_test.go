@@ -22,7 +22,7 @@ func TestPluginListAndOldRecord(t *testing.T) {
 		}
 	}
 	raw, err := pluginOwnerLocal(t, store.Dir, "list")
-	if err != nil || !strings.Contains(string(raw), "Manual plugins (no installation receipt)\n  ext  unknown version  disabled; runtime unknown; scope all; 0 eligible in the session snapshot; SEND 0; READ 0; installed by unknown (no installation receipt)") {
+	if err != nil || !strings.Contains(string(raw), "Manual plugins (no installation receipt)\n  ext  unknown version  disabled; scope all; 0 eligible in the session snapshot; SEND 0; READ 0; installed by unknown (no installation receipt)") {
 		t.Fatalf("list: %q %v", raw, err)
 	}
 	writeOldPluginRecord(t, filepath.Join(store.Dir, "plugins", "ext.json"))

@@ -1,8 +1,13 @@
 # Value ownership for the bus refactor
 
-Status: design for review; no implementation or schema change is authorized by
-this document. Every **owner**, **bridge** and **migration step** below is a
-proposal. Definitions, consumers and existing behavior are observations.
+Status: historical design for review; no implementation or schema change is
+authorized by this document. Every **owner**, **bridge** and **migration step**
+in the original audit is a proposal. Definitions and behavior are observations.
+
+The baseline audit and all `B/`, `A/`, `I/`, `M/`, `C/` citations below remain
+pinned historical observations at `16b198`, not current path claims. The
+[current implementation status](#current-implementation-status) supplements
+them without rewriting the original proposal or authorizing another move.
 
 ## Audited baseline and method
 
@@ -433,3 +438,45 @@ alone cannot justify unexporting fields or moving resources.
   by the architecture proposal exists or is sufficient. No new tests, runtime
   fault injection, Linux execution or refactor compilation was performed here.
   The migration gates must be verified on merged code before each actual move.
+
+## Current implementation status
+
+This supplement describes `d47eef92a1712bf40029475a2fcd12e8adfa0db4`
+(tree `f69dc0f166a42e6dcd8035c3626e0a69bc4b8a1f`). It does not retarget any
+historical `16b198` citation, change a schema or authorize another extraction.
+The [current checkpoint](checkpoints.md#current-checkpoint-r7-source-d47eef92-capture-pending)
+tracks independent review, retained decisions and measurements still due.
+
+| Owner | Implemented responsibility and current evidence |
+| --- | --- |
+| `model` | Shared domain records, statuses, receipts and pure rules; standard-library imports only. `flood.go` now implements `DecideFloodAdmission` with cloned sender maps/recent slices and no IO/clock read. `flood_ownership_test.go` guards input/output ownership. |
+| `agent` | Adapter registry/SPI, neutral configuration declarations and consumer ports. Endpoint checks use `agent/endpoint.go` and `platform` socket inspection; narrow `fsutil` validation is an explicit refinement of the original diagram. |
+| `procwatch` | Raw process `Info`, PID/start `Identity`, `Read` and `Source`/events in `source*.go`; no domain liveness or journal policy. Bus translates evidence and directly owns the source lifetime. |
+| `journal` | Generic records, codecs, locks and directory ordering beneath the core transaction, using `fsutil`; no bus/adapter ownership. |
+| `bus` | Authentication, policy, transaction/recovery, core publication and runtime resources. `flood.go` loads values, calls the pure decision and saves under the original journal lock. A live `bus.Lease` remains an owned resource, distinct from persisted `model.ListenerLease` and the consumer listener port. |
+| `pluginfeed` | Installation records, grants/pins, feed gaps/replay/ACK, inbox admission/reservation and lease identity; composes `bus`/`journal`/`model` through scoped journal reads/writes (`plugin_feed.go`, `plugin_install.go`). |
+| `plugins` | Source/build/process supervision and raw process integration; composes `bus`/`pluginfeed`/`model`/`procwatch`. The CLI injects admission/reservation and composes clients/install/pluginfeed/plugins; bus imports neither plugin package nor concrete clients. |
+
+The old proposed singular `internal/plugin` is a design placeholder; current
+packages are `pluginfeed` and `plugins`. Current depguard rules and exact
+base/OS symbolic architecture approvals describe these reviewed directions.
+The table is a responsibility map, not a claim to list every standard-library
+or helper edge or to have achieved every ideal arrow in the original proposal.
+
+No production type-alias migration bridge remains. The old `processInfo` alias
+and bus exit-source forwarding wrapper are gone; current observer code directly
+uses `procwatch.Info`/`Source`/`Event`/`Identity`. Two named client exceptions
+remain: Codex reads `bus.Version` until composition supplies the build version
+without changing release linker identity, and clients retain the installer
+configuration/quoting helpers. The latter is the explicit leaf-dependency
+decision already anticipated above; reconsider extraction separately rather
+than duplicate builders. The permanent registry, reader-injection, listener,
+UUID and journal-ordering seams are classified in the checkpoint table.
+
+The old flood-extraction work item is now structurally implemented, while the
+exact-retry/conflict validation-order behavior remains a separate open decision.
+The old rate-limit logging omission is also resolved in current source/tests.
+Other characterized behaviors and residual documentation debt have explicit
+statuses in the checkpoint; passing characterization does not endorse every
+quirk. This supplement introduces no broad refactor, new metrics ceiling or
+claim of live notification/login-item validation.

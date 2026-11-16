@@ -1,0 +1,10 @@
+	disabled services = {
+		"com.example.q1" => disabled
+		"com.example.q2" => enabled
+	}
+
+	login item associations = {
+		"com.example.q3" => {
+			"com.example.q4"
+		}
+	}

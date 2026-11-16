@@ -122,8 +122,28 @@ func runUpgrade(cmd *cobra.Command, opts *commandOptions, f upgradeFlags) error 
 	if f.finish {
 		message = upgradeSuccess
 	}
-	_, err = fmt.Fprintln(cmd.OutOrStdout(), message)
-	return err
+	if _, err := fmt.Fprintln(cmd.OutOrStdout(), message); err != nil || !f.finish {
+		return err
+	}
+	return kickstartAfterUpgrade(cmd, opts)
+}
+
+// kickstartAfterUpgrade starts the owned background job again (never
+// killing it) so it runs the new build; stdout stays the same.
+func kickstartAfterUpgrade(cmd *cobra.Command, opts *commandOptions) error {
+	service, err := opts.service()
+	if err != nil {
+		return err
+	}
+	target := newLoginItemTarget(opts, service.Store.Dir)
+	if target == nil {
+		return nil
+	}
+	if _, err := target.kickstart(cmd.Context()); err != nil {
+		_, werr := fmt.Fprintf(cmd.ErrOrStderr(), loginItemRootFailed+"\n", trimSentence(err))
+		return werr
+	}
+	return nil
 }
 
 func upgradeInstalledBinary(cmd *cobra.Command, opts *commandOptions, where binaryLocation, prefix string, cask bool) error {

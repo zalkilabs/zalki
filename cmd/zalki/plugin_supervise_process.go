@@ -115,8 +115,10 @@ func readFrames(name string, h *hostProcess, control *os.File, events chan<- hos
 }
 
 // groupGrace bounds each stage of a group stop; with the final kill, one
-// group stop stays within five seconds.
-const groupGrace = 2 * time.Second
+// group stop stays within seven seconds. It is longer than a plugin's own
+// 2 s EOF grace in its host, so a slow but correct plugin ends before the
+// TERM (R7-L1).
+const groupGrace = 3 * time.Second
 
 // stop ends the host and its whole group: lifeline EOF first (orderly
 // cancel), then TERM and KILL to the group while the leader is still
@@ -151,13 +153,164 @@ func waitFor(ended <-chan struct{}, limit time.Duration) bool {
 }
 
 // waitGroupGone polls until no process is left in the group or the limit
-// passes. The unreaped leader keeps the group number ours meanwhile.
+// passes. The unreaped leader keeps the group number ours meanwhile. On
+// Darwin a group whose only member is the zombie leader answers EPERM, not
+// ESRCH; the bounded zombie-only proof ends the wait then (R7-L1).
 func waitGroupGone(pgid int, limit time.Duration) {
 	deadline := time.Now().Add(limit)
 	for time.Now().Before(deadline) {
-		if err := syscall.Kill(-pgid, 0); errors.Is(err, syscall.ESRCH) {
+		err := syscall.Kill(-pgid, 0)
+		if errors.Is(err, syscall.ESRCH) || errors.Is(err, syscall.EPERM) && groupOnlyZombies(pgid) {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
+}
+
+// notifyExecutable runs the banner script. Tests always replace it with an
+// owned fixture; banners are sent only for the default state.
+var notifyExecutable = "/usr/bin/osascript"
+
+// notifySource is the fixed AppleScript. The title and the text reach it
+// only as argv items, never as script text.
+var notifySource = [...]string{"on run argv", "display notification (item 2 of argv) with title (item 1 of argv)", "end run"}
+
+// notifyArgs are the literal arguments of one banner child.
+func notifyArgs(text string) []string {
+	return []string{"-e", notifySource[0], "-e", notifySource[1], "-e", notifySource[2], notifyTitle, text}
+}
+
+// Bounds of one banner child: run time and output.
+const (
+	notifyRunLimit    = 2 * time.Second
+	notifyOutputLimit = 4096
+)
+
+// notifyKill signals the child's group; tests observe it.
+var notifyKill = syscall.Kill
+
+// notifyOutcome: ok is a clean exit 0 within both bounds; cleaned is
+// positive evidence that no member of the child's group is left running.
+type notifyOutcome struct{ ok, cleaned bool }
+
+// runNotifyChild runs one banner child in its own process group. The 2 s
+// watchdog starts right after Start, before started runs (it saves the
+// started phase and may be slow). The exit is seen without reaping (the
+// unreaped leader keeps the group number ours); output EOF is only output.
+// Then: the final group signal, an unconditional kill of the original
+// handle, and exactly one Wait.
+func runNotifyChild(text string, started func(pid int)) notifyOutcome {
+	cmd := exec.CommandContext(context.Background(), notifyExecutable, notifyArgs(text)...) //nolint:gosec // G204: a fixed executable with literal arguments.
+	cmd.Env, cmd.Dir = []string{"PATH=/usr/bin:/bin"}, "/"
+	read, write, err := os.Pipe()
+	if err != nil {
+		return notifyOutcome{cleaned: true}
+	}
+	cmd.Stdout, cmd.Stderr = write, write
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	err = cmd.Start()
+	_ = write.Close()
+	if err != nil {
+		_ = read.Close()
+		return notifyOutcome{cleaned: true} // nothing was started
+	}
+	watchdog := time.NewTimer(notifyRunLimit)
+	defer watchdog.Stop()
+	pgid := cmd.Process.Pid
+	saved := make(chan struct{})
+	go func() {
+		defer close(saved)
+		started(pgid)
+	}()
+	drained := make(chan int64, 1) // buffered: the reader never blocks on exit
+	go func() {
+		n, _ := io.Copy(io.Discard, io.LimitReader(read, notifyOutputLimit+1))
+		drained <- n
+	}()
+	clean := awaitNotifyChild(pgid, watchdog.C, drained)
+	cleaned := endNotifyGroup(pgid)
+	_ = notifyKillLeader(cmd.Process) // the original handle, whatever the group answered
+	_ = read.Close()
+	// One Wait, in its own goroutine (its only caller), joined within a bound:
+	// a leader that did not die is never waited for without end. Not joined
+	// means not cleaned, so the reservation stays and dispatch is fenced.
+	type reap struct {
+		state *os.ProcessState
+		err   error
+	}
+	joined, wait := make(chan reap, 1), notifyWait // read the seam once, here
+	go func() {
+		state, err := wait(cmd)
+		joined <- reap{state, err}
+	}()
+	var done reap
+	select {
+	case done = <-joined:
+	case <-time.After(notifyJoinLimit):
+		return notifyOutcome{}
+	}
+	if done.state == nil {
+		// Wait failed without a reap: the original is not known to be gone.
+		return notifyOutcome{}
+	}
+	// The started save (a fingerprint read and a file write) is joined
+	// within a bound too; not joined means unknown, and the dispatch fences.
+	select {
+	case <-saved:
+	case <-time.After(notifyJoinLimit):
+		return notifyOutcome{}
+	}
+	// A reaped non-zero exit is cleaned but failed.
+	return notifyOutcome{ok: clean && done.err == nil && done.state.Success(), cleaned: cleaned}
+}
+
+// notifyJoinLimit bounds the one Wait after the final signals.
+const notifyJoinLimit = 2 * time.Second
+
+// notifyKillLeader kills the original child handle; tests make it fail.
+var notifyKillLeader = (*os.Process).Kill
+
+// notifyWait is the one Wait of a banner child. It returns the reap state
+// (nil when Wait failed before a reap); tests observe or replace it.
+var notifyWait = func(cmd *exec.Cmd) (*os.ProcessState, error) {
+	err := cmd.Wait()
+	return cmd.ProcessState, err
+}
+
+// awaitNotifyChild waits for both the leader's exit (seen as a zombie, not
+// reaped) and the end of its output, within the watchdog. Too much output
+// ends the wait at once.
+func awaitNotifyChild(pid int, watchdog <-chan time.Time, drained <-chan int64) bool {
+	tick := time.NewTicker(20 * time.Millisecond)
+	defer tick.Stop()
+	exited, output := false, false
+	for !exited || !output {
+		select {
+		case <-watchdog:
+			return false
+		case n := <-drained:
+			if n > notifyOutputLimit {
+				return false
+			}
+			output = true
+		case <-tick.C:
+			exited = exited || leaderExited(pid)
+		}
+	}
+	return true
+}
+
+// endNotifyGroup sends the final group SIGKILL while the leader is unreaped
+// and reports positive evidence that nothing of the group is left: the
+// signal was delivered, no such group exists, or (Darwin's EPERM) every
+// member is a zombie. Any other answer is unknown.
+func endNotifyGroup(pgid int) bool {
+	err := notifyKill(-pgid, syscall.SIGKILL)
+	switch {
+	case err == nil, errors.Is(err, syscall.ESRCH):
+		return true
+	case errors.Is(err, syscall.EPERM):
+		return groupOnlyZombies(pgid)
+	}
+	return false
 }

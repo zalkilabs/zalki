@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -61,6 +62,9 @@ func TestSecurityManifestCloseOnExec(t *testing.T) {
 
 func TestSecurityExplicitFD3TransferAndLifetime(t *testing.T) {
 	dir := t.TempDir()
+	sentinel, parentFD, parentFlags := inheritableParentFD(t, dir)
+	defer sentinel.Close()
+	defer unix.Close(parentFD)
 	path := filepath.Join(dir, "lease")
 	lease, err := pluginfeed.OpenPluginLease(path)
 	if err != nil {
@@ -76,6 +80,12 @@ func TestSecurityExplicitFD3TransferAndLifetime(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer c.stop(nil)
+	if flags, err := unix.FcntlInt(uintptr(parentFD), unix.F_GETFD, 0); err != nil || flags != parentFlags {
+		t.Fatalf("parent descriptor flags changed during plugin launch: %d %v", flags, err)
+	}
+	if _, err := unix.Write(parentFD, []byte("still owned by parent")); err != nil {
+		t.Fatal("parent descriptor was closed by plugin launch", err)
+	}
 	line, err := c.reader.ReadString('\n')
 	want := strconv.FormatUint(uint64(info.Dev), 10) + ":" + strconv.FormatUint(info.Ino, 10) + "\n"
 	if err != nil || line != want {
@@ -98,6 +108,26 @@ func TestSecurityExplicitFD3TransferAndLifetime(t *testing.T) {
 	_ = other.Close()
 }
 
+func inheritableParentFD(t *testing.T, dir string) (*os.File, int, int) {
+	t.Helper()
+	sentinel, err := os.CreateTemp(dir, "parent-capability-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd, err := unix.FcntlInt(sentinel.Fd(), unix.F_DUPFD, 300)
+	if err != nil {
+		_ = sentinel.Close()
+		t.Fatal("create owned high parent descriptor", err)
+	}
+	flags, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0)
+	if err != nil || flags != 0 {
+		_ = unix.Close(fd)
+		_ = sentinel.Close()
+		t.Fatal("parent sentinel is not an inheritable descriptor", flags, err)
+	}
+	return sentinel, fd, flags
+}
+
 func TestSecurityFD3Child(t *testing.T) {
 	if len(os.Args) != 2 || os.Args[1] != "-test.run=^TestSecurityFD3Child$" {
 		return
@@ -111,4 +141,32 @@ func TestSecurityFD3Child(t *testing.T) {
 	}
 	fmt.Printf("%d:%d\n", uint64(info.Dev), info.Ino)
 	_, _ = io.Copy(io.Discard, os.Stdin)
+}
+
+// A failed or excessive inventory refuses launch; it never truncates the
+// close map to make an unsafe child start. The executable/lease are real.
+func TestSecurityInheritedFDInventoryRefusesLaunch(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		fds  []string
+		err  error
+		want string
+	}{
+		{"inventory error", nil, os.ErrPermission, "cannot enumerate inherited plugin descriptors"},
+		{"allocation bound", []string{strconv.Itoa(maxInheritedPluginFD + 1)}, nil, "inherited plugin descriptor inventory exceeds isolated launch bound"},
+		{"invalid name", []string{"not-a-descriptor"}, nil, "invalid inherited plugin descriptor inventory"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			old := childFDInventory
+			childFDInventory = func() ([]string, error) { return tc.fds, tc.err }
+			t.Cleanup(func() { childFDInventory = old })
+			c, err := launchChild(t.Context(), os.Args[0], identityOf(t, os.Args[0]), []string{"-test.run=^TestSecurityFD3Child$"}, t.TempDir(), t.TempDir(), openTestLease(t), true)
+			if c != nil {
+				defer c.stop(nil)
+			}
+			if c != nil || err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("unsafe descriptor inventory did not refuse child launch: child=%t error=%v", c != nil, err)
+			}
+		})
+	}
 }

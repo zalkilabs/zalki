@@ -31,6 +31,10 @@ type Request struct {
 	StateDir   string
 	HomeDir    string
 	ConfigFile string
+	// ExpectRecord binds a login-item change to what the owner was shown:
+	// the LoginItemRecord of that inspect. A relaunch needs it; with it, an
+	// install or relaunch refuses before any write when the item changed.
+	ExpectRecord string
 
 	Apply bool
 }
@@ -40,6 +44,18 @@ type Report struct {
 	DryRun bool     `json:"dry_run"`
 	Paths  []string `json:"paths"`
 	Notes  []string `json:"notes,omitempty"`
+	// Login item inspect only (ManagedLoginItem); empty for native installs.
+	ManagedState     string `json:"managed_state,omitempty"`
+	ServiceState     string `json:"service_state,omitempty"`
+	LoadedIdentity   string `json:"loaded_identity,omitempty"`
+	OperationPending bool   `json:"operation_pending,omitempty"`
+	// LoginItemLauncher is the launcher path of the validated, owned login item record
+	// (read at inspect time, never stored); empty when there is none.
+	LoginItemLauncher string `json:"login_item_launcher,omitempty"`
+	// LoginItemRecord is an opaque identity of that record ("GEN:SHA256"),
+	// or "none" when there is no item at all; empty otherwise. It is only
+	// passed back as Request.ExpectRecord and never encoded or printed.
+	LoginItemRecord string `json:"-"`
 }
 
 // Declare returns the configuration files the compiled-in adapters own for a binary and state directory.

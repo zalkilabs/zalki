@@ -107,9 +107,13 @@ func requestRestart(state, name string, status pluginfeed.PluginFeedStatus, now 
 		if err != nil {
 			return err
 		}
-		return journal.WriteAtomic(restartPath(state, name), raw)
+		return writeRestartRequest(restartPath(state, name), raw)
 	})
 }
+
+// writeRestartRequest publishes a request; an error can come after the
+// request is already visible (a late directory sync). Tests replace it.
+var writeRestartRequest = journal.WriteAtomic
 
 // consumeRestart applies a pending request for the current binding. The
 // reset and the new high-water mark are ONE durable run-state write; only
@@ -178,7 +182,13 @@ func newPluginRestartCommand(opts *commandOptions) *cobra.Command {
 			if err := requestRestart(state, name, status, time.Now()); err != nil {
 				return err
 			}
-			if supervisorRunning(state) {
+			kicked := false
+			if target := newLoginItemTarget(opts, state); target != nil && !supervisorRunning(state) {
+				if kicked, err = target.kickstart(cmd.Context()); err != nil {
+					return err
+				}
+			}
+			if kicked || supervisorRunning(state) {
 				_, err = fmt.Fprintf(cmd.OutOrStdout(), "Restart requested for %s.\n", name)
 				return err
 			}
@@ -190,11 +200,16 @@ func newPluginRestartCommand(opts *commandOptions) *cobra.Command {
 
 // supervisorRunning reports a live controller: its singleton lock is held.
 func supervisorRunning(state string) bool {
-	file, err := os.OpenFile(filepath.Join(state, "plugins", ".supervisor.lock"), os.O_RDONLY|syscall.O_NOFOLLOW, 0) //nolint:gosec // G304: fixed path under the state directory.
+	// Non-blocking: status, list and doctor call this, and a FIFO there must
+	// not hold them. Only a private regular file can be the controller's lock.
+	file, err := os.OpenFile(filepath.Join(state, "plugins", ".supervisor.lock"), os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0) //nolint:gosec // G304: fixed path under the state directory.
 	if err != nil {
 		return false
 	}
 	defer file.Close() //nolint:errcheck // Read-only probe.
+	if info, err := file.Stat(); err != nil || !privateFile(info) {
+		return false
+	}
 	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_SH|syscall.LOCK_NB); err != nil {
 		return errors.Is(err, syscall.EWOULDBLOCK)
 	}

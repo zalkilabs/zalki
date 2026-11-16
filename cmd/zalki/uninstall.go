@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/install"
 )
@@ -24,6 +26,15 @@ func newUninstallCommand(opts *commandOptions) *cobra.Command {
 			})
 			if err != nil {
 				return err
+			}
+			if target := newLoginItemTarget(opts, service.Store.Dir); target != nil {
+				note, err := target.uninstallNote(cmd.Context(), apply)
+				if note != "" {
+					report.Notes = append(report.Notes, note)
+				}
+				if err != nil {
+					return errors.Join(encodeOutput(cmd, report), err)
+				}
 			}
 			return encodeOutput(cmd, report)
 		},

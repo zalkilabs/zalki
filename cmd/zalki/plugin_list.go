@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -80,9 +81,10 @@ func pluginListEntry(store bus.Store, name string, regular bool) (string, string
 	}
 	state := "disabled"
 	if status.Enabled {
-		state = "enabled"
+		view, run, ok := readRunView(store.Dir, name, status, time.Now())
+		state = "enabled; " + runPhrase(name, view, run, ok) + notifySuffix(run, ok)
 	}
-	line := fmt.Sprintf("  %s  %s  %s; runtime unknown; scope %s; %s; SEND %d; READ %d; installed by %s",
+	line := fmt.Sprintf("  %s  %s  %s; scope %s; %s; SEND %d; READ %d; installed by %s",
 		name, version, state, pluginEffectiveScope(status.Scope), pluginEligibleSnapshot(store, status), len(status.Access.Send), len(status.Access.Read), pluginInstallerText(status.Install))
 	return group, line
 }

@@ -169,11 +169,12 @@ they encounter a newer record. `zalki doctor` reports running builds and client
 compatibility. If an incompatible session needs the newer code, reconnect its
 Zalki MCP server; in Cursor, also cancel and re-arm its `cursor-listen` task.
 
-`state-formats.json` is created lazily; rc.5 ignores it. An unreadable or
-unsupported marker fences writes with an "upgrade zalki" error while known data
-remains readable. For an unreadable marker, restore it from backup, or remove
-it only after confirming every running Zalki build is this version or newer.
-Do not remove a valid marker to bypass an unsupported format.
+The former global `state-formats.json` fence was
+[removed](https://github.com/zalkilabs/zalki/commit/396669e645860e9a941811e1dbe15b81d77a5602).
+Current unsupported-record handling depends on the operation; there is no global
+marker-based write fence or guarantee that arbitrary mixed-build writes are safe.
+Do not delete marker or state files to bypass an unsupported record. See the
+[current observer behavior](docs/design/watch-lifecycle.md#retired-global-format-fence).
 
 Message history and pending messages are kept. Do not delete the state
 directory to recover from a mixed-build error.

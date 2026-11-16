@@ -31,7 +31,7 @@ import (
 //  6. status, receipt_status, state: kept only if they are valid values.
 //  7. error_kind: the class of Err (never its text); only if Err is set.
 //  8. error_code: Code, or the code of Err when Code is empty; a code outside
-//     the ten known ones (including rate_limited) is written as "internal"
+//     the known allowlist is written as "internal"; rate_limited is preserved
 //     (it does not fall back to Err).
 //  9. duration_ms: only if the duration is above zero.
 // 10. reused=true: only if Reused is set.

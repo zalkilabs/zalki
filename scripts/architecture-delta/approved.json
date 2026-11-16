@@ -1,1 +1,282 @@
-[]
+[
+  {
+    "base_commit": "fbf5582b569b2b3e547fb0ccb3c4eeb500ef8d3e",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/install.ManagedLoginItem"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/install.ManagedLoginItem": "func(ctx context.Context, request Request) (Report, error)"
+        },
+        "removed": {},
+        "changed": {
+          "type:internal/install.Report": {
+            "before": "Report struct {\n\tAction\tstring\t\t`json:\"action\"`\n\tDryRun\tbool\t\t`json:\"dry_run\"`\n\tPaths\t[]string\t`json:\"paths\"`\n\tNotes\t[]string\t`json:\"notes,omitempty\"`\n}",
+            "after": "Report struct {\n\tAction\t\t\tstring\t\t`json:\"action\"`\n\tDryRun\t\t\tbool\t\t`json:\"dry_run\"`\n\tPaths\t\t\t[]string\t`json:\"paths\"`\n\tNotes\t\t\t[]string\t`json:\"notes,omitempty\"`\n\tManagedState\t\tstring\t\t`json:\"managed_state,omitempty\"`\n\tServiceState\t\tstring\t\t`json:\"service_state,omitempty\"`\n\tLoadedIdentity\t\tstring\t\t`json:\"loaded_identity,omitempty\"`\n\tOperationPending\tbool\t\t`json:\"operation_pending,omitempty\"`\n\tLoginItemLauncher\tstring\t\t`json:\"login_item_launcher,omitempty\"`\n\tLoginItemRecord\t\tstring\t\t`json:\"-\"`\n}"
+          },
+          "type:internal/install.Request": {
+            "before": "Request struct {\n\tAction\t\tstring\n\tBinary\t\tstring\n\tStateDir\tstring\n\tHomeDir\t\tstring\n\tConfigFile\tstring\n\tApply\t\tbool\n}",
+            "after": "Request struct {\n\tAction\t\tstring\n\tBinary\t\tstring\n\tStateDir\tstring\n\tHomeDir\t\tstring\n\tConfigFile\tstring\n\tExpectRecord\tstring\n\tApply\t\tbool\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {
+          "cmd/zalki.loginItemPlan": {
+            "Methods": 4,
+            "Files": 1
+          },
+          "cmd/zalki.loginItemTarget": {
+            "Methods": 11,
+            "Files": 2
+          },
+          "cmd/zalki.notifier": {
+            "Methods": 8,
+            "Files": 1
+          },
+          "cmd/zalki.notifyBudget": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "cmd/zalki.notifyRecord": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/install.domainParse": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/install.jobParse": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/install.loginItemFiles": {
+            "Methods": 2,
+            "Files": 1
+          },
+          "internal/install.loginItemPending": {
+            "Methods": 2,
+            "Files": 1
+          },
+          "internal/install.loginItemRecord": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "cmd/zalki.pluginInstaller": {
+            "before": {
+              "Methods": 32,
+              "Files": 5
+            },
+            "after": {
+              "Methods": 36,
+              "Files": 5
+            }
+          },
+          "cmd/zalki.pluginRunState": {
+            "before": {
+              "Methods": 12,
+              "Files": 1
+            },
+            "after": {
+              "Methods": 14,
+              "Files": 1
+            }
+          },
+          "cmd/zalki.supervisor": {
+            "before": {
+              "Methods": 21,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 27,
+              "Files": 3
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/procwatch"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {
+          "internal/install/login_item_os.go": [
+            "syscall"
+          ]
+        },
+        "removed": {},
+        "changed": {
+          "cmd/zalki/plugin_supervise_device_darwin.go": {
+            "before": [
+              "syscall"
+            ],
+            "after": [
+              "golang.org/x/sys/unix",
+              "syscall"
+            ]
+          },
+          "cmd/zalki/plugin_supervise_state.go": {
+            "before": [
+              "syscall"
+            ],
+            "after": [
+              "golang.org/x/sys/unix",
+              "syscall"
+            ]
+          }
+        }
+      }
+    },
+    "reason": "Reviewed R7 login-item consent and background lifecycle: ManagedLoginItem export, seven Request/Report fields, named private implementation receivers, cmd-to-procwatch dependency, and exact login-item/supervisor raw OS import changes."
+  },
+  {
+    "base_commit": "fbf5582b569b2b3e547fb0ccb3c4eeb500ef8d3e",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/install.ManagedLoginItem"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/install.ManagedLoginItem": "func(ctx context.Context, request Request) (Report, error)"
+        },
+        "removed": {},
+        "changed": {
+          "type:internal/install.Report": {
+            "before": "Report struct {\n\tAction\tstring\t\t`json:\"action\"`\n\tDryRun\tbool\t\t`json:\"dry_run\"`\n\tPaths\t[]string\t`json:\"paths\"`\n\tNotes\t[]string\t`json:\"notes,omitempty\"`\n}",
+            "after": "Report struct {\n\tAction\t\t\tstring\t\t`json:\"action\"`\n\tDryRun\t\t\tbool\t\t`json:\"dry_run\"`\n\tPaths\t\t\t[]string\t`json:\"paths\"`\n\tNotes\t\t\t[]string\t`json:\"notes,omitempty\"`\n\tManagedState\t\tstring\t\t`json:\"managed_state,omitempty\"`\n\tServiceState\t\tstring\t\t`json:\"service_state,omitempty\"`\n\tLoadedIdentity\t\tstring\t\t`json:\"loaded_identity,omitempty\"`\n\tOperationPending\tbool\t\t`json:\"operation_pending,omitempty\"`\n\tLoginItemLauncher\tstring\t\t`json:\"login_item_launcher,omitempty\"`\n\tLoginItemRecord\t\tstring\t\t`json:\"-\"`\n}"
+          },
+          "type:internal/install.Request": {
+            "before": "Request struct {\n\tAction\t\tstring\n\tBinary\t\tstring\n\tStateDir\tstring\n\tHomeDir\t\tstring\n\tConfigFile\tstring\n\tApply\t\tbool\n}",
+            "after": "Request struct {\n\tAction\t\tstring\n\tBinary\t\tstring\n\tStateDir\tstring\n\tHomeDir\t\tstring\n\tConfigFile\tstring\n\tExpectRecord\tstring\n\tApply\t\tbool\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {
+          "cmd/zalki.loginItemPlan": {
+            "Methods": 4,
+            "Files": 1
+          },
+          "cmd/zalki.loginItemTarget": {
+            "Methods": 11,
+            "Files": 2
+          },
+          "cmd/zalki.notifier": {
+            "Methods": 8,
+            "Files": 1
+          },
+          "cmd/zalki.notifyBudget": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "cmd/zalki.notifyRecord": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/install.domainParse": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/install.jobParse": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/install.loginItemFiles": {
+            "Methods": 2,
+            "Files": 1
+          },
+          "internal/install.loginItemPending": {
+            "Methods": 2,
+            "Files": 1
+          },
+          "internal/install.loginItemRecord": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "cmd/zalki.pluginInstaller": {
+            "before": {
+              "Methods": 32,
+              "Files": 5
+            },
+            "after": {
+              "Methods": 36,
+              "Files": 5
+            }
+          },
+          "cmd/zalki.pluginRunState": {
+            "before": {
+              "Methods": 12,
+              "Files": 1
+            },
+            "after": {
+              "Methods": 14,
+              "Files": 1
+            }
+          },
+          "cmd/zalki.supervisor": {
+            "before": {
+              "Methods": 21,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 27,
+              "Files": 3
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/procwatch"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {
+          "internal/install/login_item_os.go": [
+            "syscall"
+          ]
+        },
+        "removed": {},
+        "changed": {
+          "cmd/zalki/plugin_supervise_device_darwin.go": {
+            "before": [
+              "syscall"
+            ],
+            "after": [
+              "golang.org/x/sys/unix",
+              "syscall"
+            ]
+          },
+          "cmd/zalki/plugin_supervise_state.go": {
+            "before": [
+              "syscall"
+            ],
+            "after": [
+              "golang.org/x/sys/unix",
+              "syscall"
+            ]
+          }
+        }
+      }
+    },
+    "reason": "Reviewed R7 login-item consent and background lifecycle: ManagedLoginItem export, seven Request/Report fields, named private implementation receivers, cmd-to-procwatch dependency, and exact login-item/supervisor raw OS import changes."
+  }
+]

@@ -32,7 +32,7 @@ func TestPluginListGroupsInstances(t *testing.T) {
 	installReviewInstance(t, store.Dir, "build", "0.3.1")
 	raw, err := pluginOwnerLocal(t, store.Dir, "list")
 	out := string(raw)
-	if err != nil || strings.Count(out, "local/demo (author's claim)") != 1 || !strings.Contains(out, "  build  0.3.1  enabled; runtime unknown") || !strings.Contains(out, "  release  0.3.0  enabled; runtime unknown") || strings.Index(out, "  build ") > strings.Index(out, "  release ") {
+	if err != nil || strings.Count(out, "local/demo (author's claim)") != 1 || !strings.Contains(out, "  build  0.3.1  enabled; stopped; scope") || !strings.Contains(out, "  release  0.3.0  enabled; stopped; scope") || strings.Index(out, "  build ") > strings.Index(out, "  release ") {
 		t.Fatal("instances were not grouped and sorted by claimed ID/name", out, err)
 	}
 }

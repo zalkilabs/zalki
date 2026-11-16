@@ -13,11 +13,11 @@
 //	session*.go, discovery.go session registry, names and destination resolution, discovery
 //	message*.go, service.go   send, inbox and message queries, reply, Service and delivery
 //	message_open.go          open-message markers for hook scans and prune repair
-//	envelope.go              sender labels for recipient rendering
+//	../model/envelope.go     shared sender-label rendering; bus supplies registry names
 //	commit.go, event*.go     session and message commits with their events, recovery
 //	journal_view.go          scoped core reads and caller-owned write validation
 //	plugin_inbox.go          injected admission/reservation and core message publication
-//	endpoint.go              messaging-socket inspection and checks
+//	../agent/endpoint.go     endpoint checks using platform inspection, outside bus
 //	hook*.go                 native hook entry point, lifecycle transitions, completed prompts
 //	adapter*.go              registry access, adapter state, client compatibility, hook capture
 //	listener.go, liveness.go  listener leases and evidence-based liveness

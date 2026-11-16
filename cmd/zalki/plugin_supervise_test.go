@@ -61,10 +61,11 @@ func crashHost(t *testing.T, state, name string) {
 
 // startSupervisor runs `zalki plugins supervise` in the foreground with a
 // private HOME and the explicit state.
-func startSupervisor(t *testing.T, binary, state string) (*exec.Cmd, <-chan error) {
+func startSupervisor(t *testing.T, binary, state string, extraFiles ...*os.File) (*exec.Cmd, <-chan error) {
 	t.Helper()
 	cmd := exec.CommandContext(context.WithoutCancel(t.Context()), binary, "--state", state, "plugins", "supervise")
 	cmd.Env = []string{"HOME=" + t.TempDir(), "PATH=/usr/bin:/bin:/usr/sbin:/sbin"}
+	cmd.ExtraFiles = extraFiles
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	t.Cleanup(func() {
@@ -232,8 +233,9 @@ func TestPluginSupervisorForegroundAndStopCLI(t *testing.T) {
 	run := awaitRunState(t, state, "alpha", running)
 	second := exec.CommandContext(t.Context(), binary, "--state", state, "plugins", "supervise")
 	second.Env = []string{"HOME=" + t.TempDir(), "PATH=/usr/bin:/bin"}
-	if err := second.Run(); err != nil {
-		t.Fatal("a second supervisor did not exit 0 at once", err)
+	started := time.Now()
+	if err := second.Run(); err != nil || time.Since(started) > 5*time.Second {
+		t.Fatal("a second supervisor did not exit 0 within its bound", err, time.Since(started))
 	}
 	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		t.Fatal(err)
@@ -300,8 +302,14 @@ func TestPluginSupervisorLeaseHeldIsNotACrash(t *testing.T) {
 	startSupervisor(t, binary, state)
 	held := awaitRunState(t, state, "alpha", func(run pluginRunState) bool { return run.ReasonCode == "lease_held" })
 	time.Sleep(2*supervisePoll + time.Second)
-	if now := readRunState(t, state, "alpha"); now.State != runStopped || len(now.Restarts) != 0 || now.BackoffStep != 0 || held.State != runStopped {
+	now := readRunState(t, state, "alpha")
+	if len(now.Restarts) != 0 {
 		t.Fatalf("a held lease was charged: %s, %d failures, step %d", now.State, len(now.Restarts), now.BackoffStep)
+	}
+	// R7-M1: the retries back off (1 s, 2 s, 4 s ...) instead of a new host
+	// at every poll.
+	if held.State != runBackoff || now.BackoffStep < 2 || now.ReasonCode != "lease_held" {
+		t.Fatalf("a held lease was retried without backoff: %s, step %d", now.State, now.BackoffStep)
 	}
 	if err := lease.Close(); err != nil {
 		t.Fatal(err)
