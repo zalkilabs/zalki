@@ -1,12 +1,13 @@
 package pluginfeed
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
 
 // A receipt from before zalki-plugin/1 has no manifest id: the record is an
-// old record, refused with the reinstall fix, never loaded half-valid.
+// old record, refused without removing it, never loaded half-valid.
 func TestReceiptWithoutIDIsAnOldRecord(t *testing.T) {
 	for raw, old := range map[string]bool{
 		`{"install":{"source":"/src/a"}}`: true,
@@ -25,21 +26,20 @@ func TestReceiptWithoutIDIsAnOldRecord(t *testing.T) {
 	}
 }
 
-// U43: the fix line for an old record is the exact remove and install
-// commands: the receipt's source, shell-quoted, and --as NAME, so the
-// instance keeps its name even when the manifest's default name differs.
+// Recovery keeps old data and offers a separate name. The source stays bounded
+// and shell-quoted, and the error retains its old-record identity.
 func TestPluginOldRecordRecoveryCommands(t *testing.T) {
 	for raw, want := range map[string]string{
-		`{"install":{"source":"/src/my plugin"}}`:  `Run: zalki plugins remove arbiter-build && zalki plugins install '/src/my plugin' --as arbiter-build`,
-		`{"install":{"source":"/src/arbiter"}}`:    `Run: zalki plugins remove arbiter-build && zalki plugins install /src/arbiter --as arbiter-build`,
-		`{"capabilities":{"inbox_read":true}}`:     `Run: zalki plugins remove arbiter-build && zalki plugins install FOLDER --as arbiter-build`,
-		`{"install":{"source":"/src/a\u001b[2J"}}`: `Run: zalki plugins remove arbiter-build && zalki plugins install FOLDER --as arbiter-build`,
-		`{"install":{"source":"src/arbiter"}}`:     `Run: zalki plugins remove arbiter-build && zalki plugins install FOLDER --as arbiter-build`,
-		`{"install":{"source":"-rf"}}`:             `Run: zalki plugins remove arbiter-build && zalki plugins install FOLDER --as arbiter-build`,
+		`{"install":{"source":"/src/my plugin"}}`:  `Keep the old record and its data. To install a separate instance, choose an unused name and run: zalki plugins install '/src/my plugin' --as NEW_NAME`,
+		`{"install":{"source":"/src/arbiter"}}`:    `Keep the old record and its data. To install a separate instance, choose an unused name and run: zalki plugins install /src/arbiter --as NEW_NAME`,
+		`{"capabilities":{"inbox_read":true}}`:     `Keep the old record and its data. To install a separate instance, choose an unused name and run: zalki plugins install FOLDER --as NEW_NAME`,
+		`{"install":{"source":"/src/a\u001b[2J"}}`: `Keep the old record and its data. To install a separate instance, choose an unused name and run: zalki plugins install FOLDER --as NEW_NAME`,
+		`{"install":{"source":"src/arbiter"}}`:     `Keep the old record and its data. To install a separate instance, choose an unused name and run: zalki plugins install FOLDER --as NEW_NAME`,
+		`{"install":{"source":"-rf"}}`:             `Keep the old record and its data. To install a separate instance, choose an unused name and run: zalki plugins install FOLDER --as NEW_NAME`,
 	} {
 		err := oldPluginRecord("arbiter-build", []byte(raw))
-		if err == nil || !strings.HasSuffix(err.Error(), want) {
-			t.Errorf("%s: %v, want suffix %q", raw, err, want)
+		if !errors.Is(err, ErrOldPluginRecord) || !strings.HasSuffix(err.Error(), want) {
+			t.Errorf("OLD_RECORD_RECOVERY_IS_NOT_PRESERVING: %s: %v, want suffix %q", raw, err, want)
 		}
 	}
 }

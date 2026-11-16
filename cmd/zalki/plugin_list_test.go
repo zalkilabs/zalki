@@ -9,7 +9,7 @@ import (
 )
 
 // An old record (inbox_from/inbox_read) is refused with the exact fix; list
-// still shows it, and remove deletes it.
+// still shows it with safe recovery guidance; explicit remove still deletes it.
 func TestPluginListAndOldRecord(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	exe := filepath.Join(t.TempDir(), "external")
@@ -26,7 +26,7 @@ func TestPluginListAndOldRecord(t *testing.T) {
 		t.Fatalf("list: %q %v", raw, err)
 	}
 	writeOldPluginRecord(t, filepath.Join(store.Dir, "plugins", "ext.json"))
-	fix := "ext: plugin record from an older Zalki. Run: zalki plugins remove ext && zalki plugins install FOLDER --as ext"
+	fix := "ext: plugin record from an older Zalki. Keep the old record and its data. To install a separate instance, choose an unused name and run: zalki plugins install FOLDER --as NEW_NAME"
 	assertOldRecordRefused(t, store.Dir, fix)
 	if raw, err := pluginOwnerLocal(t, store.Dir, "list"); err != nil || !strings.Contains(string(raw), "Old plugin records\n  ext  "+fix) {
 		t.Fatalf("list of an old record: %q %v", raw, err)
