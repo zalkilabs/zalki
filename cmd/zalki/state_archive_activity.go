@@ -153,7 +153,7 @@ func archiveRecordStopped(ctx context.Context, root, path string) error {
 	if err != nil {
 		return archiveRefusal("a current activity record could not be inspected")
 	}
-	if _, err := journal.CheckSchema(raw, 1); err != nil {
+	if !archiveHasCurrentHeader(raw) {
 		return nil
 	}
 	var evidence struct {
@@ -179,6 +179,13 @@ func archiveRecordStopped(ctx context.Context, root, path string) error {
 		return archiveSocketStopped(ctx, path)
 	}
 	return nil
+}
+
+// archiveHasCurrentHeader distinguishes readable current headers from opaque
+// archive data. It grants no process or socket liveness on an unreadable header.
+func archiveHasCurrentHeader(raw []byte) bool {
+	_, err := journal.CheckSchema(raw, 1)
+	return err == nil
 }
 
 func archiveProcessStopped(ref *model.ProcessRef) error {

@@ -262,7 +262,8 @@ func TestStateArchiveRefusesLiveProcessAndSocket(t *testing.T) {
 	})
 	t.Run("socket", func(t *testing.T) {
 		f := newArchiveFixture(t)
-		listener, err := net.Listen("unix", filepath.Join(f.request.source, "live.sock"))
+		var listen net.ListenConfig
+		listener, err := listen.Listen(t.Context(), "unix", filepath.Join(f.request.source, "live.sock"))
 		if err != nil {
 			t.Fatal(err)
 		}

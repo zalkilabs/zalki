@@ -54,30 +54,35 @@ func TestStateArchiveRefusesChangedSourceAfterConsent(t *testing.T) {
 func TestStateArchiveMissingOrUnsafeLockIsNeverCreated(t *testing.T) {
 	for _, mode := range []string{"missing", "link", "directory"} {
 		t.Run(mode, func(t *testing.T) {
-			f := newArchiveFixture(t)
-			path := filepath.Join(f.request.source, "lock")
-			if err := os.Remove(path); err != nil {
-				t.Fatal(err)
-			}
-			switch mode {
-			case "link":
-				if err := os.Symlink(filepath.Join(f.request.source, "absent-target"), path); err != nil {
-					t.Fatal(err)
-				}
-			case "directory":
-				if err := os.Mkdir(path, 0700); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if err := archiveState(t.Context(), f.request, f.ops); err == nil {
-				t.Fatal("ARCHIVE_ACCEPTED_UNSAFE_LOCK")
-			}
-			if mode == "missing" {
-				if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
-					t.Fatal("ARCHIVE_CREATED_MISSING_LOCK", err)
-				}
-			}
+			checkArchiveUnsafeLock(t, mode)
 		})
+	}
+}
+
+func checkArchiveUnsafeLock(t *testing.T, mode string) {
+	t.Helper()
+	f := newArchiveFixture(t)
+	path := filepath.Join(f.request.source, "lock")
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	switch mode {
+	case "link":
+		if err := os.Symlink(filepath.Join(f.request.source, "absent-target"), path); err != nil {
+			t.Fatal(err)
+		}
+	case "directory":
+		if err := os.Mkdir(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := archiveState(t.Context(), f.request, f.ops); err == nil {
+		t.Fatal("ARCHIVE_ACCEPTED_UNSAFE_LOCK")
+	}
+	if mode == "missing" {
+		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatal("ARCHIVE_CREATED_MISSING_LOCK", err)
+		}
 	}
 }
 
