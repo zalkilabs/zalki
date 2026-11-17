@@ -14,12 +14,19 @@ from pathlib import PurePosixPath
 
 sys.dont_write_bytecode=True
 HERE=Path(__file__).resolve().parent
-sys.path.insert(0,str(HERE.parent/'lint-delta'))
-spec=importlib.util.spec_from_file_location('strict_source_runner',HERE.parent/'lint-delta/run.py')
-source=importlib.util.module_from_spec(spec);spec.loader.exec_module(source)
+# The strict helper needs its own sibling imports only while being loaded.
+# Restore the caller's exact search path before importing focused fixtures.
+_strict_import_path=sys.path[:]
+try:
+    sys.path.insert(0,str(HERE.parent/'lint-delta'))
+    spec=importlib.util.spec_from_file_location('strict_source_runner',HERE.parent/'lint-delta/run.py')
+    source=importlib.util.module_from_spec(spec);spec.loader.exec_module(source)
+finally:
+    sys.path[:]=_strict_import_path
 from oracle import require,sha,source_digest,validate
 from execution import profile,native_platforms,applicable
 import cli
+from bundle_inputs import validate_bundle_input, callback_prefix, chain_key, validate_literal_identity
 
 
 def local_path(name):
@@ -40,19 +47,24 @@ def validate_assertion(assertion,selection):
             'invalid assertion helper/callback mode')
     require(assertion['expected_file_assertion_sites']>=assertion['expected_assertion_sites'],'invalid assertion site bounds')
     for edge in assertion['call_chain']:
-        require(type(edge) is dict and set(edge)<= {'caller','callee','caller_is_helper','kind'} and
+        require(type(edge) is dict and set(edge)<= {'caller','callee','caller_is_helper','kind','expected_call_sites'} and
                 all(type(edge.get(k)) is str and edge[k] for k in ['caller','callee']) and
                 type(edge.get('caller_is_helper')) is bool and edge.get('kind','helper') in ['helper','run_callback'],
                 'invalid assertion lineage edge')
+        require(type(edge.get('expected_call_sites',1)) is int and edge.get('expected_call_sites',1)>0,
+                'invalid exact helper call-site count')
+    callback_prefix(assertion['call_chain'])
+    if assertion.get('literal_argument') is not None:
+        validate_literal_identity(assertion)
 
 
-def validate_controls(controls):
+def validate_controls(controls,baseline=False):
     require(type(controls) is list and controls and len({c['id'] for c in controls})==len(controls),'missing/duplicate controls')
     prefix='github.com/zalkilabs/zalki/'
     for c in controls:
         require(set(c)<= {'id','kind','mutation','selection','assertion','output_fragment','secondary_assertions',
-                         'profile','native_os','rebuild_cli_for_mutant'},'unknown control configuration')
-        require(c['kind'] in ['production','runtime_config'] and re.fullmatch('[A-Z0-9-]+',c['id']), 'invalid control kind/ID')
+                         'profile','native_os','rebuild_cli_for_mutant','observations'},'unknown control configuration')
+        require(c['kind'] in ['production','runtime_config','fixture'] and re.fullmatch('[A-Z0-9-]+',c['id']), 'invalid control kind/ID')
         selection,mutation,assertion=c['selection'],c['mutation'],c['assertion']
         require(selection['directory'].startswith(('./internal/','./cmd/')) and
                 local_path(selection['directory'][2:]) and selection['package']==prefix+selection['directory'][2:],
@@ -67,6 +79,8 @@ def validate_controls(controls):
         if c['kind']=='runtime_config':
             require(mutation['path']=='.goreleaser.yaml' and mutation['symbol']=='builds[0].ldflags' and kind=='function',
                     'unreviewed runtime configuration target')
+        elif c['kind']=='fixture':
+            validate_bundle_input(c)
         else:
             require(mutation['path'].startswith(('internal/','cmd/')) and mutation['path'].endswith('.go') and
                     not mutation['path'].endswith('_test.go') and re.fullmatch('[A-Za-z_][A-Za-z0-9_]*',mutation['symbol']),
@@ -76,13 +90,18 @@ def validate_controls(controls):
         secondary=c.get('secondary_assertions',[])
         require(type(secondary) is list and (not secondary or profile(c)['functional_sites']),
                 'secondary functional sites require their reviewed execution profile')
-        seen={(assertion['file'],assertion['assertion_function'],assertion['fatal_call'])}
+        seen={chain_key(assertion)}
         for identity in secondary:
             validate_assertion(identity,selection)
             require(re.match(r'^[A-Za-z_][A-Za-z0-9_]*\.(?:Fatal|Fatalf)\(',identity['fatal_call']) is not None,
                     'secondary functional site must be an exact Fatal call')
-            key=(identity['file'],identity['assertion_function'],identity['fatal_call'])
+            key=chain_key(identity)
             require(key not in seen,'duplicate secondary functional assertion');seen.add(key)
+        validate_bundle_input(c)
+        if c['id']=='M1F1' and not baseline:
+            require(c.get('observations'), 'both exact M1F1 observations are required')
+        for observation in c.get('observations',[]):
+            validate_assertion(observation['assertion'],observation['selection'])
         profile(c);native_platforms(c)
 
 
@@ -103,6 +122,7 @@ def command(argv,cwd,env,log,expected,timeout=120):
 def actual_files(tree,control):
     names={control['mutation']['path'],control['assertion']['file']}
     names.update(s['file'] for s in control.get('secondary_assertions',[]))
+    names.update(s['assertion']['file'] for s in control.get('observations',[]))
     return {name:(tree/name).read_bytes().decode('utf-8') for name in sorted(names)}
 
 
@@ -133,6 +153,23 @@ def phase(tree,folder,control,paths,tools,files,intended,cli_input=None):
     result=dict(build=dict(exit_code=0,compiled=True,binary_sha256=source.digest(binary),setup_ok=True,receipt=build),
         process_outcome=dict(exit_code=execution['exit'],timed_out=False,signalled=False,streams_complete=True,setup_ok=True,receipt=execution),
         source_files=files,source_digest=source_digest(files),test2json_ndjson=raw.read_text())
+    if control.get('observations'):
+        result['observations']=[]
+        for index,observation in enumerate(control['observations']):
+            selection=observation['selection']
+            pattern='/'.join('^'+re.escape(part)+'$' for part in selection['test'].split('/'))
+            observed_raw=folder/('observation-'+str(index)+'-test2json.log')
+            observed_argv=argv[:-1]+['-test.run='+pattern]
+            observed=command(observed_argv,package,env,observed_raw,1 if intended else 0,
+                             timeout=selected_profile['process_seconds'])
+            require(source.digest(binary)==result['build']['binary_sha256'],'supplementary binary identity changed')
+            require(source.source_fingerprint(tree)==before and actual_files(tree,control)==files,
+                    'supplementary execution changed source')
+            result['observations'].append(dict(id=observation['id'],selection=selection,
+                binary_sha256=result['build']['binary_sha256'],source_digest=result['source_digest'],
+                cli_sha256=cli_record['binary_sha256'] if cli_input is not None else None,
+                process_outcome=dict(exit_code=observed['exit'],timed_out=False,signalled=False,
+                    streams_complete=True,setup_ok=True,receipt=observed),test2json_ndjson=observed_raw.read_text()))
     if cli_input is not None:
         require(source.digest(cli_binary)==cli_record['binary_sha256'],'phase CLI changed during execution')
         result.update(cli=cli_record,source_fingerprint=before)
@@ -161,6 +198,12 @@ def run_control(repo,head,control,output,paths,tools):
     secondary=[]
     for index,site in enumerate(control.get('secondary_assertions',[])):
         secondary.append(dict(assertion=site,attribution=resolve_assertion(tree,folder,site,control['mutation'],tools,env,'secondary-'+str(index))))
+    observations=[]
+    for index,item in enumerate(control.get('observations',[])):
+        attribution=resolve_assertion(tree,folder,item['assertion'],control['mutation'],tools,env,
+                                      'observation-'+str(index)+'-assertion')
+        require(attribution['mutation']==resolved['mutation'],'supplementary mutation attribution differs')
+        observations.append(dict(item,attribution=attribution))
     require(source.source_fingerprint(tree)==initial,'assertion attribution changed source')
     mutation=control['mutation'];target=tree/mutation['path'];original=target.read_bytes();mode=target.stat().st_mode&0o777
     require(resolved['mutation']['source_sha256']==sha(original) and resolved['mutation']['symbol']==mutation['symbol'] and
@@ -184,14 +227,23 @@ def run_control(repo,head,control,output,paths,tools):
         target.write_bytes(original)
     require(source.source_fingerprint(tree)==initial and not source.git(tree,'status','--porcelain','--untracked-files=all'),
             'restoration is not exact')
+    restored_resolution=resolve_assertion(tree,folder,control['assertion'],control['mutation'],tools,env,'restored-assertion')
+    require(restored_resolution==resolved,'restored primary source attribution differs')
+    for index,site in enumerate(secondary):
+        again=resolve_assertion(tree,folder,site['assertion'],control['mutation'],tools,env,'restored-secondary-'+str(index))
+        require(again==site['attribution'],'restored secondary source attribution differs')
+    for index,item in enumerate(observations):
+        again=resolve_assertion(tree,folder,item['assertion'],control['mutation'],tools,env,'restored-observation-'+str(index))
+        require(again==item['attribution'],'restored observation source attribution differs')
+    require(source.source_fingerprint(tree)==initial,'restored attribution changed source')
     phases['restored']=phase(tree,folder/'restored',control,paths,tools,before,False,baseline_cli)
     context=dict(mutation=mutation,phases=phases,source_mode_before=oct(mode),source_mode_restored=oct(target.stat().st_mode&0o777))
     if selected_profile['cli']:
         context['cli_policy']=dict(head=head,platform={k:paths[k] for k in ['GOVERSION','GOOS','GOARCH','CGO_ENABLED']},
                                    baseline_fingerprint=initial,rebuild_mutant=control.get('rebuild_cli_for_mutant',False))
     proof=validate(context,control['selection'],control['assertion'],resolved,control['output_fragment'],secondary,cli_required=selected_profile['cli'],
-                   mutant_cli_required=control.get('rebuild_cli_for_mutant',False),functional_sites=selected_profile['functional_sites'])
-    record=dict(id=identity,kind=control['kind'],head=head,source_fingerprint=initial,context=context,attribution=resolved,secondary=secondary,result=proof)
+                   mutant_cli_required=control.get('rebuild_cli_for_mutant',False),functional_sites=selected_profile['functional_sites'],observations=observations)
+    record=dict(id=identity,kind=control['kind'],head=head,source_fingerprint=initial,context=context,attribution=resolved,secondary=secondary,observations=observations,restored_attribution=restored_resolution,result=proof)
     (folder/'result.json').write_text(json.dumps(record,indent=2)+'\n')
     return dict(id=identity,passed=True,kind=control['kind'],result_sha256=source.digest(folder/'result.json'),
                 mutation_path=mutation['path'],mutant_file_sha256=sha(changed[mutation['path']].encode()),
@@ -217,13 +269,13 @@ def execute(options):
         require(inherited==plan_path,'baseline control path is ambiguous')
         old_file=output/'baseline-controls.json'
         old_file.write_text(source.git(repo,'show',base+':'+plan_path)+'\n')
-        previous=source.read_json(old_file);validate_controls(previous)
+        previous=source.read_json(old_file);validate_controls(previous,baseline=True)
         inherited_ids=[c['id'] for c in previous]
         require(set(inherited_ids)<={c['id'] for c in controls},'baseline required controls were removed')
     changed=source.git(repo,'diff','--name-only',base,head).splitlines()
     affected=relevant(changed)
     proof=dict(base=base,head=head,changed_paths=changed,affected=affected,controls=[],baseline_control_ids=inherited_ids,
-               plan_sha256=source.digest(HERE/'controls.json'),scripts_sha256={n:source.digest(HERE/n) for n in ['run.py','oracle.py','checks.py','execution.py','cli.py']},not_applicable_controls=[])
+               plan_sha256=source.digest(HERE/'controls.json'),scripts_sha256={n:source.digest(HERE/n) for n in ['run.py','oracle.py','checks.py','execution.py','cli.py','bundle_inputs.py']},not_applicable_controls=[])
     if affected:
         go=source.shutil.which('go');require(go is not None,'Go is unavailable')
         paths=source.go_paths(str(Path(go).resolve()))

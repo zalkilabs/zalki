@@ -360,5 +360,107 @@
       }
     },
     "reason": "One cohesive private Store prompt-registration diagnostic helper declared in hook.go; no new exports, API shapes, internal import edges, or raw OS imports."
+  },
+  {
+    "base_commit": "5e9a595f70931dc8b486fcba711a71749cb4073e",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "receivers": {
+        "added": {},
+        "changed": {
+          "cmd/zalki.supervisor": {
+            "after": {
+              "Files": 3,
+              "Methods": 31
+            },
+            "before": {
+              "Files": 3,
+              "Methods": 27
+            }
+          },
+          "internal/plugins.child": {
+            "after": {
+              "Files": 1,
+              "Methods": 11
+            },
+            "before": {
+              "Files": 1,
+              "Methods": 9
+            }
+          }
+        },
+        "removed": {}
+      },
+      "shapes": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "Reviewed source-qualified plugin lifecycle changes add four private supervisor methods in existing receiver files and two private child methods in child.go; exact complete native comparison and policy application remain required."
+  },
+  {
+    "base_commit": "5e9a595f70931dc8b486fcba711a71749cb4073e",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "receivers": {
+        "added": {},
+        "changed": {
+          "cmd/zalki.supervisor": {
+            "after": {
+              "Files": 3,
+              "Methods": 31
+            },
+            "before": {
+              "Files": 3,
+              "Methods": 27
+            }
+          },
+          "internal/plugins.child": {
+            "after": {
+              "Files": 1,
+              "Methods": 11
+            },
+            "before": {
+              "Files": 1,
+              "Methods": 9
+            }
+          }
+        },
+        "removed": {}
+      },
+      "shapes": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "Reviewed source-qualified plugin lifecycle changes add four private supervisor methods in existing receiver files and two private child methods in child.go; exact complete native comparison and policy application remain required."
   }
 ]

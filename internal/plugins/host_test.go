@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -181,6 +182,29 @@ func fakeHello(mode string) *hello {
 	return &hello{Wire: wireName, Requires: []string{"feed"}}
 }
 
+// fakeOnCode is how a stopping plugin may react to the host's terminal
+// frame: a plain exit 1, a signal death, a stderr flood before a normal
+// exit, or ignoring the stop until the host's grace ends. Other modes go on.
+func fakeOnCode(reader *bufio.Reader, mode string) {
+	next, _ := reader.Peek(7)
+	if !bytes.HasPrefix(next, []byte(`{"code"`)) {
+		return
+	}
+	switch mode {
+	case "exit1-on-code", "hold-exit1-on-code":
+		os.Exit(1)
+	case "selfterm-on-code":
+		_ = syscall.Kill(os.Getpid(), syscall.SIGTERM)
+		time.Sleep(5 * time.Second)
+	case "loud-on-code":
+		_, _ = os.Stderr.Write([]byte(strings.Repeat("x", 9000)))
+		os.Exit(0)
+	case "ignore-on-code":
+		time.Sleep(5 * time.Second)
+		os.Exit(0)
+	}
+}
+
 // skipHostFrame drops the host's hello, hello_ok and terminal frames; a
 // terminal frame is followed by EOF, which the caller still reads.
 func skipHostFrame(reader *bufio.Reader) bool {
@@ -220,6 +244,7 @@ func readHostFrames(t *testing.T, store bus.Store) string {
 func fakeDeliveries(state, mode string) error {
 	reader := bufio.NewReaderSize(os.Stdin, maxFrame+1)
 	for {
+		fakeOnCode(reader, mode)
 		if skipHostFrame(reader) {
 			continue
 		}
@@ -239,7 +264,7 @@ func fakeDeliveries(state, mode string) error {
 		if err := journal.WriteAtomic(filepath.Join(state, ".seen-"+value.ID), raw); err != nil {
 			return err
 		}
-		if mode == "hold" {
+		if slices.Contains([]string{"hold", "hold-exit1-on-code"}, mode) {
 			waitPermit(state, ".allow-ack", 10*time.Second)
 		}
 		if mode == "no-ack" {
@@ -563,8 +588,20 @@ func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reas
 	}
 }
 
+// The disable is quiet whether the child exits 0 or 1 after the host's
+// terminal frame (ZAL-71).
 func TestHostConsumesOneOfferAndHonorsDisable(t *testing.T) {
+	for _, mode := range []string{"", "exit1-on-code"} {
+		t.Run("mode="+mode, func(t *testing.T) { checkOneOfferAndDisable(t, mode) })
+	}
+}
+
+func checkOneOfferAndDisable(t *testing.T, mode string) {
+	t.Helper()
 	store, session := hostStore(t)
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte(mode), 0600); err != nil {
+		t.Fatal(err)
+	}
 	_, done := startHost(t, store)
 	eventually(t, func() bool {
 		s, err := pluginfeed.NewPluginFeed(store, "fake-notifier").PluginStatus()
@@ -583,7 +620,7 @@ func TestHostConsumesOneOfferAndHonorsDisable(t *testing.T) {
 	select {
 	case err := <-done:
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("a disable must end the host quietly (child mode %q): %v", mode, err)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("disabled host stayed alive")
@@ -852,9 +889,16 @@ func nextFeed(f pluginfeed.PluginFeed) (pluginfeed.PluginDelivery, error) {
 // quietly. The ACK the child sends after the disable is never applied, and
 // the lease is free when Run returns.
 func TestHostDisableWithPendingOfferAppliesNoLateAck(t *testing.T) {
+	for _, mode := range []string{"hold", "hold-exit1-on-code"} {
+		t.Run(mode, func(t *testing.T) { checkDisableNoLateAck(t, mode) })
+	}
+}
+
+func checkDisableNoLateAck(t *testing.T, mode string) {
+	t.Helper()
 	store, _ := hostStore(t)
 	feed := pluginfeed.NewPluginFeed(store, "fake-notifier")
-	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte("hold"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(hostData(store), ".child-mode"), []byte(mode), 0600); err != nil {
 		t.Fatal(err)
 	}
 	_, done := startHost(t, store)

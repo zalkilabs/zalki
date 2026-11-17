@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
@@ -37,17 +39,22 @@ func pluginShowLines(store bus.Store, status pluginfeed.PluginFeedStatus, detail
 	}
 	state := "Disabled"
 	if status.Enabled {
-		state = "Enabled"
+		view, run, ok := readRunView(store.Dir, status.Name, status, time.Now())
+		state = "Enabled; " + runPhrase(status.Name, view, run, ok)
 	}
-	lines := []string{
-		title,
-		state + "; runtime not checked. " + updateStartHint(status.Name, status.Enabled, ""),
-		"Standard: " + pluginStandardText(status.Access),
-		"Scope: " + pluginScopeText(status.Scope) + "; " + pluginEligibleSnapshot(store, status),
-		"SEND: " + pluginExactTargets(status.Access.Send),
-		"READ: " + pluginExactTargets(status.Access.Read),
-		"Installed by: " + pluginInstallerText(status.Install),
+	lines := []string{title}
+	if address := pluginAddress(status); address != "" {
+		lines = append(lines, "Address: "+address)
 	}
+	lines = append(lines,
+		state,
+		updateStartHint(status.Name, status.Enabled, ""),
+		"Standard: "+pluginStandardText(status.Access),
+		"Scope: "+pluginScopeText(status.Scope)+"; "+pluginEligibleSnapshot(store, status),
+		"SEND: "+pluginExactTargets(status.Access.Send),
+		"READ: "+pluginExactTargets(status.Access.Read),
+		"Installed by: "+pluginInstallerText(status.Install),
+	)
 	if status.Install != nil {
 		lines = append(lines, "Installed at: "+plainText(status.Install.InstalledAt), "Source recorded at install: "+plainText(status.Install.Source))
 	}
@@ -59,6 +66,15 @@ func pluginShowLines(store bus.Store, status pluginfeed.PluginFeedStatus, detail
 		return append(lines, pluginShowDetails(status)...)
 	}
 	return append(lines, "Details: zalki plugins show "+status.Name+" --details")
+}
+
+// pluginAddress is where sessions send messages to this installation, or ""
+// without a valid installation ID.
+func pluginAddress(status pluginfeed.PluginFeedStatus) string {
+	if !model.IsCanonicalUUID(status.ID) {
+		return ""
+	}
+	return "plugin:" + status.ID
 }
 
 func pluginExactTargets(ids []string) string {

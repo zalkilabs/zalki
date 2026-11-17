@@ -223,6 +223,7 @@ func TestPluginNotificationOfferedIsBounded(t *testing.T) {
 		ownerRun(t, s.state, "add", "demo", "--exec", feedFixture(t))
 	}
 	startDemo(t, s)
+	s.pruneOffered() // a scan prunes, then offers (ZAL-68)
 	s.offerQueued([]string{"demo"})
 	if len(s.offered) > 1 {
 		t.Fatalf("offered bookkeeping grew with reinstalls: %d", len(s.offered))

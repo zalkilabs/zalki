@@ -3,6 +3,7 @@ from checks import require
 
 PROFILES={
     'default':dict(race=True,test_seconds=45,process_seconds=120,build_seconds=300,cli=False,functional_sites=False),
+    'bundle_functional':dict(race=True,test_seconds=45,process_seconds=120,build_seconds=300,cli=False,functional_sites=True),
     'r7_background':dict(race=False,test_seconds=120,process_seconds=150,build_seconds=240,cli=True,functional_sites=True),
 }
 

@@ -289,6 +289,44 @@ func (c *child) canceledStop(ctx context.Context, cause error) bool {
 	return c.killedForCancel && ok && status.Signaled() && status.Signal() == syscall.SIGKILL
 }
 
+// finish stops and reaps the child at the end of Run. requested: the host
+// stopped it for the owner's disable, so any exit code of a child that left
+// by itself is a quiet stop; a kill after the grace stays an error, also when
+// the run is canceled meanwhile. Otherwise the cause stays, unless the stop
+// was the run's own cancellation.
+func (c *child) finish(ctx context.Context, cause error, requested bool) error {
+	if requested {
+		err := c.stop(nil)
+		if c.requestedStopClean() {
+			return nil
+		}
+		return err
+	}
+	err := c.stop(cause)
+	if c.canceledStop(ctx, cause) {
+		return nil
+	}
+	return err
+}
+
+// requestedStopClean is called only after stop has joined Wait: the child
+// left by itself (any exit code) and its stderr stayed in bounds. A signal
+// death, including the kill after the grace, is not clean.
+func (c *child) requestedStopClean() bool {
+	if c.overflow {
+		return false
+	}
+	if c.waitErr == nil {
+		return true
+	}
+	var exit *exec.ExitError
+	if !errors.As(c.waitErr, &exit) {
+		return false
+	}
+	status, ok := exit.Sys().(syscall.WaitStatus)
+	return ok && status.Exited()
+}
+
 // plainStderr keeps line breaks, tabs and printable text of plugin stderr. Any
 // other rune (ESC, BEL, bidi controls) or invalid byte is shown as a Go escape,
 // so the plugin cannot drive the owner's terminal through an error message.

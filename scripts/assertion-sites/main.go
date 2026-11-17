@@ -23,13 +23,15 @@ import (
 )
 
 type caller struct {
-	Kind         string `json:"kind,omitempty"`
-	Caller       string `json:"caller"`
-	Callee       string `json:"callee"`
-	CallerHelper bool   `json:"caller_is_helper"`
+	ExpectedCalls int    `json:"expected_call_sites,omitempty"`
+	Kind          string `json:"kind,omitempty"`
+	Caller        string `json:"caller"`
+	Callee        string `json:"callee"`
+	CallerHelper  bool   `json:"caller_is_helper"`
 }
 
 type request struct {
+	LiteralArgument   *literalArgument `json:"literal_argument,omitempty"`
 	File              string           `json:"file"`
 	Function          string           `json:"assertion_function"`
 	Literal           string           `json:"fatal_literal"`
@@ -47,7 +49,10 @@ type mutationRequest struct {
 	File   string `json:"path"`
 	Symbol string `json:"symbol"`
 	Old    string `json:"old"`
-	Count  int    `json:"required_occurrences"`
+	// New is the runner's typed replacement text. bindMutation proves the old
+	// preimage; the runner checks/applies/restores the complete old/new tuple.
+	New   string `json:"new"`
+	Count int    `json:"required_occurrences"`
 }
 
 type mutationProof struct {
@@ -59,19 +64,21 @@ type mutationProof struct {
 }
 
 type response struct {
-	NamedCallbackSites int            `json:"named_callback_sites,omitempty"`
-	File               string         `json:"file"`
-	SHA256             string         `json:"source_sha256"`
-	Function           string         `json:"function"`
-	Literal            string         `json:"literal"`
-	AssertionLines     []int          `json:"assertion_lines"`
-	ReportLines        []int          `json:"report_lines"`
-	FileSites          int            `json:"file_sites"`
-	AssertionSites     int            `json:"assertion_sites"`
-	HelperChainValid   bool           `json:"helper_chain_valid"`
-	ReviewedCall       string         `json:"reviewed_call"`
-	CallbackSites      int            `json:"callback_sites"`
-	Mutation           *mutationProof `json:"mutation,omitempty"`
+	Chain              []caller        `json:"call_chain,omitempty"`
+	LiteralBinding     *literalBinding `json:"literal_argument_binding,omitempty"`
+	NamedCallbackSites int             `json:"named_callback_sites,omitempty"`
+	File               string          `json:"file"`
+	SHA256             string          `json:"source_sha256"`
+	Function           string          `json:"function"`
+	Literal            string          `json:"literal"`
+	AssertionLines     []int           `json:"assertion_lines"`
+	ReportLines        []int           `json:"report_lines"`
+	FileSites          int             `json:"file_sites"`
+	AssertionSites     int             `json:"assertion_sites"`
+	HelperChainValid   bool            `json:"helper_chain_valid"`
+	ReviewedCall       string          `json:"reviewed_call"`
+	CallbackSites      int             `json:"callback_sites"`
+	Mutation           *mutationProof  `json:"mutation,omitempty"`
 }
 
 func testArgument(f *ast.FuncDecl) string {
@@ -174,15 +181,33 @@ func directTestCallback(f *ast.FuncDecl, call *ast.CallExpr) bool {
 		return false
 	}
 	function := &ast.FuncDecl{Type: inner.Type, Body: inner.Body}
-	return testArgument(function) != "" && !helperMarked(function)
+	argument := testArgument(function)
+	return argument != "" && !helperMarked(function) && registeredTestCallback(f, inner) && testAssertionReceiver(call, argument)
+}
+
+func testAssertionReceiver(call *ast.CallExpr, argument string) bool {
+	return testMethod(call, argument, "Fatal") || testMethod(call, argument, "Fatalf") ||
+		testMethod(call, argument, "Error") || testMethod(call, argument, "Errorf")
+}
+
+func registeredTestCallback(f *ast.FuncDecl, inner *ast.FuncLit) bool {
+	registered := false
+	ast.Inspect(f.Body, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if ok && testMethod(call, testArgument(f), "Run") && len(call.Args) == 2 && !call.Ellipsis.IsValid() {
+			registered = registered || call.Args[1] == inner
+		}
+		return true
+	})
+	return registered
 }
 
 func resolveChain(fset *token.FileSet, functions map[string]*ast.FuncDecl, r request, direct []int) ([]int, error) {
 	if len(r.Chain) == 0 {
 		return direct, nil
 	}
-	if len(r.Chain) == 1 && r.Chain[0].Kind == "run_callback" {
-		return namedCallbackLines(functions, &r, direct)
+	if len(r.Chain) > 0 && r.Chain[0].Kind == "run_callback" {
+		return namedCallbackLines(fset, functions, &r, direct)
 	}
 	return helperChainLines(fset, functions, &r)
 }
@@ -294,23 +319,31 @@ func resolve(raw []byte, r request) (response, error) {
 	if err != nil {
 		return response{}, err
 	}
-	result, err := sourceAssertions(fset, functions, r, expected)
-	if err != nil {
-		return response{}, err
-	}
-	result.ReportLines, err = resolveChain(fset, functions, r, result.AssertionLines)
-	if err != nil {
-		return response{}, err
-	}
-	if r.CallbackDirect {
-		if len(r.Chain) == 0 || result.CallbackSites != result.AssertionSites {
-			return response{}, errors.New("direct callback attribution lacks a fresh non-helper testing callback")
+	var result response
+	if r.LiteralArgument != nil {
+		result, err = resolveLiteralArgument(fset, file, functions, r, expected)
+	} else {
+		result, err = sourceAssertions(fset, functions, r, expected)
+		if err == nil {
+			result.ReportLines, err = resolveChain(fset, functions, r, result.AssertionLines)
 		}
-		result.ReportLines = result.AssertionLines
+		if err == nil && r.CallbackDirect {
+			if len(r.Chain) == 0 || result.CallbackSites != result.AssertionSites {
+				return response{}, errors.New("direct callback attribution lacks a fresh non-helper testing callback")
+			}
+			result.ReportLines = result.AssertionLines
+		}
+		for _, edge := range r.Chain {
+			if edge.Kind != "run_callback" {
+				break
+			}
+			result.NamedCallbackSites++
+		}
 	}
-	if len(r.Chain) == 1 && r.Chain[0].Kind == "run_callback" {
-		result.NamedCallbackSites = 1
+	if err != nil {
+		return response{}, err
 	}
+	result.Chain = append([]caller(nil), r.Chain...)
 	result.HelperChainValid = true
 	sum := sha256.Sum256(raw)
 	result.SHA256 = hex.EncodeToString(sum[:])
@@ -364,6 +397,7 @@ func bindMutation(raw []byte, r mutationRequest) (*mutationProof, error) {
 func run(root string, in io.Reader, out io.Writer) error {
 	var r request
 	decoder := json.NewDecoder(in)
+	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&r); err != nil {
 		return err
 	}

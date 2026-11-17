@@ -3,6 +3,7 @@ import json
 from pathlib import PurePosixPath
 import re
 from checks import require,sha
+from bundle_inputs import chain_key, require_chain_binding, require_literal_binding
 
 
 
@@ -114,9 +115,8 @@ def attested_site(files,assertion,resolved,selected):
     if assertion.get('callback_direct') is True:
         require(resolved['callback_sites']==resolved['assertion_sites'] and assertion['call_chain'],
                 'fresh callback attribution is not attested')
-    if any(edge.get('kind')=='run_callback' for edge in assertion['call_chain']):
-        require(len(assertion['call_chain'])==1 and resolved.get('named_callback_sites')==1,
-                'named callback lineage is not attested')
+    require_chain_binding(assertion,resolved)
+    require_literal_binding(assertion,resolved)
     allowed=resolved['report_lines']
     require(type(allowed) is list and allowed and all(type(n) is int and n>0 for n in allowed),
             'missing source-derived report positions')
@@ -136,7 +136,24 @@ def assertion_matches(outputs,file,allowed,fragment=None):
     return matched
 
 
-def validate(context,selected,assertion,resolved,output_fragment,secondary=(),cli_required=False,mutant_cli_required=False,functional_sites=False):
+def site_matches(outputs,file,allowed,identity,resolved,fragment=None):
+    if identity.get('literal_argument') is None:
+        return assertion_matches(outputs,file,allowed,fragment)
+    literal=identity['fatal_literal']
+    runtime=resolved['literal_argument_binding']['runtime_test']
+    require(fragment is None or fragment==literal,'literal argument cannot use a fragment fallback')
+    exact=[]
+    for name,text in outputs:
+        if name!=runtime:
+            continue
+        for line in text.splitlines():
+            found=re.match(r'^\s*([^:\s]+):(\d+):\s?(.*)$',line)
+            if found and found[1]==PurePosixPath(file).name and int(found[2]) in allowed and found[3]==literal:
+                exact.append(dict(test=name,file=found[1],line=int(found[2])))
+    return exact
+
+
+def validate(context,selected,assertion,resolved,output_fragment,secondary=(),cli_required=False,mutant_cli_required=False,functional_sites=False,observations=()):
     """All resolved sites must come from the same current versioned Go resolver."""
     phases=validate_sources(context)
     file,allowed=attested_site(phases['good']['source_files'],assertion,resolved,selected)
@@ -145,11 +162,11 @@ def validate(context,selected,assertion,resolved,output_fragment,secondary=(),cl
     selected_events(phases['restored'],selected['package'],selected['test'],False)
     failures={name for name,state in states.items() if state==['run','fail']}
     require(failures<=set(baseline),'mutant failure is not registered by the clean positive')
-    matched=assertion_matches(outputs,file,allowed,output_fragment)
+    matched=site_matches(outputs,file,allowed,assertion,resolved,output_fragment)
     require(matched,'no intended source-bound assertion in selected failing test/descendant')
     require(all(item['test'] in failures for item in matched),'intended marker belongs to a nonfailing test')
     require(not secondary or functional_sites,'secondary functional sites require their reviewed event policy')
-    primary_functional=assertion_matches(outputs,file,allowed) if functional_sites else matched
+    primary_functional=site_matches(outputs,file,allowed,assertion,resolved) if functional_sites else matched
     require(all(item['test'] in failures for item in primary_functional),'functional assertion belongs to a nonfailing test')
     functional={item['test'] for item in primary_functional};secondary_matched=[];seen=set()
     for site in secondary:
@@ -157,9 +174,9 @@ def validate(context,selected,assertion,resolved,output_fragment,secondary=(),cl
         require(re.match(r'^[A-Za-z_][A-Za-z0-9_]*\.(?:Fatal|Fatalf)\(',identity['fatal_call']) is not None,
                 'secondary functional site must be an exact Fatal call')
         other,positions=attested_site(phases['good']['source_files'],identity,attestation,selected)
-        key=(other,identity['assertion_function'],identity['fatal_call'])
+        key=chain_key(identity)
         require(key not in seen,'duplicate secondary functional assertion');seen.add(key)
-        hits=assertion_matches(outputs,other,positions)
+        hits=site_matches(outputs,other,positions,identity,attestation)
         require(all(item['test'] in failures for item in hits),'secondary assertion belongs to a nonfailing test')
         secondary_matched.extend(hits);functional.update(item['test'] for item in hits)
     explained={test for test in baseline if any(descendant(name,test) for name in functional)}
@@ -174,6 +191,8 @@ def validate(context,selected,assertion,resolved,output_fragment,secondary=(),cl
         require(context['cli_policy']['rebuild_mutant'] is mutant_cli_required,'phase CLI rebuild policy differs from recipe')
     if context.get('cli_policy') is not None:
         result['phase_CLI_sha256']=validate_cli_phases(context)
+    if observations:
+        result['observations']=validate_observations(context,observations,cli_required,mutant_cli_required)
     return result
 
 
@@ -193,3 +212,34 @@ def validate_cli_phases(context):
         if name=='good':baseline=hashes[name]
         elif not mutant:require(hashes[name]==baseline,'baseline/restored CLI identity changed')
     return hashes
+
+
+def validate_observations(context,observations,cli_required,mutant_cli_required):
+    result=[]
+    for index,item in enumerate(observations):
+        phases={}
+        for name,phase in context['phases'].items():
+            observed=phase.get('observations')
+            require(type(observed) is list and len(observed)==len(observations),
+                    'all supplementary observations must be present in every phase')
+            record=observed[index]
+            require(set(record)=={'id','selection','binary_sha256','source_digest','cli_sha256',
+                    'process_outcome','test2json_ndjson'} and record['id']==item['id'] and
+                    record['selection']==item['selection'],'supplementary selection differs')
+            require(record['binary_sha256']==phase['build']['binary_sha256'] and
+                    record['source_digest']==phase['source_digest'],'supplementary binary/source identity differs')
+            require(record['cli_sha256']==(phase['cli']['binary_sha256'] if cli_required else None),
+                    'supplementary CLI identity differs')
+            pattern='/'.join('^'+re.escape(part)+'$' for part in item['selection']['test'].split('/'))
+            original=phase['process_outcome']['receipt']['argv']
+            require(record['process_outcome']['receipt']['argv']==original[:-1]+['-test.run='+pattern],
+                    'supplementary execution must reuse the original binary and execution profile')
+            phases[name]=dict(phase,process_outcome=record['process_outcome'],test2json_ndjson=record['test2json_ndjson'])
+            phases[name].pop('observations',None)
+            phases[name].pop('raw_test2json_override',None)
+        observed_context=dict(context,phases=phases)
+        proof=validate(observed_context,item['selection'],item['assertion'],item['attribution'],
+                       item['output_fragment'],cli_required=cli_required,mutant_cli_required=mutant_cli_required)
+        result.append(dict(id=item['id'],selection=item['selection'],result=proof,
+                           compiled_binary_reused=True,new_unique_control=False))
+    return result

@@ -229,6 +229,16 @@ var required = []requiredTest{
 	{"cmd/zalki", "TestPluginGroupGraceExceedsPluginGrace"},
 	{"cmd/zalki", "TestPluginSuperviseStateFollowsEnvironment"},
 	{"cmd/zalki", "TestPluginSuperviseEnvironmentSelectionCLI"},
+	{"plugins", "TestHostDisableEndsQuietlyWhenPluginExitsNonZero"},
+	{"cmd/zalki", "TestPluginSupervisorUnknownSnapshotAtExitIsNotACrash"},
+	{"cmd/zalki", "TestPluginReinstallIgnoresLeftoverRunFiles"},
+	{"cmd/zalki", "TestPluginShowAndListPrintAddress"},
+	{"cmd/zalki", "TestPluginSupervisorForgetsRemovedNames"},
+	{"scripts/assertion-sites", "TestBundleCurrentAssertionsBindReviewedWholeRootSites"},
+	{"scripts/assertion-sites", "TestBundleLiteralArgumentsKeepDistinctSiblingReports"},
+	{"scripts/assertion-sites", "TestBundleLiteralArgumentsRejectWrongRequestBindings"},
+	{"scripts/assertion-sites", "TestBundleLiteralArgumentsRejectChangedSourceBoundaries"},
+	{"scripts/assertion-sites", "TestBundleRegisteredPrefixesRejectWrongOrDisconnectedPaths"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

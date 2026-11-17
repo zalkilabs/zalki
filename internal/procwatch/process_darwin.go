@@ -1,6 +1,7 @@
 package procwatch
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"syscall"
@@ -15,21 +16,44 @@ func darwinProcess(p unix.KinfoProc) Info {
 		Zombie: p.Proc.P_stat == 5} // SZOMB, sys/proc.h.
 }
 
-// Read returns a snapshot of pid, preserving OS inspection errors.
+// errUnknownProcess: the process could not be inspected and its absence is
+// not proven. It matches neither os.ErrNotExist nor syscall.ESRCH, so no
+// caller reads it as an exit.
+var errUnknownProcess = errors.New("process state unknown")
+
+// rowQuery and probe are replaced only by tests.
+var (
+	rowQuery = fixedRow
+	probe    = func(pid int) error { return unix.Kill(pid, 0) } // signal 0 sends nothing
+)
+
+// fixedRow reads exactly one kinfo_proc row: the capacity is fixed before the
+// read, with no size query, no allocation from a kernel size and no retry. An
+// answer that is not exactly one row is EIO.
+func fixedRow(pid int) (*unix.KinfoProc, error) {
+	return unix.SysctlKinfoProc("kern.proc.pid", pid)
+}
+
+// Read returns a snapshot of pid with one bounded row query and at most one
+// signal-0 probe. Only the probe's ESRCH proves that pid is gone.
 func Read(pid int) (Info, error) {
-	// The singular helper turns an empty kernel result into EIO. The slice
-	// helper preserves an empty result, which is positive process-exit evidence.
-	rows, err := unix.SysctlKinfoProcSlice("kern.proc.pid", pid)
-	if err != nil {
-		return Info{}, err
+	if pid <= 0 {
+		return Info{}, errUnknownProcess // kill(0 or -n) would address a group
 	}
-	if len(rows) == 0 {
-		return Info{}, syscall.ESRCH
+	row, err := rowQuery(pid)
+	switch {
+	case err == nil && row != nil && int(row.Proc.P_pid) == pid:
+		return darwinProcess(*row), nil
+	case err == nil:
+		return Info{}, syscall.EIO // no row, or a row of another process
+	case errors.Is(err, syscall.EIO), errors.Is(err, syscall.ESRCH), errors.Is(err, syscall.ENOENT):
+		// An empty answer, or an error that only looks like absence.
+		if errors.Is(probe(pid), syscall.ESRCH) {
+			return Info{}, syscall.ESRCH
+		}
+		return Info{}, errUnknownProcess
 	}
-	if len(rows) != 1 || int(rows[0].Proc.P_pid) != pid {
-		return Info{}, syscall.EIO
-	}
-	return darwinProcess(rows[0]), nil
+	return Info{}, err
 }
 
 // Named returns non-zombie processes owned by this user with the exact name.

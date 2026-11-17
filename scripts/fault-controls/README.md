@@ -52,3 +52,29 @@ native mutation evidence. New actual-head native jobs must prove the profiles,
 all applicable recipes, full selected unraced packages, current required roots,
 strict and architecture comparisons and measured timeout margins before any
 local gate is retired.
+
+
+The original bundle adds 26 exact source mutants to the existing 44 controls.
+The closed `bundle_functional` profile preserves the default race, build and
+execution deadlines, adding only the existing functional-site attribution rule
+for these exact whole-root selections. Z70F6 is the sole fixture exception: its
+exact Darwin path, owned-start cleanup preimage, selection and registered
+callback lineage are fixed. No other test-file mutation is permitted.
+
+Registered callback prefixes can lead to further registered callbacks or a
+checked helper tail. Exact helper call counts are echoed, and restored source
+must produce the same attribution. Anonymous callback attribution requires an
+actual testing Run registration. The Z71 loud-stop binding is intentionally
+closed to the current helper body and its two literal call tuples; it preserves
+one physical Fatal expression and two distinct argument instantiations. The
+ignored-stop primary remains mandatory. Runtime test node, complete message,
+source fatal position and helper caller position must all match independently.
+No identifier, fragment, alias, expression or general propagation fallback is
+provided.
+
+M1F1 retains its original real-CLI mutant rebuild and original lease-held kill.
+Each phase also runs both exact pending-wait selections with that same compiled
+test binary and phase CLI. These observations preserve the original profile
+and source/restoration checks and never count as additional unique controls.
+The additional native applicability and eventual timing margins must be
+measured; a written recipe or pure fixture supplies no Go AST or runtime proof.

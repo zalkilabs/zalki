@@ -93,6 +93,9 @@ func pluginListEntry(store bus.Store, name string, regular bool) (string, string
 	}
 	line := fmt.Sprintf("  %s  %s  %s; scope %s; %s; SEND %d; READ %d; installed by %s",
 		name, version, state, pluginEffectiveScope(status.Scope), pluginEligibleSnapshot(store, status), len(status.Access.Send), len(status.Access.Read), pluginInstallerText(status.Install))
+	if address := pluginAddress(status); address != "" {
+		line += "; address " + address
+	}
 	return group, line
 }
 

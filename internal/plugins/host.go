@@ -67,19 +67,15 @@ func Run(ctx context.Context, store bus.Store, name string, output io.Writer, su
 	// A feed-only plugin sees no text; its stderr is shown.
 	sup.started(c.cmd.Process.Pid)
 	c.readMode.Store(status.Access.Receive || len(status.Access.Send)+len(status.Access.Read) > 0)
-	defer func() {
-		cause := resultErr
-		resultErr = c.stop(cause)
-		if c.canceledStop(ctx, cause) {
-			resultErr = nil
-		}
-	}()
+	requested := false
+	defer func() { resultErr = c.finish(ctx, resultErr, requested) }()
 	enabled, err := greet(c, grantedCapabilities(&status))
 	if err != nil {
 		return helloError(name, err)
 	}
 	service := &bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox, PluginSend: pluginfeed.BoundPluginSend(&status)}
-	return runV2Host(ctx, feed, service, &status, c, output, ready, enabled)
+	requested, err = runV2Host(ctx, feed, service, &status, c, output, ready, enabled)
+	return err
 }
 
 func checkInstallation(feed pluginfeed.PluginFeed, id string) (pluginfeed.PluginFeedStatus, error) {
