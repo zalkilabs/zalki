@@ -254,6 +254,13 @@ func checkBadChildCharged(t *testing.T, mode string) {
 	s, fake, clock := notifySupervisor(t)
 	fake.mode(t, mode)
 	p := startDemo(t, s)
+	var observed notifyOutcome
+	called, runner := false, s.notify.run
+	s.notify.run = func(text string, started func(int)) notifyOutcome {
+		called = true
+		observed = runner(text, started)
+		return observed
+	}
 	began := time.Now()
 	drain(t, s, clock)
 	run := savedRun(t, s)
@@ -261,6 +268,8 @@ func checkBadChildCharged(t *testing.T, mode string) {
 		t.Fatalf("a %s child was not ended within its bound", mode)
 	}
 	if run.NotificationState != notifyFailed || run.NotificationReason != notifyReasonFailed {
+		record, err := loadNotifyRecord(s.state)
+		t.Logf("notification diagnostic: reason=%q fence=%q runner_called=%v outcome=%+v record_read_ok=%v in_flight=%v", run.NotificationReason, s.notify.fenced, called, observed, err == nil, record.InFlight != nil)
 		t.Fatalf("a %s child was recorded as %q", mode, run.NotificationState)
 	}
 	if p.host == nil || run.State != runStarting || len(run.Restarts) != 0 {

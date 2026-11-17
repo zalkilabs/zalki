@@ -4062,8 +4062,8 @@
     "assertion": {
       "file": "internal/procwatch/process_read_darwin_test.go",
       "assertion_function": "checkReadSelector",
-      "fatal_literal": "Read used a query without a fixed row",
-      "fatal_call": "t.Fatal(\"Read used a query without a fixed row\")",
+      "fatal_literal": "Read used a query without a fixed row: %s calls unix.%v",
+      "fatal_call": "t.Fatalf(\"Read used a query without a fixed row: %s calls unix.%v\", fn.Name.Name, calls)",
       "expected_assertion_sites": 1,
       "expected_file_assertion_sites": 1,
       "call_chain": [
@@ -4302,8 +4302,8 @@
       {
         "file": "internal/procwatch/process_read_darwin_test.go",
         "assertion_function": "checkReadSelector",
-        "fatal_literal": "Read used a query without a fixed row: %s calls unix.%v",
-        "fatal_call": "t.Fatalf(\"Read used a query without a fixed row: %s calls unix.%v\", fn.Name.Name, calls)",
+        "fatal_literal": "Read used a query without a fixed row",
+        "fatal_call": "t.Fatal(\"Read used a query without a fixed row\")",
         "expected_assertion_sites": 1,
         "expected_file_assertion_sites": 1,
         "call_chain": [
