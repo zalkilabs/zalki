@@ -12,6 +12,11 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
+var errJournalRootChanged = model.NewError(model.CodeConflict, "Zalki state changed while waiting for its journal lock; no journal recovery or callback was run. Start a fresh command")
+
+// Private process-test gate; production never pauses between open and flock.
+var storeLockOpened = func() {}
+
 type Store struct {
 	PluginDelivery pluginDeliveryCheck
 	Dir            string
@@ -59,10 +64,18 @@ func (s Store) locked(fn func() error) error {
 		return err
 	}
 	defer journal.CloseLockFile(fd) //nolint:errcheck // Closing also releases the journal lock.
+	storeLockOpened()
 	if err := journal.LockExclusive(fd, false); err != nil {
 		return err
 	}
 	defer journal.Unlock(fd) //nolint:errcheck // Descriptor close also releases the lock.
+	linked, err := journal.Linked(fd, filepath.Join(s.Dir, "lock"))
+	if err != nil {
+		return err
+	}
+	if !linked {
+		return errJournalRootChanged
+	}
 	if err := recoverEventCommit(s); err != nil {
 		return err
 	}
