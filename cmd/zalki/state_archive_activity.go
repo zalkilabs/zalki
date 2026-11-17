@@ -86,14 +86,14 @@ func (held *archiveLocks) take(path string) error {
 func (p stateArchivePlan) holdActivity(ctx context.Context, ops archiveOps) (archiveLocks, error) {
 	held := archiveLocks{}
 	// Lifetime/supervisor locks first, journal last: never wait while holding either.
-	if err := p.scanActivity(&held, true); err != nil {
+	if err := p.scanActivity(ctx, &held, true); err != nil {
 		return held, err
 	}
 	if err := held.take(filepath.Join(p.source, "lock")); err != nil {
 		return held, err
 	}
 	// Refresh records after acquiring the journal, without reacquiring held lifetimes.
-	if err := p.scanActivity(&held, false); err != nil {
+	if err := p.scanActivity(ctx, &held, false); err != nil {
 		return held, err
 	}
 	if err := ops.background(ctx, p.home); err != nil {
@@ -102,7 +102,7 @@ func (p stateArchivePlan) holdActivity(ctx context.Context, ops archiveOps) (arc
 	return held, held.linked()
 }
 
-func (p stateArchivePlan) scanActivity(held *archiveLocks, acquire bool) error {
+func (p stateArchivePlan) scanActivity(ctx context.Context, held *archiveLocks, acquire bool) error {
 	return filepath.WalkDir(p.source, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return archiveRefusal("an activity path could not be read")
@@ -118,12 +118,12 @@ func (p stateArchivePlan) scanActivity(held *archiveLocks, acquire bool) error {
 			return archiveActivityLock(held, path, acquire)
 		}
 		if entry.Type()&os.ModeSocket != 0 {
-			return archiveSocketStopped(path)
+			return archiveSocketStopped(ctx, path)
 		}
 		if entry.IsDir() {
 			return nil
 		}
-		return archiveRecordStopped(p.source, path)
+		return archiveRecordStopped(ctx, p.source, path)
 	})
 }
 
@@ -141,7 +141,7 @@ func archiveActivityLock(held *archiveLocks, path string, acquire bool) error {
 
 // Stored headers that the current build cannot read remain opaque archive data.
 // They are not liveness evidence. Concrete current process/socket probes fail closed.
-func archiveRecordStopped(root, path string) error {
+func archiveRecordStopped(ctx context.Context, root, path string) error {
 	dir := filepath.Dir(path)
 	if dir != filepath.Join(root, "sessions") && dir != filepath.Join(root, "runtimes") {
 		return nil
@@ -176,7 +176,7 @@ func archiveRecordStopped(root, path string) error {
 		if !filepath.IsAbs(path) || !strings.HasPrefix(path, root+string(filepath.Separator)) {
 			return archiveRefusal("a listener endpoint cannot be checked inside the selected state")
 		}
-		return archiveSocketStopped(path)
+		return archiveSocketStopped(ctx, path)
 	}
 	return nil
 }
@@ -198,20 +198,24 @@ func archiveProcessStopped(ref *model.ProcessRef) error {
 	return archiveRefusal("a session or Zalki runtime is still running")
 }
 
-func archiveSocketStopped(path string) error {
+func archiveSocketStopped(ctx context.Context, path string) error {
 	info, err := os.Lstat(path)
+	if ctx.Err() != nil {
+		return archiveRefusal("a listener socket could not be checked")
+	}
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil || info.Mode()&os.ModeSocket == 0 {
 		return archiveRefusal("a listener socket identity is unsafe or unknown")
 	}
-	conn, err := net.DialTimeout("unix", path, 200*time.Millisecond)
+	dialer := net.Dialer{Timeout: 200 * time.Millisecond}
+	conn, err := dialer.DialContext(ctx, "unix", path)
 	if err == nil {
 		_ = conn.Close()
 		return archiveRefusal("a listener socket is still accepting connections")
 	}
-	if errors.Is(err, os.ErrNotExist) || archiveConnectionRefused(err) {
+	if ctx.Err() == nil && (errors.Is(err, os.ErrNotExist) || archiveConnectionRefused(err)) {
 		return nil
 	}
 	return archiveRefusal("a listener socket could not be checked")

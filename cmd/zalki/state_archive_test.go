@@ -244,6 +244,7 @@ func TestStateArchiveRefusesPostConsentActivity(t *testing.T) {
 }
 
 func TestStateArchiveRefusesLiveProcessAndSocket(t *testing.T) {
+	t.Run("cancelled socket", checkArchiveSocketCancellation)
 	t.Run("process", func(t *testing.T) {
 		f := newArchiveFixture(t)
 		info, err := procwatch.Read(os.Getpid())
@@ -270,6 +271,79 @@ func TestStateArchiveRefusesLiveProcessAndSocket(t *testing.T) {
 			t.Fatal("ARCHIVE_IGNORED_LIVE_SOCKET")
 		}
 	})
+}
+
+func checkArchiveSocketCancellation(t *testing.T) {
+	for _, record := range []bool{false, true} {
+		f, path, recordPath := archiveCancellationFixture(t, record)
+		if err := archiveSocketStopped(t.Context(), path); err != nil {
+			t.Fatal("closed owned socket was not accepted without cancellation", err)
+		}
+		probes := []func(context.Context) error{func(ctx context.Context) error { return archiveState(ctx, f.request, f.ops) }}
+		if record {
+			if err := archiveRecordStopped(t.Context(), f.request.source, recordPath); err != nil {
+				t.Fatal("closed owned endpoint was not accepted without cancellation", err)
+			}
+			// Test this route independently: the later socket entry in a walk
+			// must not mask a record probe that drops its caller's context.
+			probes = append(probes, func(ctx context.Context) error { return archiveRecordStopped(ctx, f.request.source, recordPath) })
+		}
+		plan := archivePlan(t, f)
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		for _, probe := range probes {
+			if err := probe(ctx); err == nil || !strings.Contains(err.Error(), "a listener socket could not be checked") {
+				t.Fatalf("ARCHIVE_IGNORED_SOCKET_CANCELLATION: record=%t err=%v", record, err)
+			}
+		}
+		if err := archiveSocketStopped(ctx, filepath.Join(f.request.source, "absent.sock")); err == nil {
+			t.Fatal("cancelled socket probe accepted missing-path absence")
+		}
+		assertArchiveCancellationUnchanged(t, f, plan)
+	}
+}
+
+func archiveCancellationFixture(t *testing.T, record bool) (*archiveFixture, string, string) {
+	t.Helper()
+	f := newArchiveFixture(t)
+	name := "live.sock"
+	if record {
+		name = "zzz.sock" // The session record is visited before this socket.
+	}
+	path := filepath.Join(f.request.source, name)
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Net: "unix", Name: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener.SetUnlinkOnClose(false)
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	recordPath := filepath.Join(f.request.source, "sessions", "listener.json")
+	if record {
+		raw, err := json.Marshal(map[string]any{"schema": 1, "endpoint": model.Endpoint{Path: path}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		archiveWrite(t, recordPath, raw)
+	}
+	archiveWrite(t, filepath.Join(f.request.source, "cancellation-sentinel"), []byte("keep owned bytes"))
+	return f, path, recordPath
+}
+
+func assertArchiveCancellationUnchanged(t *testing.T, f *archiveFixture, plan stateArchivePlan) {
+	t.Helper()
+	info, err := os.Lstat(f.request.source)
+	if err != nil || !os.SameFile(info, plan.sourceInfo) || info.Mode() != plan.sourceInfo.Mode() || !info.ModTime().Equal(plan.sourceInfo.ModTime()) {
+		t.Fatal("cancelled socket probe moved or changed owned state", err)
+	}
+	if _, err := os.Lstat(plan.container); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("cancelled socket probe reserved an archive container", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(f.request.source, "cancellation-sentinel"))
+	if err != nil || !bytes.Equal(raw, []byte("keep owned bytes")) || f.output.Len() != 0 {
+		t.Fatal("cancelled socket probe wrote state or prompted", err)
+	}
 }
 
 func assertArchivedOpaque(t *testing.T, p stateArchivePlan, original os.FileInfo, old []byte) {

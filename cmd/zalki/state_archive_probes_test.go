@@ -46,7 +46,7 @@ func TestStateArchiveUnsafeRootsAndIdentityProbesRefuse(t *testing.T) {
 	}
 	path := filepath.Join(f.request.source, "not-a-socket")
 	archiveWrite(t, path, []byte("opaque"))
-	if err := archiveSocketStopped(path); err == nil {
+	if err := archiveSocketStopped(t.Context(), path); err == nil {
 		t.Fatal("ARCHIVE_ACCEPTED_UNKNOWN_SOCKET_IDENTITY")
 	}
 	link := f.request.source + "-link"
