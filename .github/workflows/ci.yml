@@ -211,7 +211,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.os == 'macos-latest' && 40 || 30 }}
     steps:
       - name: Require completed Darwin owning tests
         if: matrix.os == 'macos-latest'
