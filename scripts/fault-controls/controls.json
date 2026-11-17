@@ -7904,5 +7904,241 @@
         "callback_direct": false
       }
     ]
+  },
+  {
+    "id": "ARCHIVE-F1",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/bus/store.go",
+      "symbol": "locked",
+      "old": "\tlinked, err := journal.Linked(fd, filepath.Join(s.Dir, \"lock\"))\n\tif err != nil {\n\t\treturn err\n\t}\n\tif !linked {\n\t\treturn errJournalRootChanged\n\t}\n",
+      "new": "",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/bus",
+      "directory": "./internal/bus",
+      "test": "TestStoreArchiveWaiterRefusesBeforeFreshRecovery"
+    },
+    "assertion": {
+      "file": "internal/bus/store_archive_waiter_test.go",
+      "assertion_function": "assertArchiveWaiterOutcome",
+      "fatal_literal": "STALE_LOCK_ENTERED_NEW_RECOVERY: pending=%v subject=%v output=%s",
+      "fatal_call": "t.Fatalf(\"STALE_LOCK_ENTERED_NEW_RECOVERY: pending=%v subject=%v output=%s\", readErr, subjectErr, waiter.output.String())",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestStoreArchiveWaiterRefusesBeforeFreshRecovery",
+          "callee": "assertArchiveWaiterOutcome",
+          "caller_is_helper": false
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": false
+    },
+    "output_fragment": "STALE_LOCK_ENTERED_NEW_RECOVERY"
+  },
+  {
+    "id": "ARCHIVE-F2",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/state_archive.go",
+      "symbol": "move",
+      "old": "\tif err := ops.rename(p.source, p.destination); err != nil {",
+      "new": "\theld.close()\n\tif err := ops.rename(p.source, p.destination); err != nil {",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestStateArchiveKeepsJournalAndSupervisorLocksThroughMove"
+    },
+    "assertion": {
+      "file": "cmd/zalki/state_archive_test.go",
+      "assertion_function": "TestStateArchiveKeepsJournalAndSupervisorLocksThroughMove",
+      "fatal_literal": "ARCHIVE_MOVED_WITH_ACTIVE_JOURNAL: %s %v",
+      "fatal_call": "t.Fatalf(\"ARCHIVE_MOVED_WITH_ACTIVE_JOURNAL: %s %v\", name, err)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "ARCHIVE_MOVED_WITH_ACTIVE_JOURNAL"
+  },
+  {
+    "id": "ARCHIVE-F3",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/state_archive_activity.go",
+      "symbol": "archiveActivityLock",
+      "old": "\tif acquire {",
+      "new": "\tif filepath.Base(path) == \".supervisor.lock\" {\n\t\treturn nil\n\t}\n\tif acquire {",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestStateArchiveRefusesHeldLocksWithoutMoving/plugins/.supervisor.lock"
+    },
+    "assertion": {
+      "file": "cmd/zalki/state_archive_test.go",
+      "assertion_function": "TestStateArchiveRefusesHeldLocksWithoutMoving",
+      "fatal_literal": "ARCHIVE_IGNORED_HELD_LOCK",
+      "fatal_call": "t.Fatal(\"ARCHIVE_IGNORED_HELD_LOCK\", name)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": true
+    },
+    "output_fragment": "ARCHIVE_IGNORED_HELD_LOCK"
+  },
+  {
+    "id": "ARCHIVE-F4",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/state_archive_activity.go",
+      "symbol": "archiveRecordStopped",
+      "old": "if err := archiveProcessStopped(ref); err != nil {\n\t\t\t\treturn err",
+      "new": "if err := archiveProcessStopped(ref); err != nil {\n\t\t\t\treturn nil",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestStateArchiveRefusesLiveProcessAndSocket/process"
+    },
+    "assertion": {
+      "file": "cmd/zalki/state_archive_test.go",
+      "assertion_function": "TestStateArchiveRefusesLiveProcessAndSocket",
+      "fatal_literal": "ARCHIVE_IGNORED_LIVE_PROCESS",
+      "fatal_call": "t.Fatal(\"ARCHIVE_IGNORED_LIVE_PROCESS\")",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": true
+    },
+    "output_fragment": "ARCHIVE_IGNORED_LIVE_PROCESS"
+  },
+  {
+    "id": "ARCHIVE-F5",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/state_archive.go",
+      "symbol": "move",
+      "old": "os.Mkdir(p.container, 0700)",
+      "new": "os.MkdirAll(p.container, 0700)",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestStateArchiveCollisionNeverOverwrites"
+    },
+    "assertion": {
+      "file": "cmd/zalki/state_archive_failure_test.go",
+      "assertion_function": "TestStateArchiveCollisionNeverOverwrites",
+      "fatal_literal": "ARCHIVE_REUSED_CONTAINER",
+      "fatal_call": "t.Fatal(\"ARCHIVE_REUSED_CONTAINER\")",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "ARCHIVE_REUSED_CONTAINER"
+  },
+  {
+    "id": "ARCHIVE-F6",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/state_archive.go",
+      "symbol": "move",
+      "old": "held, err := p.holdActivity(ctx, ops)\n\tif held != nil {\n\t\tdefer held.close()\n\t}\n\tif err != nil {",
+      "new": "held := archiveLocks{}\n\terr := held.take(filepath.Join(p.source, \"lock\"))\n\tif held != nil {\n\t\tdefer held.close()\n\t}\n\tif err != nil {",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestStateArchiveRefusesPostConsentActivity"
+    },
+    "assertion": {
+      "file": "cmd/zalki/state_archive_test.go",
+      "assertion_function": "TestStateArchiveRefusesPostConsentActivity",
+      "fatal_literal": "ARCHIVE_IGNORED_POST_CONSENT_ACTIVITY",
+      "fatal_call": "t.Fatal(\"ARCHIVE_IGNORED_POST_CONSENT_ACTIVITY\")",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "ARCHIVE_IGNORED_POST_CONSENT_ACTIVITY"
+  },
+  {
+    "id": "ARCHIVE-F7",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/state_archive.go",
+      "symbol": "move",
+      "old": "\t\treturn fmt.Errorf(\"State moved to %q, but durability is unconfirmed. Check this archive before starting new chats; do not repeat the move without checking\", p.destination)",
+      "new": "\t\treturn archiveRefusal(\"the move failed\")",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestStateArchiveRenameAndSyncOutcomesAreHonest/container-sync"
+    },
+    "assertion": {
+      "file": "cmd/zalki/state_archive_failure_test.go",
+      "assertion_function": "assertArchiveFailureOutcome",
+      "fatal_literal": "ARCHIVE_HID_UNKNOWN_OUTCOME",
+      "fatal_call": "t.Fatal(\"ARCHIVE_HID_UNKNOWN_OUTCOME\", err)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestStateArchiveRenameAndSyncOutcomesAreHonest",
+          "callee": "assertArchiveFailureOutcome",
+          "caller_is_helper": false
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": true
+    },
+    "output_fragment": "ARCHIVE_HID_UNKNOWN_OUTCOME"
+  },
+  {
+    "id": "ARCHIVE-F8",
+    "kind": "production",
+    "mutation": {
+      "path": "cmd/zalki/state_archive_activity.go",
+      "symbol": "archiveBackgroundReport",
+      "old": "(report.ServiceState != \"not_loaded\" && report.ServiceState != \"unsupported\")",
+      "new": "false",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/cmd/zalki",
+      "directory": "./cmd/zalki",
+      "test": "TestStateArchiveBackgroundEvidenceIsConservative/unknown"
+    },
+    "assertion": {
+      "file": "cmd/zalki/state_archive_probes_test.go",
+      "assertion_function": "TestStateArchiveBackgroundEvidenceIsConservative",
+      "fatal_literal": "ARCHIVE_SERVICE_NOT_PROVEN_STOPPED: allowed=%v want=%v",
+      "fatal_call": "t.Fatalf(\"ARCHIVE_SERVICE_NOT_PROVEN_STOPPED: allowed=%v want=%v\", got, test.allowed)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": true
+    },
+    "output_fragment": "ARCHIVE_SERVICE_NOT_PROVEN_STOPPED"
   }
 ]

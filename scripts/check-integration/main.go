@@ -239,6 +239,21 @@ var required = []requiredTest{
 	{"scripts/assertion-sites", "TestBundleLiteralArgumentsRejectWrongRequestBindings"},
 	{"scripts/assertion-sites", "TestBundleLiteralArgumentsRejectChangedSourceBoundaries"},
 	{"scripts/assertion-sites", "TestBundleRegisteredPrefixesRejectWrongOrDisconnectedPaths"},
+	{"cmd/zalki", "TestStateArchiveCollisionNeverOverwrites"},
+	{"cmd/zalki", "TestStateArchiveRefusesChangedSourceAfterConsent"},
+	{"cmd/zalki", "TestStateArchiveMissingOrUnsafeLockIsNeverCreated"},
+	{"cmd/zalki", "TestStateArchiveProbeFailureRemainsClosed"},
+	{"cmd/zalki", "TestStateArchiveRenameAndSyncOutcomesAreHonest"},
+	{"cmd/zalki", "TestStateArchiveBackgroundEvidenceIsConservative"},
+	{"cmd/zalki", "TestStateArchiveUnsafeRootsAndIdentityProbesRefuse"},
+	{"cmd/zalki", "TestStateArchiveMovesOpaqueBytesAndAsksOnce"},
+	{"cmd/zalki", "TestStateArchiveDeclineAndEOFDoNotReserveAnything"},
+	{"cmd/zalki", "TestStateArchiveMissingStateNeverInitializesLogging"},
+	{"cmd/zalki", "TestStateArchiveRefusesHeldLocksWithoutMoving"},
+	{"cmd/zalki", "TestStateArchiveKeepsJournalAndSupervisorLocksThroughMove"},
+	{"cmd/zalki", "TestStateArchiveRefusesPostConsentActivity"},
+	{"cmd/zalki", "TestStateArchiveRefusesLiveProcessAndSocket"},
+	{"bus", "TestStoreArchiveWaiterRefusesBeforeFreshRecovery"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {
