@@ -333,7 +333,7 @@ controls. Native unit tests, the real focused plan on both operating systems,
 keyed strict comparisons, exact-head coverage, timeout margins and final-main
 review remain necessary before equivalent local controls can be retired.
 
-The same native job also runs full, uncached **unraced** tests of directly touched
+Native CI also runs full, uncached **unraced** tests of directly touched
 native package directories, with a fresh unraced CLI supplied to their integration
 tests. Module/dependency changes select all current native packages; runtime file
 changes select packages declared by their control recipes. The runner derives
