@@ -175,7 +175,7 @@ func TestUpgradeConfigOnlyMovesHooksToTheNewBinaryAndKeepsUserSettings(t *testin
 	}
 
 	out, diagnostic, err = execute(t, home, "", "upgrade", "--config-only", "--state", state)
-	if err != nil || diagnostic != "" || out != "Configuration refreshed\n" {
+	if err != nil || diagnostic != "" || out != configOnlyDone+"\n"+upgradeStateHandoffForTest+"\n" {
 		t.Fatalf("config-only: out %q diagnostic %q err %v", out, diagnostic, err)
 	}
 	if record := readRecord(t, state); record.Binary != newBinary {
@@ -208,7 +208,7 @@ func TestUpgradeConfigOnlyMovesHooksToTheNewBinaryAndKeepsUserSettings(t *testin
 
 	// Refreshing again is a no-op.
 	settled := cliSnapshot(t, home)
-	if out, _, err := execute(t, home, "", "upgrade", "--config-only", "--state", state); err != nil || out != "Configuration refreshed\n" || !reflect.DeepEqual(settled, cliSnapshot(t, home)) {
+	if out, _, err := execute(t, home, "", "upgrade", "--config-only", "--state", state); err != nil || out != configOnlyDone+"\n"+upgradeStateHandoffForTest+"\n" || !reflect.DeepEqual(settled, cliSnapshot(t, home)) {
 		t.Fatalf("second refresh: out %q err %v", out, err)
 	}
 }

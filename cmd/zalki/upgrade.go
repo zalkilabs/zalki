@@ -25,6 +25,20 @@ const (
 	brewPipeWaitDelay = 2 * time.Second
 )
 
+// upgradeStateHandoff is conditional advice; upgrade never archives or converts state.
+const upgradeStateHandoff = "If your Zalki state is from rc.7: rc.8 needs an offline clean install; this command does not " +
+	"archive or migrate old state.\n" +
+	"Close all agent chats and MCP/listener processes; stop background plugins, the supervisor " +
+	"and automatic restarts, and keep them stopped.\n" +
+	"Before setting up or using rc.8, stage a trusted archive-capable bridge build and run `zalki " +
+	"state archive` with the same state selector. Confirm the MOVE, never deletion. If the move " +
+	"is unconfirmed, inspect both named paths before retrying.\n" +
+	"After a confirmed archive, reinstall rc.8 on fresh state, reinstall plugins and review their " +
+	"access, then start NEW chats with NEW native chat IDs. Do not resume old chats for Zalki " +
+	"messaging.\n" +
+	"Keep the archive and separate backups of the old binary and external configuration. Native " +
+	"chat transcripts are not deleted."
+
 // binaryLocation describes how the running binary was installed. Resolved is the
 // real executable; Binary is the stable path clients are configured with.
 type binaryLocation struct {
@@ -122,7 +136,7 @@ func runUpgrade(cmd *cobra.Command, opts *commandOptions, f upgradeFlags) error 
 	if f.finish {
 		message = upgradeSuccess
 	}
-	if _, err := fmt.Fprintln(cmd.OutOrStdout(), message); err != nil || !f.finish {
+	if _, err := fmt.Fprintln(cmd.OutOrStdout(), message+"\n"+upgradeStateHandoff); err != nil || !f.finish {
 		return err
 	}
 	return kickstartAfterUpgrade(cmd, opts)

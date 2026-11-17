@@ -160,8 +160,11 @@ zalki upgrade
 
 For a Homebrew install this upgrades the binary with `brew upgrade --cask`, then
 the new build refreshes client integration configuration (settings are backed
-up first). Normal success prints `Upgrade successful`; you are only given more
-to do if something fails. `zalki upgrade --dry-run` previews the configuration
+up first). Normal success prints `Upgrade successful`, followed by the conditional
+rc.7-to-rc.8 fresh-state and NEW-chat handoff. Success confirms binary/configuration
+work; it does not archive or migrate state. Follow the
+[offline rc.7 transition](docs/design/rc8-upgrade-handoff.md) before setting up or
+using rc.8 with rc.7-era state. `zalki upgrade --dry-run` previews the configuration
 changes without upgrading or editing anything. If you already ran
 `brew upgrade` yourself, run `zalki upgrade` afterwards; it is safe to repeat.
 
@@ -173,8 +176,10 @@ Use the same build for every Zalki process sharing a state directory. Lists
 and discovery skip unreadable or unsupported sessions, report a skipped count,
 and keep exact access strict. Older releases can still fail entire scans when
 they encounter a newer record. `zalki doctor` reports running builds and client
-compatibility. If an incompatible session needs the newer code, reconnect its
-Zalki MCP server; in Cursor, also cancel and re-arm its `cursor-listen` task.
+compatibility. For sessions already using supported state, reconnect the Zalki
+MCP server to use newer code; in Cursor, also cancel and re-arm `cursor-listen`.
+Reconnecting or resuming an rc.7-era chat does not replace the offline fresh-state
+transition or create a NEW native chat ID.
 
 The former global `state-formats.json` fence was
 [removed](https://github.com/zalkilabs/zalki/commit/396669e645860e9a941811e1dbe15b81d77a5602).
