@@ -12,9 +12,9 @@ import (
 
 func TestStateArchiveBackgroundEvidenceIsConservative(t *testing.T) {
 	for _, test := range []struct {
-		name string
-		report install.Report
-		err error
+		name    string
+		report  install.Report
+		err     error
 		allowed bool
 	}{
 		{"absent", install.Report{ManagedState: "missing", ServiceState: "not_loaded"}, nil, true},

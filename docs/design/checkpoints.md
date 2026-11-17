@@ -367,3 +367,32 @@ The technical checkpoint measurements, independent review and summary for the
 owner are complete at their source-qualified origins. Current-head CI, premerge,
 actual-main and original release/live/archive gates remain separate. No behavior
 is changed or deferred by this documentation layer.
+
+
+## Plugin runtime parent namespace limit
+
+Supervisor admission checks that `state/plugins` is a real directory owned by
+this user and not writable by others. That check and the supervisor/restart
+locks do not pin the directory's pathname for later runtime publications.
+`saveRunState` and the default `writeRestartRequest` publish through
+`journal.WriteAtomic`: a synced temporary file, path-based rename and directory
+sync. Atomic record replacement is distinct from keeping the parent namespace
+bound to the directory admitted earlier.
+
+`TestPluginRuntimePublicationUsesCurrentParentPath` characterizes this limit in
+owned temporary directories. It retains the original admitted directory handle,
+replaces the parent after supervisor admission (run state) or after the restart
+lock and record reads (request), then calls the actual publication writer. The
+expected current behavior is that the private replacement receives the record;
+the retained original does not. This is not a test of an adversarial swap during
+the write, a full supervisor lifetime, or arbitrary hostile namespace safety.
+The existing notification record has a separate directory-handle-based
+`openPluginsDir` / `readNotifyAt` / `writeNotifyAt` path; its anchoring does not
+extend to run-state or restart records.
+
+The chosen boundary is documentation plus characterization. Stronger lifetime
+parent anchoring remains unimplemented pre-v1 architecture work, not a guarantee
+provided by atomic publication or a held lock. Stop all Zalki sessions, clients,
+listeners, plugins and restartable services before manually moving or archiving
+state. The offline archive command's refusal, uncertainty and no-auto-retry
+rules do not authorize a live parent replacement.

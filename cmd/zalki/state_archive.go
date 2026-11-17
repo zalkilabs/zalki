@@ -18,6 +18,7 @@ import (
 )
 
 const archiveOfflineWarning = "Close all agent sessions and stop background plugins first. Sessions running or started during the move can create a second state and damage its journal."
+
 var errArchiveNoState = errors.New("no state to archive")
 
 const archiveQuestion = "Move this Zalki state to the archive? [y/N] "
@@ -65,8 +66,8 @@ func confirmStateArchive(cmd *cobra.Command) (bool, error) {
 
 type archiveRequest struct {
 	source, origin, home, config string
-	output                      io.Writer
-	confirm                     func() (bool, error)
+	output                       io.Writer
+	confirm                      func() (bool, error)
 }
 
 type archiveOps struct {
@@ -114,7 +115,7 @@ func archiveState(ctx context.Context, request archiveRequest, ops archiveOps) e
 
 type stateArchivePlan struct {
 	source, parent, container, destination, home string
-	sourceInfo, parentInfo                      os.FileInfo
+	sourceInfo, parentInfo                       os.FileInfo
 }
 
 func prepareStateArchive(request archiveRequest, ops archiveOps) (stateArchivePlan, error) {

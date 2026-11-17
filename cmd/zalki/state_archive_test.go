@@ -28,7 +28,18 @@ type archiveFixture struct {
 
 func newArchiveFixture(t *testing.T) *archiveFixture {
 	t.Helper()
-	base, err := filepath.EvalSymlinks(t.TempDir())
+	// MkdirTemp provides a private parent; t.TempDir's numbered leaf need
+	// not itself be mode 0700. A compact name also fits native socket paths.
+	root, err := os.MkdirTemp("", "za-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(root); err != nil {
+			t.Error(err)
+		}
+	})
+	base, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,6 +55,9 @@ func newArchiveFixture(t *testing.T) *archiveFixture {
 	f.ops.background = func(context.Context, string) error { return nil }
 	f.ops.now = func() time.Time { return time.Date(2026, 11, 15, 10, 0, 0, 0, time.UTC) }
 	f.ops.id = func() string { return "00000000-0000-4000-8000-000000000001" }
+	if _, err := prepareStateArchive(f.request, f.ops); err != nil {
+		t.Fatal("archive fixture failed initial root admission", err)
+	}
 	return f
 }
 
@@ -169,7 +183,7 @@ func TestStateArchiveRefusesHeldLocksWithoutMoving(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer journal.CloseLockFile(fd) //nolint:errcheck // Test owns this descriptor.
+			defer journal.CloseLockFile(fd) // Test owns this descriptor.
 			if err := journal.LockExclusive(fd, true); err != nil {
 				t.Fatal(err)
 			}
@@ -251,7 +265,7 @@ func TestStateArchiveRefusesLiveProcessAndSocket(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer listener.Close() //nolint:errcheck // Test-owned listener.
+		defer listener.Close() // Test-owned listener.
 		if err := archiveState(t.Context(), f.request, f.ops); err == nil {
 			t.Fatal("ARCHIVE_IGNORED_LIVE_SOCKET")
 		}

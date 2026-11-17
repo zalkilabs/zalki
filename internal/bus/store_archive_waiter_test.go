@@ -23,8 +23,8 @@ func TestStoreArchiveWaiterProcessHelper(t *testing.T) {
 	}
 	ready := os.NewFile(3, "opened-old-lock")
 	gate := os.NewFile(4, "continue-to-flock")
-	defer ready.Close() //nolint:errcheck // Test-owned pipe.
-	defer gate.Close() //nolint:errcheck // Test-owned pipe.
+	defer ready.Close() // Test-owned pipe.
+	defer gate.Close()  // Test-owned pipe.
 	store := fixtureStore(t)
 	store.Dir = root
 	opens := 0
@@ -58,7 +58,11 @@ func TestStoreArchiveWaiterRefusesBeforeFreshRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	oldOpen := true
-	defer func() { if oldOpen { _ = journal.CloseLockFile(oldFD) } }()
+	defer func() {
+		if oldOpen {
+			_ = journal.CloseLockFile(oldFD)
+		}
+	}()
 	if err := journal.LockExclusive(oldFD, true); err != nil {
 		t.Fatal(err)
 	}
@@ -90,8 +94,8 @@ func TestStoreArchiveWaiterRefusesBeforeFreshRecovery(t *testing.T) {
 }
 
 type archiveWaiter struct {
-	gate *os.File
-	done <-chan error
+	gate   *os.File
+	done   <-chan error
 	output *bytes.Buffer
 }
 
@@ -101,18 +105,18 @@ func startArchiveWaiter(t *testing.T, root string) archiveWaiter {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer readyRead.Close() //nolint:errcheck // Read completed before returning.
-	defer readyWrite.Close() //nolint:errcheck // Parent copy is closed after start.
+	defer readyRead.Close()  // Read completed before returning.
+	defer readyWrite.Close() // Parent copy is closed after start.
 	gateRead, gateWrite, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer gateRead.Close() //nolint:errcheck // Parent copy is closed after start.
+	defer gateRead.Close() // Parent copy is closed after start.
 	t.Cleanup(func() { _ = gateWrite.Close() })
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	t.Cleanup(cancel)
 	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestStoreArchiveWaiterProcessHelper$")
-	cmd.Env = []string{"PATH=/usr/bin:/bin", "HOME="+t.TempDir(), "TMPDIR="+filepath.Dir(root), "GOTELEMETRY=off", "ZALKI_TEST_ARCHIVE_WAITER="+root}
+	cmd.Env = []string{"PATH=/usr/bin:/bin", "HOME=" + t.TempDir(), "TMPDIR=" + filepath.Dir(root), "GOTELEMETRY=off", "ZALKI_TEST_ARCHIVE_WAITER=" + root}
 	cmd.ExtraFiles = []*os.File{readyWrite, gateRead}
 	var output bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &output, &output
@@ -177,8 +181,8 @@ func assertArchiveWaiterOutcome(t *testing.T, waiter archiveWaiter, waitErr erro
 }
 
 type archiveWaiterImage struct {
-	raw string
-	mode os.FileMode
+	raw   string
+	mode  os.FileMode
 	mtime int64
 }
 
