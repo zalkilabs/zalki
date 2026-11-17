@@ -131,8 +131,13 @@ func TestUpgradeWithoutInstallationRecordCLI(t *testing.T) {
 	if err != nil || !bytes.Contains(record, []byte(stable)) {
 		t.Fatal("actual finish child did not install pinned binary", string(record), err)
 	}
+	checkUpgradeConfigOnlyHandoff(t, stable, path, state, brewLog, brew)
+}
+
+func checkUpgradeConfigOnlyHandoff(t *testing.T, stable, path, state, brewLog string, brew []byte) {
+	t.Helper()
 	// The manual-binary path prints the same handoff without invoking Brew again.
-	out, diagnostic, err = runEditCLI(t, stable, "--config", path, "--state", state, "upgrade", "--config-only")
+	out, diagnostic, err := runEditCLI(t, stable, "--config", path, "--state", state, "upgrade", "--config-only")
 	if err != nil || diagnostic != "" || out != configOnlyDone+"\n"+upgradeStateHandoffForTest+"\n" {
 		t.Fatal("real config-only upgrade omitted the fresh-state and NEW-chat handoff", out, diagnostic, err)
 	}
