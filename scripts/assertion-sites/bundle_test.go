@@ -20,9 +20,10 @@ func bundleSource(t *testing.T, name string) []byte {
 
 func TestBundleCurrentAssertionsBindReviewedWholeRootSites(t *testing.T) {
 	var controls []struct {
-		ID           string    `json:"id"`
-		Assertion    request   `json:"assertion"`
-		Secondary    []request `json:"secondary_assertions"`
+		ID           string          `json:"id"`
+		Mutation     mutationRequest `json:"mutation"`
+		Assertion    request         `json:"assertion"`
+		Secondary    []request       `json:"secondary_assertions"`
 		Observations []struct {
 			Assertion request `json:"assertion"`
 		} `json:"observations"`
@@ -36,6 +37,9 @@ func TestBundleCurrentAssertionsBindReviewedWholeRootSites(t *testing.T) {
 	}
 	examined := 0
 	for _, control := range controls {
+		wire := control.Assertion
+		wire.Mutation = &control.Mutation
+		checkBundleMutationWire(t, control.ID, wire)
 		if !slices.Contains([]string{"Z71", "Z74", "Z70", "Z66", "Z67", "Z68"}, control.ID[:min(3, len(control.ID))]) && control.ID != "M1F1" {
 			continue
 		}
@@ -182,4 +186,56 @@ func first(t *testing.T) { t.Helper(); invoke(func(t *testing.T) { t.Fatal("REVI
 		t.Fatal("mixed parent and callback testing receivers accepted")
 	}
 
+}
+
+// Exercise the actual JSON decoder, including legitimate empty/nonempty
+// replacements, before source attribution. Direct resolve tests bypass it.
+func checkBundleMutationWire(t *testing.T, id string, r request) {
+	t.Helper()
+	encoded, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	root := filepath.Join("..", "..")
+	if err := run(root, strings.NewReader(string(encoded)), &out); err != nil {
+		t.Fatalf("%s current mutation JSON wire refused: %v", id, err)
+	}
+	var result response
+	if err := json.Unmarshal([]byte(out.String()), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Mutation == nil || result.Mutation.File != r.Mutation.File || result.Mutation.Symbol != r.Mutation.Symbol {
+		t.Fatalf("%s mutation wire lost preimage attribution: %+v", id, result)
+	}
+	if id == "C4-F1-CREATE" {
+		checkBundleMutationWireRefusals(t, root, encoded)
+	}
+}
+
+func checkBundleMutationWireRefusals(t *testing.T, root string, encoded []byte) {
+	t.Helper()
+	for _, which := range []string{"replacement type", "unknown mutation field", "unknown root field"} {
+		var envelope map[string]any
+		if err := json.Unmarshal(encoded, &envelope); err != nil {
+			t.Fatal(err)
+		}
+		mutation := envelope["mutation"].(map[string]any)
+		switch which {
+		case "replacement type":
+			mutation["new"] = 7
+		case "unknown mutation field":
+			mutation["unreviewed"] = true
+		case "unknown root field":
+			envelope["unreviewed"] = true
+		}
+		bad, err := json.Marshal(envelope)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out strings.Builder
+		if err := run(root, strings.NewReader(string(bad)), &out); err == nil {
+			t.Fatalf("mutation decoder accepted %s", which)
+		}
+	}
 }

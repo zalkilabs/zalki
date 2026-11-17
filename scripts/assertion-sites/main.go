@@ -49,7 +49,10 @@ type mutationRequest struct {
 	File   string `json:"path"`
 	Symbol string `json:"symbol"`
 	Old    string `json:"old"`
-	Count  int    `json:"required_occurrences"`
+	// New is the runner's typed replacement text. bindMutation proves the old
+	// preimage; the runner checks/applies/restores the complete old/new tuple.
+	New   string `json:"new"`
+	Count int    `json:"required_occurrences"`
 }
 
 type mutationProof struct {
