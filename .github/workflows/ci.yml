@@ -18,7 +18,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     # Keep existing required check names authoritative for the new coverage.
-    needs: [test-alias, windows-vet, unraced-darwin, fault-controls]
+    needs: [test-alias, windows-vet, unraced-linux, unraced-darwin, fault-controls-linux, fault-controls-darwin]
     if: always()
     strategy:
       fail-fast: false
@@ -30,15 +30,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Require completed alias, reporter, owning tests and focused controls
+      - name: Require completed aliases, reporter, both owning tests and both focused controls
         env:
           ALIAS_RESULT: ${{ needs['test-alias'].result }}
           WINDOWS_RESULT: ${{ needs['windows-vet'].result }}
-          OWNING_RESULT: ${{ needs['unraced-darwin'].result }}
-          FAULTS_RESULT: ${{ needs['fault-controls'].result }}
+          LINUX_OWNING_RESULT: ${{ needs['unraced-linux'].result }}
+          DARWIN_OWNING_RESULT: ${{ needs['unraced-darwin'].result }}
+          LINUX_FAULTS_RESULT: ${{ needs['fault-controls-linux'].result }}
+          DARWIN_FAULTS_RESULT: ${{ needs['fault-controls-darwin'].result }}
         run: |
-          if [[ "$ALIAS_RESULT" != success || "$WINDOWS_RESULT" != success || "$OWNING_RESULT" != success || "$FAULTS_RESULT" != success ]]; then
-            echo "Required coverage incomplete: alias=$ALIAS_RESULT, windows=$WINDOWS_RESULT, owning=$OWNING_RESULT, controls=$FAULTS_RESULT" >&2
+          if [[ "$ALIAS_RESULT" != success || "$WINDOWS_RESULT" != success || "$LINUX_OWNING_RESULT" != success || "$DARWIN_OWNING_RESULT" != success || "$LINUX_FAULTS_RESULT" != success || "$DARWIN_FAULTS_RESULT" != success ]]; then
+            echo "Required coverage incomplete: alias=$ALIAS_RESULT, windows=$WINDOWS_RESULT, linux_owning=$LINUX_OWNING_RESULT, darwin_owning=$DARWIN_OWNING_RESULT, linux_controls=$LINUX_FAULTS_RESULT, darwin_controls=$DARWIN_FAULTS_RESULT" >&2
             exit 1
           fi
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -163,6 +165,45 @@ jobs:
             ${{ runner.temp }}/checkpoint-capture/cli/*.stdout
             ${{ runner.temp }}/checkpoint-capture/cli/*.stderr
 
+  unraced-linux:
+    name: Full owning tests (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - name: Verify mutation stream and phase fixtures
+        run: make fault-controls-test
+      - name: Build and verify current-source assertion attribution
+        run: |
+          make ci-fault-tools CI_TOOL_DIR="${{ runner.temp }}/fault-tools"
+          go test -count=1 ./scripts/assertion-sites
+      - name: Run full unraced affected packages with a fresh unraced CLI
+        env:
+          FAULT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          FAULT_EVENT: ${{ github.ref_type == 'tag' && 'tag' || github.event_name }}
+        run: |
+          python3 scripts/fault-controls/unraced.py --repo "$GITHUB_WORKSPACE" \
+            --base "$FAULT_BASE" --head "$(git rev-parse HEAD)" --event "$FAULT_EVENT" \
+            --tools "${{ runner.temp }}/fault-tools" --output "${{ runner.temp }}/unraced-affected"
+      - name: Retain full Linux owning test evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unraced-affected-ubuntu-latest
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/unraced-affected/*.json
+            ${{ runner.temp }}/unraced-affected/*.log
+            ${{ runner.temp }}/unraced-affected/cli/*.json
+            ${{ runner.temp }}/unraced-affected/cli/*.log
+
   unraced-darwin:
     name: Full owning tests (macos-latest)
     runs-on: macos-latest
@@ -202,19 +243,65 @@ jobs:
             ${{ runner.temp }}/unraced-affected/cli/*.json
             ${{ runner.temp }}/unraced-affected/cli/*.log
 
-  fault-controls:
-    name: Focused mutation controls (${{ matrix.os }})
+  fault-controls-linux:
+    name: Focused mutation controls (ubuntu-latest)
+    needs: [unraced-linux]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require completed Linux owning tests
+        env:
+          OWNING_RESULT: ${{ needs['unraced-linux'].result }}
+        run: |
+          if [[ "$OWNING_RESULT" != success ]]; then
+            echo "Required Linux owning coverage incomplete: owning=$OWNING_RESULT" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - name: Verify mutation stream and phase fixtures
+        run: make fault-controls-test
+      - name: Build and verify current-source assertion attribution
+        run: |
+          make ci-fault-tools CI_TOOL_DIR="${{ runner.temp }}/fault-tools"
+          go test -count=1 ./scripts/assertion-sites
+      - name: Execute affected compiled positive, intended and restored controls
+        env:
+          FAULT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          FAULT_EVENT: ${{ github.ref_type == 'tag' && 'tag' || github.event_name }}
+        run: |
+          python3 scripts/fault-controls/run.py --repo "$GITHUB_WORKSPACE" \
+            --base "$FAULT_BASE" --head "$(git rev-parse HEAD)" --event "$FAULT_EVENT" \
+            --tools "${{ runner.temp }}/fault-tools" --output "${{ runner.temp }}/fault-controls"
+      - name: Retain Linux focused control receipts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fault-controls-ubuntu-latest
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/fault-controls/*.json
+            ${{ runner.temp }}/fault-controls/modules.log
+            ${{ runner.temp }}/fault-controls/*/*.json
+            ${{ runner.temp }}/fault-controls/*/*/*.log
+            ${{ runner.temp }}/fault-controls/*/baseline-cli/buildinfo.json
+            ${{ runner.temp }}/fault-controls/*/mutant-cli/buildinfo.json
+
+  fault-controls-darwin:
+    name: Focused mutation controls (macos-latest)
     needs: [unraced-darwin]
     if: always()
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: ${{ matrix.os == 'macos-latest' && 40 || 30 }}
+    runs-on: macos-latest
+    timeout-minutes: 40
     steps:
       - name: Require completed Darwin owning tests
-        if: matrix.os == 'macos-latest'
         env:
           OWNING_RESULT: ${{ needs['unraced-darwin'].result }}
         run: |
@@ -236,15 +323,6 @@ jobs:
         run: |
           make ci-fault-tools CI_TOOL_DIR="${{ runner.temp }}/fault-tools"
           go test -count=1 ./scripts/assertion-sites
-      - name: Run full unraced affected packages with a fresh unraced CLI
-        if: matrix.os == 'ubuntu-latest'
-        env:
-          FAULT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-          FAULT_EVENT: ${{ github.ref_type == 'tag' && 'tag' || github.event_name }}
-        run: |
-          python3 scripts/fault-controls/unraced.py --repo "$GITHUB_WORKSPACE" \
-            --base "$FAULT_BASE" --head "$(git rev-parse HEAD)" --event "$FAULT_EVENT" \
-            --tools "${{ runner.temp }}/fault-tools" --output "${{ runner.temp }}/unraced-affected"
       - name: Execute affected compiled positive, intended and restored controls
         env:
           FAULT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -253,27 +331,11 @@ jobs:
           python3 scripts/fault-controls/run.py --repo "$GITHUB_WORKSPACE" \
             --base "$FAULT_BASE" --head "$(git rev-parse HEAD)" --event "$FAULT_EVENT" \
             --tools "${{ runner.temp }}/fault-tools" --output "${{ runner.temp }}/fault-controls"
-      - name: Retain Linux owning and focused control receipts
-        if: always() && matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: fault-controls-${{ matrix.os }}
-          if-no-files-found: error
-          path: |
-            ${{ runner.temp }}/unraced-affected/*.json
-            ${{ runner.temp }}/unraced-affected/*.log
-            ${{ runner.temp }}/fault-controls/*.json
-            ${{ runner.temp }}/fault-controls/modules.log
-            ${{ runner.temp }}/fault-controls/*/*.json
-            ${{ runner.temp }}/fault-controls/*/*/*.log
-            ${{ runner.temp }}/fault-controls/*/baseline-cli/buildinfo.json
-            ${{ runner.temp }}/fault-controls/*/mutant-cli/buildinfo.json
-
       - name: Retain Darwin focused control receipts
-        if: always() && matrix.os == 'macos-latest'
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: fault-controls-${{ matrix.os }}
+          name: fault-controls-macos-latest
           if-no-files-found: error
           path: |
             ${{ runner.temp }}/fault-controls/*.json
