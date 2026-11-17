@@ -7991,7 +7991,7 @@
       "expected_file_assertion_sites": 1,
       "call_chain": [],
       "require_helper_markers_in_callees": false,
-      "callback_direct": true
+      "callback_direct": false
     },
     "output_fragment": "ARCHIVE_IGNORED_HELD_LOCK"
   },
@@ -8019,7 +8019,7 @@
       "expected_file_assertion_sites": 1,
       "call_chain": [],
       "require_helper_markers_in_callees": false,
-      "callback_direct": true
+      "callback_direct": false
     },
     "output_fragment": "ARCHIVE_IGNORED_LIVE_PROCESS"
   },
@@ -8109,7 +8109,7 @@
         }
       ],
       "require_helper_markers_in_callees": true,
-      "callback_direct": true
+      "callback_direct": false
     },
     "output_fragment": "ARCHIVE_HID_UNKNOWN_OUTCOME"
   },
@@ -8137,7 +8137,7 @@
       "expected_file_assertion_sites": 1,
       "call_chain": [],
       "require_helper_markers_in_callees": false,
-      "callback_direct": true
+      "callback_direct": false
     },
     "output_fragment": "ARCHIVE_SERVICE_NOT_PROVEN_STOPPED"
   }

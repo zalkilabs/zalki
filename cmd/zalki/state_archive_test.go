@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/creack/pty"
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
@@ -48,6 +47,22 @@ func newArchiveFixture(t *testing.T) *archiveFixture {
 	return f
 }
 
+// openArchivePTY reuses the native test terminal pair for real TTY consent.
+func openArchivePTY(t *testing.T) (*os.File, *os.File) {
+	t.Helper()
+	master, slavePath, err := openTestPTY()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = master.Close() })
+	slave, err := os.OpenFile(slavePath, os.O_RDWR|syscall.O_NOCTTY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = slave.Close() })
+	return master, slave
+}
+
 func archiveWrite(t *testing.T, path string, value []byte) {
 	t.Helper()
 	if err := os.WriteFile(path, value, 0600); err != nil {
@@ -75,12 +90,7 @@ func TestStateArchiveMovesOpaqueBytesAndAsksOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := archivePlan(t, f)
-	master, slave, err := pty.Open()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer master.Close() //nolint:errcheck // Test-owned terminal.
-	defer slave.Close() //nolint:errcheck // Test-owned terminal.
+	master, slave := openArchivePTY(t)
 	if _, err := master.Write([]byte("yes\n")); err != nil {
 		t.Fatal(err)
 	}
@@ -104,12 +114,7 @@ func TestStateArchiveDeclineAndEOFDoNotReserveAnything(t *testing.T) {
 	for _, name := range []string{"no", "EOF"} {
 		t.Run(name, func(t *testing.T) {
 			f := newArchiveFixture(t)
-			master, slave, err := pty.Open()
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer master.Close() //nolint:errcheck // Test-owned terminal.
-			defer slave.Close() //nolint:errcheck // Test-owned terminal.
+			master, slave := openArchivePTY(t)
 			answer := []byte("n\n")
 			if name == "EOF" {
 				answer = []byte{4} // Canonical terminal EOF, not an injected false answer.
