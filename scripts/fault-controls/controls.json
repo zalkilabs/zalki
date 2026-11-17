@@ -5816,7 +5816,7 @@
       "path": "internal/procwatch/process_read_darwin_test.go",
       "symbol": "startOwned",
       "old": "\tt.Cleanup(func() { _ = c.cmd.Process.Kill(); _ = c.wait() })\n",
-      "new": "",
+      "new": "\n",
       "required_occurrences": 1
     },
     "selection": {

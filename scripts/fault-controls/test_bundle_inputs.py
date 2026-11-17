@@ -100,10 +100,36 @@ class BundleInputs(unittest.TestCase):
             lambda c:c['mutation'].update(symbol='other'),lambda c:c['mutation'].update(old='t.Cleanup(other)'),
             lambda c:c['selection'].update(test='TestProcwatchReadBounded/early_stop'),
             lambda c:c['assertion']['call_chain'][1].update(caller='TestProcwatchReadBounded'),
-            lambda c:c.update(profile='bundle_functional')]
+            lambda c:c.update(profile='bundle_functional'),lambda c:c['mutation'].update(new=''),
+            lambda c:c['mutation'].update(new='//line other.go:224\n'),
+            lambda c:c['mutation'].update(new='\n\n')]
         for change in changes:
             control=copy.deepcopy(inputs.FIXTURE);change(control)
             with self.subTest(change=change),self.assertRaises(ValueError):run.validate_controls([control])
+
+    def test_cleanup_fixture_removes_the_call_without_moving_the_assertion(self):
+        control=inputs.FIXTURE;mutation=control['mutation']
+        source=(HERE.parents[1]/mutation['path']).read_text()
+        self.assertEqual(source.count(mutation['old']),1)
+        self.assertEqual(mutation['new'],'\n')
+        before,after=source.split(mutation['old'])
+        deleted=before+after
+        intended=before+mutation['new']+after
+        self.assertNotIn(mutation['old'].strip(),intended)
+        self.assertEqual(intended[:len(before)]+intended[len(before)+1:],deleted)
+        self.assertEqual(intended.count('\n'),source.count('\n'))
+        fatal=control['assertion']['fatal_call']
+        self.assertEqual(source.count(fatal),1)
+        self.assertEqual(intended.count(fatal),1)
+        self.assertEqual(intended[:intended.index(fatal)].count('\n'),
+                         source[:source.index(fatal)].count('\n'))
+        line=intended[:intended.index(fatal)].count('\n')+1
+        file=control['assertion']['file'];name=control['selection']['test']+'/real_children/early_stop_is_joined'
+        output=[(name,Path(file).name+':'+str(line)+': '+control['assertion']['fatal_literal'])]
+        self.assertEqual(len(oracle.assertion_matches(output,file,[line])),1)
+        for wrong in [line-1,line+1]:
+            self.assertEqual(oracle.assertion_matches(output,file,[wrong]),[])
+        self.assertEqual(oracle.assertion_matches(output,'other_test.go',[line]),[])
 
     def test_M1_keeps_both_exact_observations_and_real_CLI_control(self):
         control=next(c for c in json.loads((HERE/'controls.json').read_text()) if c['id']=='M1F1')
