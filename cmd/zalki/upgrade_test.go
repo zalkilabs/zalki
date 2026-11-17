@@ -239,7 +239,7 @@ func TestUpgradeManualInstallIsHonest(t *testing.T) {
 		t.Fatal("manual install ran brew or changed configuration after failing")
 	}
 	out, diagnostic, err := execute(t, f.home, "", "upgrade", "--config-only", "--state", f.state)
-	if err != nil || out != "Configuration refreshed\n" || diagnostic != "" {
+	if err != nil || out != configOnlyDone+"\n"+upgradeStateHandoffForTest+"\n" || diagnostic != "" {
 		t.Fatal("explicit configuration-only refresh", out, diagnostic, err)
 	}
 	var record struct {
@@ -249,7 +249,7 @@ func TestUpgradeManualInstallIsHonest(t *testing.T) {
 		t.Fatal("configuration-only refresh did not use the installed binary", record.Binary)
 	}
 	refreshed := f.manifestBytes(t)
-	if out, _, err = execute(t, f.home, "", "upgrade", "--config-only", "--state", f.state); err != nil || out != "Configuration refreshed\n" || f.manifestBytes(t) != refreshed {
+	if out, _, err = execute(t, f.home, "", "upgrade", "--config-only", "--state", f.state); err != nil || out != configOnlyDone+"\n"+upgradeStateHandoffForTest+"\n" || f.manifestBytes(t) != refreshed {
 		t.Fatal("configuration-only refresh not idempotent", out, err)
 	}
 	out, _, err = execute(t, f.home, "", "upgrade", "--dry-run", "--state", f.state)
@@ -363,7 +363,7 @@ func TestUpgradeConfigOnlyKeepsRecordedTargetAndSaysSo(t *testing.T) {
 	t.Setenv("CLAUDE_CONFIG_DIR", other)
 	out, diagnostic, err := execute(t, f.home, "", "upgrade", "--config-only", "--state", f.state)
 	note := "Kept " + filepath.Join(f.home, ".claude.json") + " (CLAUDE_CONFIG_DIR points elsewhere; to move, run zalki uninstall, then zalki install)\n"
-	if err != nil || out != "Configuration refreshed\n" || !strings.Contains(diagnostic, note) {
+	if err != nil || out != configOnlyDone+"\n"+upgradeStateHandoffForTest+"\n" || !strings.Contains(diagnostic, note) {
 		t.Fatalf("kept-target note: out=%q diagnostic=%q err=%v", out, diagnostic, err)
 	}
 	if _, err := os.Stat(other); !os.IsNotExist(err) {

@@ -125,7 +125,7 @@ func checkConfigChildUpgrade(t *testing.T, fixture configChildSelection) {
 	if !json.Valid([]byte(preview)) || strings.Contains(preview, "Config file:") || !reflect.DeepEqual(before, cliSnapshot(t, fixture.home)) {
 		t.Fatal("upgrade preview changed its JSON output or files")
 	}
-	if out := fixture.run(t, "upgrade", "--config-only"); out != configOnlyDone+"\n" || !reflect.DeepEqual(before, cliSnapshot(t, fixture.home)) {
+	if out := fixture.run(t, "upgrade", "--config-only"); out != configOnlyDone+"\n"+upgradeStateHandoffForTest+"\n" || !reflect.DeepEqual(before, cliSnapshot(t, fixture.home)) {
 		t.Fatal("configuration refresh did not retain pinned selection")
 	}
 }
@@ -279,13 +279,13 @@ func TestConfigChildrenRealUpgradeSuccessOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, mode := range []struct{ flag, want string }{{"--finish-upgrade", upgradeSuccess}, {"--config-only", configOnlyDone}} {
-		if out, diagnostic, err := execute(t, home, "", "--config", configFile, "--state", state, "upgrade", mode.flag); err != nil || diagnostic != "" || out != mode.want+"\n" {
+		if out, diagnostic, err := execute(t, home, "", "--config", configFile, "--state", state, "upgrade", mode.flag); err != nil || diagnostic != "" || out != mode.want+"\n"+upgradeStateHandoffForTest+"\n" {
 			t.Fatalf("in-process %s output=%q diagnostic=%q err=%v", mode.flag, out, diagnostic, err)
 		}
 		cmd := exec.CommandContext(t.Context(), binary, "--config", configFile, "--state", state, "upgrade", mode.flag)
 		var out, diagnostic bytes.Buffer
 		cmd.Stdout, cmd.Stderr = &out, &diagnostic
-		if err := cmd.Run(); err != nil || diagnostic.Len() != 0 || out.String() != mode.want+"\n" {
+		if err := cmd.Run(); err != nil || diagnostic.Len() != 0 || out.String() != mode.want+"\n"+upgradeStateHandoffForTest+"\n" {
 			t.Fatalf("real %s output=%q diagnostic=%q err=%v", mode.flag, out.String(), diagnostic.String(), err)
 		}
 	}

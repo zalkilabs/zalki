@@ -279,7 +279,7 @@ func TestCodexUpgradeRefreshKeepsSuccessOutput(t *testing.T) {
 	f.locate(t, binary, binary)
 	for _, mode := range []struct{ flag, want string }{{"--config-only", configOnlyDone}, {"--finish-upgrade", upgradeSuccess}} {
 		out, _, err := execute(t, f.home, "", "upgrade", "--state", f.state, mode.flag)
-		if err != nil || out != mode.want+"\n" {
+		if err != nil || out != mode.want+"\n"+upgradeStateHandoffForTest+"\n" {
 			t.Fatal("D10_UPGRADE_SUCCESS_OUTPUT_ONLY", out, err)
 		}
 	}
