@@ -125,6 +125,7 @@ func awaitPluginOwnerEvent(t *testing.T, outbox, session string) string {
 
 func pluginOwnerCLI(t *testing.T, binary, state string, args ...string) ([]byte, error) {
 	t.Helper()
+	started := time.Now()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, binary, append([]string{"--state", state, "--log-level", "off", "plugins"}, args...)...)
@@ -141,7 +142,11 @@ func pluginOwnerCLI(t *testing.T, binary, state string, args ...string) ([]byte,
 		defer slave.Close()
 		cmd.Stdin = slave
 	}
-	return cmd.CombinedOutput()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("owner CLI failed: context=%v elapsed=%s combined stdout/stderr=%q", ctx.Err(), time.Since(started), output)
+	}
+	return output, err
 }
 
 func assertPluginOwnerStatus(t *testing.T, binary, state string, enabled, gap bool) {
