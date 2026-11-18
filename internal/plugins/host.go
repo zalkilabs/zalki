@@ -66,7 +66,7 @@ func Run(ctx context.Context, store bus.Store, name string, output io.Writer, su
 	// never shown, from the start: also when its hello fails or times out.
 	// A feed-only plugin sees no text; its stderr is shown.
 	sup.started(c.cmd.Process.Pid)
-	c.readMode.Store(status.Access.Receive || len(status.Access.Send)+len(status.Access.Read) > 0)
+	c.readMode.Store(status.Access.Messages())
 	requested := false
 	defer func() { resultErr = c.finish(ctx, resultErr, requested) }()
 	enabled, err := greet(c, grantedCapabilities(&status))

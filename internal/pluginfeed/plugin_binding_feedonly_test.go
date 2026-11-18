@@ -20,7 +20,7 @@ func feedOnlyLaunch(t *testing.T) (bus.Store, PluginFeed, model.Session, PluginF
 	enableFeed(t, s)
 	f := NewPluginFeed(s, "fake-notifier")
 	status, err := f.PluginStatus()
-	if err != nil || status.Access.messages() || status.Epoch == "" {
+	if err != nil || status.Access.Messages() || status.Epoch == "" {
 		t.Fatal("feed-only launch", status, err)
 	}
 	return s, f, a, status

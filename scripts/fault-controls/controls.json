@@ -8140,5 +8140,68 @@
       "callback_direct": false
     },
     "output_fragment": "ARCHIVE_SERVICE_NOT_PROVEN_STOPPED"
+  },
+  {
+    "id": "D1F1",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/plugins/host.go",
+      "symbol": "Run",
+      "old": "c.readMode.Store(status.Access.Messages())",
+      "new": "c.readMode.Store(status.Access.Receive || len(status.Access.Send) > 0)",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/plugins",
+      "directory": "./internal/plugins",
+      "test": "TestHostStderrUsesMessageAccess/read-only"
+    },
+    "assertion": {
+      "file": "internal/plugins/host_stderr_access_test.go",
+      "assertion_function": "checkHostStderrAccess",
+      "fatal_literal": "MESSAGE_ACCESS_STDERR_VISIBLE: %v",
+      "fatal_call": "t.Fatalf(\"MESSAGE_ACCESS_STDERR_VISIBLE: %v\", err)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [
+        {
+          "caller": "TestHostStderrUsesMessageAccess",
+          "callee": "checkHostStderrAccess",
+          "caller_is_helper": false
+        }
+      ],
+      "require_helper_markers_in_callees": true,
+      "callback_direct": false
+    },
+    "output_fragment": "MESSAGE_ACCESS_STDERR_VISIBLE"
+  },
+  {
+    "id": "D1F2",
+    "kind": "production",
+    "mutation": {
+      "path": "internal/pluginfeed/plugin_access.go",
+      "symbol": "PluginAccess",
+      "declaration_kind": "type",
+      "old": "type PluginAccess struct {",
+      "new": "type PluginAccess struct {\n\tUnclassified bool `json:\"unclassified,omitempty\"`",
+      "required_occurrences": 1
+    },
+    "selection": {
+      "package": "github.com/zalkilabs/zalki/internal/pluginfeed",
+      "directory": "./internal/pluginfeed",
+      "test": "TestPluginAccessMessagesClassifiesEveryField"
+    },
+    "assertion": {
+      "file": "internal/pluginfeed/plugin_access_messages_test.go",
+      "assertion_function": "TestPluginAccessMessagesClassifiesEveryField",
+      "fatal_literal": "UNLISTED_PLUGIN_ACCESS_FIELD: %s",
+      "fatal_call": "t.Fatalf(\"UNLISTED_PLUGIN_ACCESS_FIELD: %s\", field.Name)",
+      "expected_assertion_sites": 1,
+      "expected_file_assertion_sites": 1,
+      "call_chain": [],
+      "require_helper_markers_in_callees": false,
+      "callback_direct": false
+    },
+    "output_fragment": "UNLISTED_PLUGIN_ACCESS_FIELD"
   }
 ]

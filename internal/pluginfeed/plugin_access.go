@@ -34,9 +34,9 @@ func (a PluginAccess) empty() bool {
 	return !a.Status && !a.Receive && len(a.Send)+len(a.Read) == 0
 }
 
-// messages reports access to message text or delivery: such a plugin's
-// stderr is never shown.
-func (a PluginAccess) messages() bool {
+// Messages reports access to message text or delivery. Hosts must withhold
+// stderr for this access, including startup and hello failures.
+func (a PluginAccess) Messages() bool {
 	return a.Receive || len(a.Send)+len(a.Read) > 0
 }
 

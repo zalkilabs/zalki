@@ -26,7 +26,7 @@ type checkObservation struct {
 }
 
 func checkTestChild(mode, report string) error {
-	if err := pluginfeed.CheckPluginLeaseFD(3); err != nil {
+	if err := checkFixtureLeaseFD3(); err != nil {
 		return err
 	}
 	cwd, err := os.Getwd()

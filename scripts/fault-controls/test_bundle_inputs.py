@@ -81,9 +81,10 @@ class BundleInputs(unittest.TestCase):
     def test_all_original_controls_and_bundle26_are_schema_valid(self):
         controls=json.loads((HERE/'controls.json').read_text())
         run.validate_controls(controls)
-        self.assertEqual(len(controls),78)
+        self.assertEqual(len(controls),80)
         self.assertEqual([c['id'] for c in controls[:70]],["C4-F1-CREATE","C4-F2-STORED","C4-F3-NAME","C4-F4-RPC","C4-F5-QUEUE","C4-F6-COMPACT","C4-F7-ZERO","B-M2-COPY","B-M2-DOCTOR","B-M1-ROOT","B-L2-BUS","B-L2-CODEX","B-L2-CLAUDE","B-L2-CURSOR","Z82-F0","Z82-F2","Z82-F4","H1F1","H1F2","H1F3","H1F4","H1F5","H2F1","H2F2","H2F3","H2F4","M1F1","M1F2","M1F3","M1F4","M3F1","M3F2","M3F3","M2F1","M4F1","M4F2","L2F1","L2F2","L6F1","L6F3","L6F2","L1F1","L1F2","L5F1","Z71F1","Z71F2","Z71F3","Z71F4","Z71F6","Z71F5","Z74H1","Z74H2","Z74H3","Z70F1","Z70F2","Z70F3","Z70F4","Z70F5","Z70F6","Z66G1","Z66G2","Z67K1","Z67K2","Z67K3","Z67K4","Z68G1","Z68G2","Z68G3","Z68G4","Z68G5"])
-        self.assertEqual([c['id'] for c in controls[70:]],["ARCHIVE-F1","ARCHIVE-F2","ARCHIVE-F3","ARCHIVE-F4","ARCHIVE-F5","ARCHIVE-F6","ARCHIVE-F7","ARCHIVE-F8"])
+        self.assertEqual([c['id'] for c in controls[70:78]],["ARCHIVE-F1","ARCHIVE-F2","ARCHIVE-F3","ARCHIVE-F4","ARCHIVE-F5","ARCHIVE-F6","ARCHIVE-F7","ARCHIVE-F8"])
+        self.assertEqual([c['id'] for c in controls[78:]],['D1F1','D1F2'])
         self.assertEqual(len([c for c in controls if c['id'] in inputs.BUNDLE_ROOTS or c['id']=='Z70F6']),26)
         old=copy.deepcopy(controls[:44])
         for c in old:c.pop('observations',None)
@@ -207,5 +208,19 @@ class BundleInputs(unittest.TestCase):
         for change in changes:
             candidate=copy.deepcopy(context);change(candidate)
             with self.subTest(change=change),self.assertRaises(ValueError):oracle.validate_observations(candidate,specs,True,True)
+
+
+    def test_closed_D1_struct_mutation_refuses_other_id_type_path_and_assertion(self):
+        row=next(c for c in json.loads((HERE/'controls.json').read_text()) if c['id']=='D1F2')
+        run.validate_controls([row])
+        edits=[lambda c:c.update(id='OTHER'),lambda c:c.update(kind='fixture'),
+            lambda c:c['mutation'].update(path='internal/pluginfeed/other.go'),
+            lambda c:c['mutation'].update(symbol='Other'),lambda c:c['mutation'].update(declaration_kind='function'),
+            lambda c:c['mutation'].update(old='PluginAccess struct {'),lambda c:c['mutation'].update(new=''),
+            lambda c:c['mutation'].update(required_occurrences=2),
+            lambda c:c['selection'].update(test='TestOther'),lambda c:c['assertion'].update(fatal_call='t.Fatal("other")')]
+        for edit in edits:
+            bad=copy.deepcopy(row);edit(bad)
+            with self.subTest(edit=edit),self.assertRaises(ValueError):run.validate_controls([bad])
 
 if __name__=='__main__':unittest.main()

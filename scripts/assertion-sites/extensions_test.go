@@ -19,6 +19,7 @@ func TestMutationValuesStayInsideNamedPackageDeclaration(t *testing.T) {
 			t.Fatalf("named package value was not bound: %+v, %v", proof, err)
 		}
 	}
+	checkAccessFieldMutation(t)
 }
 
 func TestMutationValueBoundsRejectAdjacentAndWrongKinds(t *testing.T) {
@@ -35,6 +36,65 @@ func TestMutationValueBoundsRejectAdjacentAndWrongKinds(t *testing.T) {
 		request.File = "fixture.go"
 		if _, err := bindMutation([]byte(source), request); err == nil {
 			t.Fatalf("unrelated package value was accepted: %+v", request)
+		}
+	}
+	rejectAccessFieldMutations(t)
+}
+
+const accessFieldSource = "package pluginfeed\ntype PluginAccess struct {\n Status bool\n}\n"
+
+func accessFieldRequest() mutationRequest {
+	return mutationRequest{Kind: "type", File: "internal/pluginfeed/plugin_access.go", Symbol: "PluginAccess",
+		Old: accessFieldMutationOld, New: accessFieldMutationNew, Count: 1}
+}
+
+func checkAccessFieldMutation(t *testing.T) {
+	t.Helper()
+	r := accessFieldRequest()
+	proof, err := bindMutation([]byte(accessFieldSource), r)
+	if err != nil || proof.File != r.File || proof.Symbol != r.Symbol || proof.Kind != "type" ||
+		proof.Offset != strings.Index(accessFieldSource, r.Old) || proof.SHA256 == "" {
+		t.Fatalf("reviewed named struct insertion was not bound: %+v %v", proof, err)
+	}
+}
+
+func rejectAccessFieldMutations(t *testing.T) {
+	t.Helper()
+	edits := []func(*mutationRequest){
+		func(r *mutationRequest) { r.File = "../plugin_access.go" },
+		func(r *mutationRequest) { r.File = "internal/pluginfeed/other.go" },
+		func(r *mutationRequest) { r.Symbol = "Other" },
+		func(r *mutationRequest) { r.Kind = "function" },
+		func(r *mutationRequest) { r.Kind = "var" },
+		func(r *mutationRequest) { r.Old = "PluginAccess struct {" },
+		func(r *mutationRequest) { r.New = "" },
+		func(r *mutationRequest) { r.Count = 2 },
+	}
+	for _, edit := range edits {
+		r := accessFieldRequest()
+		edit(&r)
+		if _, err := bindMutation([]byte(accessFieldSource), r); err == nil {
+			t.Fatalf("unreviewed struct tuple accepted: %+v", r)
+		}
+	}
+	for _, source := range []string{
+		strings.Replace(accessFieldSource, "package pluginfeed", "package other", 1),
+		"package pluginfeed\ntype PluginAccess = struct { Status bool }\n",
+		"package pluginfeed\ntype (PluginAccess struct { Status bool })\n",
+		"package pluginfeed\ntype PluginAccess[T any] struct { Status bool }\n",
+		"package pluginfeed\nfunc local() { type PluginAccess struct { Status bool } }\n",
+		"package pluginfeed\n// type PluginAccess struct {\ntype Other struct { Status bool }\n",
+		accessFieldSource + "type PluginAccess struct { Other bool }\n",
+	} {
+		if _, err := bindMutation([]byte(source), accessFieldRequest()); err == nil {
+			t.Fatal("alias, grouped, nested, duplicate or foreign declaration accepted")
+		}
+	}
+	r := accessFieldRequest()
+	at := strings.Index(accessFieldSource, r.Old)
+	for _, offset := range []int{at - 1, at + 1} {
+		if err := mutationDeclaration([]byte(accessFieldSource), r, offset); err == nil {
+			t.Fatal("adjacent struct mutation offset accepted")
 		}
 	}
 }

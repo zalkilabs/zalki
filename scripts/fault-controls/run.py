@@ -58,6 +58,23 @@ def validate_assertion(assertion,selection):
         validate_literal_identity(assertion)
 
 
+def validate_access_field_mutation(control):
+    mutation=control['mutation']
+    if control['id']!='D1F2' and mutation.get('declaration_kind')!='type':return
+    require(control['id']=='D1F2' and control['kind']=='production' and mutation==dict(
+        path='internal/pluginfeed/plugin_access.go',symbol='PluginAccess',declaration_kind='type',
+        old='type PluginAccess struct {',new='type PluginAccess struct {\n\tUnclassified bool `json:"unclassified,omitempty"`',
+        required_occurrences=1),'unreviewed access field mutation')
+    require(control['selection']==dict(package='github.com/zalkilabs/zalki/internal/pluginfeed',
+        directory='./internal/pluginfeed',test='TestPluginAccessMessagesClassifiesEveryField'),
+        'access field selection differs')
+    require(control['assertion']==dict(file='internal/pluginfeed/plugin_access_messages_test.go',
+        assertion_function='TestPluginAccessMessagesClassifiesEveryField',fatal_literal='UNLISTED_PLUGIN_ACCESS_FIELD: %s',
+        fatal_call='t.Fatalf("UNLISTED_PLUGIN_ACCESS_FIELD: %s", field.Name)',expected_assertion_sites=1,
+        expected_file_assertion_sites=1,call_chain=[],require_helper_markers_in_callees=False,callback_direct=False),
+        'access field assertion differs')
+
+
 def validate_controls(controls,baseline=False):
     require(type(controls) is list and controls and len({c['id'] for c in controls})==len(controls),'missing/duplicate controls')
     prefix='github.com/zalkilabs/zalki/'
@@ -75,7 +92,8 @@ def validate_controls(controls,baseline=False):
                 type(mutation['new']) is str and type(mutation['required_occurrences']) is int and mutation['required_occurrences']==1,
                 'invalid exact mutation')
         kind=mutation.get('declaration_kind','function')
-        require(kind in ['function','const','var'],'unknown mutation declaration kind')
+        require(kind in ['function','const','var','type'],'unknown mutation declaration kind')
+        validate_access_field_mutation(c)
         if c['kind']=='runtime_config':
             require(mutation['path']=='.goreleaser.yaml' and mutation['symbol']=='builds[0].ldflags' and kind=='function',
                     'unreviewed runtime configuration target')

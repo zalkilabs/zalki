@@ -28,7 +28,7 @@ type externalEvidence struct {
 }
 
 func externalTestChild(args []string) error {
-	if err := pluginfeed.CheckPluginLeaseFD(3); err != nil {
+	if err := checkFixtureLeaseFD3(); err != nil {
 		return err
 	}
 	cwd, err := os.Getwd()
