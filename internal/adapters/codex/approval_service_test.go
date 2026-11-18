@@ -115,6 +115,10 @@ func (f *approvalServiceFixture) assertCount(t *testing.T, want int) {
 }
 
 func TestCodexLiveApprovalHoldsThroughStopAndEnd(t *testing.T) {
+	var payload agent.HookPayloadAdapter = New(false, "fixture.json")
+	if payload.ExtendedHookEvent() != "PostToolUse" {
+		t.Fatal("native tool-output streaming policy changed")
+	}
 	for _, allow := range []bool{false, true} {
 		t.Run(map[bool]string{false: "queue-off", true: "queue-on"}[allow], func(t *testing.T) {
 			f := newApprovalServiceFixture(t, allow, false, nil)

@@ -49,6 +49,9 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 	}
 }
 
+// ExtendedHookEvent permits bounded streaming of native tool input/output.
+func (Adapter) ExtendedHookEvent() string { return "PostToolUse" }
+
 func (Adapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Notes: []string{
 		"A Codex backend can outlive its terminal.",

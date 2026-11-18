@@ -360,3 +360,22 @@ runtime inputs. Deleted fixtures keep their current owner; whole-package removal
 is reported explicitly. Unknown runtime inputs and stale mapped owners refuse
 coverage rather than returning an unqualified zero-package success. Reviewed
 non-runtime documentation/CI classifications are retained in the input bindings.
+
+### Large Codex PostToolUse envelopes
+
+Codex PostToolUse accepts one complete JSON object up to 32 MiB on the wire.
+A streaming selector validates and discards only the top-level `tool_input` and
+`tool_response` values; the remaining object stays within 8 MiB and uses the
+ordinary typed decoder and lifecycle identity/generation checks. Duplicate
+or case-aliased top-level keys and malformed ignored values refuse the event
+before state changes. Nested lookalikes cannot select identity or the allowance.
+The Codex adapter opts its native event into the generic optional
+`agent.HookPayloadAdapter` contract; core does not select a client by name.
+Other events retain their 8 MiB admission limit; adapters without this opt-in use
+the existing decoder. A late Codex event name may require scanning up to the finite 32 MiB
+limit before that decision. Extended reads check caller cancellation between
+reader fills; this cannot interrupt an arbitrary reader already blocked in Read.
+The selector returns after the first complete object without waiting for EOF.
+The 32 MiB ceiling covers the demonstrated 9 MiB tool result and similarly sized
+input plus result together; it is a bounded compatibility allowance, not an
+upstream maximum or a promise to accept every possible native envelope.

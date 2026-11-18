@@ -15,6 +15,8 @@ import (
 // metadata only; lifecycle policy is tested with Builtin in internal/adapters.
 type stubCodexAdapter struct{ agent.StandardHooks }
 
+func (stubCodexAdapter) ExtendedHookEvent() string { return "PostToolUse" }
+
 func (stubCodexAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex"}
 }

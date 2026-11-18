@@ -46,6 +46,15 @@ type HookAdapter interface {
 	StartupOutput(StartupContext) (any, error)
 }
 
+// HookPayloadAdapter optionally opts one native event into the bounded streaming
+// selector. Core validates a complete object, discards only the top-level
+// tool_input/tool_response values, and caps wire input at 32 MiB and retained
+// metadata at 8 MiB. Other events keep 8 MiB admission; an empty event opts out.
+// The policy comes from the trusted adapter, never the incoming JSON.
+type HookPayloadAdapter interface {
+	ExtendedHookEvent() string
+}
+
 // HookHost exposes bounded lifecycle operations, never the service, registry,
 // transport override, or arbitrary journal read/write access. Core's host
 // requires a nonempty bound actor and an identical supplied id for each

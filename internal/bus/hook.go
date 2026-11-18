@@ -103,7 +103,18 @@ func (s *Service) finishHook(kind string, trace hookTrace, started time.Time, er
 func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, adapter agent.Adapter, hooks agent.HookAdapter, trace *hookTrace) (agent.HookInput, string, error) {
 	var event agent.HookInput
 	trace.stage = "decode"
-	size, header, err := decodeHookPayload(input, &event)
+	var size int
+	var header []byte
+	var err error
+	var extendedEvent string
+	if payload, ok := adapter.(agent.HookPayloadAdapter); ok {
+		extendedEvent = payload.ExtendedHookEvent()
+	}
+	if extendedEvent != "" {
+		size, header, err = decodeSelectedHookPayload(ctx, input, &event, extendedEvent)
+	} else {
+		size, header, err = decodeHookPayload(input, &event)
+	}
 	trace.payloadClass = hookPayloadSizeClass(size)
 	if err != nil {
 		// Type errors can leave valid identity fields decoded; retain correlation

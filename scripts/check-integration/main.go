@@ -257,6 +257,11 @@ var required = []requiredTest{
 	{"cmd/zalki", "TestPluginRuntimePublicationUsesCurrentParentPath"},
 	{"pluginfeed", "TestPluginAccessMessagesClassifiesEveryField"},
 	{"plugins", "TestHostStderrUsesMessageAccess"},
+	{"bus", "TestCodexPostToolUseStreamingSelection"},
+	{"bus", "TestCodexPostToolUseSelectorRefusesInvalid"},
+	{"bus", "TestCodexPostToolUseLargeApprovalLifecycle"},
+	{"bus", "TestCodexPostToolUseInvalidCannotReleaseApproval"},
+	{"bus", "TestCodexPostToolUseStreamingFraming"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {
