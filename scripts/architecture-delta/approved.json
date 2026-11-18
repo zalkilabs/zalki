@@ -620,5 +620,107 @@
       }
     },
     "reason": "Source-qualified expected D1 privacy API delta: export the existing PluginAccess.Messages predicate and make the unchanged CheckPluginLeaseFD validator private; exact function shapes change identities, while receiver methods/files, internal import graph and raw OS users remain unchanged. This is expected source data, not a native candidate measurement; complete actual-cd65226/head native comparison and exact policy application remain mandatory."
+  },
+  {
+    "base_commit": "2ccd9cecf4d8fbea7116fa14871ca7081c190a5e",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/bus.commitWriter": {
+            "before": {
+              "Methods": 14,
+              "Files": 2
+            },
+            "after": {
+              "Methods": 13,
+              "Files": 2
+            }
+          },
+          "internal/pluginfeed.PluginInstallReceipt": {
+            "before": {
+              "Methods": 4,
+              "Files": 1
+            },
+            "after": {
+              "Methods": 5,
+              "Files": 1
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Source-qualified expected D2 cleanup delta: move the test-only commitWriter.commit method out of production (14/2 to 13/2) and extract the existing receipt preparation as private PluginInstallReceipt.prepareForCommit (4/1 to 5/1); exports, shapes, import edges and raw OS users remain unchanged. Expected source data on actual 2ccd9cec (the merged D1 parent), not a candidate native measurement. Hosted CI must measure complete native base/head facts and apply the exact policy before final acceptance/merge."
+  },
+  {
+    "base_commit": "2ccd9cecf4d8fbea7116fa14871ca7081c190a5e",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/bus.commitWriter": {
+            "before": {
+              "Methods": 14,
+              "Files": 2
+            },
+            "after": {
+              "Methods": 13,
+              "Files": 2
+            }
+          },
+          "internal/pluginfeed.PluginInstallReceipt": {
+            "before": {
+              "Methods": 4,
+              "Files": 1
+            },
+            "after": {
+              "Methods": 5,
+              "Files": 1
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Source-qualified expected D2 cleanup delta: move the test-only commitWriter.commit method out of production (14/2 to 13/2) and extract the existing receipt preparation as private PluginInstallReceipt.prepareForCommit (4/1 to 5/1); exports, shapes, import edges and raw OS users remain unchanged. Expected source data on actual 2ccd9cec (the merged D1 parent), not a candidate native measurement. Hosted CI must measure complete native base/head facts and apply the exact policy before final acceptance/merge."
   }
 ]

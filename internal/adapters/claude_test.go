@@ -48,7 +48,7 @@ func listenClaudeSocket(t *testing.T) (*net.UnixListener, *model.Endpoint) {
 func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 	listener, endpoint := listenClaudeSocket(t)
 	adapter := claude.New()
-	id := newTestID()
+	id := model.NewUUID()
 	t.Setenv("CLAUDE_CODE_SESSION_ID", strings.ToUpper(id))
 	t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", endpoint.Path)
 	registration, err := adapter.RegisterHook(agent.HookInput{SessionID: id})
@@ -74,7 +74,7 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 	if current.Endpoint == nil || *current.Endpoint != *endpoint || !bytes.Contains(output.Bytes(), []byte(current.ID)) {
 		t.Fatal("startup did not bind and announce the native Claude session")
 	}
-	t.Setenv("CLAUDE_CODE_SESSION_ID", newTestID())
+	t.Setenv("CLAUDE_CODE_SESSION_ID", model.NewUUID())
 	if err := service.Hook(t.Context(), "claude", bytes.NewReader(input), &bytes.Buffer{}); err == nil {
 		t.Fatal("accepted a hook for another native session")
 	}
@@ -100,7 +100,7 @@ func TestClaudeRegistrationIdentityAndHealth(t *testing.T) {
 	if hint := adapter.RecoveryHint(model.SessionDiagnostic{TransportHealth: transport}); !strings.Contains(hint, "default integration") || strings.Contains(hint, "enabled") {
 		t.Fatalf("socket recovery still suggests an opt-in integration: %q", hint)
 	}
-	receipt := adapter.Deliver(context.Background(), model.Message{ID: newTestID(), Body: "stale binding"}, model.Session{Endpoint: endpoint})
+	receipt := adapter.Deliver(context.Background(), model.Message{ID: model.NewUUID(), Body: "stale binding"}, model.Session{Endpoint: endpoint})
 	if receipt.Status != model.StatusNotSent || receipt.Error == "" || receipt.At == "" {
 		t.Fatalf("delivery accepted a replaced endpoint: %+v", receipt)
 	}
@@ -110,12 +110,12 @@ func TestClaudeServiceWritesOnceAndPreservesSenderLabel(t *testing.T) {
 	listener, endpoint := listenClaudeSocket(t)
 	store := adapterTestStore(t)
 	from, key := registerAdapterSession(t, store, "codex")
-	to, _, err := store.Register("claude", newTestID(), "/workspace", endpoint)
+	to, _, err := store.Register("claude", model.NewUUID(), "/workspace", endpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
 	service := bus.Service{Store: store}
-	request := bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "write once"}
+	request := bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: model.NewUUID(), Body: "write once"}
 	for range 2 {
 		msg, err := service.Send(context.Background(), request)
 		if err != nil || msg.Status != model.StatusTransportWritten || msg.FromLabel != "Codex" {

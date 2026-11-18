@@ -112,13 +112,7 @@ func (i *PluginInstall) commitUpdate(artifact string, args []string, access Plug
 	if err != nil {
 		return false, err
 	}
-	receipt.Build = slices.Clone(receipt.Build)
-	if receipt.Build == nil {
-		receipt.Build = []string{}
-	}
-	receipt.ArtifactSHA256 = launch.SHA256
-	receipt.InstalledAt, receipt.InstalledBy, receipt.InstalledByLabel = model.Timestamp(), installedByUnproven, ""
-	if !receipt.valid() {
+	if !receipt.prepareForCommit(launch.SHA256) {
 		return false, model.NewError(model.CodeInvalidInput, "plugin update receipt is invalid")
 	}
 	beforePluginInstallCommit()

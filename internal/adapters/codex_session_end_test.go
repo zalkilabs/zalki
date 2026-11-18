@@ -107,7 +107,7 @@ func TestCodexSessionEndKeepsListedAndQueues(t *testing.T) {
 	if _, err := store.Messages(target.ID, targetKey); err != nil {
 		t.Fatal("ZAL34_CODEX_END_CHANGED_CAPABILITY")
 	}
-	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newTestID(), Body: "bounded queued end fixture"})
+	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "bounded queued end fixture"})
 	if err != nil || msg.Status != model.StatusSubmitted {
 		t.Fatal("ZAL34_CODEX_END_DID_NOT_QUEUE", err)
 	}
@@ -123,7 +123,7 @@ func TestCodexSessionEndPreservesQueueOptIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertCodexEndReady(t, store, target)
-	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newTestID(), Body: "queue disabled fixture"})
+	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "queue disabled fixture"})
 	if err != nil || msg.Status != model.StatusNotSent {
 		t.Fatal("ZAL34_CODEX_END_ENABLED_QUEUE", err)
 	}
@@ -153,7 +153,7 @@ func checkCodexPendingEnd(t *testing.T, approval bool) {
 		}
 	}
 	service := bus.Service{Store: store}
-	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newTestID(), Body: "pending end fixture"})
+	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "pending end fixture"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +357,7 @@ func checkCodexEndReleaseBoundary(t *testing.T, allow bool) {
 		t.Fatal(err)
 	}
 	service := bus.Service{Store: store}
-	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newTestID(), Body: "release boundary fixture"})
+	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "release boundary fixture"})
 	if err != nil || msg.Status != model.StatusApprovalBlocked {
 		t.Fatal("release boundary precondition failed", err)
 	}
@@ -405,7 +405,7 @@ func assertEndReleaseOutcome(t *testing.T, service *bus.Service, allow bool, sen
 		return
 	}
 	assertVisibleEndQueueRefusal(t, saved, target)
-	retry, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newTestID(), Body: "sender can retry fixture"})
+	retry, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "sender can retry fixture"})
 	if err != nil || retry.ID == saved.ID {
 		t.Fatal("ZAL34_END_REFUSAL_PREVENTED_SENDER_RETRY", err)
 	}

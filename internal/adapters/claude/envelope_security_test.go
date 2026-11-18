@@ -37,7 +37,7 @@ func checkClaudeSecurityFrame(t *testing.T, body, kind string) {
 		err = json.NewDecoder(conn).Decode(&raw)
 		received <- captured{raw: raw, err: err}
 	}()
-	message := model.Message{ID: newTestID(), Kind: kind, Body: body}
+	message := model.Message{ID: model.NewUUID(), Kind: kind, Body: body}
 	receipt := writeClaude(context.Background(), message, model.Session{Endpoint: endpoint})
 	if receipt.Status != model.StatusTransportWritten {
 		t.Fatalf("bounded renderer rejected delivery: %+v", receipt)

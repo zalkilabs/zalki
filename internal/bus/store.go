@@ -126,11 +126,3 @@ func encodeStateJSON(value any) ([]byte, error) {
 	}
 	return b, err
 }
-
-func writeJSON(path string, value any) error {
-	b, err := encodeStateJSON(value)
-	if err != nil {
-		return err
-	}
-	return journal.WriteAtomic(path, b)
-}

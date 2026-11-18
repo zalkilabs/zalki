@@ -22,13 +22,13 @@ func checkBoundProfileRPC(t *testing.T, bad string, allow bool) {
 	sender, listener := listenCodexControl(t)
 	defer listener.Close()
 	t.Setenv("CODEX_HOME", sender)
-	id := newTestID()
+	id := model.NewUUID()
 	calls := serveFakeCodex(t, listener, fakeCodex{Home: sender, Thread: id, Mode: "idle"})
 	marker := queueSpy(t)
 	target := model.Session{Kind: "codex", ID: "codex:" + id, NativeID: id, NativeConfigDir: bad}
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
-	receipt := New(allow, "fixture").Deliver(ctx, model.Message{ID: newTestID(), To: target.ID, Body: "private fixture"}, target)
+	receipt := New(allow, "fixture").Deliver(ctx, model.Message{ID: model.NewUUID(), To: target.ID, Body: "private fixture"}, target)
 	if receipt.Status == model.StatusSubmitted {
 		select {
 		case seen := <-calls:
@@ -61,8 +61,8 @@ func TestCodexBoundQueueRequiresCapturedProfile(t *testing.T) {
 		t.Run(bad, func(t *testing.T) {
 			t.Setenv("CODEX_HOME", t.TempDir())
 			marker := queueSpy(t)
-			target := model.Session{Kind: "codex", NativeID: newTestID(), NativeConfigDir: bad}
-			receipt := queueCodex(t.Context(), model.Message{ID: newTestID(), Body: "fixture"}, target)
+			target := model.Session{Kind: "codex", NativeID: model.NewUUID(), NativeConfigDir: bad}
+			receipt := queueCodex(t.Context(), model.Message{ID: model.NewUUID(), Body: "fixture"}, target)
 			if queueMarked(t, marker) {
 				t.Fatal("FOREIGN_PROFILE_QUEUE_STARTED")
 			}

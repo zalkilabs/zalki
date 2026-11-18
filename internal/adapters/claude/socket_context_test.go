@@ -60,7 +60,7 @@ func TestClaudeCanceledBeforeDialDoesNotSend(t *testing.T) {
 	listener, endpoint := listenClaudeSocket(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	receipt := (Adapter{}).Deliver(ctx, model.Message{ID: newTestID(), Body: "unsent"}, model.Session{Endpoint: endpoint})
+	receipt := (Adapter{}).Deliver(ctx, model.Message{ID: model.NewUUID(), Body: "unsent"}, model.Session{Endpoint: endpoint})
 	if receipt.Status != model.StatusNotSent {
 		t.Fatalf("cancellation before connection was not safely unsent: %+v", receipt)
 	}

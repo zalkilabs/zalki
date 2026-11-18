@@ -40,11 +40,11 @@ func newUncertainNativeFixture(t *testing.T, mode string, allow bool) uncertainN
 	if err != nil {
 		t.Fatal(err)
 	}
-	from, key, err := store.Register("codex", newTestID(), "/fixture", nil)
+	from, key, err := store.Register("codex", model.NewUUID(), "/fixture", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	to, _, err := store.Register("codex", newTestID(), "/fixture", nil)
+	to, _, err := store.Register("codex", model.NewUUID(), "/fixture", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func newUncertainNativeFixture(t *testing.T, mode string, allow bool) uncertainN
 	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { connections.Add(1); calls <- handleFakeCodex(w, r, spec) })}
 	go server.Serve(listener)
 	t.Cleanup(func() { _ = server.Close() })
-	return uncertainNativeFixture{service: bus.Service{Store: store}, request: bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "private uncertainty fixture"}, target: to, calls: calls, queue: queueSpy(t), connections: connections}
+	return uncertainNativeFixture{service: bus.Service{Store: store}, request: bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: model.NewUUID(), Body: "private uncertainty fixture"}, target: to, calls: calls, queue: queueSpy(t), connections: connections}
 }
 
 func TestCodexUncertainDeliveryNeverReplays(t *testing.T) {

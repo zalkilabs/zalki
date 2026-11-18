@@ -66,14 +66,6 @@ func (w commitWriter) orderSubjectDirectory(path string) error {
 	return journal.OrderDirectory(path)
 }
 
-func (w commitWriter) commit(previous []byte, next model.Session, event model.Event) error {
-	batch, err := w.prepare(previous, next, event)
-	if err != nil {
-		return err
-	}
-	return w.log().Commit(batch)
-}
-
 func (w commitWriter) recover() error { return w.log().Recover(w.validate) }
 
 func (w commitWriter) validate(batch journal.Batch) error {

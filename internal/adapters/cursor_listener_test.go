@@ -82,11 +82,11 @@ func TestCursorWakeListenerAndDelivery(t *testing.T) {
 		}
 	}
 	service := bus.Service{Store: store}
-	firstID := newTestID()
+	firstID := model.NewUUID()
 	for i := range 2 {
 		id := firstID
 		if i > 0 {
-			id = newTestID()
+			id = model.NewUUID()
 		}
 		msg, err := service.Send(ctx, bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: id, Body: "fixture peer body"})
 		if err != nil || msg.Status != "wake_hint_written" || msg.AcknowledgedAt != "" {
@@ -118,7 +118,7 @@ func TestCursorWakeListenerAndDelivery(t *testing.T) {
 	if current.Receive.IdleWake || current.Listener != nil {
 		t.Fatalf("listener shutdown left wake capability enabled: %+v %v", current, err)
 	}
-	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "deferred after shutdown"})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: model.NewUUID(), Body: "deferred after shutdown"})
 	if err != nil || msg.Status != "pending_next_activity" {
 		t.Fatalf("shutdown did not retain deferred delivery: %+v %v", msg, err)
 	}

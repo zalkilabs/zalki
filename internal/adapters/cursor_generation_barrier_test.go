@@ -160,7 +160,7 @@ func queueReplacementApproval(t *testing.T, service *bus.Service, from, key, act
 	if err := service.Store.Update(actor, model.StateApproval, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Send(t.Context(), bus.SendRequest{Actor: from, Capability: key, To: actor, MessageID: newTestID(), Body: "G2_BODY_MUST_STAY_PRIVATE"}); err != nil {
+	if _, err := service.Send(t.Context(), bus.SendRequest{Actor: from, Capability: key, To: actor, MessageID: model.NewUUID(), Body: "G2_BODY_MUST_STAY_PRIVATE"}); err != nil {
 		t.Fatal(err)
 	}
 	// Leave the hold queued while making it eligible for a later real hook.

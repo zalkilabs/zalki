@@ -42,7 +42,7 @@ func TestCodexPromptFiltersOnlyCompletedExactEnvelopes(t *testing.T) {
 	service := bus.Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 		return model.Receipt{Status: "submitted"}
 	}}
-	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "hello"})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: model.NewUUID(), Body: "hello"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestCodexPromptFiltersOnlyCompletedExactEnvelopes(t *testing.T) {
 	checkCodexPrompt(t, &service, other.ID, model.Envelope(msg), false)
 	checkCodexPrompt(t, &service, to.ID, "[zalki peer message invalid]\nordinary text", false)
 	unknown := msg
-	unknown.ID = newTestID()
+	unknown.ID = model.NewUUID()
 	checkCodexPrompt(t, &service, to.ID, model.Envelope(unknown), false)
 }
 
@@ -70,7 +70,7 @@ func TestCodexPromptDoesNotReplayPreviousRegistration(t *testing.T) {
 	service := bus.Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 		return model.Receipt{Status: "submitted"}
 	}}
-	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "previous registration"})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: model.NewUUID(), Body: "previous registration"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestCodexCompactionPreservesQueuedMessageRegistration(t *testing.T) {
 	service := bus.Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 		return model.Receipt{Status: "submitted"}
 	}}
-	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "queued before compaction"})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: model.NewUUID(), Body: "queued before compaction"})
 	if err != nil {
 		t.Fatal(err)
 	}

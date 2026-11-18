@@ -1,8 +1,6 @@
 package adapters_test
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -14,17 +12,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
-
-// newTestID returns a random UUID-shaped identifier, as native client thread ids are.
-func newTestID() string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		panic(err)
-	}
-	b[6], b[8] = b[6]&15|64, b[8]&63|128
-	h := hex.EncodeToString(b)
-	return h[:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
-}
 
 func adapterTestStore(t *testing.T) bus.Store {
 	t.Helper()
@@ -41,7 +28,7 @@ func registerAdapterSession(t *testing.T, store bus.Store, kind string) (model.S
 	if kind == "claude" {
 		endpoint = &model.Endpoint{Path: "/fixture/not-a-real-socket"}
 	}
-	session, key, err := store.Register(kind, newTestID(), "/workspace", endpoint)
+	session, key, err := store.Register(kind, model.NewUUID(), "/workspace", endpoint)
 	if err != nil {
 		t.Fatal(err)
 	}

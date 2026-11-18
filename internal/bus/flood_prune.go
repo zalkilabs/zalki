@@ -15,16 +15,7 @@ import (
 // private is refused, then each entry is judged by deleteFloodEntry.
 func (r *pruneRun) deleteOrphanFlood() error {
 	dir := filepath.Join(r.store.Dir, "flood")
-	if _, err := os.Lstat(dir); errors.Is(err, os.ErrNotExist) {
-		return nil
-	} else if err != nil {
-		return err
-	}
-	// Reject a symlink or non-private directory before reading or deleting.
-	if err := privateDir(dir); err != nil {
-		return err
-	}
-	entries, err := os.ReadDir(dir)
+	entries, err := readPruneDirectory(dir)
 	if err != nil {
 		return err
 	}
@@ -94,4 +85,17 @@ func (r *pruneRun) floodRecordIsOrphan(base, target string) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func readPruneDirectory(dir string) ([]os.DirEntry, error) {
+	if _, err := os.Lstat(dir); errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	// Reject a symlink or non-private directory before reading or deleting.
+	if err := privateDir(dir); err != nil {
+		return nil, err
+	}
+	return os.ReadDir(dir)
 }

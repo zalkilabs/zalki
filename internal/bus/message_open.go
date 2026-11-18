@@ -173,16 +173,7 @@ func (x openIndex) repair() error {
 // eachReadable is eachReadableMessage over the marked records only: it
 // visits every readable one and returns the unreadable ones it skipped.
 func (x openIndex) eachReadable(visit func(model.Message) error) (skippedMessages, error) {
-	var skipped skippedMessages
-	err := x.each(func(id string, msg model.Message, readErr error) error {
-		if readErr != nil {
-			skipped.add(id)
-		} else if err := visit(msg); err != nil {
-			return err
-		}
-		return nil
-	})
-	return skipped, err
+	return visitReadableMessages(x.each, visit)
 }
 
 // each visits the records that have a marker, in marker-name order, with the

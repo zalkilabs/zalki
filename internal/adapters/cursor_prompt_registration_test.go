@@ -27,7 +27,7 @@ func TestCursorPromptRegistersAndArmsResumedChat(t *testing.T) {
 	assertResumedCursorSetupLeavesMessagesPending(t, &fixture)
 	assertResumedCursorNextHookDeliversMessages(t, fixture)
 	_, output := startRecoveryListener(t, fixture.service.Store, fixture.actor.ID, fixture.key)
-	msg, err := fixture.service.Send(t.Context(), bus.SendRequest{Actor: fixture.sender.ID, Capability: fixture.senderKey, To: fixture.actor.ID, MessageID: newTestID(), Body: "after resumed listener setup"})
+	msg, err := fixture.service.Send(t.Context(), bus.SendRequest{Actor: fixture.sender.ID, Capability: fixture.senderKey, To: fixture.actor.ID, MessageID: model.NewUUID(), Body: "after resumed listener setup"})
 	if err != nil || msg.TargetGeneration != fixture.actor.Generation || msg.Status != model.StatusWakeWritten || !strings.Contains(output.text(), "ZALKI_WAKE "+msg.ID) {
 		t.Fatal("C13_RESUMED_LISTENER_ARMS_EXACT_GENERATION", err, msg)
 	}
@@ -40,7 +40,7 @@ func newResumedCursorFixture(t *testing.T) resumedCursorFixture {
 	}
 	store := adapterTestStore(t)
 	service := &bus.Service{Store: store}
-	native, unrelated := newTestID(), newTestID()
+	native, unrelated := model.NewUUID(), model.NewUUID()
 	for _, event := range []string{"postToolUse", "stop", "sessionEnd"} {
 		runCursorHook(t, service, map[string]any{"conversation_id": native, "hook_event_name": event, "status": "completed", "AllowPromptRegistration": true})
 	}
@@ -59,7 +59,7 @@ func newResumedCursorFixture(t *testing.T) resumedCursorFixture {
 		t.Fatal("C02_SESSION_ALIAS_DID_NOT_CREATE_ANOTHER_ACTOR", err)
 	}
 	sender, key := registerAdapterSession(t, store, "codex")
-	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: actor.ID, MessageID: newTestID(), Body: "resumed peer payload"})
+	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: actor.ID, MessageID: model.NewUUID(), Body: "resumed peer payload"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestCursorPromptSessionIDFallbackAndInvalidTitle(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	store := adapterTestStore(t)
 	service := bus.Service{Store: store}
-	native := newTestID()
+	native := model.NewUUID()
 	runCursorHook(t, &service, map[string]any{"session_id": native, "hook_event_name": "beforeSubmitPrompt", "session_title": "invalid\ntitle"})
 	current := adapterTestSession(t, store, "cursor:"+native)
 	if current.Name != "" || current.CWD != os.Getenv("HOME") {
@@ -113,7 +113,7 @@ func TestCursorPromptSessionIDFallbackAndInvalidTitle(t *testing.T) {
 func TestOtherAdapterCannotForgePromptRegistrationFlag(t *testing.T) {
 	store := adapterTestStore(t)
 	service := bus.Service{Store: store}
-	raw, err := json.Marshal(map[string]any{"session_id": newTestID(), "cwd": "/workspace", "hook_event_name": "UserPromptSubmit", "AllowPromptRegistration": true, "allow_prompt_registration": true})
+	raw, err := json.Marshal(map[string]any{"session_id": model.NewUUID(), "cwd": "/workspace", "hook_event_name": "UserPromptSubmit", "AllowPromptRegistration": true, "allow_prompt_registration": true})
 	if err != nil {
 		t.Fatal(err)
 	}

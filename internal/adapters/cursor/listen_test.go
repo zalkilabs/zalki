@@ -7,6 +7,8 @@ import (
 	"io"
 	"net"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 type fakeLease struct {
@@ -50,10 +52,10 @@ func sendHint(t *testing.T, lease *fakeLease, hint wakeHint, output io.Writer) (
 }
 
 func TestCursorHintRejectsMisboundHintsWithoutOutput(t *testing.T) {
-	pending := newTestID()
+	pending := model.NewUUID()
 	for name, hint := range map[string]wakeHint{
 		"stale generation":  {MessageID: pending, Generation: "old-generation"},
-		"unknown message":   {MessageID: newTestID(), Generation: "current"},
+		"unknown message":   {MessageID: model.NewUUID(), Generation: "current"},
 		"injected identity": {MessageID: "\nZALKI_WAKE injected", Generation: "current"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -71,7 +73,7 @@ func TestCursorHintRejectsMisboundHintsWithoutOutput(t *testing.T) {
 }
 
 func TestCursorHintEmitsOnlyUnacknowledgedMessages(t *testing.T) {
-	fresh, acked := newTestID(), newTestID()
+	fresh, acked := model.NewUUID(), model.NewUUID()
 	lease := &fakeLease{generation: "current", pending: map[string]bool{fresh: false, acked: true}}
 	var out bytes.Buffer
 	echo, err := sendHint(t, lease, wakeHint{MessageID: fresh, Generation: "current"}, &out)
@@ -90,7 +92,7 @@ func TestCursorHintEmitsOnlyUnacknowledgedMessages(t *testing.T) {
 }
 
 func TestCursorWakeOutputFailurePreservesCause(t *testing.T) {
-	id := newTestID()
+	id := model.NewUUID()
 	lease := &fakeLease{generation: "current", pending: map[string]bool{id: false}}
 	echo, err := sendHint(t, lease, wakeHint{MessageID: id, Generation: "current"}, failingOutput{})
 	if !errors.Is(err, errListenerOutput) || !errors.Is(err, io.ErrClosedPipe) || len(echo) != 0 {

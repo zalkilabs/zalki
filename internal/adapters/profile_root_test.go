@@ -111,7 +111,7 @@ func checkProfileCreationRoute(t *testing.T, kind, mode string, hook bool) {
 		t.Setenv(profileVariable(kind), "")
 	}
 	s := adapterTestStore(t)
-	id := newTestID()
+	id := model.NewUUID()
 	var err error
 	if hook {
 		err = profileStartHook(t, s, kind, id)
@@ -157,7 +157,7 @@ func TestCursorPromptProfileRefusalDoesNotDebitQuota(t *testing.T) {
 	clearProfileEnvironment(t)
 	t.Setenv("HOME", "")
 	s := adapterTestStore(t)
-	id := newTestID()
+	id := model.NewUUID()
 	raw, _ := json.Marshal(agent.HookInput{ConversationID: id, CWD: "/workspace", Event: "beforeSubmitPrompt"})
 	var output bytes.Buffer
 	if err := (&bus.Service{Store: s}).Hook(t.Context(), "cursor", bytes.NewReader(raw), &output); err != nil || !strings.Contains(output.String(), `"continue":true`) {
@@ -174,7 +174,7 @@ func TestNativeNameLookupNeverUsesForeignProfile(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			root := nameFixture(t)
 			a, _ := adapters.Builtin().Lookup(kind)
-			v := model.Session{Kind: kind, ID: kind + ":" + newTestID()}
+			v := model.Session{Kind: kind, ID: kind + ":" + model.NewUUID()}
 			v.NativeID = strings.TrimPrefix(v.ID, kind+":")
 			nativeNameFixture(t, root, v, "foreign profile title")
 			for _, bad := range []string{"", "relative"} {

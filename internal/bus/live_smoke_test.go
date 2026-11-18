@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -145,7 +143,7 @@ func TestLiveClients(t *testing.T) {
 	if err := os.MkdirAll(reportDir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	reportPath := filepath.Join(reportDir, smokeID()+".json")
+	reportPath := filepath.Join(reportDir, model.NewUUID()+".json")
 	t.Cleanup(func() {
 		report.Passed = !t.Failed()
 		if err := writeSmokeReport(reportPath, report); err != nil {
@@ -155,7 +153,7 @@ func TestLiveClients(t *testing.T) {
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	source, key, err := store.Register("cursor", smokeID(), workspace, nil)
+	source, key, err := store.Register("cursor", model.NewUUID(), workspace, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,10 +225,10 @@ func TestLiveClients(t *testing.T) {
 			if adapter, err := store.Registry.Lookup(current.Kind); err == nil {
 				observation.Version = smokeClientVersion(adapter.Descriptor().Executable)
 			}
-			challenge := "ZALKI_SMOKE_" + smokeID()
+			challenge := "ZALKI_SMOKE_" + model.NewUUID()
 			body := challenge + "\nOpt-in disposable-session review: a local message bus records transport acceptance separately from model acknowledgement. State one failure mode in one sentence. Use reply_message once, with a body beginning " + challenge + ": followed by your review. Use normal permissions; make no file/config changes and send no extra acknowledgement-only messages."
 			started := time.Now()
-			request, err := service.Send(ctx, bus.SendRequest{Actor: source.ID, Capability: key, To: id, MessageID: smokeID(), Body: body})
+			request, err := service.Send(ctx, bus.SendRequest{Actor: source.ID, Capability: key, To: id, MessageID: model.NewUUID(), Body: body})
 			observation.Receipt = request.Status
 			if err != nil || !smokeAccepted(request.Status) {
 				report.Observations[observationIndex] = observation
@@ -300,16 +298,6 @@ func smokeAccepted(status model.DeliveryStatus) bool {
 	default:
 		return false
 	}
-}
-
-func smokeID() string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		panic(err)
-	}
-	b[6], b[8] = b[6]&15|64, b[8]&63|128
-	h := hex.EncodeToString(b)
-	return h[:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
 }
 
 func smokeClientVersion(name string) string {
