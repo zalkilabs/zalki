@@ -43,16 +43,16 @@ func accessWithOnlyMessagePolicyField(t *testing.T, field reflect.StructField) P
 	if !value.CanSet() {
 		t.Fatalf("PLUGIN_ACCESS_FIELD_FIXTURE_NOT_SETTABLE: %s", field.Name)
 	}
-	switch value.Kind() {
-	case reflect.Bool:
+	kind := value.Kind()
+	if kind == reflect.Bool {
 		value.SetBool(true)
-	case reflect.Slice:
+	} else if kind == reflect.Slice {
 		if value.Type().Elem().Kind() != reflect.String {
 			t.Fatalf("PLUGIN_ACCESS_FIELD_FIXTURE_TYPE: %s", field.Name)
 		}
 		value.Set(reflect.MakeSlice(value.Type(), 1, 1))
 		value.Index(0).SetString("codex:00000000-0000-4000-8000-000000000001")
-	default:
+	} else {
 		t.Fatalf("PLUGIN_ACCESS_FIELD_FIXTURE_TYPE: %s", field.Name)
 	}
 	return access
