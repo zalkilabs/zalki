@@ -106,8 +106,12 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 	var size int
 	var header []byte
 	var err error
-	if kind == "codex" {
-		size, header, err = decodeCodexHookPayload(ctx, input, &event)
+	var extendedEvent string
+	if payload, ok := adapter.(agent.HookPayloadAdapter); ok {
+		extendedEvent = payload.ExtendedHookEvent()
+	}
+	if extendedEvent != "" {
+		size, header, err = decodeSelectedHookPayload(ctx, input, &event, extendedEvent)
 	} else {
 		size, header, err = decodeHookPayload(input, &event)
 	}

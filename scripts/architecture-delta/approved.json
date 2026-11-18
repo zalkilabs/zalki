@@ -729,13 +729,17 @@
     "delta": {
       "exports": {
         "added": [
+          "internal/adapters/codex.Adapter.ExtendedHookEvent",
+          "internal/agent.HookPayloadAdapter",
           "internal/bus.hookSelectorInput.Read"
         ],
         "removed": []
       },
       "shapes": {
         "added": {
-          "function:internal/bus.hookSelectorInput.Read": "func(*hookSelectorInput) func(p []byte) (int, error)"
+          "function:internal/bus.hookSelectorInput.Read": "func(*hookSelectorInput) func(p []byte) (int, error)",
+          "type:internal/agent.HookPayloadAdapter": "HookPayloadAdapter interface {\n\tExtendedHookEvent() string\n}",
+          "function:internal/adapters/codex.Adapter.ExtendedHookEvent": "func(Adapter) func() string"
         },
         "removed": {},
         "changed": {}
@@ -752,7 +756,18 @@
           }
         },
         "removed": {},
-        "changed": {}
+        "changed": {
+          "internal/adapters/codex.Adapter": {
+            "before": {
+              "Methods": 13,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 14,
+              "Files": 3
+            }
+          }
+        }
       },
       "imports": {
         "added": [],
@@ -764,7 +779,7 @@
         "changed": {}
       }
     },
-    "reason": "Source-qualified expected Codex PostToolUse streaming-selector delta: add private hookPayloadSelector (13 methods in one file) and hookSelectorInput (one method in one file). The required io.Reader Read method is exported by name even on the private receiver, so record its exact method identity and receiver/function shape. Existing exports/shapes/receivers, internal import edges and raw OS users otherwise remain unchanged. Expected data on actual d444528, not a candidate native measurement; hosted BOTHOS complete actual-base/head snapshots and exact policy application are required before final acceptance/merge."
+    "reason": "Source-qualified EXPECTED full ZAL-99 delta on actual d444528: optional agent.HookPayloadAdapter and Codex Adapter.ExtendedHookEvent move trusted per-event selection out of bus. Add exactly the interface, adapter method, and selector io.Reader Read API shapes; two private selector receivers and one extra Codex Adapter method in its existing file. Existing API shapes, import edges and raw OS users otherwise unchanged. No boundary-test exception, no measured candidate snapshot or native pass. Hosted BOTHOS complete actual-base/head snapshots and exact policy application remain mandatory."
   },
   {
     "base_commit": "d444528616aeb8b1cc8a2ba53ab4f8fe3b4ea6b8",
@@ -772,13 +787,17 @@
     "delta": {
       "exports": {
         "added": [
+          "internal/adapters/codex.Adapter.ExtendedHookEvent",
+          "internal/agent.HookPayloadAdapter",
           "internal/bus.hookSelectorInput.Read"
         ],
         "removed": []
       },
       "shapes": {
         "added": {
-          "function:internal/bus.hookSelectorInput.Read": "func(*hookSelectorInput) func(p []byte) (int, error)"
+          "function:internal/bus.hookSelectorInput.Read": "func(*hookSelectorInput) func(p []byte) (int, error)",
+          "type:internal/agent.HookPayloadAdapter": "HookPayloadAdapter interface {\n\tExtendedHookEvent() string\n}",
+          "function:internal/adapters/codex.Adapter.ExtendedHookEvent": "func(Adapter) func() string"
         },
         "removed": {},
         "changed": {}
@@ -795,7 +814,18 @@
           }
         },
         "removed": {},
-        "changed": {}
+        "changed": {
+          "internal/adapters/codex.Adapter": {
+            "before": {
+              "Methods": 13,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 14,
+              "Files": 3
+            }
+          }
+        }
       },
       "imports": {
         "added": [],
@@ -807,6 +837,6 @@
         "changed": {}
       }
     },
-    "reason": "Source-qualified expected Codex PostToolUse streaming-selector delta: add private hookPayloadSelector (13 methods in one file) and hookSelectorInput (one method in one file). The required io.Reader Read method is exported by name even on the private receiver, so record its exact method identity and receiver/function shape. Existing exports/shapes/receivers, internal import edges and raw OS users otherwise remain unchanged. Expected data on actual d444528, not a candidate native measurement; hosted BOTHOS complete actual-base/head snapshots and exact policy application are required before final acceptance/merge."
+    "reason": "Source-qualified EXPECTED full ZAL-99 delta on actual d444528: optional agent.HookPayloadAdapter and Codex Adapter.ExtendedHookEvent move trusted per-event selection out of bus. Add exactly the interface, adapter method, and selector io.Reader Read API shapes; two private selector receivers and one extra Codex Adapter method in its existing file. Existing API shapes, import edges and raw OS users otherwise unchanged. No boundary-test exception, no measured candidate snapshot or native pass. Hosted BOTHOS complete actual-base/head snapshots and exact policy application remain mandatory."
   }
 ]

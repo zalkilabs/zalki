@@ -14,22 +14,22 @@ import (
 )
 
 const (
-	maxCodexHookWire = 32 * 1024 * 1024
-	maxHookDepth     = 10000 // encoding/json's existing nesting ceiling
+	maxExtendedHookWire = 32 * 1024 * 1024
+	maxHookDepth        = 10000 // encoding/json's existing nesting ceiling
 )
 
-// Only trusted Codex dispatch uses this selector. The complete first object is
+// Only trusted adapter opt-in uses this selector. The complete first object is
 // validated before the ordinary typed decoder or any lifecycle operation. Bulk
 // strings/containers never become tokens, RawMessages, or retained byte slices.
-func decodeCodexHookPayload(ctx context.Context, input io.Reader, event *agent.HookInput) (int, []byte, error) {
+func decodeSelectedHookPayload(ctx context.Context, input io.Reader, event *agent.HookInput, extendedEvent string) (int, []byte, error) {
 	reader := &hookSelectorInput{Reader: input, ctx: ctx}
-	s := hookPayloadSelector{input: bufio.NewReader(io.LimitReader(reader, maxCodexHookWire+1))}
+	s := hookPayloadSelector{input: bufio.NewReader(io.LimitReader(reader, maxExtendedHookWire+1))}
 	s.object()
 	if s.err != nil {
 		return s.wire, append([]byte(nil), s.kept[:min(len(s.kept), hookHeaderLimit)]...), s.err
 	}
 	_, header, err := decodeHookPayload(bytes.NewReader(s.kept), event)
-	if s.wire > maxHookPayload && event.Event != "PostToolUse" {
+	if s.wire > maxHookPayload && event.Event != extendedEvent {
 		err = model.NewError(model.CodeInvalidInput, "hook payload exceeds 8 MiB")
 	}
 	return s.wire, header, err
@@ -67,7 +67,7 @@ type hookPayloadSelector struct {
 
 func (s *hookPayloadSelector) invalid() {
 	if s.err == nil {
-		s.err = model.NewError(model.CodeInvalidInput, "invalid Codex hook object")
+		s.err = model.NewError(model.CodeInvalidInput, "invalid hook object")
 	}
 }
 
@@ -104,8 +104,8 @@ func (s *hookPayloadSelector) take(keep bool) byte {
 	}
 	_, s.err = s.input.ReadByte()
 	s.wire++
-	if s.wire > maxCodexHookWire {
-		s.err = model.NewError(model.CodeInvalidInput, "Codex hook payload exceeds 32 MiB")
+	if s.wire > maxExtendedHookWire {
+		s.err = model.NewError(model.CodeInvalidInput, "hook payload exceeds 32 MiB")
 	}
 	if keep {
 		s.emit(b)
@@ -248,7 +248,7 @@ func (s *hookPayloadSelector) text(keep bool) {
 			if escaped == 'u' {
 				for range 4 {
 					h := s.take(keep)
-					if !(h >= '0' && h <= '9' || h >= 'a' && h <= 'f' || h >= 'A' && h <= 'F') {
+					if (h < '0' || h > '9') && (h < 'a' || h > 'f') && (h < 'A' || h > 'F') {
 						s.invalid()
 					}
 				}

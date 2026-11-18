@@ -369,8 +369,10 @@ A streaming selector validates and discards only the top-level `tool_input` and
 ordinary typed decoder and lifecycle identity/generation checks. Duplicate
 or case-aliased top-level keys and malformed ignored values refuse the event
 before state changes. Nested lookalikes cannot select identity or the allowance.
-Other events retain their 8 MiB admission limit; other agents use the existing
-decoder. A late Codex event name may require scanning up to the finite 32 MiB
+The Codex adapter opts its native event into the generic optional
+`agent.HookPayloadAdapter` contract; core does not select a client by name.
+Other events retain their 8 MiB admission limit; adapters without this opt-in use
+the existing decoder. A late Codex event name may require scanning up to the finite 32 MiB
 limit before that decision. Extended reads check caller cancellation between
 reader fills; this cannot interrupt an arbitrary reader already blocked in Read.
 The selector returns after the first complete object without waiting for EOF.
