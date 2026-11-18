@@ -255,6 +255,8 @@ var required = []requiredTest{
 	{"cmd/zalki", "TestStateArchiveRefusesLiveProcessAndSocket"},
 	{"bus", "TestStoreArchiveWaiterRefusesBeforeFreshRecovery"},
 	{"cmd/zalki", "TestPluginRuntimePublicationUsesCurrentParentPath"},
+	{"pluginfeed", "TestPluginAccessMessagesClassifiesEveryField"},
+	{"plugins", "TestHostStderrUsesMessageAccess"},
 }
 
 func check(input io.Reader, tests []requiredTest) error {

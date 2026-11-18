@@ -71,7 +71,7 @@ func TestMain(m *testing.M) {
 // the .child-mode file in its data folder.
 func fakeChild(state string) error {
 	// Raw FD3 remains open until process exit, including runtime exit handlers.
-	if err := pluginfeed.CheckPluginLeaseFD(3); err != nil {
+	if err := checkFixtureLeaseFD3(); err != nil {
 		return err
 	}
 	mode, _ := os.ReadFile(filepath.Join(state, ".child-mode"))
@@ -113,6 +113,8 @@ func fakeChild(state string) error {
 // fakeAfterHello runs the modes that end right after the hello.
 func fakeAfterHello(state, mode string) (bool, error) {
 	switch mode {
+	case "access-stderr":
+		return true, failAfterAccessStderr(state)
 	case "unenabled-read":
 		// The hello asked only for feed; after hello_ok, a read is refused
 		// by name.
@@ -163,6 +165,8 @@ func fakeBeforeHello(mode string) (bool, error) {
 // fakeHello is the hello a fake child sends in each mode.
 func fakeHello(mode string) *hello {
 	switch mode {
+	case "access-stderr":
+		return &hello{Wire: wireName}
 	case "v1-hello", "v1-read-hello", "v2-hello":
 		return &hello{Version: strings.TrimSuffix(mode, "-hello")}
 	case "bad-hello":

@@ -18,7 +18,7 @@ func OpenPluginLease(path string) (*os.File, error) {
 		return nil, err
 	}
 	file := os.NewFile(uintptr(fd), path)
-	if err := CheckPluginLeaseFD(fd); err != nil {
+	if err := checkPluginLeaseFD(fd); err != nil {
 		_ = file.Close()
 		return nil, err
 	}
@@ -34,8 +34,8 @@ func OpenPluginLease(path string) (*os.File, error) {
 	return file, nil
 }
 
-// CheckPluginLeaseFD validates a plugin lease descriptor without releasing it.
-func CheckPluginLeaseFD(fd int) error {
+// checkPluginLeaseFD validates a plugin lease descriptor without releasing it.
+func checkPluginLeaseFD(fd int) error {
 	var info syscall.Stat_t
 	if err := syscall.Fstat(fd, &info); err != nil {
 		return err

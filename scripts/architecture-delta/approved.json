@@ -544,5 +544,81 @@
       }
     },
     "reason": "Source-qualified expected offline archive delta: add private archiveLocks (3 methods in 1 file), stateArchivePlan (6 methods in 2 files), and cmd/zalki -> internal/fsutil; all export/shape/raw-OS identities unchanged. Retained cd866 native facts are source/profile/collector/config-equivalent to the actual bundle parent. This is expected source data, not an archive measurement; complete native actual-base/head comparison and exact policy application remain mandatory."
+  },
+  {
+    "base_commit": "cd65226f92f248a8d4cb68ed7b20b847332a0ff4",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/pluginfeed.PluginAccess.Messages"
+        ],
+        "removed": [
+          "internal/pluginfeed.CheckPluginLeaseFD"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/pluginfeed.PluginAccess.Messages": "func(PluginAccess) func() bool"
+        },
+        "removed": {
+          "function:internal/pluginfeed.CheckPluginLeaseFD": "func(fd int) error"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Source-qualified expected D1 privacy API delta: export the existing PluginAccess.Messages predicate and make the unchanged CheckPluginLeaseFD validator private; exact function shapes change identities, while receiver methods/files, internal import graph and raw OS users remain unchanged. This is expected source data, not a native candidate measurement; complete actual-cd65226/head native comparison and exact policy application remain mandatory."
+  },
+  {
+    "base_commit": "cd65226f92f248a8d4cb68ed7b20b847332a0ff4",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/pluginfeed.PluginAccess.Messages"
+        ],
+        "removed": [
+          "internal/pluginfeed.CheckPluginLeaseFD"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/pluginfeed.PluginAccess.Messages": "func(PluginAccess) func() bool"
+        },
+        "removed": {
+          "function:internal/pluginfeed.CheckPluginLeaseFD": "func(fd int) error"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Source-qualified expected D1 privacy API delta: export the existing PluginAccess.Messages predicate and make the unchanged CheckPluginLeaseFD validator private; exact function shapes change identities, while receiver methods/files, internal import graph and raw OS users remain unchanged. This is expected source data, not a native candidate measurement; complete actual-cd65226/head native comparison and exact policy application remain mandatory."
   }
 ]
