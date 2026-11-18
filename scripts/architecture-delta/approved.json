@@ -738,7 +738,7 @@
       "shapes": {
         "added": {
           "function:internal/bus.hookSelectorInput.Read": "func(*hookSelectorInput) func(p []byte) (int, error)",
-          "type:internal/agent.HookPayloadAdapter": "HookPayloadAdapter interface {\n\tExtendedHookEvent() string\n}",
+          "type:internal/agent.HookPayloadAdapter": "HookPayloadAdapter interface{ ExtendedHookEvent() string }",
           "function:internal/adapters/codex.Adapter.ExtendedHookEvent": "func(Adapter) func() string"
         },
         "removed": {},
@@ -796,7 +796,7 @@
       "shapes": {
         "added": {
           "function:internal/bus.hookSelectorInput.Read": "func(*hookSelectorInput) func(p []byte) (int, error)",
-          "type:internal/agent.HookPayloadAdapter": "HookPayloadAdapter interface {\n\tExtendedHookEvent() string\n}",
+          "type:internal/agent.HookPayloadAdapter": "HookPayloadAdapter interface{ ExtendedHookEvent() string }",
           "function:internal/adapters/codex.Adapter.ExtendedHookEvent": "func(Adapter) func() string"
         },
         "removed": {},
