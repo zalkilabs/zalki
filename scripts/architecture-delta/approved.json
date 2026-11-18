@@ -838,5 +838,231 @@
       }
     },
     "reason": "Source-qualified EXPECTED full ZAL-99 delta on actual d444528: optional agent.HookPayloadAdapter and Codex Adapter.ExtendedHookEvent move trusted per-event selection out of bus. Add exactly the interface, adapter method, and selector io.Reader Read API shapes; two private selector receivers and one extra Codex Adapter method in its existing file. Existing API shapes, import edges and raw OS users otherwise unchanged. No boundary-test exception, no measured candidate snapshot or native pass. Hosted BOTHOS complete actual-base/head snapshots and exact policy application remain mandatory."
+  },
+  {
+    "base_commit": "a350eae1030203c26179f1647d2c558907ef9dc3",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/bus.PluginMembers"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/bus.PluginMembers": "func(ctx context.Context, view JournalView, pluginName, ownerScope string, ownerStatus bool, targets []string, charge func(int, int, int, int, int) error) (json.RawMessage, error)"
+        },
+        "removed": {},
+        "changed": {
+          "function:internal/pluginfeed.PluginFeed.AckPluginFeed": {
+            "before": "func(PluginFeed) func(delivery PluginDelivery) error",
+            "after": "func(PluginFeed) func(launch *PluginFeedStatus, id string) (string, error)"
+          },
+          "function:internal/pluginfeed.PluginFeed.NextPluginFeed": {
+            "before": "func(PluginFeed) func(launch *PluginFeedStatus) (PluginDelivery, error)",
+            "after": "func(PluginFeed) func(ctx context.Context, launch *PluginFeedStatus, expectedID string, part int) (PluginDelivery, error)"
+          },
+          "type:internal/pluginfeed.PluginDelivery": {
+            "before": "PluginDelivery struct {\n\tID\tstring\t\t`json:\"id\"`\n\tGap\tstring\t\t`json:\"gap,omitempty\"`\n\tEvent\t*model.Event\t`json:\"event,omitempty\"`\n\tprior\t[32]byte\n\tafter\tpluginPosition\n\toffer\tstring\n}",
+            "after": "PluginDelivery struct {\n\tFrames\t[]json.RawMessage\t`json:\"-\"`\n\tID\tstring\t\t\t`json:\"id\"`\n\tGap\tstring\t\t\t`json:\"gap,omitempty\"`\n\tEvent\t*model.Event\t\t`json:\"event,omitempty\"`\n}"
+          },
+          "type:internal/pluginfeed.PluginFeed": {
+            "before": "PluginFeed struct {\n\tstore\tbus.Store\n\tpluginFiles\n}",
+            "after": "PluginFeed struct {\n\tstore\tbus.Store\n\tstream\t*streamRuntime\n\tpluginFiles\n}"
+          },
+          "type:internal/pluginfeed.PluginFeedStatus": {
+            "before": "PluginFeedStatus struct {\n\tLaunch\t\t*PluginLaunch\t\t`json:\"launch,omitempty\"`\n\tID\t\tstring\t\t\t`json:\"id,omitempty\"`\n\tName\t\tstring\t\t\t`json:\"plugin\"`\n\tDataDir\t\tstring\t\t\t`json:\"data_dir\"`\n\tEnabled\t\tbool\t\t\t`json:\"enabled\"`\n\tScope\t\tstring\t\t\t`json:\"scope\"`\n\tAccess\t\tPluginAccess\t\t`json:\"access\"`\n\tRevision\tstring\t\t\t`json:\"revision,omitempty\"`\n\tGapPending\tbool\t\t\t`json:\"gap_pending\"`\n\tLastGap\t\tstring\t\t\t`json:\"last_gap,omitempty\"`\n\tInstall\t\t*PluginInstallReceipt\t`json:\"install,omitempty\"`\n\tEpoch\t\tstring\t\t\t`json:\"epoch,omitempty\"`\n}",
+            "after": "PluginFeedStatus struct {\n\tFeedFeatures\tstruct{ Feed bool }\t`json:\"-\"`\n\tLaunch\t\t*PluginLaunch\t\t`json:\"launch,omitempty\"`\n\tID\t\tstring\t\t\t`json:\"id,omitempty\"`\n\tName\t\tstring\t\t\t`json:\"plugin\"`\n\tDataDir\t\tstring\t\t\t`json:\"data_dir\"`\n\tEnabled\t\tbool\t\t\t`json:\"enabled\"`\n\tScope\t\tstring\t\t\t`json:\"scope\"`\n\tAccess\t\tPluginAccess\t\t`json:\"access\"`\n\tRevision\tstring\t\t\t`json:\"revision,omitempty\"`\n\tGapPending\tbool\t\t\t`json:\"gap_pending\"`\n\tLastGap\t\tstring\t\t\t`json:\"last_gap,omitempty\"`\n\tInstall\t\t*PluginInstallReceipt\t`json:\"install,omitempty\"`\n\tEpoch\t\tstring\t\t\t`json:\"epoch,omitempty\"`\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.pluginViewWork": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "internal/pluginfeed.pluginStreamState": {
+            "Methods": 8,
+            "Files": 3
+          },
+          "internal/pluginfeed.streamBudget": {
+            "Methods": 4,
+            "Files": 2
+          },
+          "internal/pluginfeed.streamPending": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/pluginfeed.PluginFeed": {
+            "before": {
+              "Methods": 47,
+              "Files": 13
+            },
+            "after": {
+              "Methods": 64,
+              "Files": 18
+            }
+          },
+          "internal/pluginfeed.pluginFiles": {
+            "before": {
+              "Methods": 31,
+              "Files": 12
+            },
+            "after": {
+              "Methods": 35,
+              "Files": 13
+            }
+          },
+          "internal/pluginfeed.pluginRecord": {
+            "before": {
+              "Methods": 6,
+              "Files": 2
+            },
+            "after": {
+              "Methods": 3,
+              "Files": 1
+            }
+          },
+          "internal/plugins.v2Host": {
+            "before": {
+              "Methods": 14,
+              "Files": 1
+            },
+            "after": {
+              "Methods": 18,
+              "Files": 1
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Measured and source-reviewed Stage B delta on actual a350: add bounded targeted bus.PluginMembers under the existing borrowed writable journal scope and work charges; change exact Next/Ack API and PluginDelivery/PluginFeed/PluginFeedStatus shapes for captured-launch per-part handoff, attempted-receipt ACK and private runtime/features. PluginFeed public method count stays 20; its 17 new PRIVATE shared-launch/view/lock coordination methods are ackStream, ackStreamStep, advanceStream, advanceStreamForOffer, attemptStreamPart, captureStreamCut, finishStreamStep, nextStream, nextStreamStep, noteStreamIntegrity, noteStreamReadFailure, pendingStreamCurrent, prepareStreamLaunch, projectStreamEvent, scanStream, streamResourceFailure, withStreamStep. Separate private checkpoint state, work budget, pending validation and core work accounting are measured explicitly; pluginFiles gains checkpoint paths/read/status while old pluginRecord cursor/gap helpers disappear, and v2Host gains bounded part preflight/write/timeout handling. Complete named five-category native delta is identical on both OS; import graph and raw OS differences are empty. This exact allowance is not a functional/runtime pass, numeric growth ceiling or broad exception; actual corrected-head native comparison/application remains required."
+  },
+  {
+    "base_commit": "a350eae1030203c26179f1647d2c558907ef9dc3",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/bus.PluginMembers"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/bus.PluginMembers": "func(ctx context.Context, view JournalView, pluginName, ownerScope string, ownerStatus bool, targets []string, charge func(int, int, int, int, int) error) (json.RawMessage, error)"
+        },
+        "removed": {},
+        "changed": {
+          "function:internal/pluginfeed.PluginFeed.AckPluginFeed": {
+            "before": "func(PluginFeed) func(delivery PluginDelivery) error",
+            "after": "func(PluginFeed) func(launch *PluginFeedStatus, id string) (string, error)"
+          },
+          "function:internal/pluginfeed.PluginFeed.NextPluginFeed": {
+            "before": "func(PluginFeed) func(launch *PluginFeedStatus) (PluginDelivery, error)",
+            "after": "func(PluginFeed) func(ctx context.Context, launch *PluginFeedStatus, expectedID string, part int) (PluginDelivery, error)"
+          },
+          "type:internal/pluginfeed.PluginDelivery": {
+            "before": "PluginDelivery struct {\n\tID\tstring\t\t`json:\"id\"`\n\tGap\tstring\t\t`json:\"gap,omitempty\"`\n\tEvent\t*model.Event\t`json:\"event,omitempty\"`\n\tprior\t[32]byte\n\tafter\tpluginPosition\n\toffer\tstring\n}",
+            "after": "PluginDelivery struct {\n\tFrames\t[]json.RawMessage\t`json:\"-\"`\n\tID\tstring\t\t\t`json:\"id\"`\n\tGap\tstring\t\t\t`json:\"gap,omitempty\"`\n\tEvent\t*model.Event\t\t`json:\"event,omitempty\"`\n}"
+          },
+          "type:internal/pluginfeed.PluginFeed": {
+            "before": "PluginFeed struct {\n\tstore\tbus.Store\n\tpluginFiles\n}",
+            "after": "PluginFeed struct {\n\tstore\tbus.Store\n\tstream\t*streamRuntime\n\tpluginFiles\n}"
+          },
+          "type:internal/pluginfeed.PluginFeedStatus": {
+            "before": "PluginFeedStatus struct {\n\tLaunch\t\t*PluginLaunch\t\t`json:\"launch,omitempty\"`\n\tID\t\tstring\t\t\t`json:\"id,omitempty\"`\n\tName\t\tstring\t\t\t`json:\"plugin\"`\n\tDataDir\t\tstring\t\t\t`json:\"data_dir\"`\n\tEnabled\t\tbool\t\t\t`json:\"enabled\"`\n\tScope\t\tstring\t\t\t`json:\"scope\"`\n\tAccess\t\tPluginAccess\t\t`json:\"access\"`\n\tRevision\tstring\t\t\t`json:\"revision,omitempty\"`\n\tGapPending\tbool\t\t\t`json:\"gap_pending\"`\n\tLastGap\t\tstring\t\t\t`json:\"last_gap,omitempty\"`\n\tInstall\t\t*PluginInstallReceipt\t`json:\"install,omitempty\"`\n\tEpoch\t\tstring\t\t\t`json:\"epoch,omitempty\"`\n}",
+            "after": "PluginFeedStatus struct {\n\tFeedFeatures\tstruct{ Feed bool }\t`json:\"-\"`\n\tLaunch\t\t*PluginLaunch\t\t`json:\"launch,omitempty\"`\n\tID\t\tstring\t\t\t`json:\"id,omitempty\"`\n\tName\t\tstring\t\t\t`json:\"plugin\"`\n\tDataDir\t\tstring\t\t\t`json:\"data_dir\"`\n\tEnabled\t\tbool\t\t\t`json:\"enabled\"`\n\tScope\t\tstring\t\t\t`json:\"scope\"`\n\tAccess\t\tPluginAccess\t\t`json:\"access\"`\n\tRevision\tstring\t\t\t`json:\"revision,omitempty\"`\n\tGapPending\tbool\t\t\t`json:\"gap_pending\"`\n\tLastGap\t\tstring\t\t\t`json:\"last_gap,omitempty\"`\n\tInstall\t\t*PluginInstallReceipt\t`json:\"install,omitempty\"`\n\tEpoch\t\tstring\t\t\t`json:\"epoch,omitempty\"`\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.pluginViewWork": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "internal/pluginfeed.pluginStreamState": {
+            "Methods": 8,
+            "Files": 3
+          },
+          "internal/pluginfeed.streamBudget": {
+            "Methods": 4,
+            "Files": 2
+          },
+          "internal/pluginfeed.streamPending": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/pluginfeed.PluginFeed": {
+            "before": {
+              "Methods": 47,
+              "Files": 13
+            },
+            "after": {
+              "Methods": 64,
+              "Files": 18
+            }
+          },
+          "internal/pluginfeed.pluginFiles": {
+            "before": {
+              "Methods": 31,
+              "Files": 12
+            },
+            "after": {
+              "Methods": 35,
+              "Files": 13
+            }
+          },
+          "internal/pluginfeed.pluginRecord": {
+            "before": {
+              "Methods": 6,
+              "Files": 2
+            },
+            "after": {
+              "Methods": 3,
+              "Files": 1
+            }
+          },
+          "internal/plugins.v2Host": {
+            "before": {
+              "Methods": 14,
+              "Files": 1
+            },
+            "after": {
+              "Methods": 18,
+              "Files": 1
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Measured and source-reviewed Stage B delta on actual a350: add bounded targeted bus.PluginMembers under the existing borrowed writable journal scope and work charges; change exact Next/Ack API and PluginDelivery/PluginFeed/PluginFeedStatus shapes for captured-launch per-part handoff, attempted-receipt ACK and private runtime/features. PluginFeed public method count stays 20; its 17 new PRIVATE shared-launch/view/lock coordination methods are ackStream, ackStreamStep, advanceStream, advanceStreamForOffer, attemptStreamPart, captureStreamCut, finishStreamStep, nextStream, nextStreamStep, noteStreamIntegrity, noteStreamReadFailure, pendingStreamCurrent, prepareStreamLaunch, projectStreamEvent, scanStream, streamResourceFailure, withStreamStep. Separate private checkpoint state, work budget, pending validation and core work accounting are measured explicitly; pluginFiles gains checkpoint paths/read/status while old pluginRecord cursor/gap helpers disappear, and v2Host gains bounded part preflight/write/timeout handling. Complete named five-category native delta is identical on both OS; import graph and raw OS differences are empty. This exact allowance is not a functional/runtime pass, numeric growth ceiling or broad exception; actual corrected-head native comparison/application remains required."
   }
 ]

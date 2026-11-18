@@ -3,6 +3,7 @@ package bus
 import (
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -46,12 +47,12 @@ func TestFeedMemberOwnerExitedNeverProducesRetirementWitness(t *testing.T) {
 }
 
 func TestFeedMemberOwnerABACannotReuseOriginalGuard(t *testing.T) {
-	store, session, _, _ := memberCacheFixture(t)
+	store, session, original := ownerTrackingMemberFixture(t)
 	before, err := collectMembers(t, store, []string{session.ID}, &memberWorkCount{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, owner := range []*model.ProcessRef{{PID: 800001, Start: "owner-a", Role: "client"}, nil} {
+	for _, owner := range []*model.ProcessRef{{PID: 800002, Start: "owner-b", Role: "client"}, &original} {
 		if err := store.locked(func() error {
 			current, err := store.session(session.ID)
 			if err != nil {
@@ -67,4 +68,34 @@ func TestFeedMemberOwnerABACannotReuseOriginalGuard(t *testing.T) {
 	if err != nil || after.Records[0].Class != "active" || before.Records[0].Guard.Owner != after.Records[0].Guard.Owner || before.Records[0].Guard.Audit == after.Records[0].Guard.Audit {
 		t.Fatal("F_NATIVE_OWNER_ABA_CANNOT_REUSE_ORIGINAL_GUARD", err)
 	}
+}
+
+// Owner ABA needs an adapter that permits stored owners. Publish A through the
+// normal audited writer and capture it through the same decoder used by every
+// later read; changing the registry after registration would hide this premise.
+func ownerTrackingMemberFixture(t *testing.T) (Store, model.Session, model.ProcessRef) {
+	t.Helper()
+	registry, err := agent.NewRegistry(livenessStub{result: model.LivenessAlive, own: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := fixtureStore(t)
+	store.Registry = registry
+	session, _ := register(t, store, "fixture")
+	original := model.ProcessRef{PID: 800001, Start: "owner-a", Role: "client"}
+	if err := store.locked(func() error {
+		current, err := store.session(session.ID)
+		if err != nil {
+			return err
+		}
+		current.Owner = &original
+		return saveSessionFor(store, current, "")
+	}); err != nil {
+		t.Fatal("owner-tracking fixture could not publish original owner", err)
+	}
+	session, err = store.session(session.ID)
+	if err != nil || !samePluginOwner(session.Owner, &original) {
+		t.Fatal("owner-tracking fixture did not retain the captured original", err)
+	}
+	return store, session, original
 }
