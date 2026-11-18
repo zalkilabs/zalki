@@ -46,14 +46,16 @@ func accessWithOnlyMessagePolicyField(t *testing.T, field reflect.StructField) P
 	kind := value.Kind()
 	if kind == reflect.Bool {
 		value.SetBool(true)
-	} else if kind == reflect.Slice {
+		return access
+	}
+	if kind == reflect.Slice {
 		if value.Type().Elem().Kind() != reflect.String {
 			t.Fatalf("PLUGIN_ACCESS_FIELD_FIXTURE_TYPE: %s", field.Name)
 		}
 		value.Set(reflect.MakeSlice(value.Type(), 1, 1))
 		value.Index(0).SetString("codex:00000000-0000-4000-8000-000000000001")
-	} else {
-		t.Fatalf("PLUGIN_ACCESS_FIELD_FIXTURE_TYPE: %s", field.Name)
+		return access
 	}
+	t.Fatalf("PLUGIN_ACCESS_FIELD_FIXTURE_TYPE: %s", field.Name)
 	return access
 }
