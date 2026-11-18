@@ -24,7 +24,7 @@ type clientContract struct {
 }
 
 func TestCursorMetadataRejectsOversizedAndLinkedFiles(t *testing.T) {
-	id := newTestID()
+	id := model.NewUUID()
 	root := t.TempDir()
 	dir := filepath.Join(root, "chats", "workspace", id)
 	if err := os.MkdirAll(dir, 0700); err != nil {

@@ -17,9 +17,6 @@ const (
 
 var bodyMarker = regexp.MustCompile(`(?i)\[\s*(?:/\s*zalki|zalki\s+(?:message|notice))`)
 
-// envelopeBody escapes display controls and marker delimiters without changing storage.
-func envelopeBody(body string) string { return envelopeBodyBudget(body, envelopeJSONBytes) }
-
 func envelopeBodyBudget(body string, jsonBudget int) string {
 	escaped := escapeBodyControls(body)
 	if len(escaped) <= envelopeDisplayBytes && jsonTextBytes(escaped) <= jsonBudget {

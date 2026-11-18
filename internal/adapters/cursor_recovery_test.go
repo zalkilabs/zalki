@@ -42,7 +42,7 @@ func TestCursorRecoveryEmitsOnceWithoutLosingPendingMessages(t *testing.T) {
 	from, key := registerAdapterSession(t, store, "codex")
 	to, oldKey := registerAdapterSession(t, store, "cursor")
 	service := bus.Service{Store: store}
-	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: newTestID(), Body: "pending peer note"})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: key, To: to.ID, MessageID: model.NewUUID(), Body: "pending peer note"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestCursorRecoveryRearmsAfterListenerShutdown(t *testing.T) {
 	text = cursorHook(t, &service, to.ID, "postToolUse", "", 0)
 	key = recoveryKey(t, text)
 	_, output := startRecoveryListener(t, store, to.ID, key)
-	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: fromKey, To: to.ID, MessageID: newTestID(), Body: "after restart"})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: fromKey, To: to.ID, MessageID: model.NewUUID(), Body: "after restart"})
 	if err != nil || msg.Status != "wake_hint_written" || msg.TargetGeneration != to.Generation {
 		t.Fatalf("recovered listener did not receive the original conversation's message: %+v %v", msg, err)
 	}

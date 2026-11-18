@@ -55,7 +55,7 @@ func requireHookSkipsWhileHeld(t *testing.T, store Store, target, held string) {
 	if err != nil || text != "" {
 		t.Fatal("hook failed on an unreadable record", text, err)
 	}
-	if !storedMessage(t, store, held).Held {
+	if !journalMessage(t, store, held).Held {
 		t.Fatal("hook released a held message while its prompt is open")
 	}
 }

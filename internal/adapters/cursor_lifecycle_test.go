@@ -45,7 +45,7 @@ func TestCursorOnlyAnActualPromptReactivatesARetiredConversation(t *testing.T) {
 		t.Fatal("resumed conversation lost its capability", err)
 	}
 
-	unknown := "cursor:" + newTestID()
+	unknown := "cursor:" + model.NewUUID()
 	cursorHook(t, &service, unknown, "beforeSubmitPrompt", "", 0)
 	// List hides retired and exited records; check the journal directly.
 	if _, err := os.Stat(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(unknown, ":", "_")+".json")); err != nil {
@@ -99,7 +99,7 @@ func TestCursorReplacementRegistrationFencesARunningListener(t *testing.T) {
 	}
 
 	service := bus.Service{Store: store}
-	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: fromKey, To: old.ID, MessageID: newTestID(), Body: "for replacement"})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: fromKey, To: old.ID, MessageID: model.NewUUID(), Body: "for replacement"})
 	if err != nil || msg.TargetGeneration != replacement.Generation || msg.Status == "wake_hint_written" {
 		t.Fatalf("message reached the previous generation's listener: %+v %v", msg, err)
 	}
@@ -116,7 +116,7 @@ func TestCursorReplacementRegistrationFencesARunningListener(t *testing.T) {
 	}
 
 	_, output := startRecoveryListener(t, store, old.ID, key)
-	next, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: fromKey, To: old.ID, MessageID: newTestID(), Body: "after rearm"})
+	next, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: fromKey, To: old.ID, MessageID: model.NewUUID(), Body: "after rearm"})
 	if err != nil || next.Status != "wake_hint_written" || !strings.Contains(output.text(), "ZALKI_WAKE "+next.ID) {
 		t.Fatalf("replacement listener did not receive its own generation's message: %+v %v", next, err)
 	}
@@ -151,7 +151,7 @@ func TestCursorRecoveryClearsAStaleWake(t *testing.T) {
 	if err != nil || json.Unmarshal(data, &record) != nil {
 		t.Fatal("unreadable session record", err)
 	}
-	record["listener"] = map[string]any{"id": newTestID(), "generation": to.Generation, "endpoint": map[string]any{"path": "/tmp/zalki-cursor-crashed/inbox.sock", "device": 1, "inode": 1}}
+	record["listener"] = map[string]any{"id": model.NewUUID(), "generation": to.Generation, "endpoint": map[string]any{"path": "/tmp/zalki-cursor-crashed/inbox.sock", "device": 1, "inode": 1}}
 	if err := writeTestJSON(path, record); err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestPruneReleasesALeaseLeftOnARetiredSession(t *testing.T) {
 	record["state"] = "retired"
 	record["retired"] = true
 	record["retired_reason"] = "explicit_cleanup"
-	record["listener"] = map[string]any{"id": newTestID(), "generation": to.Generation, "endpoint": map[string]any{"path": "/tmp/zalki-cursor-crashed/inbox.sock", "device": 1, "inode": 1}}
+	record["listener"] = map[string]any{"id": model.NewUUID(), "generation": to.Generation, "endpoint": map[string]any{"path": "/tmp/zalki-cursor-crashed/inbox.sock", "device": 1, "inode": 1}}
 	if err := writeTestJSON(path, record); err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestRetirementReleasesTheListenerLease(t *testing.T) {
 				record["schema"] != float64(1) || record["listener"] != nil || receive["idle_wake"] != false {
 				t.Fatalf("retirement left a listener lease: record=%v session=%+v", record, current)
 			}
-			if _, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: fromKey, To: to.ID, MessageID: newTestID(), Body: "after retire"}); err == nil {
+			if _, err := service.Send(context.Background(), bus.SendRequest{Actor: from.ID, Capability: fromKey, To: to.ID, MessageID: model.NewUUID(), Body: "after retire"}); err == nil {
 				t.Fatal("sent to a retired session")
 			}
 			conn, err := (&net.Dialer{Timeout: time.Second}).DialContext(t.Context(), "unix", endpoint)
@@ -267,7 +267,7 @@ func TestRetirementReleasesTheListenerLease(t *testing.T) {
 			}
 			defer conn.Close()
 			_ = conn.SetDeadline(time.Now().Add(time.Second))
-			hint := map[string]string{"message_id": newTestID(), "generation": to.Generation}
+			hint := map[string]string{"message_id": model.NewUUID(), "generation": to.Generation}
 			if err := json.NewEncoder(conn).Encode(hint); err != nil {
 				t.Fatal(err)
 			}

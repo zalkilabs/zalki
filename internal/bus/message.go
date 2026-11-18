@@ -45,8 +45,14 @@ func (s Store) eachMessage(visit func(id string, message model.Message, readErr 
 // it skipped as unreadable or unsupported, so one such file cannot stop a scan.
 // The caller holds the journal lock and reports the skipped files as it needs.
 func (s Store) eachReadableMessage(visit func(model.Message) error) (skippedMessages, error) {
+	return visitReadableMessages(s.eachMessage, visit)
+}
+
+type messageIterator func(func(string, model.Message, error) error) error
+
+func visitReadableMessages(each messageIterator, visit func(model.Message) error) (skippedMessages, error) {
 	var skipped skippedMessages
-	err := s.eachMessage(func(id string, msg model.Message, readErr error) error {
+	err := each(func(id string, msg model.Message, readErr error) error {
 		if readErr != nil {
 			skipped.add(id)
 		} else if err := visit(msg); err != nil {

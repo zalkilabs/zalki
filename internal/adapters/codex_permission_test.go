@@ -30,7 +30,7 @@ func TestCodexPermissionRequestDoesNotHoldAnIdleSend(t *testing.T) {
 	}}
 	permissionLifecycleHook(t, &service, target, "PermissionRequest", "")
 	current := adapterTestSession(t, store, target.ID)
-	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newTestID(), Body: "automatic review is not an open prompt"})
+	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "automatic review is not an open prompt"})
 	if err != nil || current.State == model.StateApproval || current.Retired || msg.Held || msg.Status != model.StatusSubmitted || calls != 1 {
 		t.Fatalf("Codex permission hook must not invent an approval hold: state=%s held=%v status=%s calls=%d error=%v", current.State, msg.Held, msg.Status, calls, err)
 	}
@@ -46,7 +46,7 @@ func TestClaudePermissionRequestStillHoldsUntilStop(t *testing.T) {
 		return model.NewReceipt(model.StatusSubmitted)
 	}}
 	permissionLifecycleHook(t, &service, target, "PermissionRequest", "")
-	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newTestID(), Body: "Claude still has a real permission prompt"})
+	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "Claude still has a real permission prompt"})
 	if err != nil || !msg.IsQueuedForApproval() || calls != 0 {
 		t.Fatal("Claude permission hold changed", msg.Held, msg.Status, calls, err)
 	}
@@ -67,7 +67,7 @@ func TestCodexTransportHoldNonCompactStartKeepsSettlementPolicy(t *testing.T) {
 		calls++
 		return model.NewReceipt(model.StatusApprovalBlocked)
 	}}
-	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newTestID(), Body: "hold before noncompact start"})
+	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "hold before noncompact start"})
 	if err != nil || !msg.IsQueuedForApproval() {
 		t.Fatal("native approval was not held before restart", msg.Held, msg.Status, err)
 	}

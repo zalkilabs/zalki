@@ -67,6 +67,17 @@ func printableText(value string, limit int) bool {
 	return !strings.ContainsFunc(value, func(r rune) bool { return !unicode.IsPrint(r) })
 }
 
+func (r *PluginInstallReceipt) prepareForCommit(artifactSHA256 string) bool {
+	r.Build = slices.Clone(r.Build)
+	if r.Build == nil {
+		r.Build = []string{}
+	}
+	r.ArtifactSHA256 = artifactSHA256
+	// Placeholders for the shape check; the commit sets the real values.
+	r.InstalledAt, r.InstalledBy, r.InstalledByLabel = model.Timestamp(), installedByUnproven, ""
+	return r.valid()
+}
+
 func (r *PluginInstallReceipt) valid() bool {
 	if !validPluginSHA(r.TreeSHA256) || !validPluginSHA(r.ManifestSHA256) || !validPluginSHA(r.ArtifactSHA256) {
 		return false
@@ -324,14 +335,7 @@ func (i *PluginInstall) Commit(artifact string, args []string, access PluginAcce
 	if err != nil {
 		return false, err
 	}
-	receipt.Build = slices.Clone(receipt.Build)
-	if receipt.Build == nil {
-		receipt.Build = []string{}
-	}
-	receipt.ArtifactSHA256 = launch.SHA256
-	// Placeholders for the shape check; the commit sets the real values.
-	receipt.InstalledAt, receipt.InstalledBy, receipt.InstalledByLabel = model.Timestamp(), installedByUnproven, ""
-	if !receipt.valid() {
+	if !receipt.prepareForCommit(launch.SHA256) {
 		return false, model.NewError(model.CodeInvalidInput, "plugin install receipt is invalid")
 	}
 	// The copy is named by the hash of the bytes copied: a change before

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // Pin the existing protocol, outcome and support-cache boundaries before extraction.
@@ -52,7 +54,7 @@ func checkCodexSubmission(t *testing.T, mode string, wantJoined bool, wantErr er
 	if err != nil {
 		t.Fatal(err)
 	}
-	thread, output := newTestID(), "exact tool output"
+	thread, output := model.NewUUID(), "exact tool output"
 	calls := serveFakeCodex(t, listener, fakeCodex{Home: root, Thread: thread, Mode: mode})
 	timeout := 2 * time.Second
 	if mode == "hang" {
@@ -138,7 +140,7 @@ func checkCodexSocketReplacement(t *testing.T, method string) {
 		t.Fatal(err)
 	}
 	changed := make(chan error, 1)
-	spec := fakeCodex{Home: root, Thread: newTestID(), Mode: "busy", BeforeResponse: func(seen string) {
+	spec := fakeCodex{Home: root, Thread: model.NewUUID(), Mode: "busy", BeforeResponse: func(seen string) {
 		if seen == method {
 			changed <- replaceCodexSubmissionSocket(t, endpoint.Path)
 		}

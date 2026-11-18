@@ -230,7 +230,7 @@ func TestLifecycleApprovalReleaseSkipsAnUnreadableHold(t *testing.T) {
 	if err := service.releaseApprovalQueue(context.Background(), target.ID); err != nil {
 		t.Fatalf("lifecycle release failed on one bad file: %v", err)
 	}
-	if current := storedMessage(t, service.Store, held.ID); current.Held || current.Status != model.StatusPendingActivity {
+	if current := journalMessage(t, service.Store, held.ID); current.Held || current.Status != model.StatusPendingActivity {
 		t.Fatalf("held message after release = %+v", current)
 	}
 	if got := approvalHeld(t, service.Store, target.ID); got != 1 {
@@ -241,7 +241,7 @@ func TestLifecycleApprovalReleaseSkipsAnUnreadableHold(t *testing.T) {
 	if err := service.releaseApprovalQueue(context.Background(), target.ID); err != nil {
 		t.Fatal(err)
 	}
-	if current := storedMessage(t, service.Store, second.ID); current.Held || current.Status != model.StatusPendingActivity {
+	if current := journalMessage(t, service.Store, second.ID); current.Held || current.Status != model.StatusPendingActivity {
 		t.Fatalf("repaired hold after release = %+v", current)
 	}
 	if got := approvalHeld(t, service.Store, target.ID); got != 0 {
@@ -295,7 +295,7 @@ func TestPruneApprovalSettlementAddsNoSkipDiagnostic(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if current := storedMessage(t, store, held.ID); current.Held || current.Status != model.StatusNotSent {
+	if current := journalMessage(t, store, held.ID); current.Held || current.Status != model.StatusNotSent {
 		t.Fatalf("readable held message not settled: %+v", current)
 	}
 	if records := skippedRecords(t, output); len(records) != 0 {

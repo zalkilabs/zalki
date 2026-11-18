@@ -190,12 +190,11 @@ func (v JournalView) SessionGeneration(id string) (generation string, err error)
 	return generation, err
 }
 
-// PluginMember reports whether a plugin may use session now: the record
-// exists, is not retired, and its liveness is not exited (unknown is live).
-// Liveness is the same check zalki list uses, so a plugin's members are the
-// sessions the owner sees. A session that was never registered gives false
-// with no error; any read failure gives false and the error, so callers fail
-// closed. ZAL-6 adds the session's own plugin policy for plugin here.
+// PluginMember reports whether a plugin may use a session now: the record
+// exists, is not retired, permits the plugin in its session policy, and its
+// liveness is not exited (unknown is live). Liveness uses the same check as
+// zalki list. An unregistered session gives false with no error; any read
+// failure gives false and the error, so callers fail closed.
 func (v JournalView) PluginMember(session, plugin string) (bool, error) {
 	return v.pluginMember(session, plugin)
 }

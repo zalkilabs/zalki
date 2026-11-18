@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func captureCursorStderr(t *testing.T, run func() error) (string, error) {
@@ -53,7 +54,7 @@ func assertCursorPromptFailure(t *testing.T, limited bool) {
 	if limited {
 		rows := make([]map[string]string, 0, 20)
 		for range 20 {
-			rows = append(rows, map[string]string{"actor": "cursor:" + newTestID(), "at": time.Now().UTC().Format(time.RFC3339Nano)})
+			rows = append(rows, map[string]string{"actor": "cursor:" + model.NewUUID(), "at": time.Now().UTC().Format(time.RFC3339Nano)})
 		}
 		var err error
 		raw, err = json.Marshal(map[string]any{"schema": 1, "attempts": rows})
@@ -67,7 +68,7 @@ func assertCursorPromptFailure(t *testing.T, limited bool) {
 		t.Fatal(err)
 	}
 	service := bus.Service{Store: store}
-	native := newTestID()
+	native := model.NewUUID()
 	input, err := json.Marshal(map[string]string{"conversation_id": native, "cwd": "/workspace", "hook_event_name": "beforeSubmitPrompt"})
 	if err != nil {
 		t.Fatal(err)

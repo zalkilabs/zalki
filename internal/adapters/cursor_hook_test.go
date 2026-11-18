@@ -25,7 +25,7 @@ func TestCursorReceiveIsDeferredAndDoesNotRestartInterruptedTurn(t *testing.T) {
 		t.Fatal("used unsupported Cursor transport")
 		return model.Receipt{}
 	}}
-	id := newTestID()
+	id := model.NewUUID()
 	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: id, Body: "cursor body"})
 	if err != nil || msg.Status != "pending_next_activity" {
 		t.Fatalf("%+v %v", msg, err)
@@ -63,7 +63,7 @@ func TestCursorReceiveIsDeferredAndDoesNotRestartInterruptedTurn(t *testing.T) {
 func TestCursorStartupUsesNativeHookSchema(t *testing.T) {
 	store := adapterTestStore(t)
 	service := bus.Service{Store: store}
-	id := newTestID()
+	id := model.NewUUID()
 	input, _ := json.Marshal(map[string]any{"session_id": id, "workspace_roots": []string{"/workspace"}, "hook_event_name": "sessionStart"})
 	var out bytes.Buffer
 	if err := service.Hook(t.Context(), "cursor", bytes.NewReader(input), &out); err != nil {
@@ -166,14 +166,14 @@ func checkIDEChatSharesOneActor(t *testing.T, roots []string, wantCWD string) {
 		t.Fatal("used unsupported Cursor transport")
 		return model.Receipt{}
 	}}
-	conversation, session := newTestID(), newTestID()
+	conversation, session := model.NewUUID(), model.NewUUID()
 	runCursorHook(t, &service, map[string]any{"hook_event_name": "sessionStart", "session_id": session, "conversation_id": conversation, "workspace_roots": roots})
 	sessions, err := store.List()
 	if err != nil || len(sessions) != 1 || sessions[0].ID != "cursor:"+conversation || sessions[0].CWD != wantCWD {
 		t.Fatalf("want one session cursor:%s with cwd %q: %+v %v", conversation, wantCWD, sessions, err)
 	}
 	sender, key := registerAdapterSession(t, store, "codex")
-	id := newTestID()
+	id := model.NewUUID()
 	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: sessions[0].ID, MessageID: id, Body: "ide body"})
 	if err != nil || msg.Status != "pending_next_activity" {
 		t.Fatalf("%+v %v", msg, err)

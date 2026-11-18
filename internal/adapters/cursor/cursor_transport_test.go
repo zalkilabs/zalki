@@ -46,9 +46,9 @@ func TestCursorSenderRequiresExactHintEcho(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			generation := newTestID()
-			target := model.Session{Kind: "cursor", Generation: generation, Listener: &model.ListenerLease{ID: newTestID(), Generation: generation, Endpoint: *endpoint}}
-			message := model.Message{ID: newTestID(), Body: "peer body must stay in the journal"}
+			generation := model.NewUUID()
+			target := model.Session{Kind: "cursor", Generation: generation, Listener: &model.ListenerLease{ID: model.NewUUID(), Generation: generation, Endpoint: *endpoint}}
+			message := model.Message{ID: model.NewUUID(), Body: "peer body must stay in the journal"}
 			done := make(chan error, 1)
 			go func() {
 				conn, err := listener.AcceptUnix()
@@ -78,7 +78,7 @@ func TestCursorSenderRequiresExactHintEcho(t *testing.T) {
 				case "wrong generation":
 					hint.Generation = "stale"
 				case "wrong message":
-					hint.MessageID = newTestID()
+					hint.MessageID = model.NewUUID()
 				case "missing echo":
 					done <- nil
 					return

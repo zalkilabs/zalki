@@ -45,11 +45,11 @@ func newApprovalServiceFixture(t *testing.T, allow bool, rpc bool, before func(s
 		t.Fatal(err)
 	}
 	f.service.Store = store
-	f.sender, f.key, err = store.Register("codex", newTestID(), "/workspace", nil)
+	f.sender, f.key, err = store.Register("codex", model.NewUUID(), "/workspace", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.target, _, err = store.Register("codex", newTestID(), "/workspace", nil)
+	f.target, _, err = store.Register("codex", model.NewUUID(), "/workspace", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestCodexLiveApprovalHoldsThroughStopAndEnd(t *testing.T) {
 	for _, allow := range []bool{false, true} {
 		t.Run(map[bool]string{false: "queue-off", true: "queue-on"}[allow], func(t *testing.T) {
 			f := newApprovalServiceFixture(t, allow, false, nil)
-			msg, err := f.send(t, newTestID())
+			msg, err := f.send(t, model.NewUUID())
 			if err != nil || !msg.IsQueuedForApproval() {
 				t.Fatal("live waitingOnApproval must hold", msg.Status, msg.Held, err)
 			}
@@ -146,7 +146,7 @@ func TestCodexLiveApprovalHoldsThroughStopAndEnd(t *testing.T) {
 
 func TestCodexApprovalRpcRejectionIsQueued(t *testing.T) {
 	f := newApprovalServiceFixture(t, true, true, nil)
-	msg, err := f.send(t, newTestID())
+	msg, err := f.send(t, model.NewUUID())
 	if err != nil || !msg.IsQueuedForApproval() {
 		t.Fatal("native RPC approval rejection must be held", msg.Status, msg.Held, err)
 	}
@@ -181,7 +181,7 @@ func TestCodexLateNativeApprovalPreservesDirectFinalRefusal(t *testing.T) {
 			})
 		}
 	})
-	id := newTestID()
+	id := model.NewUUID()
 	type result struct {
 		msg model.Message
 		err error
@@ -223,7 +223,7 @@ func TestCodexPermissionHookWithIdleLiveThreadDelivers(t *testing.T) {
 	f := newApprovalServiceFixture(t, false, false, nil)
 	f.waiting.Store(false)
 	f.hook(t, "PermissionRequest")
-	msg, err := f.send(t, newTestID())
+	msg, err := f.send(t, model.NewUUID())
 	if err != nil || msg.Held || msg.Status != model.StatusSubmitted || f.submits.Load() != 1 {
 		t.Fatalf("Codex permission hook plus idle live thread must deliver immediately: held=%v status=%s submits=%d error=%v", msg.Held, msg.Status, f.submits.Load(), err)
 	}

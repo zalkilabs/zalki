@@ -332,25 +332,16 @@ func TestEmitPendingForAnUnreachableTargetSettlesQueuedApprovals(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Retiring does not settle by itself; EmitPending does.
-	if !storedMessage(t, store, held.ID).Held {
+	if !journalMessage(t, store, held.ID).Held {
 		t.Fatal("retirement already settled the message")
 	}
 	if text, err := store.EmitPending(target.ID); err != nil || text != "" {
 		t.Fatalf("EmitPending = %q, %v", text, err)
 	}
-	after := storedMessage(t, store, held.ID)
+	after := journalMessage(t, store, held.ID)
 	if after.Held || after.Status != model.StatusNotSent || after.Receipt == nil || after.Receipt.Error != "destination has retired" {
 		t.Fatalf("queued approval after EmitPending = %+v", after)
 	}
-}
-
-func storedMessage(t *testing.T, store Store, id string) model.Message {
-	t.Helper()
-	msg, err := store.message(id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return msg
 }
 
 func TestEmitPendingForALiveTargetSkipsAnUnreadableRecord(t *testing.T) {

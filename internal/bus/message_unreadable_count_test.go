@@ -151,7 +151,7 @@ func TestB3ReviewRepairedHeldRecordSettlesAfterResume(t *testing.T) {
 	if output := emitText(t, service.Store, target.ID); strings.Contains(output, held.ID) {
 		t.Fatal("old generation message emitted")
 	}
-	stored := storedMessage(t, service.Store, held.ID)
+	stored := journalMessage(t, service.Store, held.ID)
 	if stored.IsQueuedForApproval() || stored.Status != model.StatusNotSent {
 		t.Fatalf("repaired old-generation message unresolved: %s held=%t", stored.Status, stored.Held)
 	}
@@ -166,7 +166,7 @@ func TestB3ReviewUnrelatedUnreadableRecordDoesNotExhaustApprovalCapacity(t *test
 	target, _ := register(t, service.Store, "cursor")
 	newUnreadableMessage(t, service.Store, truncatedMessage)
 	for cycle := 1; cycle <= approvalQueueCap+1; cycle++ {
-		if _, id := approvalCycle(t, service, target, cycle); storedMessage(t, service.Store, id).IsQueuedForApproval() {
+		if _, id := approvalCycle(t, service, target, cycle); journalMessage(t, service.Store, id).IsQueuedForApproval() {
 			t.Fatalf("cycle %d left a held record", cycle)
 		}
 	}

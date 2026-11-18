@@ -15,8 +15,8 @@ func TestCursorSocketHonorsContext(t *testing.T) {
 	for _, mode := range []string{"cancel after hint", "caller deadline", "already canceled"} {
 		t.Run(mode, func(t *testing.T) {
 			listener, endpoint := listenCursorSocket(t)
-			generation := newTestID()
-			target := model.Session{Kind: "cursor", Generation: generation, Listener: &model.ListenerLease{ID: newTestID(), Generation: generation, Endpoint: *endpoint}}
+			generation := model.NewUUID()
+			target := model.Session{Kind: "cursor", Generation: generation, Listener: &model.ListenerLease{ID: model.NewUUID(), Generation: generation, Endpoint: *endpoint}}
 			ctx, cancel := context.WithCancel(context.Background())
 			if mode == "caller deadline" {
 				cancel()
@@ -25,7 +25,7 @@ func TestCursorSocketHonorsContext(t *testing.T) {
 			defer cancel()
 			if mode == "already canceled" {
 				cancel()
-				receipt := (Adapter{}).Deliver(ctx, model.Message{ID: newTestID()}, target)
+				receipt := (Adapter{}).Deliver(ctx, model.Message{ID: model.NewUUID()}, target)
 				if receipt.Status != model.StatusPendingActivity {
 					t.Fatalf("unsent hint became uncertain: %+v", receipt)
 				}
@@ -33,7 +33,7 @@ func TestCursorSocketHonorsContext(t *testing.T) {
 				return
 			}
 			result := make(chan model.Receipt, 1)
-			go func() { result <- (Adapter{}).Deliver(ctx, model.Message{ID: newTestID()}, target) }()
+			go func() { result <- (Adapter{}).Deliver(ctx, model.Message{ID: model.NewUUID()}, target) }()
 			conn, err := listener.AcceptUnix()
 			if err != nil {
 				t.Fatal(err)

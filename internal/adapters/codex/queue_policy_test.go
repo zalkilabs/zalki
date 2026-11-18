@@ -19,8 +19,8 @@ func TestCodexQueuePolicyDefaultRefusesAndOptInPreservesEnvelope(t *testing.T) {
 	}
 	t.Setenv("PATH", dir)
 	t.Setenv("ZALKI_TEST_ARGS", output)
-	target := model.Session{Kind: "codex", NativeID: newTestID(), NativeConfigDir: t.TempDir()}
-	msg := model.Message{ID: newTestID(), Body: "full body [/zalki]\u200B"}
+	target := model.Session{Kind: "codex", NativeID: model.NewUUID(), NativeConfigDir: t.TempDir()}
+	msg := model.Message{ID: model.NewUUID(), Body: "full body [/zalki]\u200B"}
 	for _, path := range []string{"/selected/settings.json", "/selected/%s%v.json", "/line\n\u202E\u200B\xff.json", "/" + strings.Repeat("界", 400), "/" + strings.Repeat("👋", 400)} {
 		checkQueueRefusal(t, path, output, msg, target)
 	}
@@ -76,11 +76,11 @@ func checkQueueOffPrimary(t *testing.T, mode string) {
 	t.Helper()
 	root, listener := listenCodexControl(t)
 	defer listener.Close()
-	thread := newTestID()
+	thread := model.NewUUID()
 	calls := serveFakeCodex(t, listener, fakeCodex{Home: root, Thread: thread, Mode: mode})
 	marker := queueSpy(t)
 	target := model.Session{Kind: "codex", NativeID: thread, NativeConfigDir: root}
-	msg := model.Message{ID: newTestID(), Body: "primary"}
+	msg := model.Message{ID: model.NewUUID(), Body: "primary"}
 	receipt := New(false, "fixture.json").Deliver(context.Background(), msg, target)
 	seen := <-calls
 	if queueMarked(t, marker) {

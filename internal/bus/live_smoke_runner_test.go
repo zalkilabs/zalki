@@ -17,6 +17,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestLiveSmokeRunnerWithEmulatedClient(t *testing.T) {
@@ -39,7 +40,7 @@ func TestLiveSmokeRunnerWithEmulatedClient(t *testing.T) {
 	t.Setenv("CURSOR_CONFIG_DIR", filepath.Join(workspace, "cursor"))
 	configFile := smokeQueueConfigFixture(t, workspace)
 	store := bus.Store{Dir: state, Registry: adapters.BuiltinWithCodex(true, configFile)}
-	target, key, err := store.Register("codex", smokeID(), workspace, nil)
+	target, key, err := store.Register("codex", model.NewUUID(), workspace, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

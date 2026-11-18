@@ -23,16 +23,7 @@ import (
 // live, unexpired target is kept even when its watcher session is gone.
 func (r *pruneRun) deleteStaleWatches() error {
 	root := filepath.Join(r.store.Dir, "watches")
-	if _, err := os.Lstat(root); errors.Is(err, os.ErrNotExist) {
-		return nil
-	} else if err != nil {
-		return err
-	}
-	// Reject a symlink or non-private directory before reading or deleting.
-	if err := privateDir(root); err != nil {
-		return err
-	}
-	targets, err := os.ReadDir(root)
+	targets, err := readPruneDirectory(root)
 	if err != nil {
 		return err
 	}

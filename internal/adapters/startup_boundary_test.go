@@ -8,6 +8,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestNativeStartupBoundaryGuidanceAndBudgets(t *testing.T) {
@@ -21,7 +22,7 @@ func TestNativeStartupBoundaryGuidanceAndBudgets(t *testing.T) {
 
 func checkNativeStartupBoundary(t *testing.T, kind string) {
 	t.Helper()
-	id, event := newTestID(), "SessionStart"
+	id, event := model.NewUUID(), "SessionStart"
 	switch kind {
 	case "claude":
 		_, endpoint := listenClaudeSocket(t)

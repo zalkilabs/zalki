@@ -78,7 +78,7 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			root, listener := listenCodexControl(t)
 			defer listener.Close()
-			thread := newTestID()
+			thread := model.NewUUID()
 			body := "deliver this exact body"
 			marker := queueSpy(t)
 			spec := fakeCodex{Home: root, Thread: thread, Mode: mode}
@@ -91,7 +91,7 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			msg := model.Message{ID: newTestID(), From: "cursor:" + newTestID(), FromLabel: "Cursor", FromName: "Review", To: "codex:" + thread, Body: body, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+			msg := model.Message{ID: model.NewUUID(), From: "cursor:" + model.NewUUID(), FromLabel: "Cursor", FromName: "Review", To: "codex:" + thread, Body: body, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 			receipt := New(true, "fixture.json").deliverCodex(ctx, msg, model.Session{Kind: "codex", ID: msg.To, NativeID: thread, NativeConfigDir: root})
 			if strings.Contains(receipt.Output+receipt.Error, body) {
 				t.Fatal("receipt exposed the message body")
@@ -374,7 +374,7 @@ func fakeCodexResult(spec fakeCodex, method, home, version string, page *int) co
 		case "approval":
 			status = map[string]any{"type": "active", "activeFlags": []string{"waitingOnApproval"}}
 		case "identity":
-			id = newTestID()
+			id = model.NewUUID()
 		}
 		return codexFakeReply{result: map[string]any{"thread": map[string]any{"id": id, "status": status}}}
 	case "turn/start":
@@ -392,7 +392,7 @@ func fakeCodexResult(spec fakeCodex, method, home, version string, page *int) co
 		case "approval-rpc":
 			return codexFakeReply{failure: map[string]any{"code": -32000, "data": map[string]any{"waitingOnApproval": true}}}
 		default:
-			return codexFakeReply{result: map[string]any{"turn": map[string]any{"id": newTestID(), "items": []any{}, "status": "inProgress"}}}
+			return codexFakeReply{result: map[string]any{"turn": map[string]any{"id": model.NewUUID(), "items": []any{}, "status": "inProgress"}}}
 		}
 	default:
 		return codexFakeReply{failure: map[string]any{"code": -32601, "message": "method unavailable"}}

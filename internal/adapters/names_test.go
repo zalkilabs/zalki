@@ -111,7 +111,7 @@ func TestNameResolutionAmbiguityAndRetirement(t *testing.T) {
 		return model.Receipt{Status: "submitted"}
 	}}
 	for _, name := range []string{"reviewer", "Reviewer", "missing"} {
-		_, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: name, MessageID: newTestID(), Body: "hello"})
+		_, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: name, MessageID: model.NewUUID(), Body: "hello"})
 		if err == nil {
 			t.Fatalf("accepted ambiguous/unknown name %q", name)
 		}
@@ -119,13 +119,13 @@ func TestNameResolutionAmbiguityAndRetirement(t *testing.T) {
 			t.Fatalf("ambiguity did not identify candidates: %v", err)
 		}
 	}
-	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "codex:reviewer", MessageID: newTestID(), Body: "hello"})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "codex:reviewer", MessageID: model.NewUUID(), Body: "hello"})
 	if err != nil || msg.To != a.ID || msg.RequestedTo != "codex:reviewer" {
 		t.Fatalf("qualified name failed: %+v %v", msg, err)
 	}
 	c, _ := registerAdapterSession(t, store, "codex")
 	nativeNameFixture(t, root, c, "reviewer")
-	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "codex:reviewer", MessageID: newTestID(), Body: "hello"}); err == nil {
+	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "codex:reviewer", MessageID: model.NewUUID(), Body: "hello"}); err == nil {
 		t.Fatal("accepted duplicate names within a kind")
 	}
 	if err := store.Update(c.ID, "retired", true); err != nil {
@@ -134,13 +134,13 @@ func TestNameResolutionAmbiguityAndRetirement(t *testing.T) {
 	if err := store.Update(b.ID, "retired", true); err != nil {
 		t.Fatal(err)
 	}
-	msg, err = service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "reviewer", MessageID: newTestID(), Body: "hello"})
+	msg, err = service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "reviewer", MessageID: model.NewUUID(), Body: "hello"})
 	if err != nil || msg.To != a.ID {
 		t.Fatalf("retired session caused false ambiguity: %+v %v", msg, err)
 	}
 	// Even when a native name looks exactly like an ID, the exact ID wins.
 	nativeNameFixture(t, root, sender, a.ID)
-	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: a.ID, MessageID: newTestID(), Body: "hello"}); err != nil {
+	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: a.ID, MessageID: model.NewUUID(), Body: "hello"}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -157,7 +157,7 @@ func TestNameRetryRemainsBoundAfterRenameAndReassignment(t *testing.T) {
 		calls++
 		return model.Receipt{Status: "unknown_after_timeout"}
 	}}
-	id := newTestID()
+	id := model.NewUUID()
 	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: sender.ID, Capability: key, To: "reviewer", MessageID: id, Body: "hello"}); err != nil {
 		t.Fatal(err)
 	}
@@ -190,17 +190,17 @@ func TestNamesPreserveReplyAndCapabilityScope(t *testing.T) {
 		nativeNameFixture(t, root, pair.v, pair.name)
 	}
 	service := bus.Service{Store: store}
-	parent, err := service.Send(context.Background(), bus.SendRequest{Actor: a.ID, Capability: aKey, To: "receiver", MessageID: newTestID(), Body: "hello"})
+	parent, err := service.Send(context.Background(), bus.SendRequest{Actor: a.ID, Capability: aKey, To: "receiver", MessageID: model.NewUUID(), Body: "hello"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: b.ID, Capability: bKey, To: "other", MessageID: newTestID(), Body: "reply", ReplyTo: parent.ID}); err == nil {
+	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: b.ID, Capability: bKey, To: "other", MessageID: model.NewUUID(), Body: "reply", ReplyTo: parent.ID}); err == nil {
 		t.Fatal("name bypassed reply scope")
 	}
-	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: b.ID, Capability: aKey, To: "sender", MessageID: newTestID(), Body: "reply", ReplyTo: parent.ID}); err == nil {
+	if _, err := service.Send(context.Background(), bus.SendRequest{Actor: b.ID, Capability: aKey, To: "sender", MessageID: model.NewUUID(), Body: "reply", ReplyTo: parent.ID}); err == nil {
 		t.Fatal("name bypassed authentication")
 	}
-	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: b.ID, Capability: bKey, To: "sender", MessageID: newTestID(), Body: "reply", ReplyTo: parent.ID})
+	msg, err := service.Send(context.Background(), bus.SendRequest{Actor: b.ID, Capability: bKey, To: "sender", MessageID: model.NewUUID(), Body: "reply", ReplyTo: parent.ID})
 	if err != nil || msg.To != a.ID {
 		t.Fatalf("reply by unique name failed: %+v %v", msg, err)
 	}
@@ -314,7 +314,7 @@ func TestNamesUseOwningSessionConfigDirectory(t *testing.T) {
 			t.Fatalf("sender environment changed receiver name: %+v", item)
 		}
 	}
-	msg, target, fresh, err := store.ReserveMessage(bus.SendRequest{Actor: actor, Capability: key, To: "codex:codex reviewer", MessageID: newTestID(), Body: "hello"})
+	msg, target, fresh, err := store.ReserveMessage(bus.SendRequest{Actor: actor, Capability: key, To: "codex:codex reviewer", MessageID: model.NewUUID(), Body: "hello"})
 	if err != nil || !fresh || msg.To != sessions["codex"].ID || target.ID != msg.To {
 		t.Fatalf("named resolution used the sender's config root: %+v %v", msg, err)
 	}
