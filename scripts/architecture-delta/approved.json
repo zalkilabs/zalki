@@ -722,5 +722,91 @@
       }
     },
     "reason": "Source-qualified expected D2 cleanup delta: move the test-only commitWriter.commit method out of production (14/2 to 13/2) and extract the existing receipt preparation as private PluginInstallReceipt.prepareForCommit (4/1 to 5/1); exports, shapes, import edges and raw OS users remain unchanged. Expected source data on actual 2ccd9cec (the merged D1 parent), not a candidate native measurement. Hosted CI must measure complete native base/head facts and apply the exact policy before final acceptance/merge."
+  },
+  {
+    "base_commit": "d444528616aeb8b1cc8a2ba53ab4f8fe3b4ea6b8",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/bus.hookSelectorInput.Read"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/bus.hookSelectorInput.Read": "func(*hookSelectorInput) func(p []byte) (int, error)"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.hookPayloadSelector": {
+            "Methods": 13,
+            "Files": 1
+          },
+          "internal/bus.hookSelectorInput": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Source-qualified expected Codex PostToolUse streaming-selector delta: add private hookPayloadSelector (13 methods in one file) and hookSelectorInput (one method in one file). The required io.Reader Read method is exported by name even on the private receiver, so record its exact method identity and receiver/function shape. Existing exports/shapes/receivers, internal import edges and raw OS users otherwise remain unchanged. Expected data on actual d444528, not a candidate native measurement; hosted BOTHOS complete actual-base/head snapshots and exact policy application are required before final acceptance/merge."
+  },
+  {
+    "base_commit": "d444528616aeb8b1cc8a2ba53ab4f8fe3b4ea6b8",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/bus.hookSelectorInput.Read"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/bus.hookSelectorInput.Read": "func(*hookSelectorInput) func(p []byte) (int, error)"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.hookPayloadSelector": {
+            "Methods": 13,
+            "Files": 1
+          },
+          "internal/bus.hookSelectorInput": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Source-qualified expected Codex PostToolUse streaming-selector delta: add private hookPayloadSelector (13 methods in one file) and hookSelectorInput (one method in one file). The required io.Reader Read method is exported by name even on the private receiver, so record its exact method identity and receiver/function shape. Existing exports/shapes/receivers, internal import edges and raw OS users otherwise remain unchanged. Expected data on actual d444528, not a candidate native measurement; hosted BOTHOS complete actual-base/head snapshots and exact policy application are required before final acceptance/merge."
   }
 ]
