@@ -52,6 +52,11 @@ func pluginRecordKeys(t *testing.T, state, name string) []string {
 	for key := range fields {
 		keys = append(keys, key)
 	}
+	for _, forbidden := range []string{"position", "gap_id", "gap_reason"} {
+		if _, exists := fields[forbidden]; exists {
+			t.Fatal("F_CLI_PRIVATE_OWNER_HAS_NO_DUPLICATE_CHECKPOINT_FIELDS", forbidden)
+		}
+	}
 	slices.Sort(keys)
 	return keys
 }
@@ -71,14 +76,14 @@ func TestPluginLifecycleCharacterization(t *testing.T) {
 		files string
 		keys  string
 	}{
-		{[]string{"add", "ext", "--exec", file}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name position revision scope"},
-		{[]string{"configure", "ext", "--scope", "all"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name position revision scope"},
-		{[]string{"grant", "ext", "--status", "--read", session.ID}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name position revision scope"},
-		{[]string{"enable", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
-		{[]string{"status", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
-		{[]string{"disable", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
-		{[]string{"revoke", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
-		{[]string{"configure", "ext", "--scope", "all"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch gap_id gap_reason id launch name position revision scope"},
+		{[]string{"add", "ext", "--exec", file}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name revision scope"},
+		{[]string{"configure", "ext", "--scope", "all"}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name revision scope"},
+		{[]string{"grant", "ext", "--status", "--read", session.ID}, "ext.data/ ext.json ext.lock id-UUID.json", "access enabled id launch name revision scope"},
+		{[]string{"enable", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch id launch name revision scope"},
+		{[]string{"status", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch id launch name revision scope"},
+		{[]string{"disable", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch id launch name revision scope"},
+		{[]string{"revoke", "ext"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch id launch name revision scope"},
+		{[]string{"configure", "ext", "--scope", "all"}, "ext.data/ ext.json ext.lock ext.restart.json ext.restart.lock id-UUID.json", "access enabled epoch id launch name revision scope"},
 		{[]string{"remove", "ext"}, "ext.lock ext.restart.json ext.restart.lock", ""},
 	}
 	for _, step := range steps {

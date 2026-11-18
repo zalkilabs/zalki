@@ -27,11 +27,15 @@ func readRecord(path string, value any, schema *int) error {
 }
 
 func (s Store) readSession(path string) (model.Session, error) {
-	var raw json.RawMessage
-	var v model.Session
-	if err := readJSON(path, &raw); err != nil {
-		return v, err
+	raw, err := readScopedPluginBytes(s, path, maxStateFileBytes)
+	if err != nil {
+		return model.Session{}, err
 	}
+	return decodeStoredSession(s, raw)
+}
+
+func decodeStoredSession(s Store, raw []byte) (model.Session, error) {
+	var v model.Session
 	if err := json.Unmarshal(raw, &v); err != nil {
 		return v, err
 	}

@@ -122,6 +122,7 @@ func (x *v2Fixture) runChild(t *testing.T) v2TestOutcome {
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() { done <- Run(ctx, x.store, "arbiter", &x.output, nil) }()
+	x.primeV2MetadataFeed(t)
 	var out v2TestOutcome
 	eventually(t, func() bool {
 		raw, err := os.ReadFile(x.result)
@@ -156,10 +157,10 @@ func (x *v2Fixture) checkSend(t *testing.T, out v2TestOutcome) {
 
 func (x *v2Fixture) checkFeedEvents(t *testing.T, out v2TestOutcome) {
 	t.Helper()
-	if a := out.Acked; a.From != x.asker.ID || a.To != "plugin:" || !a.Acknowledged || a.PreviousAcknowledged {
+	if a := out.Acked; a.From != x.asker.ID || a.To != "plugin:"+x.status.ID || !a.Acknowledged || a.PreviousAcknowledged {
 		t.Fatalf("feed did not show the consume as an ACK: %+v", a)
 	}
-	if c := out.Created; c.From != "plugin:" || c.To != x.asker.ID || c.Previous != "" {
+	if c := out.Created; c.From != "plugin:"+x.status.ID || c.To != x.asker.ID || c.Previous != "" {
 		t.Fatalf("feed did not show the plugin message: %+v", c)
 	}
 }
@@ -316,7 +317,7 @@ func v2ChildTestMain() {
 }
 
 type v2TestPeer struct {
-	in     *bufio.Reader
+	in     <-chan v2PeerInput
 	events map[string][]model.EventMessage // message id -> feed events, in order
 }
 
@@ -324,7 +325,11 @@ type v2TestPeer struct {
 // empty it returns after one acked offer.
 func (c v2TestPeer) next(want string) (json.RawMessage, error) {
 	for {
-		raw, err := c.in.ReadBytes('\n')
+		entry, open := <-c.in
+		if !open {
+			return nil, errors.New("fixture input closed")
+		}
+		raw, err := entry.raw, entry.err
 		if err != nil {
 			return nil, err
 		}
@@ -443,15 +448,9 @@ func (c v2TestPeer) waitEvents(out *v2TestOutcome) error {
 }
 
 func v2TestChild(resultPath, to string) error {
-	c := v2TestPeer{bufio.NewReaderSize(os.Stdin, maxFrame+1), map[string][]model.EventMessage{}}
-	if raw, err := c.next("hello"); err != nil || !bytes.Contains(raw, []byte(`"zalki-plugin/1"`)) || !bytes.Contains(raw, []byte(`"reply"`)) {
-		return errors.New("missing host hello with reply")
-	}
-	if err := v2TestWrite(frame{Hello: &hello{Wire: wireName, Requires: []string{"feed", "inbox", "reply"}, Optional: []string{"members"}}}); err != nil {
+	c := v2TestPeer{newV2PeerInput(), map[string][]model.EventMessage{}}
+	if err := c.helloAndGateOps(resultPath); err != nil {
 		return err
-	}
-	if raw, err := c.next("hello_ok"); err != nil || !bytes.Contains(raw, []byte(`"missing_optional":["members"]`)) {
-		return errors.New("missing hello_ok")
 	}
 	var out v2TestOutcome
 	var err error

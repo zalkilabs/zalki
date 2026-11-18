@@ -165,7 +165,8 @@ func (s PluginFeed) RevokePluginAccess() error {
 
 // changeOwnerAccess applies one owner change to scope or access. A disabled
 // plugin is just rewritten. An enabled plugin is rebound in ONE atomic write:
-// the change, a fresh epoch and an "enabled" gap. The running child's binding
+// the change and a fresh epoch. The next feed step creates the "enabled" gap.
+// The running child's binding
 // no longer holds (stale_binding), so it stops; a new start gets only the new
 // access. The record is always either the old or the new one; a write whose
 // confirmation failed is reported by publicationError. The pin is verified
@@ -212,21 +213,17 @@ func (s PluginFeed) changeOwnerAccess(change func(*pluginRecord) error) error {
 	})
 }
 
-// rebindIfEnabled gives an enabled record a fresh epoch and an "enabled" gap,
+// rebindIfEnabled gives an enabled record a fresh epoch; the next feed step
+// records an "enabled" gap,
 // so the running child's binding no longer holds. It refuses to leave an
 // enabled plugin with no access.
-func rebindIfEnabled(view bus.JournalView, p *pluginRecord) error {
+func rebindIfEnabled(_ bus.JournalView, p *pluginRecord) error {
 	if !p.Enabled {
 		return nil
 	}
 	if !p.mayRun() {
 		return model.NewError(model.CodeInvalidInput, "this leaves the plugin no access; use plugins revoke to remove all access")
 	}
-	head, err := view.EventWindow()
-	if err != nil {
-		return err
-	}
-	p.setGap(head, "enabled")
 	p.Epoch = model.NewUUID()
 	return nil
 }

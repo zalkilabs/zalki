@@ -128,7 +128,7 @@ func (v JournalView) EventWindow() (window EventWindow, err error) {
 // EventAt verifies the stored event and its expected epoch and sequence.
 func (v JournalView) EventAt(epoch string, sequence uint64) (event model.Event, err error) {
 	err = v.use(func(store Store) error {
-		data, err := journal.ReadBytes(filepath.Join(store.Dir, eventRecordPath(sequence)), maxEventBytes)
+		data, err := readScopedPluginBytes(store, filepath.Join(store.Dir, eventRecordPath(sequence)), maxEventBytes)
 		if err != nil {
 			return err
 		}

@@ -41,7 +41,7 @@ func pipeChild(t *testing.T) (*child, *bufio.Reader) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = rd.Close(); _ = wr.Close() })
-	return &child{input: wr}, bufio.NewReader(rd)
+	return &child{input: wr, parent: t.Context()}, bufio.NewReader(rd)
 }
 
 func firstFrame(t *testing.T, r *bufio.Reader) string {
@@ -62,6 +62,7 @@ func TestV2HostOldChildGetsNoNewFeedGrant(t *testing.T) {
 func checkV2OldChild(t *testing.T, newSessions bool) {
 	t.Helper()
 	x := v2HostFixture(t)
+	captured := captureFeedFeatures(&x.status, []string{capFeed})
 	if newSessions {
 		if _, _, err := x.store.Register("codex", model.NewUUID(), t.TempDir(), nil); err != nil {
 			t.Fatal(err)
@@ -69,7 +70,7 @@ func checkV2OldChild(t *testing.T, newSessions bool) {
 	}
 	ownerChangesBetweenTicks(t, x.feed, newSessions)
 	c, frames := pipeChild(t)
-	h := &v2Host{ctx: t.Context(), feed: x.feed, binding: &x.status, child: c, enabled: []string{"feed"}}
+	h := &v2Host{ctx: t.Context(), feed: x.feed, binding: captured, child: c, enabled: []string{"feed"}}
 	if h.tick() == nil {
 		t.Fatal("the old child was not stopped")
 	}
@@ -80,7 +81,7 @@ func checkV2OldChild(t *testing.T, newSessions bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d, err := x.feed.NextPluginFeed(&current); err != nil || d.Gap != "enabled" {
+	if d, err := testFeedNext(x.feed, &current); err != nil || d.Gap != "enabled" {
 		t.Fatal("a new launch does not get the feed", d, err)
 	}
 }

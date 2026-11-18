@@ -69,14 +69,14 @@ func checkOldLaunchRefused(t *testing.T, feed PluginFeed, launch PluginFeedStatu
 	if err := feed.EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
-	if d, err := feed.NextPluginFeed(&launch); model.ErrorCodeOf(err) != model.CodeUnauthorized || d.ID != "" {
+	if d, err := testFeedNext(feed, &launch); model.ErrorCodeOf(err) != model.CodeUnauthorized || d.ID != "" {
 		t.Fatal("an old launch got a feed offer", sessions, d, err)
 	}
 	current, err := feed.PluginStatus()
 	if err != nil || current.Epoch == launch.Epoch {
 		t.Fatal("enable did not rotate the epoch", err)
 	}
-	if d, err := feed.NextPluginFeed(&current); err != nil || d.Gap != "enabled" {
+	if d, err := testFeedNext(feed, &current); err != nil || d.Gap != "enabled" {
 		t.Fatal("the new launch got no feed", d, err)
 	}
 }

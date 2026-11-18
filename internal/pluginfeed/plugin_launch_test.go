@@ -112,7 +112,7 @@ func TestExternalPluginEnableRetryDoesNotSilentlyRepin(t *testing.T) {
 		t.Fatal("expected unknown rename outcome", err)
 	}
 	p, _, err := f.loadPlugin()
-	if err != nil || !p.Enabled || p.GapID == "" {
+	if err != nil || !p.Enabled || !model.IsCanonicalUUID(p.Epoch) {
 		t.Fatal("cut did not publish enabled pin", p, err)
 	}
 	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 2\n"), 0700); err != nil {
@@ -286,8 +286,8 @@ type externalRetryCheck struct {
 func (check *externalRetryCheck) run(t *testing.T) {
 	f, p := check.feed, check.previous
 	after, _, err := f.loadPlugin()
-	if err != nil || after.GapID != p.GapID || after.Launch.SHA256 != p.Launch.SHA256 || after.Launch.PinSHA256 != p.Launch.PinSHA256 {
-		t.Fatal("retry silently repinned or replaced gap", after, err)
+	if err != nil || after.Epoch != p.Epoch || after.Launch.SHA256 != p.Launch.SHA256 || after.Launch.PinSHA256 != p.Launch.PinSHA256 {
+		t.Fatal("retry silently repinned or replaced enable incarnation", after, err)
 	}
 	if err := after.Launch.Verify(); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("changed file matched retry pin", err)

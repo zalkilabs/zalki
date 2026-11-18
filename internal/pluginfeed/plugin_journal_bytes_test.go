@@ -62,7 +62,7 @@ func seedPluginJournalBytes(f PluginFeed, view bus.JournalView, now time.Time) e
 	if err := f.savePluginIdentity(byteFixturePlugin); err != nil {
 		return err
 	}
-	if _, err := f.savePlugin(pluginRecord{ID: byteFixturePlugin, Name: f.name, Launch: launch, Enabled: true, Scope: scopeAll, Access: PluginAccess{Status: true, Receive: true, Read: []string{byteFixtureActor}}, GapReason: "enabled"}); err != nil {
+	if _, err := f.savePlugin(pluginRecord{ID: byteFixturePlugin, Name: f.name, Launch: launch, Enabled: true, Scope: scopeAll, Access: PluginAccess{Status: true, Receive: true, Read: []string{byteFixtureActor}}, Epoch: byteFixtureGen}); err != nil {
 		return err
 	}
 	return seedPluginJournalMessages(f, view, now)
@@ -122,9 +122,11 @@ func assertPluginJournalBytes(t *testing.T, name string, raw []byte) {
 	// Captured with production files at 149740f before the journal boundary.
 	// installation: captured again when receive replaced inbox_from/inbox_read,
 	// and all but identity when scope, access and the hash revision replaced
-	// sessions and capabilities (slice 2).
+	// sessions and capabilities (slice 2). Feed slices 3+6 remove the owner
+	// cursor/gap fields and retain the enable incarnation; every other golden
+	// remains unchanged. Characterization: checkpoint-cleanup-1440.
 	want := map[string]string{
-		"installation":  "c43a9777df1317e57fafae777c3ed0250036e6bba2f640de709e95036cfeed2b",
+		"installation":  "3d6ad48a43c0d3472a6db7ccc3e5ea7926d9e235ff76ee2ef2bee795d455c610",
 		"identity hint": "6427652d690a10e557e0354e70a402d50ebe7180f4bbc03bb7bc0848ff2e235b",
 		"inbox index":   "180098f511cc8c376cc5b981658f6a5840912b193a816f34ab075521d587dcf4",
 		"native audit":  "d7ab481971eb2351f79ca1d2b1de3d08a8295d15773d9e9fe903e00565478828",

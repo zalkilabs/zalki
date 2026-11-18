@@ -26,7 +26,7 @@ func (s PluginFeed) write(fn func(bus.JournalView) error) error {
 	if err := s.checkName(); err != nil {
 		return err
 	}
-	return bus.WithJournalWrite(s.store, fn)
+	return bus.WithJournalWrite(s.store, func(view bus.JournalView) error { return view.WithWriteScope(s.root, func() error { return fn(view) }) })
 }
 
 func (s pluginFiles) pluginDir() string      { return filepath.Join(s.root, "plugins") }
@@ -140,6 +140,9 @@ func (s PluginFeed) RemovePlugin() error {
 		}
 		return journal.SyncDir(s.pluginDir())
 	}); err != nil {
+		return err
+	}
+	if err := removeIfPresent(s.streamPath()); err != nil {
 		return err
 	}
 	if installation != "" {

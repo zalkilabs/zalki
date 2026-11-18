@@ -45,7 +45,7 @@ func (s PluginFeed) BeginPluginUpdate() (*PluginInstall, PluginFeedStatus, error
 			return model.NewError(model.CodeInvalidInput, "%s was added with --exec, not installed from a folder. Remove it and install it from its folder. Nothing was changed", s.name)
 		}
 		i.update = slices.Clone(raw)
-		status = PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Scope: p.Scope, Access: p.Access.clone(), Revision: p.Revision, GapPending: p.GapID != "", LastGap: p.GapReason, Install: p.Install, Epoch: p.Epoch}
+		status = s.statusOf(p)
 		return nil
 	})
 	if err == nil {
@@ -62,7 +62,10 @@ func (s PluginFeed) BeginPluginUpdate() (*PluginInstall, PluginFeedStatus, error
 // snapshot for update checks, never authority to build, grant or commit.
 func (s PluginFeed) ReadPluginUpdateStatus() (PluginFeedStatus, error) {
 	p, _, err := s.loadPlugin()
-	return PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Scope: p.Scope, Access: p.Access.clone(), Revision: p.Revision, GapPending: p.GapID != "", LastGap: p.GapReason, Install: p.Install, Epoch: p.Epoch}, err
+	if err != nil {
+		return PluginFeedStatus{}, err
+	}
+	return s.statusOf(p), nil
 }
 
 func (s PluginFeed) prepareUpdate(status PluginFeedStatus) error {

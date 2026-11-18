@@ -40,5 +40,17 @@
   "message_kind": [
     {"value": "", "meaning": "a normal message"},
     {"value": "notice", "meaning": "an automatic completion notice, not a message an agent wrote"}
+  ],
+  "error_code": [
+    {"value": "conflict","meaning": "conflicting state or ownership.","context": "core.error.code"},
+    {"value": "internal","meaning": "an otherwise unclassified failure.","context": "core.error.code"},
+    {"value": "invalid_identity","meaning": "an invalid session or message identity.","context": "core.error.code"},
+    {"value": "invalid_input","meaning": "invalid operation input.","context": "core.error.code"},
+    {"value": "invalid_transition","meaning": "a disallowed state transition.","context": "core.error.code"},
+    {"value": "not_found","meaning": "an absent resource.","context": "core.error.code"},
+    {"value": "rate_limited","meaning": "an exhausted delivery quota.","context": "core.error.code"},
+    {"value": "unauthorized","meaning": "an authentication or permission refusal.","context": "core.error.code"},
+    {"value": "unavailable","meaning": "an unavailable destination or delivery.","context": "core.error.code"},
+    {"value": "unsupported_schema","meaning": "an unsupported journal format.","context": "core.error.code"}
   ]
 }

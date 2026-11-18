@@ -506,7 +506,7 @@ func pendingGapRestart(t *testing.T, reason string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").AckPluginFeed(initial); err != nil {
+	if err := testFeedAck(pluginfeed.NewPluginFeed(store, "fake-notifier"), initial); err != nil {
 		t.Fatal(err)
 	}
 	seedLaterHistory(t, store, session, "retention")
@@ -520,7 +520,9 @@ func pendingGapRestart(t *testing.T, reason string) {
 	stop, done := startHost(t, store)
 	seen := filepath.Join(hostData(store), ".seen-"+gap.ID)
 	eventually(t, func() bool { _, err := os.Stat(seen); return err == nil })
+	firstGap := readExactHostGap(t, seen, gap.ID, "retention")
 	seedLaterHistory(t, store, session, reason)
+	_, currentCut := nativeHostEvent(t, store)
 	stop()
 	<-done
 	if err := os.Remove(seen); err != nil {
@@ -528,22 +530,12 @@ func pendingGapRestart(t *testing.T, reason string) {
 	}
 	startHost(t, store)
 	eventually(t, func() bool { _, err := os.Stat(seen); return err == nil })
+	assertExactHostGapReplay(t, seen, gap.ID, "retention", firstGap)
 	assertSeenGap(t, seen, "retention")
 	if err := os.WriteFile(filepath.Join(hostData(store), ".allow-ack"), []byte("yes"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, func() bool { return laterGapSeen(hostData(store), gap.ID, reason) })
-	eventually(t, func() bool {
-		s, err := pluginfeed.NewPluginFeed(store, "fake-notifier").PluginStatus()
-		return err == nil && s.LastGap == reason && !s.GapPending
-	})
-	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
-		t.Fatal(err)
-	}
-	eventually(t, func() bool {
-		d, err := nextFeed(pluginfeed.NewPluginFeed(store, "fake-notifier"))
-		return err == nil && d.ID == ""
-	})
+	assertHostLaunchAfterPending(t, store, gap.ID, session.ID, currentCut)
 }
 
 func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reason string) {
@@ -607,17 +599,16 @@ func checkOneOfferAndDisable(t *testing.T, mode string) {
 		t.Fatal(err)
 	}
 	_, done := startHost(t, store)
-	eventually(t, func() bool {
-		s, err := pluginfeed.NewPluginFeed(store, "fake-notifier").PluginStatus()
-		return err == nil && !s.GapPending
-	})
+	waitHostFeedCut(t, store, "fake-notifier", "enabled")
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, func() bool {
-		d, err := nextFeed(pluginfeed.NewPluginFeed(store, "fake-notifier"))
-		return err == nil && d.ID == ""
-	})
+	waitHostFeedFloor(t, store, "fake-notifier", session.ID)
+	if err := store.Update(session.ID, model.StateReady, false); err != nil {
+		t.Fatal(err)
+	}
+	event, position := nativeHostEvent(t, store)
+	awaitSeenHostEventAck(t, store, event.ID, position)
 	if err := pluginfeed.NewPluginFeed(store, "fake-notifier").EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}
@@ -886,7 +877,7 @@ func TestPlainStderr(t *testing.T) {
 // nextFeed selects the next feed event for a launch that starts now.
 func nextFeed(f pluginfeed.PluginFeed) (pluginfeed.PluginDelivery, error) {
 	status, _ := f.PluginStatus() // a load error comes back from NextPluginFeed too
-	return f.NextPluginFeed(&status)
+	return testFeedNext(f, &status)
 }
 
 // SECURITY (slice W): a disable while an offer is pending ends the host

@@ -1,6 +1,7 @@
 package pluginfeed
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -10,37 +11,102 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-func TestNamedPluginIsolationAndReceiptFence(t *testing.T) {
-	s := fixtureStore(t)
-	v, _ := register(t, s, "codex")
-	foreign, _ := register(t, s, "codex")
-	a := installedNamedFeed(t, s, "alpha")
-	b := installedNamedFeed(t, s, "beta")
+func TestStreamNamedIsolationRequiresOwnAttempt(t *testing.T) {
+	store := fixtureStore(t)
+	native, _ := register(t, store, "codex")
+	a, sa := currentNamedStream(t, store, "alpha")
+	b, sb := currentNamedStream(t, store, "beta")
+	primeNamedStreamViews(t, store, native.ID, []streamTestBinding{{a, sa}, {b, sb}})
+	updateStreamState(t, store, native.ID, model.StateBusy)
+	ae := streamInspect(t, a, sa)
+	be := streamInspect(t, b, sb)
+	if ae.ID == "" || ae.ID != be.ID {
+		t.Fatal("same immutable event must be prepared in both views")
+	}
+	streamAttemptAll(t, a, sa, ae)
+	assertNamedPreparedAckRefused(t, b, sa, sb, ae.ID)
+	acknowledgeStream(t, a, sa, ae.ID)
+	if again := streamInspect(t, b, sb); again.ID != be.ID {
+		t.Fatal("F_NAMED_A_ACK_NEVER_ADVANCES_B")
+	}
+	streamAttemptAll(t, b, sb, be)
+	if _, err := b.AckPluginFeed(sb, be.ID); err != nil {
+		t.Fatal("F_NAMED_B_OWN_ATTEMPT_POSITIVE", err)
+	}
+	ac, bc := readStreamCheckpoint(t, a), readStreamCheckpoint(t, b)
+	if ac.Cursor != bc.Cursor || ac.LastAck != ae.ID || bc.LastAck != be.ID {
+		t.Fatal("independent own ACK progress")
+	}
+	if err := b.ConfigurePluginScope("none"); err != nil {
+		t.Fatal(err)
+	}
+	sb = streamTestLaunch(t, b)
+	streamReady(t, b, sb)
+	updateStreamState(t, store, native.ID, model.StateReady)
+	_, fact := streamTake(t, a, sa)
+	if fact.Event == nil || fact.Event.Session.ID != native.ID {
+		t.Fatal("per-name allowed scope lost its native fact")
+	}
+	if denied := streamInspect(t, b, sb); denied.ID != "" {
+		t.Fatal("scope none installation observed native fact")
+	}
+}
 
-	assertNamedPluginGrantIsolation(t, s, a, b, foreign.ID)
-	if err := s.Update(v.ID, model.StateBusy, false); err != nil {
+func assertNamedPreparedAckRefused(t *testing.T, feed PluginFeed, foreign, own *PluginFeedStatus, id string) {
+	t.Helper()
+	before := readCommitFile(t, feed.streamPath())
+	if _, err := feed.AckPluginFeed(own, id); model.ErrorCodeOf(err) != model.CodeConflict {
+		t.Fatal("F_NAMED_FOREIGN_ATTEMPT_CANNOT_AUTHORIZE_PREPARED_B", err)
+	}
+	if _, err := feed.AckPluginFeed(foreign, id); model.ErrorCodeOf(err) != model.CodeConflict {
+		t.Fatal("F_NAMED_FOREIGN_CAPTURED_LAUNCH_REFUSED", err)
+	}
+	if !bytes.Equal(before, readCommitFile(t, feed.streamPath())) {
+		t.Fatal("F_NAMED_REFUSED_ACK_B_CHECKPOINT_UNCHANGED")
+	}
+}
+
+type streamTestBinding struct {
+	feed   PluginFeed
+	launch *PluginFeedStatus
+}
+
+func primeNamedStreamViews(t *testing.T, store bus.Store, id string, bindings []streamTestBinding) {
+	t.Helper()
+	updateStreamState(t, store, id, model.StateBusy)
+	for _, binding := range bindings {
+		if first := streamInspect(t, binding.feed, binding.launch); first.ID != "" {
+			t.Fatal("B_NAMED_FIRST_SEEN_PRIVATE_FLOOR")
+		}
+	}
+	updateStreamState(t, store, id, model.StateReady)
+	for _, binding := range bindings {
+		offer, frame := streamTake(t, binding.feed, binding.launch)
+		if frame.Event == nil || frame.Event.Session.ID != id {
+			t.Fatal("B_NAMED_OWN_POST_FLOOR_POSITIVE")
+		}
+		acknowledgeStream(t, binding.feed, binding.launch, offer.ID)
+	}
+}
+
+func currentNamedStream(t *testing.T, store bus.Store, name string) (PluginFeed, *PluginFeedStatus) {
+	t.Helper()
+	feed := NewPluginFeed(store, name)
+	if err := feed.AddExternalPlugin(testExecutable(t), nil); err != nil {
 		t.Fatal(err)
 	}
-	x, err := nextFeed(a)
-	if err != nil || x.Event == nil {
-		t.Fatal(x, err)
-	}
-	y, err := nextFeed(b)
-	if err != nil || y.ID != x.ID {
-		t.Fatal("independent feeds missed the same event", y, err)
-	}
-	if err := b.AckPluginFeed(x); model.ErrorCodeOf(err) != model.CodeConflict {
-		t.Fatal("cross-name receipt accepted", err)
-	}
-	if err := a.AckPluginFeed(x); err != nil {
+	if err := feed.ConfigurePluginScope("all"); err != nil {
 		t.Fatal(err)
 	}
-	if next, err := nextFeed(b); err != nil || next.ID != y.ID {
-		t.Fatal("one plugin advanced another", next, err)
-	}
-	if err := b.AckPluginFeed(y); err != nil {
+	if err := feed.GrantPluginAccess(PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
+	if err := feed.EnablePluginFeed(true); err != nil {
+		t.Fatal(err)
+	}
+	launch := streamTestLaunch(t, feed)
+	streamReady(t, feed, launch)
+	return feed, launch
 }
 
 func TestNamedPluginRemovalReaddAndPersistentData(t *testing.T) {
@@ -87,7 +153,7 @@ func TestNamedPluginRejectsInvalidNamesWithoutState(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			s := bus.Store{Dir: filepath.Join(t.TempDir(), "absent")}
 			f := NewPluginFeed(s, name)
-			for _, call := range []func() error{func() error { return f.AddExternalPlugin("/bin/sh", nil) }, f.RemovePlugin, func() error { return f.ConfigurePluginScope("all") }, func() error { return f.EnablePluginFeed(true) }, func() error { _, err := nextFeed(f); return err }, func() error { return f.AckPluginFeed(PluginDelivery{}) }, func() error { _, err := f.PluginStatus(); return err }} {
+			for _, call := range []func() error{func() error { return f.AddExternalPlugin("/bin/sh", nil) }, f.RemovePlugin, func() error { return f.ConfigurePluginScope("all") }, func() error { return f.EnablePluginFeed(true) }, func() error { _, err := nextFeed(f); return err }, func() error { return testFeedAck(f, PluginDelivery{}) }, func() error { _, err := f.PluginStatus(); return err }} {
 				if err := call(); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 					t.Fatal("accepted invalid name", err)
 				}
@@ -167,66 +233,6 @@ func TestNamedPluginConfigureDoesNotRecreateRemovedInstallation(t *testing.T) {
 	}
 }
 
-func installedNamedFeed(t *testing.T, s bus.Store, name string) PluginFeed {
-	t.Helper()
-	feed := NewPluginFeed(s, name)
-	if err := feed.AddExternalPlugin(testExecutable(t), nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := feed.ConfigurePluginScope("all"); err != nil {
-		t.Fatal(err)
-	}
-	if err := feed.GrantPluginAccess(PluginAccess{Status: true}); err != nil {
-		t.Fatal(err)
-	}
-	if err := feed.EnablePluginFeed(true); err != nil {
-		t.Fatal(err)
-	}
-	gap, err := nextFeed(feed)
-	if err != nil || gap.Gap != "enabled" {
-		t.Fatal(gap, err)
-	}
-	if err := feed.AckPluginFeed(gap); err != nil {
-		t.Fatal(err)
-	}
-	return feed
-}
-
-func assertNamedPluginGrantIsolation(t *testing.T, s bus.Store, a, b PluginFeed, foreign string) {
-	t.Helper()
-	setScope(t, b, "none")
-	if err := a.EnablePluginFeed(false); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.ConfigurePluginScope("all"); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.EnablePluginFeed(true); err != nil {
-		t.Fatal(err)
-	}
-	gap, err := nextFeed(a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := a.AckPluginFeed(gap); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Update(foreign, model.StateBusy, false); err != nil {
-		t.Fatal(err)
-	}
-	own, err := nextFeed(a)
-	if err != nil || own.Event == nil || own.Event.Session.ID != foreign {
-		t.Fatal("per-name grants were lost", own, err)
-	}
-	if err := a.AckPluginFeed(own); err != nil {
-		t.Fatal(err)
-	}
-	if skipped, err := nextFeed(b); err != nil || skipped.ID != "" {
-		t.Fatal("a plugin with scope none saw a session", skipped, err)
-	}
-	setScope(t, b, "all")
-}
-
 func assertNamedPluginReaddFences(t *testing.T, f PluginFeed, previousID string, old PluginDelivery) {
 	t.Helper()
 	if err := f.AddExternalPlugin(testExecutable(t), nil); err != nil {
@@ -245,7 +251,7 @@ func assertNamedPluginReaddFences(t *testing.T, f PluginFeed, previousID string,
 	if err := f.EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.AckPluginFeed(old); model.ErrorCodeOf(err) != model.CodeConflict {
+	if err := testFeedAck(f, old); model.ErrorCodeOf(err) != model.CodeConflict {
 		t.Fatal("receipt crossed re-add", err)
 	}
 }
@@ -284,14 +290,3 @@ func prepareNamedPluginRemoval(t *testing.T, f PluginFeed) PluginDelivery {
 
 // setScope changes an enabled plugin's scope (disable, configure, enable)
 // and acks the new gap.
-func setScope(t *testing.T, f PluginFeed, scope string) {
-	t.Helper()
-	for _, step := range []func() error{func() error { return f.EnablePluginFeed(false) }, func() error { return f.ConfigurePluginScope(scope) }, func() error { return f.EnablePluginFeed(true) }} {
-		if err := step(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if gap, err := nextFeed(f); err != nil || f.AckPluginFeed(gap) != nil {
-		t.Fatal("new scope: gap", gap, err)
-	}
-}

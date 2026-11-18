@@ -1,6 +1,7 @@
 package pluginfeed
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"slices"
@@ -40,7 +41,7 @@ func TestPluginAccessRejectsMalformedRecords(t *testing.T) {
 			p.Access.Read = ids[:16]
 			p.Access.Send = ids[16:]
 		}},
-		{"enabled-without-access", func(p *pluginRecord) { p.Access = PluginAccess{}; p.Enabled = true; p.GapReason = "enabled" }},
+		{"enabled-without-access", func(p *pluginRecord) { p.Access = PluginAccess{}; p.Enabled = true; p.Epoch = model.NewUUID() }},
 	}
 	for _, row := range cases {
 		t.Run(row.name, func(t *testing.T) {
@@ -65,9 +66,18 @@ func TestPluginAccessRevocationFencesMetadataReceipt(t *testing.T) {
 	if err := f.EnablePluginFeed(true); err != nil {
 		t.Fatal(err)
 	}
+	captured, err := f.PluginStatus()
+	if err != nil {
+		t.Fatal(err)
+	}
+	captured.FeedFeatures.Feed = true
 	offer, err := nextFeed(f)
 	if err != nil || offer.ID == "" {
 		t.Fatal(offer, err)
+	}
+	checkpoint, err := os.ReadFile(f.streamPath())
+	if err != nil {
+		t.Fatal(err)
 	}
 	if err := f.RevokePluginAccess(); err != nil {
 		t.Fatal(err)
@@ -82,8 +92,12 @@ func TestPluginAccessRevocationFencesMetadataReceipt(t *testing.T) {
 	if !status.Access.empty() || status.Scope != "all" {
 		t.Fatal("revoke changed the scope or kept access", status)
 	}
-	if err := f.AckPluginFeed(offer); model.ErrorCodeOf(err) != model.CodeConflict {
+	if _, err := f.AckPluginFeed(&captured, offer.ID); model.ErrorCodeOf(err) != model.CodeUnauthorized {
 		t.Fatal("revoked metadata receipt committed", err)
+	}
+	after, err := os.ReadFile(f.streamPath())
+	if err != nil || !bytes.Equal(checkpoint, after) {
+		t.Fatal("revoked ACK changed checkpoint", err)
 	}
 }
 

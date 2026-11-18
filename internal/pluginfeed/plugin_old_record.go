@@ -14,8 +14,9 @@ import (
 // without a scope (before rule scope, so also with the inbox_from/inbox_read
 // grants of before receive), or an install receipt without the manifest id
 // (before zalki-plugin/1), or a receipt without its installer and declared
-// access (before install provenance). There is no
-// conversion: keep its record and data, and install a separate instance.
+// access (before install provenance), or one with the retired owner-record
+// cursor/gap fields. There is no conversion: keep its record and data,
+// and install a separate instance.
 var ErrOldPluginRecord = errors.New("plugin record from an older Zalki")
 
 // oldPluginRecord reports the fix for a record with the old grant keys, or nil.
@@ -57,6 +58,11 @@ func shellUnsafe(r rune) bool {
 func oldPluginSource(raw []byte) (string, bool) {
 	var old struct {
 		Scope        *string                    `json:"scope"`
+		Enabled      json.RawMessage            `json:"enabled"`
+		Epoch        *string                    `json:"epoch"`
+		Position     json.RawMessage            `json:"position"`
+		GapID        json.RawMessage            `json:"gap_id"`
+		GapReason    json.RawMessage            `json:"gap_reason"`
 		Capabilities map[string]json.RawMessage `json:"capabilities"`
 		Install      *struct {
 			Source      string          `json:"source"`
@@ -71,13 +77,18 @@ func oldPluginSource(raw []byte) (string, bool) {
 	_, from := old.Capabilities["inbox_from"]
 	_, inbox := old.Capabilities["inbox_read"]
 	noScope := old.Scope == nil
+	oldFeed := hasOldPluginFeedFields(old.Position, old.GapID, old.GapReason, strings.TrimSpace(string(old.Enabled)) == "true", old.Epoch)
 	if old.Install == nil {
-		return "", from || inbox || noScope
+		return "", from || inbox || noScope || oldFeed
 	}
 	// A receipt from before install provenance is old: it is never completed
 	// with a guessed installer.
 	noProvenance := old.Install.InstalledBy == nil || old.Install.Access == nil
-	return old.Install.Source, from || inbox || noScope || old.Install.ID == "" || noProvenance
+	return old.Install.Source, from || inbox || noScope || oldFeed || old.Install.ID == "" || noProvenance
+}
+
+func hasOldPluginFeedFields(position, gapID, gapReason json.RawMessage, enabled bool, epoch *string) bool {
+	return position != nil || gapID != nil || gapReason != nil || (enabled && epoch == nil)
 }
 
 // oldPluginID reads only the installation ID of an old record, for remove.

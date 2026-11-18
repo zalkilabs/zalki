@@ -81,7 +81,7 @@ func eventRecordPath(sequence uint64) string {
 }
 
 func (w commitWriter) readMetadata() (eventMetadata, []byte, error) {
-	raw, err := journal.ReadBytes(filepath.Join(w.dir, eventMetaPath), maxStateFileBytes)
+	raw, err := readScopedPluginBytes(Store{Dir: w.dir}, filepath.Join(w.dir, eventMetaPath), maxStateFileBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		if err := w.checkEmptyRecords(); err != nil {
 			return eventMetadata{}, nil, err

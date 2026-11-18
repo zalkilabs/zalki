@@ -15,17 +15,18 @@
 package pluginfeed
 
 import (
-	"crypto/sha256"
+	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // PluginFeed provides the local plugin feed using its Store's journal lock.
 type PluginFeed struct {
-	store bus.Store
+	store  bus.Store
+	stream *streamRuntime
 	pluginFiles
 }
 
@@ -34,78 +35,24 @@ type pluginFiles struct{ root, name string }
 
 // NewPluginFeed returns the named installation feed; operations reject invalid names.
 func NewPluginFeed(store bus.Store, name string) PluginFeed {
-	return PluginFeed{store: store, pluginFiles: pluginFiles{root: store.Dir, name: name}}
+	return PluginFeed{store: store, stream: newStreamRuntime(), pluginFiles: pluginFiles{root: store.Dir, name: name}}
 }
 
 // PluginDelivery contains metadata only. Its private receipt stays with the host;
 // the child returns just ID, never a position supplied by executable code.
 type PluginDelivery struct {
-	ID    string       `json:"id"`
-	Gap   string       `json:"gap,omitempty"`
-	Event *model.Event `json:"event,omitempty"`
-	prior [32]byte
-	after pluginPosition
-	offer string
+	Frames []json.RawMessage `json:"-"`
+	ID     string            `json:"id"`
+	Gap    string            `json:"gap,omitempty"`
+	Event  *model.Event      `json:"event,omitempty"`
 }
 
-func (p *pluginRecord) setGap(head bus.EventWindow, reason string) {
-	p.Position = pluginPosition{head.Epoch, head.Last}
-	p.GapID, p.GapReason = model.NewUUID(), reason
-}
-
-func (p pluginRecord) lost(head bus.EventWindow) string {
-	// An empty-stream position binds its first real epoch without skipping events.
-	if (p.Position.Epoch != "" && p.Position.Epoch != head.Epoch) || p.Position.Sequence > head.Last {
-		return "epoch"
-	}
-	if head.Count != 0 && p.Position.Sequence < head.First-1 {
-		return "retention"
-	}
-	return ""
-}
-
-func pluginOffer(id, gap string, event *model.Event, raw []byte, after pluginPosition) PluginDelivery {
-	return PluginDelivery{ID: id, Gap: gap, Event: event, prior: sha256.Sum256(raw), after: after, offer: id}
-}
-
-// NextPluginFeed offers one event or a durable gap. At most 64 records (256KiB)
-// are examined per call. No plugin work or callbacks execute under this lock.
-// launch is the snapshot the running child started with; a newer enable or
-// grant gives "plugin launch is stale" and no offer.
-func (s PluginFeed) NextPluginFeed(launch *PluginFeedStatus) (PluginDelivery, error) {
-	var delivery PluginDelivery
-	err := s.write(func(view bus.JournalView) error {
-		p, raw, err := s.loadPlugin()
-		if err != nil {
-			return err
-		}
-		if feed, err := feedAllowed(p, launch); !feed {
-			return err // without status access: no feed, and the position stays
-		}
-		head, err := view.EventWindow()
-		if err != nil {
-			return err
-		}
-		// Keep the offered gap and its watermark until ACK, even after later loss.
-		if reason := p.lost(head); p.GapID == "" && reason != "" {
-			p.setGap(head, reason)
-			raw, err = s.savePlugin(p)
-			if err != nil {
-				return err
-			}
-		}
-		if p.GapID != "" {
-			// A previous rename may be visible after its directory sync failed.
-			if err := journal.SyncDir(s.pluginDir()); err != nil {
-				return err
-			}
-			delivery = pluginOffer(p.GapID, p.GapReason, nil, raw, p.Position)
-			return nil
-		}
-		delivery, err = s.scanPlugin(view, p, raw, head)
-		return err
-	})
-	return delivery, err
+// NextPluginFeed prepares a bounded immutable offer, or preflights one exact
+// 1-based part immediately before handoff. Inspection (empty ID/part zero)
+// exposes no payload and never creates attempt evidence. Callers write only
+// the freshly returned part, after this method releases the journal lock.
+func (s PluginFeed) NextPluginFeed(ctx context.Context, launch *PluginFeedStatus, expectedID string, part int) (PluginDelivery, error) {
+	return s.nextStream(ctx, launch, expectedID, part)
 }
 
 // feedAllowed is checked under the same lock that picks the event: the
@@ -120,68 +67,11 @@ func feedAllowed(p pluginRecord, launch *PluginFeedStatus) (bool, error) {
 	return p.Access.Status, nil
 }
 
-func (s pluginFiles) scanPlugin(view bus.JournalView, p pluginRecord, raw []byte, head bus.EventWindow) (PluginDelivery, error) {
-	position := p.Position.Sequence
-	member := func(session string) bool { return standardMember(view, p, session) }
-	for scanned := 0; position < head.Last && scanned < 64; scanned++ {
-		position++
-		event, err := view.EventAt(head.Epoch, position)
-		if err != nil {
-			return PluginDelivery{}, err
-		}
-		if offered, ok := feedView(member, event); ok {
-			return pluginOffer(event.ID, "", &offered, raw, pluginPosition{head.Epoch, position}), nil
-		}
-	}
-	if position != p.Position.Sequence {
-		p.Position = pluginPosition{head.Epoch, position}
-		if _, err := s.savePlugin(p); err != nil {
-			return PluginDelivery{}, err
-		}
-	}
-	return PluginDelivery{}, nil
-}
-
-// AckPluginFeed persists only a receipt actually offered by this core API.
-// Restart before ACK replays; an old receipt cannot cross disable/reconfigure.
-func (s PluginFeed) AckPluginFeed(delivery PluginDelivery) error {
-	return s.locked(func() error {
-		p, raw, err := s.loadPlugin()
-		if err != nil {
-			return err
-		}
-		if !p.Enabled || delivery.ID == "" || delivery.ID != delivery.offer || sha256.Sum256(raw) != delivery.prior {
-			return model.NewError(model.CodeConflict, "plugin delivery is stale or was not offered")
-		}
-		p.Position, p.GapID = delivery.after, ""
-		_, err = s.savePlugin(p)
-		return err
-	})
-}
-
-// feedView returns the event as a plugin may see it now. A session event
-// needs a current member. Rich final events are suppressed until slices3+6
-// provide the accepted same-write witness; owner-exit events stay suppressed. A message event
-// needs a member sender or recipient; the other party is reduced to "kind:".
-// reply_to is kept: bus writes a reply only between its parent's parties
-// (checkReplyParties), so the parent is eligible for the same members.
-func feedView(member func(string) bool, event model.Event) (model.Event, bool) {
-	if event.Message == nil {
-		return event, !event.Session.Retired && event.Session.Cause != model.CauseOwnerExited && member(event.Session.ID)
-	}
-	m := *event.Message
-	from, to := member(m.From), member(m.To)
-	if !from && !to {
-		return model.Event{}, false
-	}
-	if !from {
-		m.From = addressKind(m.From)
-	}
-	if !to {
-		m.To = addressKind(m.To)
-	}
-	event.Message = &m
-	return event, true
+// AckPluginFeed commits only the exact durable handoff-attempted receipt of
+// this captured launch. Its pending ID tells the host whether a late canceled
+// ACK left a different offer outstanding; it never refreshes an ACK timer.
+func (s PluginFeed) AckPluginFeed(launch *PluginFeedStatus, id string) (string, error) {
+	return s.ackStream(launch, id)
 }
 
 func addressKind(address string) string {
