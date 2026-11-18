@@ -11,8 +11,8 @@ import (
 	"log/slog"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
@@ -58,6 +58,12 @@ func TestCodexPostToolUseStreamingSelection(t *testing.T) {
 			})
 		}
 	}
+	assertCodexBulkValuesDiscarded(t, id)
+	assertCodexWireBoundary(t, id)
+}
+
+func assertCodexBulkValuesDiscarded(t *testing.T, id string) {
+	t.Helper()
 	// Both large values together fit the proposed wire budget. No bulk value is
 	// retained, even though each is larger than the old entire-envelope budget.
 	input := io.MultiReader(strings.NewReader(`{"tool_input":"`), io.LimitReader(codexRepeatedByte('x'), 9*1024*1024), strings.NewReader(`","tool_response":"`), io.LimitReader(codexRepeatedByte('y'), 9*1024*1024), strings.NewReader(`","hook_event_name":"PostToolUse","session_id":"`+id+`"}`))
@@ -70,6 +76,10 @@ func TestCodexPostToolUseStreamingSelection(t *testing.T) {
 	if err := json.Unmarshal(selector.kept, &selected); err != nil || selected["session_id"] != id || len(selected) != 2 {
 		t.Fatal("selector removed fields other than top-level bulk", err)
 	}
+}
+
+func assertCodexWireBoundary(t *testing.T, id string) {
+	t.Helper()
 	for _, extra := range []int{0, 1} {
 		prefix, suffix := codexBulkParts(id, "PostToolUse", "tool_response", true)
 		var event agent.HookInput
@@ -141,6 +151,12 @@ func TestCodexPostToolUseLargeApprovalLifecycle(t *testing.T) {
 		t.Fatal("CODEX_LARGE_POST_TOOL_REJECTED", err)
 	}
 	assertPayloadApprovalReleased(t, store, target, msg, delivered)
+	assertCodexStreamingPolicyBound(t, &service, store, target)
+	assertCodexLargeHookIdentityAndStaleEvents(t, &service, store, target)
+}
+
+func assertCodexStreamingPolicyBound(t *testing.T, service *Service, store Store, target model.Session) {
+	t.Helper()
 	// The envelope cannot opt another adapter or native event into streaming.
 	for _, candidate := range []struct{ kind, event string }{
 		{"claude", "PostToolUse"}, {"cursor", "PostToolUse"}, {"codex", "Stop"},
@@ -150,6 +166,10 @@ func TestCodexPostToolUseLargeApprovalLifecycle(t *testing.T) {
 			t.Fatal("HOOK_STREAMING_POLICY_ESCAPED_ADAPTER_OR_EVENT", candidate, err)
 		}
 	}
+}
+
+func assertCodexLargeHookIdentityAndStaleEvents(t *testing.T, service *Service, store Store, target model.Session) {
+	t.Helper()
 	current, err := store.session(target.ID)
 	if err != nil || current.KeyHash != target.KeyHash || current.Generation != target.Generation || current.Name != "large" {
 		t.Fatal("CODEX_LARGE_HOOK_CHANGED_IDENTITY", err)
@@ -169,41 +189,46 @@ func TestCodexPostToolUseLargeApprovalLifecycle(t *testing.T) {
 func TestCodexPostToolUseInvalidCannotReleaseApproval(t *testing.T) {
 	for _, damage := range []string{"bulk_syntax", "late_type", "duplicate", "retained_limit", "wire_limit"} {
 		t.Run(damage, func(t *testing.T) {
-			store := fixtureStore(t)
-			sender, key, target, _ := registerPair(t, store, "claude", "codex")
-			if err := store.Update(target.ID, model.StateApproval, false); err != nil {
-				t.Fatal(err)
-			}
-			var delivered []string
-			service := approvalService(t, store, &delivered)
-			msg, err := service.Send(t.Context(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "held"})
-			if err != nil || !msg.Held {
-				t.Fatal(err)
-			}
-			before := journalSnapshot(t, store)
-			var logs, output bytes.Buffer
-			store.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
-			service.Store = store
-			prefix := fmt.Sprintf(`{"hook_event_name":"PostToolUse","session_id":%q,"tool_response":"`, target.NativeID)
-			suffix := `"}`
-			size := 9 * 1024 * 1024
-			switch damage {
-			case "bulk_syntax":
-				suffix = `\q"}`
-			case "late_type":
-				suffix = `","status":{}}`
-			case "duplicate":
-				suffix = `","hook_event_name":"SessionEnd"}`
-			case "wire_limit":
-				size = codexTestWireLimit + 1
-			case "retained_limit":
-				prefix = fmt.Sprintf(`{"hook_event_name":"PostToolUse","session_id":%q,"prompt":"`, target.NativeID)
-			}
-			input := io.MultiReader(strings.NewReader(prefix+"private-tool-sentinel"), io.LimitReader(codexRepeatedByte('x'), int64(size)), strings.NewReader(suffix))
-			if err := service.Hook(t.Context(), "codex", input, &output); err == nil || len(delivered) != 0 || output.Len() != 0 || !reflect.DeepEqual(before, journalSnapshot(t, store)) || strings.Contains(logs.String(), "private-tool-sentinel") {
-				t.Fatal("CODEX_INVALID_BULK_RELEASED_OR_LEAKED")
-			}
+			assertCodexInvalidBulkCannotReleaseApproval(t, damage)
 		})
+	}
+}
+
+func assertCodexInvalidBulkCannotReleaseApproval(t *testing.T, damage string) {
+	t.Helper()
+	store := fixtureStore(t)
+	sender, key, target, _ := registerPair(t, store, "claude", "codex")
+	if err := store.Update(target.ID, model.StateApproval, false); err != nil {
+		t.Fatal(err)
+	}
+	var delivered []string
+	service := approvalService(t, store, &delivered)
+	msg, err := service.Send(t.Context(), SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "held"})
+	if err != nil || !msg.Held {
+		t.Fatal(err)
+	}
+	before := journalSnapshot(t, store)
+	var logs, output bytes.Buffer
+	store.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
+	service.Store = store
+	prefix := fmt.Sprintf(`{"hook_event_name":"PostToolUse","session_id":%q,"tool_response":"`, target.NativeID)
+	suffix := `"}`
+	size := 9 * 1024 * 1024
+	switch damage {
+	case "bulk_syntax":
+		suffix = `\q"}`
+	case "late_type":
+		suffix = `","status":{}}`
+	case "duplicate":
+		suffix = `","hook_event_name":"SessionEnd"}`
+	case "wire_limit":
+		size = codexTestWireLimit + 1
+	case "retained_limit":
+		prefix = fmt.Sprintf(`{"hook_event_name":"PostToolUse","session_id":%q,"prompt":"`, target.NativeID)
+	}
+	input := io.MultiReader(strings.NewReader(prefix+"private-tool-sentinel"), io.LimitReader(codexRepeatedByte('x'), int64(size)), strings.NewReader(suffix))
+	if err := service.Hook(t.Context(), "codex", input, &output); err == nil || len(delivered) != 0 || output.Len() != 0 || !reflect.DeepEqual(before, journalSnapshot(t, store)) || strings.Contains(logs.String(), "private-tool-sentinel") {
+		t.Fatal("CODEX_INVALID_BULK_RELEASED_OR_LEAKED")
 	}
 }
 
@@ -214,29 +239,7 @@ func TestCodexPostToolUseStreamingFraming(t *testing.T) {
 	if _, _, err := decodeSelectedHookPayload(t.Context(), io.MultiReader(codexBulkReader(id, "PostToolUse", "tool_input", 9*1024*1024, true), tail), &event, "PostToolUse"); err != nil || tail.read != 0 {
 		t.Fatal("CODEX_SELECTOR_READ_AFTER_OBJECT", err, tail.read)
 	}
-	input, writer := io.Pipe()
-	written := make(chan error, 1)
-	done := make(chan error, 1)
-	go func() {
-		_, err := io.Copy(writer, codexBulkReader(id, "PostToolUse", "tool_response", 9*1024*1024, true))
-		written <- err
-	}()
-	go func() {
-		var e agent.HookInput
-		_, _, err := decodeSelectedHookPayload(t.Context(), input, &e, "PostToolUse")
-		done <- err
-	}()
-	defer func() { _ = input.Close(); _ = writer.Close(); <-written }()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(5 * time.Second):
-		_ = input.Close()
-		<-done
-		t.Fatal("CODEX_SELECTOR_WAITED_FOR_EOF")
-	}
+	assertCodexPipeReturnsWithoutEOF(t, id)
 	if _, _, err := decodeSelectedHookPayload(t.Context(), failedHookInput{}, &event, "PostToolUse"); !errors.Is(err, io.ErrClosedPipe) {
 		t.Fatal("CODEX_SELECTOR_LOST_READ_ERROR", err)
 	}
@@ -250,5 +253,102 @@ func TestCodexPostToolUseStreamingFraming(t *testing.T) {
 	counted := &hookSelectorInput{Reader: codexRepeatedByte(' '), ctx: t.Context()}
 	if n, _, err := decodeSelectedHookPayload(t.Context(), counted, &event, "PostToolUse"); model.ErrorCodeOf(err) != model.CodeInvalidInput || n != codexTestWireLimit+1 || counted.read != codexTestWireLimit+1 {
 		t.Fatal("CODEX_SELECTOR_UNBOUNDED_READ", n, counted.read, err)
+	}
+}
+
+// Count completed writes without sharing unsynchronized goroutine state.
+type codexPipeWriter struct {
+	pipe    *io.PipeWriter
+	written atomic.Int64
+	done    atomic.Bool
+}
+
+func (w *codexPipeWriter) Write(p []byte) (int, error) {
+	n, err := w.pipe.Write(p)
+	w.written.Add(int64(n))
+	return n, err
+}
+
+// A read after every byte of the complete object is delivered would block on
+// the still-open pipe. Observe that attempt without synthesizing EOF or errors.
+type codexOpenPipeReader struct {
+	io.Reader
+	delivered   int
+	expected    int
+	afterObject chan struct{}
+}
+
+func (r *codexOpenPipeReader) Read(p []byte) (int, error) {
+	if r.delivered >= r.expected {
+		r.afterObject <- struct{}{}
+	}
+	n, err := r.Reader.Read(p)
+	r.delivered += n
+	return n, err
+}
+
+func assertCodexPipeReturnsWithoutEOF(t *testing.T, id string) {
+	t.Helper()
+	prefix, suffix := codexBulkParts(id, "PostToolUse", "tool_response", true)
+	expected := len(prefix) + 9*1024*1024 + len(suffix)
+	input, output := io.Pipe()
+	writer := &codexPipeWriter{pipe: output}
+	reader := &codexOpenPipeReader{Reader: input, expected: expected, afterObject: make(chan struct{}, 1)}
+	written, decoded := make(chan struct{}), make(chan struct{})
+	var writeErr, decodeErr error
+	var size int
+	var event agent.HookInput
+	go func() {
+		_, writeErr = io.Copy(writer, codexBulkReader(id, "PostToolUse", "tool_response", 9*1024*1024, true))
+		writer.done.Store(true)
+		close(written)
+	}()
+	go func() {
+		size, _, decodeErr = decodeSelectedHookPayload(t.Context(), reader, &event, "PostToolUse")
+		close(decoded)
+	}()
+	defer func() {
+		if t.Failed() {
+			t.Logf("before pipe cleanup: bytes_written=%d producer_done=%t", writer.written.Load(), writer.done.Load())
+			select {
+			case <-decoded:
+				t.Logf("before pipe cleanup: decoder_done=true decoder_err=%v", decodeErr)
+			default:
+				t.Log("before pipe cleanup: decoder_done=false decoder_err=pending")
+			}
+		}
+		_ = input.Close()
+		_ = output.Close()
+		<-written
+		<-decoded
+		if t.Failed() {
+			t.Logf("after pipe cleanup: bytes_written=%d producer_done=%t write_err=%v decoder_err=%v bytes_read=%d", writer.written.Load(), writer.done.Load(), writeErr, decodeErr, reader.delivered)
+		}
+	}()
+	awaitCodexPipeEvents(t, reader, written, decoded, &writeErr, &decodeErr)
+	// Both completion events have arrived. Neither pipe end is closed until
+	// deferred cleanup, so this result cannot have depended on EOF.
+	if writer.written.Load() != int64(expected) || size != expected || event.SessionID != id || event.Event != "PostToolUse" {
+		t.Fatal("CODEX_PIPE_OBJECT_NOT_COMPLETE", writer.written.Load(), size, expected, event.SessionID, event.Event)
+	}
+}
+
+func awaitCodexPipeEvents(t *testing.T, reader *codexOpenPipeReader, written, decoded <-chan struct{}, writeErr, decodeErr *error) {
+	t.Helper()
+	for written != nil || decoded != nil {
+		select {
+		case <-written:
+			written = nil
+			if *writeErr != nil {
+				t.Fatal("CODEX_PIPE_PRODUCER_FAILED", *writeErr)
+			}
+		case <-decoded:
+			decoded = nil
+			if *decodeErr != nil {
+				t.Fatal("CODEX_PIPE_DECODER_FAILED", *decodeErr)
+			}
+		case <-reader.afterObject:
+			t.Fatal("CODEX_SELECTOR_WAITED_FOR_EOF")
+		}
 	}
 }
