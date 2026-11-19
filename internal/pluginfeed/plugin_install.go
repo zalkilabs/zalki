@@ -393,12 +393,7 @@ func (s PluginFeed) commitInstall(view bus.JournalView, launch PluginLaunch, acc
 			return false, model.NewError(model.CodeConflict, "a selected session is no longer live; nothing was installed")
 		}
 	}
-	head, err := view.EventWindow()
-	if err != nil {
-		return false, err
-	}
 	p = pluginRecord{ID: model.NewUUID(), Name: s.name, Launch: &launch, Enabled: true, Epoch: model.NewUUID(), Scope: scopeAll, Access: access, Install: &receipt}
-	p.setGap(head, "enabled")
 	identity := filepath.Join(s.pluginDir(), "id-"+p.ID+".json")
 	err = pluginDirectory(s.pluginDataPath(), true)
 	if err == nil {

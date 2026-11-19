@@ -52,22 +52,8 @@ func (s Store) sessionPath(id string) (string, error) {
 }
 
 func (s Store) session(id string) (model.Session, error) {
-	var session model.Session
-	path, err := s.sessionPath(id)
-	if err == nil {
-		session, err = s.readSession(path)
-	}
-	if err == nil && (session.ID != id || !strings.HasPrefix(id, session.Kind+":")) {
-		err = model.NewError(model.CodeInvalidIdentity, "session file identity mismatch")
-	}
-	if err == nil {
-		adapter, adapterErr := s.registry().Lookup(session.Kind)
-		if adapterErr != nil {
-			return session, adapterErr
-		}
-		session.Receive = adapter.ReceiveCapabilities(session)
-	}
-	return session, err
+	record, _, err := readSessionEvidence(s, id)
+	return record, err
 }
 
 func (s Store) saveSession(v model.Session) error {

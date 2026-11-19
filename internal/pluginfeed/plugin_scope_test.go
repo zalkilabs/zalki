@@ -126,7 +126,7 @@ func TestFiveChecksUseTheSameMembership(t *testing.T) {
 func fiveChecks(view bus.JournalView, p pluginRecord, session string) map[string]bool {
 	status := PluginFeedStatus{ID: p.ID, Launch: p.Launch, Enabled: true, Revision: p.Revision, Epoch: p.Epoch}
 	event := model.Event{Session: model.EventSession{ID: session, State: model.StateBusy, Previous: model.StateReady}}
-	_, feed := feedView(func(id string) bool { return standardMember(view, p, id) }, event)
+	feed := streamSessionEventEligible(event.Session, streamGuard{}, standardMember(view, p, session))
 	return map[string]bool{
 		"A feed":      p.Access.Status && feed,
 		"B admission": pluginInboxAdmissionAllowed(view, p, session),
@@ -148,7 +148,7 @@ func TestFeedSuppressesUnprovedRichFinalEvents(t *testing.T) {
 	}
 	for _, event := range cases {
 		for _, allowed := range []bool{true, false} {
-			if _, offered := feedView(func(string) bool { return allowed }, model.Event{Session: event}); offered {
+			if streamSessionEventEligible(event, streamGuard{}, allowed) {
 				t.Fatal("Z6_FINAL_EVENT_WITHOUT_WITNESS_HIDDEN")
 			}
 		}
@@ -179,9 +179,8 @@ func TestRevisionCoversOwnerChoicesOnly(t *testing.T) {
 		}
 	}
 	for name, change := range map[string]func(*pluginRecord){
-		"enabled":  func(p *pluginRecord) { p.Enabled = !p.Enabled },
-		"epoch":    func(p *pluginRecord) { p.Epoch = model.NewUUID() },
-		"position": func(p *pluginRecord) { p.Position.Sequence++ },
+		"enabled": func(p *pluginRecord) { p.Enabled = !p.Enabled },
+		"epoch":   func(p *pluginRecord) { p.Epoch = model.NewUUID() },
 	} {
 		p := base
 		change(&p)
@@ -274,39 +273,28 @@ func TestNoFeedWithoutStatusAccess(t *testing.T) {
 	}
 }
 
-// The membership probe runs under the journal lock, as zalki list does. It
-// is syscalls only (no exec). Worst case for one locked step: 64 events of 64
-// different sessions, each probed (a real process lookup of a recorded owner
-// that has exited) and each denied, so one NextPluginFeed scans all 64 and
-// offers nothing. That one locked step must stay far below the 250 ms poll.
+// One locked step may inspect64 distinct denied records. Elapsed time is
+// diagnostic only: native syscalls and host scheduling have no universal SLA.
 func TestFeedScanOf64SessionsHoldsTheLockBriefly(t *testing.T) {
-	s := fixtureStore(t)
-	enableFeed(t, s)
-	start := feedRecord(t, s).Position.Sequence
-	for range 64 {
-		session, _ := register(t, s, "codex")
-		path, _ := sessionTestPath(s, session.ID)
-		session.Owner = &model.ProcessRef{PID: 999999, Start: "gone"} // above any pid: the lookup says exited
-		if err := writeJSON(path, session); err != nil {
-			t.Fatal(err)
-		}
+	store := fixtureStore(t)
+	enableFeed(t, store)
+	feed := fixtureFeedRun(NewPluginFeed(store, "fake-notifier"))
+	launch := streamTestLaunch(t, feed)
+	if d := streamInspect(t, feed, launch); d.ID != "" {
+		t.Fatal("private cut emitted unexpected frame")
 	}
-	feed := NewPluginFeed(s, "fake-notifier")
-	launch, err := feed.PluginStatus()
-	if err != nil {
-		t.Fatal(err)
+	start := readStreamCheckpoint(t, feed).Cursor
+	addDeniedStreamScanFacts(t, store, 64)
+	measured := recordStreamScanWork(t, feed)
+	began := time.Now()
+	delivery, err := feed.NextPluginFeed(t.Context(), launch, "", 0)
+	t.Logf("one locked feed step of64 denied sessions: %v (diagnostic only)", time.Since(began))
+	if err != nil || delivery.ID != "" {
+		t.Fatal("exited session fact was offered", delivery, err)
 	}
-	started := time.Now()
-	d, err := feed.NextPluginFeed(&launch)
-	took := time.Since(started)
-	t.Logf("one locked feed scan of 64 denied sessions: %v", took)
-	if err != nil || d.ID != "" {
-		t.Fatalf("an exited session's event was offered: %+v %v", d, err)
+	current := readStreamCheckpoint(t, feed).Cursor
+	if current.Sequence != start.Sequence+64 || current.Epoch != eventState(t, store).Epoch {
+		t.Fatalf("scan did not cover exactly64 events: %+v -> %+v", start, current)
 	}
-	if got := feedRecord(t, s).Position.Sequence; got != start+64 {
-		t.Fatalf("the scan did not cover 64 events in one step: %d", got-start)
-	}
-	if took > 50*time.Millisecond*raceSlowdown {
-		t.Fatalf("one locked scan took %v with 64 probed sessions", took)
-	}
+	assertStreamScanWork(t, measured, 0, 64)
 }

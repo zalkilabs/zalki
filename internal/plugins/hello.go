@@ -13,7 +13,15 @@ import (
 
 // hostCapabilities are the capability names this host implements, in the
 // order the hello lists them.
-var hostCapabilities = []string{"feed", "inbox", "reply", "send", "read"}
+const (
+	capFeed  = "feed"
+	capInbox = "inbox"
+	capReply = "reply"
+	capSend  = "send"
+	capRead  = "read"
+)
+
+var hostCapabilities = []string{capFeed, capInbox, capReply, capSend, capRead}
 
 // maxCapabilityNames bounds each list in a plugin's hello.
 const maxCapabilityNames = 32
@@ -40,16 +48,16 @@ func grantedCapabilities(status *pluginfeed.PluginFeedStatus) []string {
 	a := status.Access
 	offered := []string{}
 	if a.Status {
-		offered = append(offered, "feed")
+		offered = append(offered, capFeed)
 	}
 	if a.Receive {
-		offered = append(offered, "inbox", "reply")
+		offered = append(offered, capInbox, capReply)
 	}
 	if len(a.Send) > 0 {
-		offered = append(offered, "send")
+		offered = append(offered, capSend)
 	}
 	if len(a.Read) > 0 {
-		offered = append(offered, "read")
+		offered = append(offered, capRead)
 	}
 	return offered
 }

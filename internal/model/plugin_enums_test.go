@@ -20,6 +20,7 @@ var pluginEnumKinds = map[string]string{
 	"SessionState":   "session_state",
 	"DeliveryStatus": "delivery_status",
 	"EventCause":     "event_cause",
+	"ErrorCode":      "error_code",
 }
 
 // sourcePluginEnums reads every enum value a plugin can see from this

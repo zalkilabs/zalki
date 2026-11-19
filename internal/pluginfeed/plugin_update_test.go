@@ -47,12 +47,14 @@ func TestPluginUpdatePreservesIdentityDataAndDisabledPosition(t *testing.T) {
 func checkUpdatePreservesState(t *testing.T, enabled bool) {
 	t.Helper()
 	f := installForTest(t, fixtureStore(t))
+	initializeUpdateCheckpoint(t, f)
 	if !enabled {
 		if err := f.EnablePluginFeed(false); err != nil {
 			t.Fatal(err)
 		}
 	}
 	old := feedRecordNamed(t, f)
+	checkpoint := checkpointImage(t, f)
 	data := filepath.Join(f.pluginDataPath(), "settings.json")
 	if err := os.WriteFile(data, []byte("owner settings\n"), 0600); err != nil {
 		t.Fatal(err)
@@ -64,10 +66,13 @@ func checkUpdatePreservesState(t *testing.T, enabled bool) {
 	now := feedRecordNamed(t, f)
 	got, err := os.ReadFile(data)
 	assertUpdateIdentityAndPin(t, old, now, got, err)
-	if enabled && (now.Epoch == old.Epoch || now.GapReason != "enabled") {
+	if !bytes.Equal(checkpointImage(t, f), checkpoint) {
+		t.Fatal("F_UPDATE_NEVER_REWRITES_PRIVATE_CHECKPOINT")
+	}
+	if enabled && (now.Epoch == old.Epoch || !model.IsCanonicalUUID(now.Epoch)) {
 		t.Fatal("enabled update did not atomically rebind")
 	}
-	if !enabled && (now.Epoch != old.Epoch || now.Position != old.Position || now.GapID != old.GapID || now.GapReason != old.GapReason) {
+	if !enabled && (now.Epoch != old.Epoch || !bytes.Equal(checkpointImage(t, f), checkpoint)) {
 		t.Fatal("disabled update changed cursor or gaps")
 	}
 	if _, err := os.Stat(old.Launch.Executable); !errors.Is(err, os.ErrNotExist) {
@@ -84,7 +89,9 @@ func enabledTextForTest(enabled bool) string {
 
 func TestPluginUpdateSameArtifactKeepsBindingAndPin(t *testing.T) {
 	f := installForTest(t, fixtureStore(t))
+	initializeUpdateCheckpoint(t, f)
 	old := feedRecordNamed(t, f)
+	checkpoint := checkpointImage(t, f)
 	before, err := os.Stat(old.Launch.Executable)
 	if err != nil {
 		t.Fatal(err)
@@ -100,7 +107,7 @@ func TestPluginUpdateSameArtifactKeepsBindingAndPin(t *testing.T) {
 	if err != nil || !os.SameFile(before, after) || !before.ModTime().Equal(after.ModTime()) {
 		t.Fatal("same artifact pin was replaced or deleted", err)
 	}
-	if now.Revision != old.Revision || now.Epoch != old.Epoch || now.Position != old.Position || now.GapID != old.GapID {
+	if now.Revision != old.Revision || now.Epoch != old.Epoch || !bytes.Equal(checkpointImage(t, f), checkpoint) {
 		t.Fatal("receipt-only update changed the binding or gap")
 	}
 	if now.Install.Source != receipt.Source {

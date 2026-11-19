@@ -90,7 +90,7 @@ func TestPluginInstallCommitIsOneEnabledRecord(t *testing.T) {
 func assertCommittedInstall(t *testing.T, s bus.Store, f PluginFeed) {
 	t.Helper()
 	p := feedRecordNamed(t, f)
-	if !p.Enabled || p.GapReason != "enabled" || p.Launch == nil || p.Install == nil || p.Scope != scopeAll || len(p.Access.Read) != 1 || p.Revision != pluginRevision(p) || p.Install.ArtifactSHA256 != p.Launch.SHA256 {
+	if !p.Enabled || !model.IsCanonicalUUID(p.Epoch) || p.Launch == nil || p.Install == nil || p.Scope != scopeAll || len(p.Access.Read) != 1 || p.Revision != pluginRevision(p) || p.Install.ArtifactSHA256 != p.Launch.SHA256 {
 		t.Fatalf("record not committed as one enabled installation: %+v", p)
 	}
 	if filepath.Dir(p.Launch.Executable) != f.pluginBinPath() || p.Launch.Verify() != nil {

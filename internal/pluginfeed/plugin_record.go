@@ -25,12 +25,9 @@ type pluginRecord struct {
 	Enabled bool          `json:"enabled"`
 	// Scope "all" gives standard access to every live session; any other
 	// value is none.
-	Scope     string                `json:"scope"`
-	Access    PluginAccess          `json:"access"`
-	Position  pluginPosition        `json:"position"`
-	GapID     string                `json:"gap_id,omitempty"`
-	GapReason string                `json:"gap_reason,omitempty"`
-	Install   *PluginInstallReceipt `json:"install,omitempty"`
+	Scope   string                `json:"scope"`
+	Access  PluginAccess          `json:"access"`
+	Install *PluginInstallReceipt `json:"install,omitempty"`
 	// Revision is pluginRevision of this record, checked on every load.
 	Revision string `json:"revision"`
 	// Epoch is new on every enable. A running child keeps the epoch of its
@@ -40,18 +37,19 @@ type pluginRecord struct {
 
 // PluginFeedStatus describes a named installation, without claiming a live child.
 type PluginFeedStatus struct {
-	Launch     *PluginLaunch         `json:"launch,omitempty"`
-	ID         string                `json:"id,omitempty"`
-	Name       string                `json:"plugin"`
-	DataDir    string                `json:"data_dir"`
-	Enabled    bool                  `json:"enabled"`
-	Scope      string                `json:"scope"`
-	Access     PluginAccess          `json:"access"`
-	Revision   string                `json:"revision,omitempty"`
-	GapPending bool                  `json:"gap_pending"`
-	LastGap    string                `json:"last_gap,omitempty"`
-	Install    *PluginInstallReceipt `json:"install,omitempty"`
-	Epoch      string                `json:"epoch,omitempty"`
+	FeedFeatures struct{ Feed bool }   `json:"-"`
+	Launch       *PluginLaunch         `json:"launch,omitempty"`
+	ID           string                `json:"id,omitempty"`
+	Name         string                `json:"plugin"`
+	DataDir      string                `json:"data_dir"`
+	Enabled      bool                  `json:"enabled"`
+	Scope        string                `json:"scope"`
+	Access       PluginAccess          `json:"access"`
+	Revision     string                `json:"revision,omitempty"`
+	GapPending   bool                  `json:"gap_pending"`
+	LastGap      string                `json:"last_gap,omitempty"`
+	Install      *PluginInstallReceipt `json:"install,omitempty"`
+	Epoch        string                `json:"epoch,omitempty"`
 }
 
 func (s pluginFiles) pluginPath() string { return filepath.Join(s.pluginDir(), s.name+".json") }
@@ -86,6 +84,10 @@ func decodePluginRecord(name string, raw []byte, p *pluginRecord) error {
 }
 
 func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
+	return s.loadPluginUsing(journal.ReadBytes)
+}
+
+func (s pluginFiles) loadPluginUsing(read func(string, int) ([]byte, error)) (pluginRecord, []byte, error) {
 	var p pluginRecord
 	if err := s.checkName(); err != nil {
 		return p, nil, err
@@ -96,7 +98,7 @@ func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
 		}
 		return p, nil, err
 	}
-	raw, err := journal.ReadBytes(s.pluginPath(), 16<<10)
+	raw, err := read(s.pluginPath(), 16<<10)
 	if errors.Is(err, os.ErrNotExist) {
 		return p, nil, nil
 	}
@@ -115,15 +117,10 @@ func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
 	if p.Revision != pluginRevision(p) {
 		return p, nil, journal.ErrInvalidBatch // a hand edit cannot keep an old binding
 	}
-	if (p.Enabled && (!p.mayRun() || p.GapReason == "")) || p.invalidPosition() {
+	if (p.Enabled && (!p.mayRun() || !model.IsCanonicalUUID(p.Epoch))) || (p.Epoch != "" && !model.IsCanonicalUUID(p.Epoch)) {
 		return p, nil, journal.ErrInvalidBatch
 	}
-	switch p.GapReason {
-	case "", "enabled", "retention", "epoch":
-		return p, raw, nil
-	default:
-		return p, nil, journal.ErrInvalidBatch
-	}
+	return p, raw, nil
 }
 
 // mayRun reports whether the record may be enabled: it has some access, or
@@ -138,12 +135,6 @@ func (p pluginRecord) mayRun() bool {
 	}
 	declared, ok := decodeDeclaredAccess(p.Install.Access)
 	return ok && declared.extended()
-}
-
-func (p pluginRecord) invalidPosition() bool {
-	return (p.Position.Epoch == "" && p.Position.Sequence != 0) ||
-		(p.Position.Epoch != "" && !model.IsCanonicalUUID(p.Position.Epoch)) ||
-		(p.GapID != "" && (!model.IsCanonicalUUID(p.GapID) || p.GapReason == ""))
 }
 
 func (s pluginFiles) savePlugin(p pluginRecord) ([]byte, error) {
@@ -173,7 +164,7 @@ func (s PluginFeed) EnablePluginFeed(enabled bool) error {
 }
 
 func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [32]byte) error {
-	return s.write(func(view bus.JournalView) error {
+	return s.write(func(_ bus.JournalView) error {
 		p, raw, err := s.loadPlugin()
 		if err != nil {
 			return err
@@ -195,11 +186,6 @@ func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [
 			if !p.mayRun() {
 				return model.NewError(model.CodeInvalidInput, "grant some access first")
 			}
-			head, err := view.EventWindow()
-			if err != nil {
-				return err
-			}
-			p.setGap(head, "enabled")
 			p.Epoch = model.NewUUID()
 		}
 		p.Enabled = enabled
@@ -216,15 +202,18 @@ func (s PluginFeed) PluginStatus() (PluginFeedStatus, error) {
 	var status PluginFeedStatus
 	err := bus.WithJournalRead(s.store, func(bus.JournalView) error {
 		p, _, err := s.loadPlugin()
-		status = s.statusOf(p)
+		if err == nil {
+			status = s.statusOf(p)
+		}
 		return err
 	})
 	return status, err
 }
 
-// statusOf is the one mapper from a record to its status.
 func (s PluginFeed) statusOf(p pluginRecord) PluginFeedStatus {
-	return PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Scope: p.Scope, Access: p.Access.clone(), Revision: p.Revision, GapPending: p.GapID != "", LastGap: p.GapReason, Install: p.Install, Epoch: p.Epoch}
+	status := PluginFeedStatus{Launch: p.Launch, ID: p.ID, Name: s.name, DataDir: s.pluginDataPath(), Enabled: p.Enabled, Scope: p.Scope, Access: p.Access.clone(), Revision: p.Revision, Install: p.Install, Epoch: p.Epoch}
+	status.GapPending, status.LastGap = s.streamStatus(p)
+	return status
 }
 
 func (p pluginRecord) validIdentityAndLaunch(name string) bool {

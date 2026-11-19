@@ -1,8 +1,11 @@
 package bus
 
 import (
+	"context"
+	"crypto/sha256"
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -18,7 +21,13 @@ type pluginMemberEvidence struct {
 	policy      sessionPluginPolicy
 	policyValid bool
 	live        bool
+	digest      [32]byte
 	err         error
+}
+
+type pluginViewWork struct {
+	ctx    context.Context
+	charge func(int, int, int, int, int) error
 }
 
 type pluginMemberCache struct {
@@ -26,6 +35,7 @@ type pluginMemberCache struct {
 	root    string
 	refs    atomic.Int64
 	records map[string]*pluginMemberEvidence
+	work    atomic.Pointer[pluginViewWork]
 }
 
 func (v JournalView) acquirePluginMembers() (Store, *pluginMemberCache, func(), error) {
@@ -94,16 +104,52 @@ func (c *pluginMemberCache) native(store Store, id string) *pluginMemberEvidence
 	}
 	entry := &pluginMemberEvidence{}
 	c.records[id] = entry
-	entry.record, entry.err = store.session(id)
+	if work := c.work.Load(); work != nil {
+		if entry.err = work.check(0, 0, 1, 0, 0); entry.err != nil {
+			return entry
+		}
+	}
+	var raw []byte
+	entry.record, raw, entry.err = readSessionEvidence(store, id)
 	if entry.err != nil {
 		return entry
 	}
+	entry.digest = sha256.Sum256(raw)
 	entry.policy, entry.policyValid = decodeSessionPluginPolicy(entry.record)
 	if entry.record.Retired {
 		return entry
 	}
+	if work := c.work.Load(); work != nil {
+		if entry.err = work.check(0, 0, 0, 0, 1); entry.err != nil {
+			return entry
+		}
+	}
 	entry.live = store.sessionLiveness(entry.record) != model.LivenessExited
 	return entry
+}
+
+func readSessionEvidence(store Store, id string) (model.Session, []byte, error) {
+	var record model.Session
+	path, err := store.sessionPath(id)
+	if err != nil {
+		return record, nil, err
+	}
+	raw, err := readScopedPluginBytes(store, path, maxStateFileBytes)
+	if err != nil {
+		return record, nil, err
+	}
+	record, err = decodeStoredSession(store, raw)
+	if err == nil && (record.ID != id || !strings.HasPrefix(id, record.Kind+":")) {
+		err = model.NewError(model.CodeInvalidIdentity, "session file identity mismatch")
+	}
+	if err == nil {
+		adapter, lookupErr := store.registry().Lookup(record.Kind)
+		if lookupErr != nil {
+			return record, nil, lookupErr
+		}
+		record.Receive = adapter.ReceiveCapabilities(record)
+	}
+	return record, raw, err
 }
 
 func (v JournalView) pluginMember(session, plugin string) (bool, error) {

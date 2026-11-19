@@ -9,11 +9,8 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// The feed shows a message to a plugin only through its feed sessions. The
-// other party is reduced to its kind, so no frame names a session or plugin
-// outside the feed. reply_to is always kept: a reply's parties are its
-// parent's parties reversed (bus checkReplyParties), so the parent is eligible
-// for the same feed set.
+// The production projection shows only eligible peers and omits a parent
+// link until its actual feed ACK evidence exists in this view.
 func TestFeedViewMessageMatrix(t *testing.T) {
 	a, c := "codex:00000000-0000-4000-8000-00000000000a", "claude:00000000-0000-4000-8000-00000000000c"
 	b, d := "codex:00000000-0000-4000-8000-00000000000b", "cursor:00000000-0000-4000-8000-00000000000d"
@@ -21,13 +18,13 @@ func TestFeedViewMessageMatrix(t *testing.T) {
 	feed := []string{a, c}
 	outside := []string{b, d, x, strings.TrimPrefix(b, "codex:"), strings.TrimPrefix(d, "cursor:"), strings.TrimPrefix(x, "plugin:")}
 	for _, tc := range []feedViewCase{
-		{"A to C", a, c, true, a, c, true},
-		{"A asks B", a, b, true, a, "codex:", true},
-		{"B replies to A", b, a, true, "codex:", a, true},
+		{"A to C", a, c, true, a, c, false},
+		{"A asks B", a, b, true, a, "codex:", false},
+		{"B replies to A", b, a, true, "codex:", a, false},
 		{"B to D", b, d, false, "", "", false},
-		{"A to plugin", a, x, true, a, "plugin:", true},
+		{"A to plugin", a, x, true, a, "plugin:", false},
 		{"B to plugin", b, x, false, "", "", false},
-		{"A to A", a, a, true, a, a, true},
+		{"A to A", a, a, true, a, a, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) { checkFeedViewCase(t, feed, outside, tc) })
 	}
@@ -51,12 +48,14 @@ func checkFeedViewCase(t *testing.T, feed, outside []string, tc feedViewCase) {
 		Message: &model.EventMessage{ID: "00000000-0000-4000-8000-000000000003", ReplyTo: feedViewParent,
 			From: tc.from, To: tc.to, Status: model.StatusSubmitted}}
 	stored := *event.Message
-	got, ok := feedView(listMembers(feed), event)
+	got := event
+	pending := &streamPending{}
+	ok := projectStreamMessage(&pluginStreamState{}, pluginRecord{}, &got, pending, map[string]streamDependency{}, listMembers(feed))
 	if ok != tc.offered {
 		t.Fatalf("offered = %v, want %v", ok, tc.offered)
 	}
 	if *event.Message != stored {
-		t.Fatal("feedView changed the stored event")
+		t.Fatal("projection changed the stored event")
 	}
 	if !ok {
 		return
@@ -87,14 +86,15 @@ func listMembers(ids []string) func(string) bool {
 	return func(id string) bool { return slices.Contains(ids, id) }
 }
 
-// Session events are offered only for member sessions, unchanged.
+// Session facts require current permission and the exact generation; the
+// separate evidence projection controls whether previous state is disclosed.
 func TestFeedViewSessionEvents(t *testing.T) {
-	a, b := "codex:00000000-0000-4000-8000-00000000000a", "codex:00000000-0000-4000-8000-00000000000b"
-	event := model.Event{Type: model.EventSessionStateChanged, Session: model.EventSession{ID: a, Cause: model.CauseStop}}
-	if got, ok := feedView(listMembers([]string{a}), event); !ok || got.Session != event.Session {
-		t.Fatalf("feed session event = %+v, %v", got, ok)
+	generation := model.NewUUID()
+	event := model.EventSession{ID: "codex:" + model.NewUUID(), Generation: generation, State: model.StateBusy, Cause: model.CauseStop}
+	if !streamSessionEventEligible(event, streamGuard{Generation: generation}, true) {
+		t.Fatal("current session positive")
 	}
-	if _, ok := feedView(listMembers([]string{b}), event); ok {
-		t.Fatal("offered a session event outside the feed")
+	if streamSessionEventEligible(event, streamGuard{Generation: generation}, false) || streamSessionEventEligible(event, streamGuard{Generation: model.NewUUID()}, true) {
+		t.Fatal("session outside current guard")
 	}
 }

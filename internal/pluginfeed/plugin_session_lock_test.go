@@ -88,20 +88,22 @@ func assertSessionMessageBoundaryLock(t *testing.T, kind, assertion string) {
 	x.sender.Store = store
 	switch kind {
 	case "A_feed":
-		offer, err := x.f.NextPluginFeed(&x.status)
+		x.status.FeedFeatures.Feed = true
+		offer, err := testFeedNext(x.f, &x.status)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if offer.ID != "" {
-			if err := x.f.AckPluginFeed(offer); err != nil {
-				t.Fatal(err)
-			}
+			acknowledgeStream(t, x.f, &x.status, offer.ID)
 		}
-		if err := store.Update(x.from.ID, model.StateBusy, false); err != nil {
+		// A plain feed establishes its private cut without a census. The
+		// measured operation below must reach an actual fresh target probe.
+		if _, err := testFeedNext(x.f, &x.status); err != nil {
 			t.Fatal(err)
 		}
+		updateStreamState(t, store, x.from.ID, model.StateBusy)
 		*calls = 0
-		if _, err := x.f.NextPluginFeed(&x.status); err != nil {
+		if _, err := testFeedNext(x.f, &x.status); err != nil {
 			t.Fatal(err)
 		}
 	case "B_inbox":

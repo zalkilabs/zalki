@@ -112,7 +112,7 @@ func TestPluginReadExactOldInboxIsNonConsumingAndAudited(t *testing.T) {
 		t.Fatal("audit leaked body", err)
 	}
 	if offer.ID != "" {
-		if err := x.f.AckPluginFeed(offer); err != nil {
+		if err := testFeedAck(x.f, offer); err != nil {
 			t.Fatal("audit invalidated metadata receipt", err)
 		}
 	}

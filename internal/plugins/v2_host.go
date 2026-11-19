@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -75,20 +76,22 @@ const v2EmptyPoll = time.Second
 const v2AckTimeout = 5 * time.Second
 
 type v2Host struct {
-	ctx     context.Context
-	feed    pluginfeed.PluginFeed
-	service *bus.Service
-	binding *pluginfeed.PluginFeedStatus
-	child   *child
-	acks    chan string
-	ops     chan *v2Command
-	failed  chan string
-	done    chan struct{}
-	busy    atomic.Bool
-	offer   *pluginfeed.PluginDelivery
-	offerAt time.Time
-	emptyAt time.Time
-	enabled []string
+	ctx       context.Context
+	feed      pluginfeed.PluginFeed
+	service   *bus.Service
+	binding   *pluginfeed.PluginFeedStatus
+	child     *child
+	acks      chan string
+	ops       chan *v2Command
+	failed    chan string
+	done      chan struct{}
+	busy      atomic.Bool
+	offer     *pluginfeed.PluginDelivery
+	offerAt   time.Time
+	staged    *pluginfeed.PluginDelivery
+	stagePart int
+	emptyAt   time.Time
+	enabled   []string
 	// refusedOp holds the known operation (a string) the host refused: one
 	// the hello did not enable. Set by the pump, read by the loop; never
 	// plugin text.
@@ -106,6 +109,7 @@ func runV2Host(ctx context.Context, feed pluginfeed.PluginFeed, service *bus.Ser
 		return false, errHelloVersion // a frame before hello_ok: the plugin did not wait for it
 	}
 	ctx, cancel := context.WithCancel(ctx)
+	binding = captureFeedFeatures(binding, enabled)
 	h := &v2Host{ctx: ctx, feed: feed, service: service, binding: binding, child: c, acks: make(chan string, 1), ops: make(chan *v2Command, 1), failed: make(chan string, 1), done: make(chan struct{}), enabled: enabled}
 	go h.pump()
 	defer func() { cancel(); c.cancel(); <-h.done }()
@@ -114,6 +118,12 @@ func runV2Host(ctx context.Context, feed pluginfeed.PluginFeed, service *bus.Ser
 		return false, err
 	}
 	return true, nil
+}
+
+func captureFeedFeatures(binding *pluginfeed.PluginFeedStatus, enabled []string) *pluginfeed.PluginFeedStatus {
+	launch := *binding
+	launch.FeedFeatures.Feed = slices.Contains(enabled, capFeed)
+	return &launch
 }
 
 func (h *v2Host) pump() {
@@ -208,13 +218,25 @@ func (h *v2Host) loop(out io.Writer, ready string) error {
 }
 
 func (h *v2Host) ack(id string) error {
-	if h.offer == nil || id != h.offer.ID {
-		return h.terminal("protocol_error")
+	pending, err := h.feed.AckPluginFeed(h.binding, id)
+	if err != nil {
+		code := bindingCode(h.feed, h.binding)
+		if code == "" {
+			code = "unavailable"
+			if model.ErrorCodeOf(err) == model.CodeConflict || model.ErrorCodeOf(err) == model.CodeInvalidInput {
+				code = "protocol_error"
+			}
+		}
+		return h.terminal(code)
 	}
-	if err := h.feed.AckPluginFeed(*h.offer); err != nil {
-		return h.terminal(bindingCode(h.feed, h.binding))
+	// A late ACK of canceled E can leave G outstanding. It must neither clear
+	// G nor reset its timer. The core receipt table is checked before equality.
+	if h.offer != nil && h.offer.ID != pending {
+		h.offer = nil
 	}
-	h.offer = nil
+	if h.staged != nil && h.staged.ID != pending {
+		h.staged, h.stagePart = nil, 0
+	}
 	return nil
 }
 
@@ -222,24 +244,90 @@ func (h *v2Host) tick() error {
 	if !slices.Contains(h.enabled, "feed") {
 		return nil // the plugin did not ask for the feed
 	}
-	if h.offer != nil {
-		if !h.busy.Load() && len(h.acks) == 0 && time.Since(h.offerAt) > v2AckTimeout {
-			return h.terminal("protocol_error")
-		}
-		return nil
-	}
-	d, err := h.feed.NextPluginFeed(h.binding)
+	d, err := h.feed.NextPluginFeed(h.ctx, h.binding, "", 0)
 	if err != nil {
-		return h.terminal(bindingCode(h.feed, h.binding))
+		return h.feedUnavailable(err)
 	}
 	if d.ID == "" {
+		return h.checkFeedTimeout()
+	}
+	if h.offer != nil && h.offer.ID == d.ID {
+		return h.checkFeedTimeout()
+	}
+	if h.staged == nil || h.staged.ID != d.ID {
+		h.staged, h.stagePart = &d, 1
+	}
+	h.offer = nil
+	return h.writeFeedBatch()
+}
+
+func (h *v2Host) checkFeedTimeout() error {
+	if h.offer != nil && !h.busy.Load() && len(h.acks) == 0 && time.Since(h.offerAt) > v2AckTimeout {
+		return h.terminal("protocol_error")
+	}
+	return nil
+}
+
+func (h *v2Host) feedUnavailable(err error) error {
+	if code := bindingCode(h.feed, h.binding); code != "" {
+		return h.terminal(code)
+	}
+	if h.ctx.Err() != nil {
+		return h.ctx.Err()
+	}
+	// The optional feed can back off while the independent operation lane
+	// remains usable. No child text or private filesystem error is emitted.
+	if model.ErrorCodeOf(err) == model.CodeUnavailable {
 		return nil
 	}
-	if err := h.write(frame{ID: d.ID, Gap: d.Gap, Event: d.Event}); err != nil {
-		return err
+	return h.terminal("unavailable")
+}
+
+func (h *v2Host) writeFeedBatch() error {
+	deadline := time.Now().Add(time.Second)
+	for resets := 0; resets < 2; {
+		if err := h.ctx.Err(); err != nil {
+			return err
+		}
+		delivery := h.staged
+		current, err := h.feed.NextPluginFeed(h.ctx, h.binding, delivery.ID, h.stagePart)
+		if err != nil {
+			return h.feedUnavailable(err)
+		}
+		if current.ID != delivery.ID {
+			if current.ID == "" {
+				return h.terminal("unavailable")
+			}
+			h.staged, h.stagePart = &current, 1
+			resets++
+			continue
+		}
+		part := h.stagePart - 1
+		if part < 0 || part >= len(current.Frames) || len(current.Frames[part]) == 0 {
+			return h.terminal("unavailable")
+		}
+		if err := h.writeFeedPart(current.Frames[part], deadline); err != nil {
+			return err
+		}
+		h.stagePart++
+		if h.stagePart > len(current.Frames) {
+			h.offer, h.offerAt = &current, time.Now() // END was completely written
+			h.staged, h.stagePart = nil, 0
+			return nil
+		}
 	}
-	h.offer, h.offerAt = &d, time.Now()
 	return nil
+}
+
+func (h *v2Host) writeFeedPart(raw []byte, deadline time.Time) error {
+	if len(raw)+1 > maxFrame {
+		return h.terminal("unavailable")
+	}
+	if err := h.child.input.SetWriteDeadline(deadline); err != nil {
+		return h.child.deadlineError(h.child.input, err)
+	}
+	_, err := io.Copy(h.child.input, bytes.NewReader(append(bytes.Clone(raw), '\n')))
+	return h.child.pipeError(err)
 }
 
 func (h *v2Host) handle(f *v2Command) error {

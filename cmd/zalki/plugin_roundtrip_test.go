@@ -30,34 +30,44 @@ func TestPluginOwnerBinaryRoundtrip(t *testing.T) {
 	}
 	store, session := pluginOwnerFixture(t)
 	state := store.Dir
+	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
+		t.Fatal(err)
+	}
 	assertPluginOwnerDisabled(t, binary, state)
 	for _, args := range [][]string{{"add", "fake-notifier", "--exec", feedFixture(t)}, {"configure", "fake-notifier", "--scope", "all"}, {"grant", "fake-notifier", "--status"}, {"enable", "fake-notifier"}} {
 		if output, err := pluginOwnerCLI(t, binary, state, args...); err != nil {
 			t.Fatal(args, string(output), err)
 		}
 	}
-	assertPluginOwnerStatus(t, binary, state, true, true)
+	assertPluginOwnerStatus(t, binary, state, true, true, "enabled")
 	first, firstDone := startPluginOwnerHost(t, binary, state)
 	// The ready line precedes processing the feed acknowledgement.
 	pluginOwnerEventually(t, func() bool {
 		status, err := pluginfeed.NewPluginFeed(store, "fake-notifier").PluginStatus()
 		return err == nil && !status.GapPending
 	})
-	assertPluginOwnerStatus(t, binary, state, true, false)
+	assertPluginOwnerStatus(t, binary, state, true, false, "enabled")
 	outbox := filepath.Join(state, "plugins", "fake-notifier.data", "events")
 	pluginOwnerEventually(t, func() bool { _, err := os.Stat(outbox); return err == nil })
 	if files, err := os.ReadDir(outbox); err != nil || len(files) != 0 {
 		t.Fatal("enable gap replayed historical notifications", files, err)
 	}
+	awaitPluginOwnerInitialCut(t, state)
+	if err := store.Update(session.ID, model.StateReady, false); err != nil {
+		t.Fatal(err)
+	}
+	awaitPluginOwnerFloor(t, state, outbox, session.ID)
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	eventID := awaitPluginOwnerEvent(t, outbox, session.ID)
+	expected, cut := pluginOwnerNativeBusyEvent(t, store, session)
+	eventID := awaitPluginOwnerEvent(t, outbox, expected)
 	if err := first.Process.Signal(syscall.SIGTERM); err != nil {
 		t.Fatal(err)
 	}
 	waitPluginOwnerHost(t, first, firstDone)
 	second, secondDone := startPluginOwnerHost(t, binary, state)
+	awaitPluginOwnerRestartCut(t, state, cut)
 	if files, err := os.ReadDir(outbox); err != nil || len(files) != 1 || files[0].Name() != eventID+".json" {
 		t.Fatal("restart duplicated the notification", files, err)
 	}
@@ -66,7 +76,7 @@ func TestPluginOwnerBinaryRoundtrip(t *testing.T) {
 	}
 	waitPluginOwnerHost(t, second, secondDone)
 	assertPluginOwnerLeaseReleased(t, state)
-	assertPluginOwnerStatus(t, binary, state, false, false)
+	assertPluginOwnerStatus(t, binary, state, false, false, "launch")
 }
 
 func assertPluginOwnerLeaseReleased(t *testing.T, state string) {
@@ -107,7 +117,7 @@ func assertPluginOwnerDisabled(t *testing.T, binary, state string) {
 	}
 }
 
-func awaitPluginOwnerEvent(t *testing.T, outbox, session string) string {
+func awaitPluginOwnerEvent(t *testing.T, outbox string, expected model.Event) string {
 	t.Helper()
 	var event model.Event
 	pluginOwnerEventually(t, func() bool {
@@ -117,8 +127,8 @@ func awaitPluginOwnerEvent(t *testing.T, outbox, session string) string {
 		}
 		var ok bool
 		event, ok = fixtureEvent(filepath.Join(outbox, files[0].Name()))
-		return ok && event.Validate() == nil &&
-			files[0].Name() == event.ID+".json" && event.Session.ID == session && event.Session.State == model.StateBusy
+		return ok && files[0].Name() == expected.ID+".json" &&
+			pluginOwnerSameEventIdentity(event, expected) && pluginOwnerSameSessionFact(event.Session, expected.Session)
 	})
 	return event.ID
 }
@@ -149,7 +159,7 @@ func pluginOwnerCLI(t *testing.T, binary, state string, args ...string) ([]byte,
 	return output, err
 }
 
-func assertPluginOwnerStatus(t *testing.T, binary, state string, enabled, gap bool) {
+func assertPluginOwnerStatus(t *testing.T, binary, state string, enabled, gap bool, reason string) {
 	t.Helper()
 	raw, err := pluginOwnerCLI(t, binary, state, "status", "fake-notifier")
 	var status struct {
@@ -158,7 +168,7 @@ func assertPluginOwnerStatus(t *testing.T, binary, state string, enabled, gap bo
 	if err != nil || json.Unmarshal(raw, &status) != nil {
 		t.Fatal("status command failed", string(raw), err)
 	}
-	if status.Enabled != enabled || status.GapPending != gap || status.LastGap != "enabled" ||
+	if status.Enabled != enabled || status.GapPending != gap || status.LastGap != reason ||
 		status.Scope != "all" || !status.Access.Status || status.Launch == nil {
 		t.Fatal("status misrepresented the owner profile/gap", string(raw))
 	}

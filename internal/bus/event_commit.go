@@ -22,6 +22,7 @@ func saveSessionWith(s Store, next model.Session, cause model.EventCause, writer
 		return err
 	}
 	invalidatePluginMember(s.Dir, record.value.ID)
+	discardPluginRetirement(s.Dir, record.value.ID)
 	prior, err := journal.ReadBytes(record.path, maxStateFileBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		prior, err = nil, nil
@@ -58,6 +59,7 @@ func saveSessionWith(s Store, next model.Session, cause model.EventCause, writer
 	if err := writer.log().Commit(batch); err != nil {
 		return fmt.Errorf("session commit failed or may require recovery: %w", err)
 	}
+	rememberPluginRetirement(s.Dir, prior, record.value, event, batch.Puts[0])
 	return nil
 }
 

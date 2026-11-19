@@ -1,0 +1,44 @@
+{
+  "gap": [
+    {
+      "value": "enabled",
+      "meaning": "Installation enabled at a new cut",
+      "context": "gap"
+    },
+    {
+      "value": "retention",
+      "meaning": "Journal history is no longer available",
+      "context": "gap"
+    },
+    {
+      "value": "epoch",
+      "meaning": "Journal identity changed",
+      "context": "gap"
+    },
+    {
+      "value": "launch",
+      "meaning": "A fresh child view requires a current cut",
+      "context": "gap"
+    },
+    {
+      "value": "policy",
+      "meaning": "Eligibility continuity cannot be proved",
+      "context": "gap"
+    },
+    {
+      "value": "membership",
+      "meaning": "The bounded observation window changed",
+      "context": "gap"
+    },
+    {
+      "value": "resource",
+      "meaning": "A bounded complete view is temporarily unavailable",
+      "context": "gap"
+    },
+    {
+      "value": "unavailable",
+      "meaning": "Current view cannot be proved from readable valid metadata",
+      "context": "gap"
+    }
+  ]
+}

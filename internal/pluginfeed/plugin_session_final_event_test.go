@@ -24,6 +24,14 @@ func TestSessionControlRestrictedFinalEventsNeverEscape(t *testing.T) {
 func assertRestrictedFinalEvent(t *testing.T, kind string) {
 	t.Helper()
 	f, _, _ := externalPinFixture(t)
+	active, _ := register(t, f.store, "cursor")
+	if kind == "off-owner-exit" {
+		t.Setenv("ZALKI_PLUGINS", "off")
+	}
+	current, key := register(t, f.store, "cursor")
+	if kind == "off-owner-exit" {
+		t.Setenv("ZALKI_PLUGINS", "")
+	}
 	if err := f.GrantPluginAccess(PluginAccess{Status: true}); err != nil {
 		t.Fatal(err)
 	}
@@ -34,24 +42,19 @@ func assertRestrictedFinalEvent(t *testing.T, kind string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	offer, err := f.NextPluginFeed(&status)
-	if err != nil {
-		t.Fatal(err)
+	status.FeedFeatures.Feed = true
+	f = fixtureFeedRun(f)
+	gap := streamInspect(t, f, &status)
+	streamComplete(t, f, &status, gap)
+	if cut := streamInspect(t, f, &status); cut.ID != "" {
+		t.Fatal("B_RESTRICTED_FINAL_SETUP_PRIVATE_CUT")
 	}
-	if offer.ID != "" {
-		if err := f.AckPluginFeed(offer); err != nil {
-			t.Fatal(err)
-		}
+	primeStreamSession(t, f.store, f, &status, active.ID)
+	if kind == "muted-retirement" {
+		primeStreamSession(t, f.store, f, &status, current.ID)
 	}
-	active, _ := register(t, f.store, "cursor")
-	if err := f.store.Update(active.ID, model.StateBusy, false); err != nil {
-		t.Fatal(err)
-	}
+	updateStreamState(t, f.store, active.ID, model.StateBusy)
 	assertActiveFinalEventControl(t, f, &status, active.ID)
-	if kind == "off-owner-exit" {
-		t.Setenv("ZALKI_PLUGINS", "off")
-	}
-	current, key := register(t, f.store, "cursor")
 	if kind == "muted-retirement" {
 		if err := bus.SetSessionPlugin(f.store, current.ID, key, status.Name, true); err != nil {
 			t.Fatal(err)
@@ -75,7 +78,7 @@ func assertRestrictedFinalEvent(t *testing.T, kind string) {
 func assertNoRestrictedFinalOffer(t *testing.T, f PluginFeed, status *PluginFeedStatus, id, kind string) {
 	t.Helper()
 	for range 16 {
-		offer, err := f.NextPluginFeed(status)
+		offer, err := testFeedNext(f, status)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,9 +88,7 @@ func assertNoRestrictedFinalOffer(t *testing.T, f PluginFeed, status *PluginFeed
 		if offer.Event != nil && offer.Event.Message == nil && offer.Event.Session.ID == id {
 			t.Fatal("Z6_RESTRICTED_FINAL_EVENT_NO_RICH_ESCAPE", kind)
 		}
-		if err := f.AckPluginFeed(offer); err != nil {
-			t.Fatal(err)
-		}
+		acknowledgeStream(t, f, status, offer.ID)
 	}
 	t.Fatal("Z6_FINAL_EVENT_CONTROL_REACHES_HEAD")
 }
@@ -96,7 +97,7 @@ func assertActiveFinalEventControl(t *testing.T, f PluginFeed, status *PluginFee
 	t.Helper()
 	seen := false
 	for range 16 {
-		offer, err := f.NextPluginFeed(status)
+		offer, err := testFeedNext(f, status)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -109,9 +110,7 @@ func assertActiveFinalEventControl(t *testing.T, f PluginFeed, status *PluginFee
 		if offer.Event != nil && offer.Event.Message == nil && offer.Event.Session.ID == id {
 			seen = true
 		}
-		if err := f.AckPluginFeed(offer); err != nil {
-			t.Fatal(err)
-		}
+		acknowledgeStream(t, f, status, offer.ID)
 	}
 	t.Fatal("Z6_FINAL_EVENT_ACTIVE_CONTROL_REACHES_HEAD")
 }
