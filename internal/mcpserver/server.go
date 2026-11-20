@@ -79,7 +79,7 @@ func messageReceipt(message model.Message, err error) (MessageReceipt, error) {
 
 // Healthy builds are identified at MCP initialization; only actionable runtime
 // warnings belong in every tool result. Full diagnostics remain in doctor.
-func runtimeWarning(service *bus.Service) *bus.RuntimeStatus {
+func runtimeWarning(service Bus) *bus.RuntimeStatus {
 	status := service.RuntimeStatus()
 	if !status.NeedsRestart && status.BuildError == "" {
 		return nil
@@ -179,7 +179,7 @@ type discoveryResult struct {
 	skipped int
 }
 
-func toolOutput[T any](service *bus.Service, value T, err error) Output[T] {
+func toolOutput[T any](service Bus, value T, err error) Output[T] {
 	output := Output[T]{Data: value, Runtime: runtimeWarning(service)}
 	if err != nil {
 		output.Error = &ToolError{Code: model.ErrorCodeOf(err), Message: err.Error()}
@@ -187,19 +187,16 @@ func toolOutput[T any](service *bus.Service, value T, err error) Output[T] {
 	return output
 }
 
-func discoveryOutput(service *bus.Service, value discoveryResult, err error) DiscoveryOutput {
+func discoveryOutput(service Bus, value discoveryResult, err error) DiscoveryOutput {
 	output := toolOutput(service, value.agents, err)
 	return DiscoveryOutput{Data: output.Data, SkippedSessions: value.skipped, Runtime: output.Runtime, Error: output.Error}
 }
 
-func addToolOutput[T, O any](server *mcp.Server, service *bus.Service, tool *mcp.Tool, call func(context.Context, toolArgs) (T, error), wrap func(*bus.Service, T, error) O) {
+func addToolOutput[T, O any](server *mcp.Server, service Bus, tool *mcp.Tool, call func(context.Context, toolArgs) (T, error), wrap func(Bus, T, error) O) {
 	mcp.AddTool(server, tool, func(ctx context.Context, request *mcp.CallToolRequest, args toolArgs) (*mcp.CallToolResult, O, error) {
 		started := time.Now()
 		value, err := call(ctx, args)
 		service.ObserveTool(tool.Name, args.Actor, args.MessageID, time.Since(started), err)
-		if err == nil && service.Runtime != nil {
-			service.Runtime.ObserveActor(args.Actor)
-		}
 		output := wrap(service, value, err)
 		if err != nil {
 			return &mcp.CallToolResult{IsError: true}, output, nil
@@ -208,7 +205,21 @@ func addToolOutput[T, O any](server *mcp.Server, service *bus.Service, tool *mcp
 	})
 }
 
-func New(service *bus.Service) *mcp.Server {
+// Bus is what the MCP tools need from the message bus. *bus.Service implements it.
+type Bus interface {
+	Send(ctx context.Context, request bus.SendRequest) (model.Message, error)
+	Reply(ctx context.Context, request bus.ReplyRequest) (model.Message, error)
+	Watch(actor, key, to string) (bus.WatchResult, error)
+	SetTask(actor, key, task string) (bus.TaskResult, error)
+	// ObserveTool is called after every tool call. A successful call also marks the actor as seen.
+	ObserveTool(name, actor, id string, elapsed time.Duration, err error)
+	RuntimeStatus() bus.RuntimeStatus
+	Ack(actor, key, id string) (model.Message, error)
+	ReadMessages(query bus.MessageQuery) (bus.MessageBatch, error)
+	DiscoverWithWarnings(actor, key string) ([]bus.AgentInfo, int, error)
+}
+
+func New(service Bus) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "zalki", Version: bus.BuildVersion()}, &mcp.ServerOptions{
 		Instructions: "Keep receipt bookkeeping silent; no ACK-only messages or ACK narration unless requested. " +
 			"Share substantive results, reviews, questions, and decisions with the user and relevant agents. " +
@@ -225,7 +236,7 @@ func New(service *bus.Service) *mcp.Server {
 	return server
 }
 
-func Run(ctx context.Context, service *bus.Service, input io.ReadCloser, output io.WriteCloser) error {
+func Run(ctx context.Context, service Bus, input io.ReadCloser, output io.WriteCloser) error {
 	writer := &stdioFrameWriter{output: output}
 	reader := newStdioFrameReader(input, writer)
 	return New(service).Run(ctx, &mcp.IOTransport{Reader: reader, Writer: writer, MaxLineLength: maxStdioFrameBytes})

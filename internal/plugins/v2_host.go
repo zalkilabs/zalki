@@ -75,10 +75,15 @@ const v2EmptyPoll = time.Second
 // v2AckTimeout bounds an unanswered feed offer while no operation runs.
 const v2AckTimeout = 5 * time.Second
 
+// Sender stores a message a plugin sends and delivers it. *bus.Service implements it.
+type Sender interface {
+	SendFromPlugin(ctx context.Context, request bus.PluginSendRequest) (model.Message, error)
+}
+
 type v2Host struct {
 	ctx       context.Context
 	feed      pluginfeed.PluginFeed
-	service   *bus.Service
+	service   Sender
 	binding   *pluginfeed.PluginFeedStatus
 	child     *child
 	acks      chan string
@@ -104,7 +109,7 @@ type v2Host struct {
 // runV2Host serves one child after its hello, with the enabled names.
 // requested is true only when the host itself stopped the child because the
 // owner disabled this installation; err is then nil.
-func runV2Host(ctx context.Context, feed pluginfeed.PluginFeed, service *bus.Service, binding *pluginfeed.PluginFeedStatus, c *child, out io.Writer, ready string, enabled []string) (requested bool, err error) {
+func runV2Host(ctx context.Context, feed pluginfeed.PluginFeed, service Sender, binding *pluginfeed.PluginFeedStatus, c *child, out io.Writer, ready string, enabled []string) (requested bool, err error) {
 	if c.reader.Buffered() != 0 {
 		return false, errHelloVersion // a frame before hello_ok: the plugin did not wait for it
 	}

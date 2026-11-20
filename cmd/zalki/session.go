@@ -19,6 +19,9 @@ import (
 // The composition root binds the core lease to the client-owned port.
 var _ cursor.ListenerHandle = (*bus.Lease)(nil)
 
+// The MCP tools see the service only through their own small interface.
+var _ mcpserver.Bus = (*bus.Service)(nil)
+
 func newMCPCommand(opts *commandOptions) *cobra.Command {
 	return &cobra.Command{
 		Use: "mcp", Short: "Serve the zalki MCP tools over stdio", Args: cobra.NoArgs,

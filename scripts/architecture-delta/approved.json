@@ -1168,5 +1168,129 @@
       }
     },
     "reason": "Removes the client version allowlist: interface agent.CompatibilityAdapter, method claude.Adapter.Compatibility and field AgentDiagnostic.FixtureVersions. Nothing is added; imports and OS calls are unchanged. Delta measured on base 1aa96a2, same on both OS."
+  },
+  {
+    "base_commit": "249dfe082363e8c6b8a58ae44761c6ef5959a784",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/bus.Service.Ack",
+          "internal/bus.Service.DiscoverWithWarnings",
+          "internal/bus.Service.ReadMessages",
+          "internal/mcpserver.Bus",
+          "internal/plugins.Sender"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/bus.Service.Ack": "func(*Service) func(actor, key, id string) (model.Message, error)",
+          "function:internal/bus.Service.DiscoverWithWarnings": "func(*Service) func(actor, key string) ([]AgentInfo, int, error)",
+          "function:internal/bus.Service.ReadMessages": "func(*Service) func(query MessageQuery) (MessageBatch, error)",
+          "type:internal/mcpserver.Bus": "Bus interface {\n\tSend(ctx context.Context, request bus.SendRequest) (model.Message, error)\n\tReply(ctx context.Context, request bus.ReplyRequest) (model.Message, error)\n\tWatch(actor, key, to string) (bus.WatchResult, error)\n\tSetTask(actor, key, task string) (bus.TaskResult, error)\n\tObserveTool(name, actor, id string, elapsed time.Duration, err error)\n\tRuntimeStatus() bus.RuntimeStatus\n\tAck(actor, key, id string) (model.Message, error)\n\tReadMessages(query bus.MessageQuery) (bus.MessageBatch, error)\n\tDiscoverWithWarnings(actor, key string) ([]bus.AgentInfo, int, error)\n}",
+          "type:internal/plugins.Sender": "Sender interface {\n\tSendFromPlugin(ctx context.Context, request bus.PluginSendRequest) (model.Message, error)\n}"
+        },
+        "removed": {},
+        "changed": {
+          "function:internal/mcpserver.New": {
+            "before": "func(service *bus.Service) *mcp.Server",
+            "after": "func(service Bus) *mcp.Server"
+          },
+          "function:internal/mcpserver.Run": {
+            "before": "func(ctx context.Context, service *bus.Service, input io.ReadCloser, output io.WriteCloser) error",
+            "after": "func(ctx context.Context, service Bus, input io.ReadCloser, output io.WriteCloser) error"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/bus.Service": {
+            "before": {
+              "Methods": 26,
+              "Files": 11
+            },
+            "after": {
+              "Methods": 29,
+              "Files": 11
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Consumer-side interfaces: adds mcpserver.Bus (9 methods) and plugins.Sender (1 method), and three pass-through methods on bus.Service (Ack, ReadMessages, DiscoverWithWarnings) that call the Store. mcpserver.New and mcpserver.Run take Bus instead of *bus.Service. Imports and OS calls are unchanged. Delta measured on base 249dfe0, same on both OS."
+  },
+  {
+    "base_commit": "249dfe082363e8c6b8a58ae44761c6ef5959a784",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/bus.Service.Ack",
+          "internal/bus.Service.DiscoverWithWarnings",
+          "internal/bus.Service.ReadMessages",
+          "internal/mcpserver.Bus",
+          "internal/plugins.Sender"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/bus.Service.Ack": "func(*Service) func(actor, key, id string) (model.Message, error)",
+          "function:internal/bus.Service.DiscoverWithWarnings": "func(*Service) func(actor, key string) ([]AgentInfo, int, error)",
+          "function:internal/bus.Service.ReadMessages": "func(*Service) func(query MessageQuery) (MessageBatch, error)",
+          "type:internal/mcpserver.Bus": "Bus interface {\n\tSend(ctx context.Context, request bus.SendRequest) (model.Message, error)\n\tReply(ctx context.Context, request bus.ReplyRequest) (model.Message, error)\n\tWatch(actor, key, to string) (bus.WatchResult, error)\n\tSetTask(actor, key, task string) (bus.TaskResult, error)\n\tObserveTool(name, actor, id string, elapsed time.Duration, err error)\n\tRuntimeStatus() bus.RuntimeStatus\n\tAck(actor, key, id string) (model.Message, error)\n\tReadMessages(query bus.MessageQuery) (bus.MessageBatch, error)\n\tDiscoverWithWarnings(actor, key string) ([]bus.AgentInfo, int, error)\n}",
+          "type:internal/plugins.Sender": "Sender interface {\n\tSendFromPlugin(ctx context.Context, request bus.PluginSendRequest) (model.Message, error)\n}"
+        },
+        "removed": {},
+        "changed": {
+          "function:internal/mcpserver.New": {
+            "before": "func(service *bus.Service) *mcp.Server",
+            "after": "func(service Bus) *mcp.Server"
+          },
+          "function:internal/mcpserver.Run": {
+            "before": "func(ctx context.Context, service *bus.Service, input io.ReadCloser, output io.WriteCloser) error",
+            "after": "func(ctx context.Context, service Bus, input io.ReadCloser, output io.WriteCloser) error"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/bus.Service": {
+            "before": {
+              "Methods": 26,
+              "Files": 11
+            },
+            "after": {
+              "Methods": 29,
+              "Files": 11
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Consumer-side interfaces: adds mcpserver.Bus (9 methods) and plugins.Sender (1 method), and three pass-through methods on bus.Service (Ack, ReadMessages, DiscoverWithWarnings) that call the Store. mcpserver.New and mcpserver.Run take Bus instead of *bus.Service. Imports and OS calls are unchanged. Delta measured on base 249dfe0, same on both OS."
   }
 ]

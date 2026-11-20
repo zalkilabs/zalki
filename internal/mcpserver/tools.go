@@ -37,7 +37,7 @@ type toolDefinition struct {
 
 type toolSpec struct {
 	toolDefinition
-	register func(*mcp.Server, *bus.Service)
+	register func(*mcp.Server, Bus)
 }
 
 type inputSchema struct {
@@ -60,12 +60,12 @@ func schema(properties map[string]any, required ...string) inputSchema {
 	return inputSchema{Type: "object", Properties: properties, Required: required}
 }
 
-func defineTool[T any](definition toolDefinition, call func(context.Context, *bus.Service, toolArgs) (T, error)) toolSpec {
+func defineTool[T any](definition toolDefinition, call func(context.Context, Bus, toolArgs) (T, error)) toolSpec {
 	return defineToolOutput(definition, call, toolOutput[T])
 }
 
-func defineToolOutput[T, O any](definition toolDefinition, call func(context.Context, *bus.Service, toolArgs) (T, error), wrap func(*bus.Service, T, error) O) toolSpec {
-	return toolSpec{toolDefinition: definition, register: func(server *mcp.Server, service *bus.Service) {
+func defineToolOutput[T, O any](definition toolDefinition, call func(context.Context, Bus, toolArgs) (T, error), wrap func(Bus, T, error) O) toolSpec {
+	return toolSpec{toolDefinition: definition, register: func(server *mcp.Server, service Bus) {
 		tool := &mcp.Tool{Name: definition.name, Description: definition.description, InputSchema: definition.input}
 		if definition.readOnly {
 			tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: true}
@@ -129,8 +129,8 @@ func toolTable() []toolSpec {
 				}
 				return nil
 			},
-		}, func(_ context.Context, service *bus.Service, args toolArgs) (discoveryResult, error) {
-			rows, skipped, err := service.Store.DiscoverWithWarnings(args.Actor, args.Capability)
+		}, func(_ context.Context, service Bus, args toolArgs) (discoveryResult, error) {
+			rows, skipped, err := service.DiscoverWithWarnings(args.Actor, args.Capability)
 			return discoveryResult{agents: rows, skipped: skipped}, err
 		}, discoveryOutput),
 		defineTool(toolDefinition{
@@ -138,7 +138,7 @@ func toolTable() []toolSpec {
 			input:   schema(send, "actor", "capability", "to", "body"),
 			aliases: []argumentAlias{{"message", "body"}},
 			hint:    " Use body for message text. message_id is optional; pass it to make retries safe.",
-		}, func(ctx context.Context, service *bus.Service, args toolArgs) (MessageReceipt, error) {
+		}, func(ctx context.Context, service Bus, args toolArgs) (MessageReceipt, error) {
 			return messageReceipt(service.Send(ctx, bus.SendRequest{
 				Actor: args.Actor, Capability: args.Capability,
 				To: args.To, MessageID: args.MessageID, Body: args.Body,
@@ -149,7 +149,7 @@ func toolTable() []toolSpec {
 			input:   schema(reply, "actor", "capability", "message_id", "body"),
 			aliases: []argumentAlias{{"message", "body"}, {"reply_to", "message_id"}},
 			hint:    " message_id is the incoming message you are replying to; body is the reply. The outgoing ID is generated.",
-		}, func(ctx context.Context, service *bus.Service, args toolArgs) (MessageReceipt, error) {
+		}, func(ctx context.Context, service Bus, args toolArgs) (MessageReceipt, error) {
 			return messageReceipt(service.Reply(ctx, bus.ReplyRequest{
 				Actor: args.Actor, Capability: args.Capability,
 				MessageID: args.MessageID, Body: args.Body,
@@ -158,14 +158,14 @@ func toolTable() []toolSpec {
 		defineTool(toolDefinition{
 			name: "ack_message", description: "Record receipt locally without sending a message.",
 			input: schema(ack, "actor", "capability", "message_id"),
-		}, func(_ context.Context, service *bus.Service, args toolArgs) (MessageReceipt, error) {
-			return messageReceipt(service.Store.Ack(args.Actor, args.Capability, args.MessageID))
+		}, func(_ context.Context, service Bus, args toolArgs) (MessageReceipt, error) {
+			return messageReceipt(service.Ack(args.Actor, args.Capability, args.MessageID))
 		}),
 		defineTool(toolDefinition{
 			name: "list_messages", description: "Unread inbox, sent:true history, or exact message_id. History omits bodies. Page with next_cursor. Fetch body_omitted by ID; await body_deferred delivery.",
 			input: schema(inbox, "actor", "capability"), readOnly: true,
-		}, func(_ context.Context, service *bus.Service, args toolArgs) (MessagePage, error) {
-			messages, err := service.Store.ReadMessages(bus.MessageQuery{
+		}, func(_ context.Context, service Bus, args toolArgs) (MessagePage, error) {
+			messages, err := service.ReadMessages(bus.MessageQuery{
 				Actor: args.Actor, Capability: args.Capability,
 				History: args.History, Limit: args.Limit,
 				Sent: args.Sent, To: args.To, Preview: args.Preview,
@@ -176,13 +176,13 @@ func toolTable() []toolSpec {
 		defineTool(toolDefinition{
 			name: "watch_agent", description: "One notice when an agent next finishes or ends; expires in 12h.",
 			input: schema(watch, "actor", "capability", "to"),
-		}, func(_ context.Context, service *bus.Service, args toolArgs) (bus.WatchResult, error) {
+		}, func(_ context.Context, service Bus, args toolArgs) (bus.WatchResult, error) {
 			return service.Watch(args.Actor, args.Capability, args.To)
 		}),
 		defineTool(toolDefinition{
 			name: "set_task", description: "Set your own one-line task. Empty clears. Unverified, omitted when empty, and not an address.",
 			input: schema(task, "actor", "capability", "task"),
-		}, func(_ context.Context, service *bus.Service, args toolArgs) (bus.TaskResult, error) {
+		}, func(_ context.Context, service Bus, args toolArgs) (bus.TaskResult, error) {
 			return service.SetTask(args.Actor, args.Capability, args.Task)
 		}),
 	}
