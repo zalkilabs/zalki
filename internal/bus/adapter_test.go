@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/clientconfig"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -35,11 +36,11 @@ func (a configFixtureAdapter) Configuration(string, []string) []model.ConfigDecl
 
 func TestAdapterRejectsInvalidDraftsAndEmptyPatches(t *testing.T) {
 	for _, file := range []model.ConfigDeclaration{
-		{Path: ".fourth/mcp.json", Draft: "../escape.json", JSON: install.MCPConfig("/bin/zalki", nil, false)},
-		{Path: ".fourth/mcp.json", Draft: "/", JSON: install.MCPConfig("/bin/zalki", nil, false)},
-		{Path: ".fourth/mcp.json", Draft: "targets.json", JSON: install.MCPConfig("/bin/zalki", nil, false)},
+		{Path: ".fourth/mcp.json", Draft: "../escape.json", JSON: clientconfig.MCPConfig("/bin/zalki", nil, false)},
+		{Path: ".fourth/mcp.json", Draft: "/", JSON: clientconfig.MCPConfig("/bin/zalki", nil, false)},
+		{Path: ".fourth/mcp.json", Draft: "targets.json", JSON: clientconfig.MCPConfig("/bin/zalki", nil, false)},
 		{Path: ".fourth/mcp.json", Draft: "fourth.json", JSON: map[string]any{}},
-		{Path: ".fourth/mcp.json", Draft: "fourth.json", JSON: install.MCPConfig("/bin/zalki", nil, false), TOML: "also TOML"},
+		{Path: ".fourth/mcp.json", Draft: "fourth.json", JSON: clientconfig.MCPConfig("/bin/zalki", nil, false), TOML: "also TOML"},
 	} {
 		adapter := configFixtureAdapter{fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: model.InboxNative}, files: []model.ConfigDeclaration{file}}
 		registry, err := agent.NewRegistry(adapter)
@@ -85,7 +86,7 @@ func (a fixtureAdapter) Configuration(binary string, args []string) []model.Conf
 	if path == "" {
 		path = "." + a.kind + "/mcp.json"
 	}
-	return []model.ConfigDeclaration{{Path: path, Draft: a.kind + "-mcp.json", JSON: install.MCPConfig(binary, args, false)}}
+	return []model.ConfigDeclaration{{Path: path, Draft: a.kind + "-mcp.json", JSON: clientconfig.MCPConfig(binary, args, false)}}
 }
 
 func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
@@ -322,7 +323,7 @@ func TestAdapterConfigurationCannotClaimArbitraryPaths(t *testing.T) {
 	if err := readJSON(path, &record); err != nil {
 		t.Fatal(err)
 	}
-	record["patches"].(map[string]any)["unrelated.json"] = install.MCPConfig("/bin/other", nil, false)
+	record["patches"].(map[string]any)["unrelated.json"] = clientconfig.MCPConfig("/bin/other", nil, false)
 	if err := writeJSON(path, record); err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/clientconfig"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
@@ -143,7 +144,7 @@ func TestSetupQuotesPathsAndWritesOnlyDrafts(t *testing.T) {
 		t.Fatal(err)
 	}
 	command := value["hooks"].(map[string]any)["sessionStart"].([]any)[0].(map[string]any)["command"].(string)
-	if !strings.HasPrefix(command, install.ShellQuote(binary)) {
+	if !strings.HasPrefix(command, clientconfig.ShellQuote(binary)) {
 		t.Fatal("command path is not safely shell quoted")
 	}
 	if _, err := os.Stat(filepath.Join(home, ".codex")); !os.IsNotExist(err) {

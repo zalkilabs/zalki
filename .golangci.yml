@@ -109,6 +109,11 @@ linters:
             - github.com/modelcontextprotocol/go-sdk/mcp$
             - github.com/zalkilabs/zalki/internal/bus$
             - github.com/zalkilabs/zalki/internal/model$
+        clientconfig:
+          files: ["**/internal/clientconfig/*.go", "!$test"]
+          list-mode: strict
+          allow:
+            - $gostd
         logging:
           files: ["**/internal/logging/*.go", "!$test"]
           list-mode: strict
@@ -213,15 +218,15 @@ linters:
           deny:
             - pkg: github.com/zalkilabs/zalki/internal/adapters
               desc: Clients must not import the composition root or each other; only socketio is shared.
+            - pkg: github.com/zalkilabs/zalki/internal/install
+              desc: Clients build configuration patches with clientconfig, not the installer.
         # Client production code reaches bus only through the agent contract.
-        # codex_app_server.go still reads the build version from bus.
         client-bus:
           files:
             - "**/internal/adapters/codex/*.go"
             - "**/internal/adapters/claude/*.go"
             - "**/internal/adapters/cursor/*.go"
             - "!$test"
-            - "!**/internal/adapters/codex/codex_app_server.go"
           list-mode: lax
           deny:
             - pkg: github.com/zalkilabs/zalki/internal/bus

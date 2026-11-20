@@ -5,15 +5,15 @@ import (
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/clientconfig"
 )
 
 func cursorListenerCommand(binary, actor, capability, state, configFile string) string {
 	args := []string{binary, "--config", configFile, "--state", state, "cursor-listen", "--actor", actor}
 	for i := range args {
-		args[i] = install.ShellQuote(args[i])
+		args[i] = clientconfig.ShellQuote(args[i])
 	}
-	return "ZALKI_CAPABILITY=" + install.ShellQuote(capability) + " " + strings.Join(args, " ")
+	return "ZALKI_CAPABILITY=" + clientconfig.ShellQuote(capability) + " " + strings.Join(args, " ")
 }
 
 func cursorRecoveryContext(binary string, claim agent.RecoveryGrant) string {

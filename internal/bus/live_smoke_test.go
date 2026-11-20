@@ -30,7 +30,7 @@ import (
 
 // listenSmokeCursor keeps the smoke receiver on the real core lease lifecycle.
 func listenSmokeCursor(ctx context.Context, store bus.Store, actor, key string, output io.Writer) error {
-	acquire := func(actor, key string) (cursor.ListenerHandle, error) {
+	acquire := func(actor, key string) (agentapi.ListenerHandle, error) {
 		lease, err := store.AcquireListenerLease(actor, key)
 		if err != nil {
 			return nil, err
@@ -340,5 +340,5 @@ func configuredSmokeStore(t *testing.T, state, workspace string) bus.Store {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return bus.Store{Dir: state, Registry: adapters.BuiltinWithCodex(snapshot.Settings.CodexAllowQueueFallback.Value, snapshot.Paths.ConfigFile.Value)}
+	return bus.Store{Dir: state, Registry: adapters.BuiltinWithCodex(snapshot.Settings.CodexAllowQueueFallback.Value, snapshot.Paths.ConfigFile.Value, bus.Version)}
 }

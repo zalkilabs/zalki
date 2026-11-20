@@ -1292,5 +1292,213 @@
       }
     },
     "reason": "Consumer-side interfaces: adds mcpserver.Bus (9 methods) and plugins.Sender (1 method), and three pass-through methods on bus.Service (Ack, ReadMessages, DiscoverWithWarnings) that call the Store. mcpserver.New and mcpserver.Run take Bus instead of *bus.Service. Imports and OS calls are unchanged. Delta measured on base 249dfe0, same on both OS."
+  },
+  {
+    "base_commit": "9000a757f1b72334f7ae8276b884baca050e3751",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/adapters/codex.Adapter.WithClientVersion",
+          "internal/adapters/cursor.Adapter.Listen",
+          "internal/agent.Listener",
+          "internal/agent.ListenerHandle",
+          "internal/clientconfig.HookCommand",
+          "internal/clientconfig.HookConfig",
+          "internal/clientconfig.MCPConfig",
+          "internal/clientconfig.ShellQuote"
+        ],
+        "removed": [
+          "internal/adapters/cursor.ListenerHandle",
+          "internal/install.HookCommand",
+          "internal/install.HookConfig",
+          "internal/install.MCPConfig",
+          "internal/install.ShellQuote"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/adapters/codex.Adapter.WithClientVersion": "func(Adapter) func(version string) Adapter",
+          "function:internal/adapters/cursor.Adapter.Listen": "func(Adapter) func(ctx context.Context, acquire func(actor, key string) (agent.ListenerHandle, error), actor, key string, output io.Writer) error",
+          "function:internal/clientconfig.HookCommand": "func(binary string, args []string, kind string) string",
+          "function:internal/clientconfig.HookConfig": "func(events map[string]string, command string, flat bool) map[string]any",
+          "function:internal/clientconfig.MCPConfig": "func(binary string, args []string, typed bool) map[string]any",
+          "function:internal/clientconfig.ShellQuote": "func(value string) string",
+          "type:internal/agent.Listener": "Listener interface {\n\tListen(ctx context.Context, acquire func(actor, key string) (ListenerHandle, error), actor, key string, output io.Writer) error\n}",
+          "type:internal/agent.ListenerHandle": "ListenerHandle interface {\n\tGeneration() string\n\tArm(*model.Endpoint) error\n\tConfirm(func(model.SessionView) (json.RawMessage, error)) error\n\tValidateDelivery(messageID string) (acknowledged bool, err error)\n\tRejectHint(error)\n\tWakeEmitted(messageID string)\n\tClose(cause error)\n}"
+        },
+        "removed": {
+          "function:internal/install.HookCommand": "func(binary string, args []string, kind string) string",
+          "function:internal/install.HookConfig": "func(events map[string]string, command string, flat bool) map[string]any",
+          "function:internal/install.MCPConfig": "func(binary string, args []string, typed bool) map[string]any",
+          "function:internal/install.ShellQuote": "func(value string) string",
+          "type:internal/adapters/cursor.ListenerHandle": "ListenerHandle interface {\n\tGeneration() string\n\tArm(*model.Endpoint) error\n\tConfirm(func(model.SessionView) (json.RawMessage, error)) error\n\tValidateDelivery(messageID string) (acknowledged bool, err error)\n\tRejectHint(error)\n\tWakeEmitted(messageID string)\n\tClose(cause error)\n}"
+        },
+        "changed": {
+          "function:internal/adapters.BuiltinWithCodex": {
+            "before": "func(allow bool, configFile string) *agent.Registry",
+            "after": "func(allow bool, configFile, clientVersion string) *agent.Registry"
+          },
+          "function:internal/adapters/cursor.Listen": {
+            "before": "func(ctx context.Context, acquire func(actor, key string) (ListenerHandle, error), inspect func(string) (*model.Endpoint, error), actor, key string, output io.Writer) (resultErr error)",
+            "after": "func(ctx context.Context, acquire func(actor, key string) (agent.ListenerHandle, error), inspect func(string) (*model.Endpoint, error), actor, key string, output io.Writer) (resultErr error)"
+          },
+          "type:internal/adapters/codex.Adapter": {
+            "before": "Adapter struct {\n\tagent.StandardHooks\n\tallowQueueFallback\tbool\n\tconfigFile\t\tstring\n}",
+            "after": "Adapter struct {\n\tagent.StandardHooks\n\tallowQueueFallback\tbool\n\tconfigFile\t\tstring\n\tclientVersion\t\tstring\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/adapters/codex.Adapter": {
+            "before": {
+              "Methods": 14,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 15,
+              "Files": 3
+            }
+          },
+          "internal/adapters/cursor.Adapter": {
+            "before": {
+              "Methods": 12,
+              "Files": 2
+            },
+            "after": {
+              "Methods": 13,
+              "Files": 3
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [
+          "internal/adapters/claude -> internal/clientconfig",
+          "internal/adapters/codex -> internal/clientconfig",
+          "internal/adapters/cursor -> internal/clientconfig"
+        ],
+        "removed": [
+          "cmd/zalki -> internal/adapters/cursor",
+          "internal/adapters/claude -> internal/install",
+          "internal/adapters/codex -> internal/bus",
+          "internal/adapters/codex -> internal/install",
+          "internal/adapters/cursor -> internal/install"
+        ]
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Moves the four config helpers (HookCommand, HookConfig, MCPConfig, ShellQuote) from install to the new clientconfig package, moves ListenerHandle to agent and adds the agent.Listener capability that cursor implements, and adds codex.Adapter.WithClientVersion. Clients no longer import install, cmd/zalki no longer imports cursor, and codex no longer imports bus. Behavior is unchanged. Delta measured on base 9000a75, same on both OS."
+  },
+  {
+    "base_commit": "9000a757f1b72334f7ae8276b884baca050e3751",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/adapters/codex.Adapter.WithClientVersion",
+          "internal/adapters/cursor.Adapter.Listen",
+          "internal/agent.Listener",
+          "internal/agent.ListenerHandle",
+          "internal/clientconfig.HookCommand",
+          "internal/clientconfig.HookConfig",
+          "internal/clientconfig.MCPConfig",
+          "internal/clientconfig.ShellQuote"
+        ],
+        "removed": [
+          "internal/adapters/cursor.ListenerHandle",
+          "internal/install.HookCommand",
+          "internal/install.HookConfig",
+          "internal/install.MCPConfig",
+          "internal/install.ShellQuote"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/adapters/codex.Adapter.WithClientVersion": "func(Adapter) func(version string) Adapter",
+          "function:internal/adapters/cursor.Adapter.Listen": "func(Adapter) func(ctx context.Context, acquire func(actor, key string) (agent.ListenerHandle, error), actor, key string, output io.Writer) error",
+          "function:internal/clientconfig.HookCommand": "func(binary string, args []string, kind string) string",
+          "function:internal/clientconfig.HookConfig": "func(events map[string]string, command string, flat bool) map[string]any",
+          "function:internal/clientconfig.MCPConfig": "func(binary string, args []string, typed bool) map[string]any",
+          "function:internal/clientconfig.ShellQuote": "func(value string) string",
+          "type:internal/agent.Listener": "Listener interface {\n\tListen(ctx context.Context, acquire func(actor, key string) (ListenerHandle, error), actor, key string, output io.Writer) error\n}",
+          "type:internal/agent.ListenerHandle": "ListenerHandle interface {\n\tGeneration() string\n\tArm(*model.Endpoint) error\n\tConfirm(func(model.SessionView) (json.RawMessage, error)) error\n\tValidateDelivery(messageID string) (acknowledged bool, err error)\n\tRejectHint(error)\n\tWakeEmitted(messageID string)\n\tClose(cause error)\n}"
+        },
+        "removed": {
+          "function:internal/install.HookCommand": "func(binary string, args []string, kind string) string",
+          "function:internal/install.HookConfig": "func(events map[string]string, command string, flat bool) map[string]any",
+          "function:internal/install.MCPConfig": "func(binary string, args []string, typed bool) map[string]any",
+          "function:internal/install.ShellQuote": "func(value string) string",
+          "type:internal/adapters/cursor.ListenerHandle": "ListenerHandle interface {\n\tGeneration() string\n\tArm(*model.Endpoint) error\n\tConfirm(func(model.SessionView) (json.RawMessage, error)) error\n\tValidateDelivery(messageID string) (acknowledged bool, err error)\n\tRejectHint(error)\n\tWakeEmitted(messageID string)\n\tClose(cause error)\n}"
+        },
+        "changed": {
+          "function:internal/adapters.BuiltinWithCodex": {
+            "before": "func(allow bool, configFile string) *agent.Registry",
+            "after": "func(allow bool, configFile, clientVersion string) *agent.Registry"
+          },
+          "function:internal/adapters/cursor.Listen": {
+            "before": "func(ctx context.Context, acquire func(actor, key string) (ListenerHandle, error), inspect func(string) (*model.Endpoint, error), actor, key string, output io.Writer) (resultErr error)",
+            "after": "func(ctx context.Context, acquire func(actor, key string) (agent.ListenerHandle, error), inspect func(string) (*model.Endpoint, error), actor, key string, output io.Writer) (resultErr error)"
+          },
+          "type:internal/adapters/codex.Adapter": {
+            "before": "Adapter struct {\n\tagent.StandardHooks\n\tallowQueueFallback\tbool\n\tconfigFile\t\tstring\n}",
+            "after": "Adapter struct {\n\tagent.StandardHooks\n\tallowQueueFallback\tbool\n\tconfigFile\t\tstring\n\tclientVersion\t\tstring\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/adapters/codex.Adapter": {
+            "before": {
+              "Methods": 14,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 15,
+              "Files": 3
+            }
+          },
+          "internal/adapters/cursor.Adapter": {
+            "before": {
+              "Methods": 12,
+              "Files": 2
+            },
+            "after": {
+              "Methods": 13,
+              "Files": 3
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [
+          "internal/adapters/claude -> internal/clientconfig",
+          "internal/adapters/codex -> internal/clientconfig",
+          "internal/adapters/cursor -> internal/clientconfig"
+        ],
+        "removed": [
+          "cmd/zalki -> internal/adapters/cursor",
+          "internal/adapters/claude -> internal/install",
+          "internal/adapters/codex -> internal/bus",
+          "internal/adapters/codex -> internal/install",
+          "internal/adapters/cursor -> internal/install"
+        ]
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Moves the four config helpers (HookCommand, HookConfig, MCPConfig, ShellQuote) from install to the new clientconfig package, moves ListenerHandle to agent and adds the agent.Listener capability that cursor implements, and adds codex.Adapter.WithClientVersion. Clients no longer import install, cmd/zalki no longer imports cursor, and codex no longer imports bus. Behavior is unchanged. Delta measured on base 9000a75, same on both OS."
   }
 ]

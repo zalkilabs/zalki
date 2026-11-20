@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/clientconfig"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -170,7 +170,7 @@ func (stubCursorAdapter) DecodeState(in agent.StateInput) (json.RawMessage, erro
 	return v.AdapterState, nil
 }
 func (stubCursorAdapter) Configuration(binary string, args []string) []model.ConfigDeclaration {
-	return []model.ConfigDeclaration{{Path: ".fixture/mcp.json", Draft: "fixture-mcp.json", JSON: install.MCPConfig(binary, args, false)}}
+	return []model.ConfigDeclaration{{Path: ".fixture/mcp.json", Draft: "fixture-mcp.json", JSON: clientconfig.MCPConfig(binary, args, false)}}
 }
 
 // testRegistry registers dispatch stubs; real client tests live in adapters.

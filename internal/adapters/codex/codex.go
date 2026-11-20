@@ -20,7 +20,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/clientconfig"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -29,6 +29,7 @@ type Adapter struct {
 	agent.StandardHooks
 	allowQueueFallback bool
 	configFile         string
+	clientVersion      string
 }
 
 // New returns the Codex adapter.
@@ -36,15 +37,22 @@ func New(allow bool, configFile string) Adapter {
 	return Adapter{allowQueueFallback: allow, configFile: configFile}
 }
 
+// WithClientVersion returns a copy of the adapter that reports the Zalki build
+// version to the Codex app-server when it is initialized.
+func (a Adapter) WithClientVersion(version string) Adapter {
+	a.clientVersion = version
+	return a
+}
+
 // Configuration declares the Codex hook and MCP files. Hook patches use
-// install.HookConfig and install.HookCommand; the MCP declaration uses TOML.
-// Clients may depend on those helpers, but the file specification belongs to
-// the installer, so the result is a model.ConfigDeclaration.
+// clientconfig.HookConfig and clientconfig.HookCommand; the MCP declaration uses TOML.
+// The file specification belongs to the installer, so the result is a
+// model.ConfigDeclaration.
 func (a Adapter) Configuration(binary string, args []string) []model.ConfigDeclaration {
 	command, _ := json.Marshal(binary)
 	arguments, _ := json.Marshal(append(append([]string{}, args...), "mcp"))
 	return []model.ConfigDeclaration{
-		{Path: ".codex/hooks.json", ConfigRootEnv: "CODEX_HOME", Draft: "codex-hooks.json", JSON: install.HookConfig(a.Descriptor().Hooks, install.HookCommand(binary, args, "codex"), false)},
+		{Path: ".codex/hooks.json", ConfigRootEnv: "CODEX_HOME", Draft: "codex-hooks.json", JSON: clientconfig.HookConfig(a.Descriptor().Hooks, clientconfig.HookCommand(binary, args, "codex"), false)},
 		{Path: ".codex/config.toml", ConfigRootEnv: "CODEX_HOME", Draft: "codex-mcp.toml", TOML: fmt.Sprintf("\n[mcp_servers.zalki]\ncommand = %s\nargs = %s\n", command, arguments)},
 	}
 }

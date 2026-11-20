@@ -62,7 +62,7 @@ func checkCodexSubmission(t *testing.T, mode string, wantJoined bool, wantErr er
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()
-	joined, err := submitCodexToolOutput(ctx, endpoint, root, thread, output)
+	joined, err := submitCodexToolOutput(ctx, endpoint, root, thread, output, "test")
 	if joined != wantJoined || !errors.Is(err, wantErr) {
 		t.Fatalf("joined=%v error=%v; want joined=%v error=%v", joined, err, wantJoined, wantErr)
 	}
@@ -148,7 +148,7 @@ func checkCodexSocketReplacement(t *testing.T, method string) {
 	calls := serveFakeCodex(t, listener, spec)
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
-	joined, err := submitCodexToolOutput(ctx, endpoint, root, spec.Thread, "tool output")
+	joined, err := submitCodexToolOutput(ctx, endpoint, root, spec.Thread, "tool output", "test")
 	if joined || !errors.Is(err, errCodexUnavailable) {
 		t.Fatalf("replacement at %s: joined=%v error=%v", method, joined, err)
 	}

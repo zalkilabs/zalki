@@ -6,13 +6,14 @@ import (
 	"io"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
 func TestListenStopsAtAcquisitionFailure(t *testing.T) {
 	want := errors.New("lease refused")
-	acquire := func(actor, key string) (ListenerHandle, error) {
+	acquire := func(actor, key string) (agent.ListenerHandle, error) {
 		if actor != "test-actor" || key != "test-capability" {
 			t.Fatalf("acquisition received different credentials")
 		}

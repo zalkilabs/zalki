@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/clientconfig"
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -18,7 +19,7 @@ func TestAdapterDefinesItsOwnConfigurationOverride(t *testing.T) {
 	t.Setenv("FOURTH_CONFIG_DIR", profile)
 	adapter := configFixtureAdapter{
 		fixtureAdapter: fixtureAdapter{kind: "fourth", inbox: model.InboxNative},
-		files:          []model.ConfigDeclaration{{Path: ".fourth/mcp.json", ConfigRootEnv: "FOURTH_CONFIG_DIR", Draft: "fourth-mcp.json", JSON: install.MCPConfig("/fixture/zalki", nil, false)}},
+		files:          []model.ConfigDeclaration{{Path: ".fourth/mcp.json", ConfigRootEnv: "FOURTH_CONFIG_DIR", Draft: "fourth-mcp.json", JSON: clientconfig.MCPConfig("/fixture/zalki", nil, false)}},
 	}
 	registry, err := agent.NewRegistry(adapter)
 	if err != nil {

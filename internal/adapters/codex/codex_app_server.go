@@ -18,7 +18,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -146,7 +145,7 @@ func (a Adapter) deliverCodex(ctx context.Context, msg model.Message, target mod
 	if err != nil {
 		return failedReceipt(model.StatusNotSent, err)
 	}
-	receipt, fallback := deliverCodexAppServer(ctx, msg, target, id)
+	receipt, fallback := deliverCodexAppServer(ctx, msg, target, id, a.clientVersion)
 	if !fallback {
 		return receipt
 	}
@@ -161,7 +160,7 @@ func (a Adapter) deliverCodex(ctx context.Context, msg model.Message, target mod
 	return queueCodex(ctx, msg, target)
 }
 
-func deliverCodexAppServer(ctx context.Context, msg model.Message, target model.Session, threadID string) (model.Receipt, bool) {
+func deliverCodexAppServer(ctx context.Context, msg model.Message, target model.Session, threadID, clientVersion string) (model.Receipt, bool) {
 	root := codexConfigRoot(target)
 	if root == "" {
 		return failedReceipt(model.StatusNotSent, errCodexProfile), false
@@ -172,7 +171,7 @@ func deliverCodexAppServer(ctx context.Context, msg model.Message, target model.
 	}
 	attempt, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
-	joined, err := submitCodexToolOutput(attempt, endpoint, root, threadID, model.Envelope(msg))
+	joined, err := submitCodexToolOutput(attempt, endpoint, root, threadID, model.Envelope(msg), clientVersion)
 	if err == nil {
 		output := "started_idle_turn"
 		if joined {
@@ -195,7 +194,7 @@ func deliverCodexAppServer(ctx context.Context, msg model.Message, target model.
 	return model.Receipt{}, true
 }
 
-func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, threadID, output string) (joined bool, err error) {
+func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, threadID, output, clientVersion string) (joined bool, err error) {
 	if err := endpoint.unchanged(); err != nil {
 		return false, err
 	}
@@ -204,7 +203,7 @@ func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, thre
 		return false, err
 	}
 	defer client.Close()
-	if err := initializeCodexToolOutput(ctx, client, endpoint, root); err != nil {
+	if err := initializeCodexToolOutput(ctx, client, endpoint, root, clientVersion); err != nil {
 		return false, err
 	}
 	if err := endpoint.unchanged(); err != nil {
@@ -223,13 +222,13 @@ func submitCodexToolOutput(ctx context.Context, endpoint codexSocket, root, thre
 	return joined, nil
 }
 
-func initializeCodexToolOutput(ctx context.Context, client *codexClient, endpoint codexSocket, root string) error {
+func initializeCodexToolOutput(ctx context.Context, client *codexClient, endpoint codexSocket, root, clientVersion string) error {
 	var initialized struct {
 		CodexHome string `json:"codexHome"`
 		UserAgent string `json:"userAgent"`
 	}
 	if err := client.call(ctx, "initialize", map[string]any{
-		"clientInfo": map[string]string{"name": "zalki", "version": bus.Version},
+		"clientInfo": map[string]string{"name": "zalki", "version": clientVersion},
 	}, &initialized); err != nil {
 		if errors.Is(err, errCodexUnsupported) {
 			rememberCodexSupport(endpoint, root, codexSupportUnavailable)

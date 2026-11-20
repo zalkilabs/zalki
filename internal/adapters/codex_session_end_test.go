@@ -39,7 +39,7 @@ func codexEndFixture(t *testing.T, allow bool) (bus.Store, string, string) {
 	t.Setenv("PATH", bin+":/usr/bin:/bin")
 	t.Setenv("SESSION_END_TEST_ARGS", args)
 	t.Setenv("SESSION_END_TEST_CALLS", calls)
-	store, err := bus.NewStore(filepath.Join(root, "state"), adapters.BuiltinWithCodex(allow, filepath.Join(root, "config.json")), nil)
+	store, err := bus.NewStore(filepath.Join(root, "state"), adapters.BuiltinWithCodex(allow, filepath.Join(root, "config.json"), ""), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

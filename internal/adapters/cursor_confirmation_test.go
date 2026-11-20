@@ -81,7 +81,7 @@ func (s *replacementSetup) replacementFinished(t *testing.T) {
 }
 
 type replacementLease struct {
-	cursor.ListenerHandle
+	agent.ListenerHandle
 	setup *replacementSetup
 }
 
@@ -107,7 +107,7 @@ func startReplacementListener(t *testing.T, store bus.Store, actor, key string) 
 	t.Helper()
 	setup := newReplacementSetup(t)
 	stop, output := startRecoveryListenerRun(t, func(ctx context.Context, output io.Writer) error {
-		acquire := func(actor, key string) (cursor.ListenerHandle, error) {
+		acquire := func(actor, key string) (agent.ListenerHandle, error) {
 			lease, err := store.AcquireListenerLease(actor, key)
 			if err != nil {
 				return nil, err

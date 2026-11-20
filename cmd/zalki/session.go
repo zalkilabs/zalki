@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/adapters/cursor"
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/mcpserver"
@@ -16,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// The composition root binds the core lease to the client-owned port.
-var _ cursor.ListenerHandle = (*bus.Lease)(nil)
+// The composition root binds the core lease to the adapter-owned listener port.
+var _ agent.ListenerHandle = (*bus.Lease)(nil)
 
 // The MCP tools see the service only through their own small interface.
 var _ mcpserver.Bus = (*bus.Service)(nil)
@@ -105,14 +104,22 @@ func newCursorListenCommand(opts *commandOptions) *cobra.Command {
 				return err
 			}
 			defer lease.Close() //nolint:errcheck // Stale runtime records can be pruned after shutdown.
-			acquire := func(actor, key string) (cursor.ListenerHandle, error) {
+			adapter, err := service.Store.Registry.Lookup("cursor")
+			if err != nil {
+				return err
+			}
+			listener, ok := adapter.(agent.Listener)
+			if !ok {
+				return errors.New("the Cursor adapter has no listener")
+			}
+			acquire := func(actor, key string) (agent.ListenerHandle, error) {
 				lease, err := service.Store.AcquireListenerLease(actor, key)
 				if err != nil {
 					return nil, err
 				}
 				return lease, nil
 			}
-			return cursor.Listen(cmd.Context(), acquire, agent.InspectEndpoint, actor, key, cmd.OutOrStdout())
+			return listener.Listen(cmd.Context(), acquire, actor, key, cmd.OutOrStdout())
 		},
 	}
 	cmd.Flags().StringVar(&actor, "actor", os.Getenv("ZALKI_ACTOR"), "your own Cursor actor ID (defaults to ZALKI_ACTOR)")

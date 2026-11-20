@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/adapters"
+	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/config"
 )
 
@@ -69,7 +70,7 @@ func TestConfigCodexRegistryUsesSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, err := adapters.BuiltinWithCodex(true, path).Lookup("codex")
+	want, err := adapters.BuiltinWithCodex(true, path, bus.Version).Lookup("codex")
 	if err != nil || !reflect.DeepEqual(adapter, want) {
 		t.Fatal("runtime registry ignored the resolved bool or selected absolute config path", err)
 	}
