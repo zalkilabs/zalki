@@ -44,7 +44,7 @@ func (Adapter) Descriptor() agent.AdapterDescriptor {
 }
 
 func (Adapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
-	return model.ReceiveCapabilities{IdleWake: true, Delivery: "experimental_socket", Inbox: model.InboxNative, BusyDelivery: model.DeliveryBetweenTools, LifecycleHooks: true, Experimental: true, RequiresEndpoint: true}
+	return model.ReceiveCapabilities{IdleWake: true, Delivery: "local_socket", Inbox: model.InboxNative, BusyDelivery: model.DeliveryBetweenTools, LifecycleHooks: true, RequiresEndpoint: true}
 }
 
 func (Adapter) Deliver(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
@@ -142,7 +142,7 @@ func writeClaudeFrame(ctx context.Context, conn net.Conn, encoded []byte) model.
 		encoded = encoded[n:]
 	}
 	// Claude 2.1.316 sends no inline ACK, even for silently ignored frames.
-	// EOF is not acceptance; see docs/design/claude-delivery-ack.md.
+	// EOF is not acceptance.
 	return model.NewReceipt(model.StatusTransportWritten)
 }
 

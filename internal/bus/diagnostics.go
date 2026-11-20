@@ -23,15 +23,14 @@ type DiagnosticReport struct {
 }
 
 type AgentDiagnostic struct {
-	Version         string                    `json:"installed_version,omitempty"`
-	FixtureVersions []string                  `json:"fixture_versions,omitempty"`
-	Compatibility   string                    `json:"compatibility"`
-	RecoveryHint    string                    `json:"recovery_hint,omitempty"`
-	Kind            string                    `json:"kind"`
-	Label           string                    `json:"label"`
-	Binary          string                    `json:"binary,omitempty"`
-	Found           bool                      `json:"found"`
-	Receive         model.ReceiveCapabilities `json:"receive"`
+	Version       string                    `json:"installed_version,omitempty"`
+	Compatibility string                    `json:"compatibility"`
+	RecoveryHint  string                    `json:"recovery_hint,omitempty"`
+	Kind          string                    `json:"kind"`
+	Label         string                    `json:"label"`
+	Binary        string                    `json:"binary,omitempty"`
+	Found         bool                      `json:"found"`
+	Receive       model.ReceiveCapabilities `json:"receive"`
 }
 
 func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
@@ -79,7 +78,6 @@ func (s Store) diagnoseAgents(ctx context.Context, report *DiagnosticReport) {
 		binary, err := exec.LookPath(d.Executable)
 		diagnostic := AgentDiagnostic{Kind: kind, Label: d.Label, Binary: binary, Found: err == nil, Receive: adapter.ReceiveCapabilities(model.Session{})}
 		annotateClientCompatibility(ctx, &diagnostic)
-		annotateAdapterCompatibility(&diagnostic, adapter)
 		report.Agents = append(report.Agents, diagnostic)
 		report.Notes = append(report.Notes, d.Notes...)
 	}

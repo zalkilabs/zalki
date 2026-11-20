@@ -3,12 +3,9 @@ package bus
 import (
 	"bytes"
 	"context"
-	"embed"
-	"encoding/json"
 	"io"
 	"os/exec"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -17,45 +14,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
-
-//go:embed testdata/clients/*.json
-var clientContracts embed.FS
-
-var clientFixtureVersions = loadFixtureVersions()
-
-func loadFixtureVersions() map[string][]string {
-	versions := map[string][]string{}
-	files, _ := clientContracts.ReadDir("testdata/clients")
-	for _, file := range files {
-		raw, err := clientContracts.ReadFile("testdata/clients/" + file.Name())
-		if err != nil {
-			panic("cannot read embedded client contract")
-		}
-		var contract struct {
-			Kind    string `json:"kind"`
-			Version string `json:"version"`
-		}
-		if json.Unmarshal(raw, &contract) != nil {
-			panic("invalid embedded client contract")
-		}
-		if contract.Version == "" || contract.Version == "unknown" {
-			continue
-		}
-		duplicate := false
-		for _, version := range versions[contract.Kind] {
-			if version == contract.Version {
-				duplicate = true
-			}
-		}
-		if !duplicate {
-			versions[contract.Kind] = append(versions[contract.Kind], contract.Version)
-		}
-	}
-	for _, values := range versions {
-		sort.Strings(values)
-	}
-	return versions
-}
 
 var clientVersionPattern = regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?`)
 
@@ -92,7 +50,6 @@ func probeClientVersion(ctx context.Context, path string) string {
 }
 
 func annotateClientCompatibility(ctx context.Context, diagnostic *AgentDiagnostic) {
-	diagnostic.FixtureVersions = append([]string(nil), clientFixtureVersions[diagnostic.Kind]...)
 	if !diagnostic.Found {
 		diagnostic.Compatibility = "not_installed"
 		diagnostic.RecoveryHint = "Install this client before configuring its integration."
@@ -101,18 +58,10 @@ func annotateClientCompatibility(ctx context.Context, diagnostic *AgentDiagnosti
 	diagnostic.Version = probeClientVersion(ctx, diagnostic.Binary)
 	if diagnostic.Version == "" {
 		diagnostic.Compatibility = "version_unavailable"
-		diagnostic.RecoveryHint = "Check the client's --version command, then run the opt-in live smoke test."
+		diagnostic.RecoveryHint = "Check the client's --version command."
 		return
 	}
-	diagnostic.Compatibility = "unverified_version"
-	diagnostic.RecoveryHint = "This version is not covered by recorded probes; run the opt-in live smoke test before relying on it."
-	for _, version := range diagnostic.FixtureVersions {
-		if version == diagnostic.Version {
-			diagnostic.Compatibility = "fixture_covered"
-			diagnostic.RecoveryHint = "Protocol fixtures cover this version; use a live smoke test to verify this installation."
-			return
-		}
-	}
+	diagnostic.Compatibility = "installed"
 }
 
 func recoveryHint(diagnostic model.SessionDiagnostic, adapter agent.Adapter) string {
@@ -134,22 +83,3 @@ func recoveryHint(diagnostic model.SessionDiagnostic, adapter agent.Adapter) str
 func validRecoveryHint(hint string) bool {
 	return len(hint) <= 512 && utf8.ValidString(hint) && !strings.ContainsFunc(hint, unicode.IsControl)
 }
-
-// Adapter evidence is separate from generic hook/metadata fixture coverage.
-// Missing installations or unavailable versions retain their common diagnosis.
-func annotateAdapterCompatibility(diagnostic *AgentDiagnostic, adapter agent.Adapter) {
-	if !diagnostic.Found || diagnostic.Version == "" {
-		return
-	}
-	policy, ok := adapter.(agent.CompatibilityAdapter)
-	if !ok {
-		return
-	}
-	status, hint := policy.Compatibility(diagnostic.Version)
-	if !compatibilityStatusPattern.MatchString(status) || !validRecoveryHint(hint) {
-		return
-	}
-	diagnostic.Compatibility, diagnostic.RecoveryHint = status, hint
-}
-
-var compatibilityStatusPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
