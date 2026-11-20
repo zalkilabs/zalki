@@ -252,3 +252,47 @@ func TestUninstallCommandPreviewsAndApplies(t *testing.T) {
 		t.Fatal("uninstall apply failed", err)
 	}
 }
+
+// uninstallListsKey runs uninstall and checks that its one note names the user
+// key and that no value reached the output.
+func uninstallListsKey(t *testing.T, home, state string, apply bool, secret string) {
+	t.Helper()
+	args := []string{"uninstall", "--state", state}
+	if apply {
+		args = append(args, "--apply")
+	}
+	out, diagnostic, err := execute(t, home, "", args...)
+	var report install.Report
+	if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || report.DryRun == apply || len(report.Notes) != 1 {
+		t.Fatal("uninstall over a table with user keys failed", apply, err, out)
+	}
+	if !strings.Contains(report.Notes[0], "(default_tools_approval_mode)") || strings.Contains(out+diagnostic, secret) {
+		t.Fatal("the note does not name the key, or a value reached the output", report.Notes)
+	}
+}
+
+func TestUninstallCommandListsRemovedUserKeyNames(t *testing.T) {
+	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {
+		t.Setenv(name, "")
+	}
+	home := t.TempDir()
+	state := filepath.Join(home, "state")
+	if _, _, err := execute(t, home, "", "install", "--state", state, "--apply"); err != nil {
+		t.Fatal(err)
+	}
+	config := filepath.Join(home, ".codex", "config.toml")
+	text, err := os.ReadFile(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const secret = "fixture-private-value"
+	if err := os.WriteFile(config, append(text, []byte("default_tools_approval_mode = \""+secret+"\"\n")...), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, apply := range []bool{false, true} {
+		uninstallListsKey(t, home, state, apply, secret)
+	}
+	if left, err := os.ReadFile(config); err != nil || strings.Contains(string(left), "zalki") {
+		t.Fatal("the table was not removed", err)
+	}
+}
