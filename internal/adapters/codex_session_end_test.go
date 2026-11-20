@@ -32,13 +32,13 @@ func codexEndFixture(t *testing.T, allow bool) (bus.Store, string, string) {
 		t.Fatal(err)
 	}
 	args, calls := filepath.Join(root, "argv"), filepath.Join(root, "calls")
-	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$ZAL34_TEST_ARGS\"\nprintf q >> \"$ZAL34_TEST_CALLS\"\n"
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$SESSION_END_TEST_ARGS\"\nprintf q >> \"$SESSION_END_TEST_CALLS\"\n"
 	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin+":/usr/bin:/bin")
-	t.Setenv("ZAL34_TEST_ARGS", args)
-	t.Setenv("ZAL34_TEST_CALLS", calls)
+	t.Setenv("SESSION_END_TEST_ARGS", args)
+	t.Setenv("SESSION_END_TEST_CALLS", calls)
 	store, err := bus.NewStore(filepath.Join(root, "state"), adapters.BuiltinWithCodex(allow, filepath.Join(root, "config.json")), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -63,7 +63,7 @@ func assertCodexEndReady(t *testing.T, store bus.Store, target model.Session) {
 	t.Helper()
 	current := adapterTestSession(t, store, target.ID)
 	if current.Retired || current.State != model.StateReady || current.ID != target.ID || current.NativeID != target.NativeID || current.Generation != target.Generation {
-		t.Fatal("ZAL34_CODEX_END_RETIRED_OR_CHANGED_IDENTITY")
+		t.Fatal("CODEX_END_RETIRED_OR_CHANGED_IDENTITY")
 	}
 	listed, err := store.List()
 	if err != nil {
@@ -72,23 +72,23 @@ func assertCodexEndReady(t *testing.T, store bus.Store, target model.Session) {
 	for _, session := range listed {
 		if session.ID == target.ID {
 			if session.Liveness != model.LivenessUnknown {
-				t.Fatal("ZAL34_CODEX_END_INVENTED_LIVENESS")
+				t.Fatal("CODEX_END_INVENTED_LIVENESS")
 			}
 			return
 		}
 	}
-	t.Fatal("ZAL34_CODEX_END_NOT_LISTED")
+	t.Fatal("CODEX_END_NOT_LISTED")
 }
 
 func assertFakeCodexQueue(t *testing.T, args string, msg model.Message, target model.Session) {
 	t.Helper()
 	raw, err := os.ReadFile(args)
 	if err != nil {
-		t.Fatal("ZAL34_CODEX_END_DID_NOT_QUEUE", err)
+		t.Fatal("CODEX_END_DID_NOT_QUEUE", err)
 	}
 	parts := strings.SplitN(strings.TrimSuffix(string(raw), "\n"), "\n", 5)
 	if len(parts) != 5 || parts[0] != "queue" || parts[1] != "--thread" || parts[2] != target.NativeID || parts[3] != "--message" || !model.MatchesEnvelope(msg, parts[4]) {
-		t.Fatal("ZAL34_CODEX_END_QUEUED_WRONG_TARGET_OR_ENVELOPE")
+		t.Fatal("CODEX_END_QUEUED_WRONG_TARGET_OR_ENVELOPE")
 	}
 }
 
@@ -105,11 +105,11 @@ func TestCodexSessionEndKeepsListedAndQueues(t *testing.T) {
 	}
 	assertCodexEndReady(t, store, target)
 	if _, err := store.Messages(target.ID, targetKey); err != nil {
-		t.Fatal("ZAL34_CODEX_END_CHANGED_CAPABILITY")
+		t.Fatal("CODEX_END_CHANGED_CAPABILITY")
 	}
 	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "bounded queued end fixture"})
 	if err != nil || msg.Status != model.StatusSubmitted {
-		t.Fatal("ZAL34_CODEX_END_DID_NOT_QUEUE", err)
+		t.Fatal("CODEX_END_DID_NOT_QUEUE", err)
 	}
 	assertFakeCodexQueue(t, args, msg, target)
 }
@@ -125,10 +125,10 @@ func TestCodexSessionEndPreservesQueueOptIn(t *testing.T) {
 	assertCodexEndReady(t, store, target)
 	msg, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "queue disabled fixture"})
 	if err != nil || msg.Status != model.StatusNotSent {
-		t.Fatal("ZAL34_CODEX_END_ENABLED_QUEUE", err)
+		t.Fatal("CODEX_END_ENABLED_QUEUE", err)
 	}
 	if _, err := os.Stat(calls); !os.IsNotExist(err) {
-		t.Fatal("ZAL34_CODEX_END_ENABLED_QUEUE")
+		t.Fatal("CODEX_END_ENABLED_QUEUE")
 	}
 }
 
@@ -174,10 +174,10 @@ func checkCodexPendingEnd(t *testing.T, approval bool) {
 	}
 	attempts, err := os.ReadFile(calls)
 	if err != nil || string(attempts) != "q" {
-		t.Fatal("ZAL34_CODEX_END_REPLAYED_PENDING_MESSAGE")
+		t.Fatal("CODEX_END_REPLAYED_PENDING_MESSAGE")
 	}
 	if _, err := store.Ack(target.ID, targetKey, msg.ID); err != nil {
-		t.Fatal("ZAL34_CODEX_END_PENDING_CANNOT_ACK")
+		t.Fatal("CODEX_END_PENDING_CANNOT_ACK")
 	}
 }
 
@@ -192,7 +192,7 @@ func TestOtherSessionEndStillRetires(t *testing.T) {
 			}
 			current := adapterTestSession(t, store, target.ID)
 			if !current.Retired || current.State != model.StateRetired || current.RetiredReason != "session_end" {
-				t.Fatal("ZAL34_OTHER_END_DID_NOT_RETIRE")
+				t.Fatal("OTHER_END_DID_NOT_RETIRE")
 			}
 		})
 	}
@@ -207,10 +207,10 @@ func TestCodexSessionStartAfterEndKeepsActorID(t *testing.T) {
 	}
 	current, newKey := codexStartHook(t, &service, target, "resume")
 	if current.ID != target.ID || current.NativeID != target.NativeID || current.Retired {
-		t.Fatal("ZAL34_CODEX_RESTART_CHANGED_ACTOR_ID")
+		t.Fatal("CODEX_RESTART_CHANGED_ACTOR_ID")
 	}
 	if current.Generation == target.Generation || newKey == oldKey {
-		t.Fatal("ZAL34_CODEX_RESTART_LOST_REGISTRATION_ROTATION")
+		t.Fatal("CODEX_RESTART_LOST_REGISTRATION_ROTATION")
 	}
 }
 
@@ -230,18 +230,18 @@ func TestCodexSessionEndRestartBurstKeepsAllSessions(t *testing.T) {
 	close(start)
 	for range targets {
 		if err := <-results; err != nil {
-			t.Error("ZAL34_CODEX_RESTART_BURST_FAILED", err)
+			t.Error("CODEX_RESTART_BURST_FAILED", err)
 		}
 	}
 	for _, target := range targets {
 		current := adapterTestSession(t, store, target.ID)
 		if current.Retired || current.State != model.StateReady || current.Generation != target.Generation {
-			t.Fatal("ZAL34_CODEX_RESTART_BURST_RETIRED_SESSION")
+			t.Fatal("CODEX_RESTART_BURST_RETIRED_SESSION")
 		}
 	}
 	listed, err := store.List()
 	if err != nil || len(listed) != len(targets) {
-		t.Fatal("ZAL34_CODEX_RESTART_BURST_LOST_SESSION")
+		t.Fatal("CODEX_RESTART_BURST_LOST_SESSION")
 	}
 }
 
@@ -255,7 +255,7 @@ func TestPruneCodexNeedsEvidenceOrExplicitID(t *testing.T) {
 	assertPruneKeepsUnknownCodex(t, store, target)
 	report, err := store.Prune(true, []string{target.ID})
 	if err != nil || len(report.Sessions) != 1 || report.Sessions[0].Reason != "explicit_cleanup" {
-		t.Fatal("ZAL34_PRUNE_EXACT_ID_LOST", err)
+		t.Fatal("PRUNE_EXACT_ID_LOST", err)
 	}
 	if _, err := store.Prune(false, []string{target.ID}); err != nil {
 		t.Fatal(err)
@@ -265,7 +265,7 @@ func TestPruneCodexNeedsEvidenceOrExplicitID(t *testing.T) {
 	}
 	current := adapterTestSession(t, store, target.ID)
 	if !current.Retired || current.State != model.StateRetired || current.RetiredReason != "explicit_cleanup" {
-		t.Fatal("ZAL34_CODEX_LATE_END_REVIVED_EXPLICIT_RETIREMENT")
+		t.Fatal("CODEX_LATE_END_REVIVED_EXPLICIT_RETIREMENT")
 	}
 }
 
@@ -274,7 +274,7 @@ func codexPendingAfterEnd(t *testing.T, store bus.Store, target model.Session, m
 	saved := adapterTestMessage(t, store, messageID)
 	current := adapterTestSession(t, store, target.ID)
 	if saved.Status != model.StatusSubmitted || saved.AcknowledgedAt != "" || saved.TargetGeneration != target.Generation || current.Retired || current.ApprovalHeld != 0 {
-		t.Fatal("ZAL34_CODEX_END_LOST_PENDING_MESSAGE")
+		t.Fatal("CODEX_END_LOST_PENDING_MESSAGE")
 	}
 	return saved
 }
@@ -288,12 +288,12 @@ func assertPruneKeepsUnknownCodex(t *testing.T, store bus.Store, target model.Se
 		}
 		for _, item := range report.Sessions {
 			if item.ID == target.ID {
-				t.Fatal("ZAL34_PRUNE_RETIRED_UNKNOWN_CODEX")
+				t.Fatal("PRUNE_RETIRED_UNKNOWN_CODEX")
 			}
 		}
 		current := adapterTestSession(t, store, target.ID)
 		if current.Retired || current.Liveness == model.LivenessExited {
-			t.Fatal("ZAL34_PRUNE_RETIRED_UNKNOWN_CODEX")
+			t.Fatal("PRUNE_RETIRED_UNKNOWN_CODEX")
 		}
 	}
 }
@@ -368,7 +368,7 @@ func checkCodexEndReleaseBoundary(t *testing.T, allow bool) {
 		t.Fatal(err)
 	}
 	if !observed {
-		t.Fatal("ZAL34_END_RELEASE_BOUNDARY_NOT_OBSERVED")
+		t.Fatal("END_RELEASE_BOUNDARY_NOT_OBSERVED")
 	}
 	assertCodexEndReady(t, store, target)
 	assertEndReleaseOutcome(t, &service, allow, sender, key, target, msg.ID, args, calls)
@@ -379,10 +379,10 @@ func assertHeldBeforeEndRelease(t *testing.T, store bus.Store, target model.Sess
 	saved := adapterTestMessage(t, store, messageID)
 	current := adapterTestSession(t, store, target.ID)
 	if saved.Status != model.StatusApprovalBlocked || saved.AcknowledgedAt != "" || saved.TargetGeneration != target.Generation || current.ApprovalHeld != 1 || current.Retired || current.State != model.StateReady {
-		t.Fatal("ZAL34_END_SETTLED_HELD_BEFORE_RELEASE")
+		t.Fatal("END_SETTLED_HELD_BEFORE_RELEASE")
 	}
 	if _, err := os.Stat(calls); !os.IsNotExist(err) {
-		t.Fatal("ZAL34_END_INVOKED_TRANSPORT_BEFORE_RELEASE")
+		t.Fatal("END_INVOKED_TRANSPORT_BEFORE_RELEASE")
 	}
 }
 
@@ -391,33 +391,33 @@ func assertEndReleaseOutcome(t *testing.T, service *bus.Service, allow bool, sen
 	saved := adapterTestMessage(t, service.Store, messageID)
 	current := adapterTestSession(t, service.Store, target.ID)
 	if current.ApprovalHeld != 0 || current.Retired {
-		t.Fatal("ZAL34_END_NORMAL_RELEASE_NOT_FINISHED")
+		t.Fatal("END_NORMAL_RELEASE_NOT_FINISHED")
 	}
 	if allow {
 		if saved.Status != model.StatusSubmitted || saved.AcknowledgedAt != "" {
-			t.Fatal("ZAL34_END_OWNER_QUEUE_NOT_SUBMITTED")
+			t.Fatal("END_OWNER_QUEUE_NOT_SUBMITTED")
 		}
 		assertFakeCodexQueue(t, args, saved, target)
 		attempts, err := os.ReadFile(calls)
 		if err != nil || string(attempts) != "q" {
-			t.Fatal("ZAL34_END_OWNER_QUEUE_DISPATCH_COUNT")
+			t.Fatal("END_OWNER_QUEUE_DISPATCH_COUNT")
 		}
 		return
 	}
 	assertVisibleEndQueueRefusal(t, saved, target)
 	retry, err := service.Send(t.Context(), bus.SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: model.NewUUID(), Body: "sender can retry fixture"})
 	if err != nil || retry.ID == saved.ID {
-		t.Fatal("ZAL34_END_REFUSAL_PREVENTED_SENDER_RETRY", err)
+		t.Fatal("END_REFUSAL_PREVENTED_SENDER_RETRY", err)
 	}
 	assertVisibleEndQueueRefusal(t, retry, target)
 	if _, err := os.Stat(calls); !os.IsNotExist(err) {
-		t.Fatal("ZAL34_END_REFUSAL_BYPASSED_QUEUE_OPT_IN")
+		t.Fatal("END_REFUSAL_BYPASSED_QUEUE_OPT_IN")
 	}
 }
 
 func assertVisibleEndQueueRefusal(t *testing.T, msg model.Message, target model.Session) {
 	t.Helper()
 	if msg.Status != model.StatusNotSent || msg.Receipt == nil || !strings.Contains(msg.Receipt.Error, "codex.allow_queue_fallback=true") || strings.Contains(strings.ToLower(msg.Receipt.Error), "retired") || msg.TargetGeneration != target.Generation {
-		t.Fatal("ZAL34_END_REFUSAL_NOT_HONEST_TRANSPORT_REASON")
+		t.Fatal("END_REFUSAL_NOT_HONEST_TRANSPORT_REASON")
 	}
 }

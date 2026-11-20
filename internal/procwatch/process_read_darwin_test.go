@@ -36,7 +36,7 @@ func rowOf(pid int) *unix.KinfoProc {
 	return &row
 }
 
-// ZAL-70: Read is one fixed-row query and at most one signal-0 probe; only
+// Read is one fixed-row query and at most one signal-0 probe; only
 // the probe's ESRCH proves absence.
 func TestProcwatchReadBounded(t *testing.T) {
 	t.Run("matrix", checkReadMatrix)

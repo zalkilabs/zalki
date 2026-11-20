@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// The root exit mapping composes ZAL-15's update marker (2) with the
+// The root exit mapping composes the update marker (2) with the
 // supervisor's two outcomes (75, 0). Every marker counts only by direct
 // identity: joined with a cleanup error or wrapped, it is an ordinary
 // failure (1), and none is swallowed by errors.Join.

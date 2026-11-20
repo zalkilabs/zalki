@@ -7,7 +7,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/bus"
 )
 
-// S07: while the journal lock is held, the supervisor's snapshot still
+// While the journal lock is held, the supervisor's snapshot still
 // reads the current record; PluginStatus, which takes that lock, waits.
 func TestPluginSnapshotDoesNotUseStoreLock(t *testing.T) {
 	store := fixtureStore(t)

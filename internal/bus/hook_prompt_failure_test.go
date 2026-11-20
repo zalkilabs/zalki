@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// ZAL-85 M2: the failed-registration line points to the log only when the
+// The failed-registration line points to the log only when the
 // log records warnings; otherwise it says that the cause was not saved.
 func TestPromptRegistrationFailureNamesWhereTheCauseIs(t *testing.T) {
 	const failed = "Zalki could not safely register this chat. Your message was not blocked."

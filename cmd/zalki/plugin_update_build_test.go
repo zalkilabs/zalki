@@ -33,8 +33,8 @@ func TestPluginUpdateDropsExtendedGrants(t *testing.T) {
 
 func TestPluginUpdateBuildFailureKeepsOldAndScrubsEnvironment(t *testing.T) {
 	state, _, old := installedUpdateFolder(t, "demo")
-	t.Setenv("ZAL15_SECRET_CREDENTIAL", "private-sentinel")
-	folder := fakeGoFolder(t, `if [ "${ZAL15_SECRET_CREDENTIAL+x}" = x ]; then echo ENV_LEAK; fi
+	t.Setenv("UPDATE_BUILD_SECRET_CREDENTIAL", "private-sentinel")
+	folder := fakeGoFolder(t, `if [ "${UPDATE_BUILD_SECRET_CREDENTIAL+x}" = x ]; then echo ENV_LEAK; fi
 if [ "$GOTOOLCHAIN" != local ] || [ "$GOENV" != off ] || [ "$GOPROXY" != off ]; then echo ENV_POLICY_LOST; fi
 echo controlled-build-failure
 exit 17`)
@@ -83,8 +83,8 @@ func TestPluginInstallDryRunBuildAndCleanup(t *testing.T) {
 	binary := checkRealBinary(t)
 	tmp := t.TempDir()
 	t.Setenv("TMPDIR", tmp)
-	t.Setenv("ZAL15_SECRET_CREDENTIAL", "private-sentinel")
-	folder := fakeGoFolder(t, `if [ "${ZAL15_SECRET_CREDENTIAL+x}" = x ]; then echo ENV_LEAK; exit 1; fi
+	t.Setenv("UPDATE_BUILD_SECRET_CREDENTIAL", "private-sentinel")
+	folder := fakeGoFolder(t, `if [ "${UPDATE_BUILD_SECRET_CREDENTIAL+x}" = x ]; then echo ENV_LEAK; exit 1; fi
 printf '#!/bin/sh\nexit 0\n' > plugin
 chmod 700 plugin`)
 	state := filepath.Join(t.TempDir(), "must-stay-absent")

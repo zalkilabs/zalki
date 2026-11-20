@@ -25,7 +25,7 @@ func useNotifyKill(t *testing.T, kill func(int, syscall.Signal) error) {
 	t.Cleanup(func() { notifyKill = old })
 }
 
-// 7D3-S1: a group cleanup without positive evidence keeps the reservation
+// A group cleanup without positive evidence keeps the reservation
 // and pauses every later dispatch; a clear-write error (before or after the
 // record changed on disk) reaches the owner state as a pause.
 func TestPluginNotificationCleanupUncertaintyFences(t *testing.T) {
@@ -82,7 +82,7 @@ func checkClearErrorFences(t *testing.T, late bool) {
 	}
 }
 
-// 7D3-S2: a leader that left its original group survives the group signal
+// A leader that left its original group survives the group signal
 // (ESRCH); the unconditional kill of the original handle still bounds Wait.
 func TestPluginNotificationLeaderKillIsUnconditional(t *testing.T) {
 	fake := useNotifyFixture(t)
@@ -97,7 +97,7 @@ func TestPluginNotificationLeaderKillIsUnconditional(t *testing.T) {
 	}
 }
 
-// 7D3-S3: the watchdog runs while the started save is still blocked, and a
+// The watchdog runs while the started save is still blocked, and a
 // child that closes its output early may still finish within its bound.
 func TestPluginNotificationWatchdogAndExit(t *testing.T) {
 	fake := useNotifyFixture(t)
@@ -124,7 +124,7 @@ func TestPluginNotificationWatchdogAndExit(t *testing.T) {
 	}
 }
 
-// 7D3-S4: shutdown while the worker is sending a result on a full channel
+// Shutdown while the worker is sending a result on a full channel
 // still ends, and the result is saved.
 func TestPluginNotificationShutdownDrainsResults(t *testing.T) {
 	s, _, _ := notifySupervisor(t)
@@ -157,7 +157,7 @@ func TestPluginNotificationShutdownDrainsResults(t *testing.T) {
 	}
 }
 
-// 7D3-S5: notification writes stay in the plugins folder opened at start,
+// Notification writes stay in the plugins folder opened at start,
 // even after the path is replaced by a link; a reservation changed on disk
 // during the dispatch is kept byte-identical and fences.
 func TestPluginNotificationRecordIsAnchored(t *testing.T) {
@@ -211,7 +211,7 @@ func TestPluginNotificationRecordIsAnchored(t *testing.T) {
 	})
 }
 
-// 7D3-S8: reinstalling the same NAME again and again keeps the offered set
+// Reinstalling the same NAME again and again keeps the offered set
 // as small as the current plugin list.
 func TestPluginNotificationOfferedIsBounded(t *testing.T) {
 	s, _, clock := notifySupervisor(t)
@@ -223,7 +223,7 @@ func TestPluginNotificationOfferedIsBounded(t *testing.T) {
 		ownerRun(t, s.state, "add", "demo", "--exec", feedFixture(t))
 	}
 	startDemo(t, s)
-	s.pruneOffered() // a scan prunes, then offers (ZAL-68)
+	s.pruneOffered() // a scan prunes, then offers
 	s.offerQueued([]string{"demo"})
 	if len(s.offered) > 1 {
 		t.Fatalf("offered bookkeeping grew with reinstalls: %d", len(s.offered))
@@ -239,7 +239,7 @@ func mustRead(t *testing.T, path string) []byte {
 	return raw
 }
 
-// R2-M2: the original kill fails and the leader (outside its old group) is
+// The original kill fails and the leader (outside its old group) is
 // still alive: the runner still returns within its bounds, and the result is
 // not cleaned, so the reservation stays and dispatch is fenced.
 func TestPluginNotificationUnjoinedLeaderFences(t *testing.T) {
@@ -270,7 +270,7 @@ func TestPluginNotificationUnjoinedLeaderFences(t *testing.T) {
 	t.Fatal("the fixture leader did not end by itself")
 }
 
-// R2-M3: a FIFO at the record path cannot block the worker: it is refused
+// A FIFO at the record path cannot block the worker: it is refused
 // as an invalid state and kept.
 func TestPluginNotificationFIFORecordDoesNotBlock(t *testing.T) {
 	s, _, _ := notifySupervisor(t)
@@ -317,7 +317,7 @@ func TestPluginControllerProbeDoesNotBlock(t *testing.T) {
 	}
 }
 
-// R3-M2: Wait fails without a reap (the seam returns at once; the real Wait
+// Wait fails without a reap (the seam returns at once; the real Wait
 // still happens later, once). The runner must not count that as cleaned.
 func TestPluginNotificationWaitErrorIsNotCleaned(t *testing.T) {
 	useNotifyFixture(t)

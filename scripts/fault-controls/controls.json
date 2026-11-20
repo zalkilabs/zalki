@@ -1761,7 +1761,7 @@
     "mutation": {
       "path": "cmd/zalki/plugin_login_item.go",
       "symbol": "classifyLoginItem",
-      "old": "\t\tplan.reason = loginItemPendingReason // R7-L2: names the one repair",
+      "old": "\t\tplan.reason = loginItemPendingReason // names the one repair",
       "new": "\t\tplan.reason = \"an earlier login-item change did not finish\"",
       "required_occurrences": 1
     },
@@ -1830,7 +1830,7 @@
     "mutation": {
       "path": "cmd/zalki/plugin_login_item_commands.go",
       "symbol": "uninstallNote",
-      "old": "\t\t\treturn t.manualRemoval(), err // R7-L6: the way out by hand",
+      "old": "\t\t\treturn t.manualRemoval(), err // the way out by hand",
       "new": "\t\t\treturn \"\", err",
       "required_occurrences": 1
     },
@@ -2023,7 +2023,7 @@
     "mutation": {
       "path": "cmd/zalki/plugin_notify.go",
       "symbol": "notifyTextSession",
-      "old": "installed by session \"%s\"` // the label quoted (R7-L5)",
+      "old": "installed by session \"%s\"` // the label quoted",
       "new": "installed by session %s`",
       "required_occurrences": 1,
       "declaration_kind": "const"

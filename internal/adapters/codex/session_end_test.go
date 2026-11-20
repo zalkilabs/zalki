@@ -35,10 +35,10 @@ func TestCodexSessionEndBoundUpdateAndError(t *testing.T) {
 		host := &endHookHost{err: want}
 		handled, err := New(false, "fixture.json").HandleHook(host, agent.HookInput{Event: "SessionEnd"}, "codex:fixture", io.Discard)
 		if !handled || host.calls != 1 || host.id != "codex:fixture" || host.state != model.StateReady || host.retired {
-			t.Fatal("ZAL34_CODEX_END_BOUND_UPDATE_CHANGED")
+			t.Fatal("CODEX_END_BOUND_UPDATE_CHANGED")
 		}
 		if !errors.Is(err, want) {
-			t.Fatal("ZAL34_CODEX_END_DROPPED_WRITE_ERROR")
+			t.Fatal("CODEX_END_DROPPED_WRITE_ERROR")
 		}
 	}
 }

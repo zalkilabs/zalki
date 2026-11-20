@@ -7,7 +7,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
-// ZAL-67: show and list print the address sessions send messages to
+// Show and list print the address sessions send messages to
 // ("plugin:<installation UUID>"), and show uses the same run phrase as list.
 func TestPluginShowAndListPrintAddress(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)

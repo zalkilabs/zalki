@@ -235,7 +235,7 @@ func ukHookEntries(t *testing.T, doc map[string]any, event string) []any {
 }
 
 // A hook entry the user edited stays, and upgrade rewrites only its command: no
-// second zalki hook is added (ZAL-104).
+// second zalki hook is added.
 func TestUpgradeKeepsAUserEditedHookEntryAndRewritesItsCommand(t *testing.T) {
 	home, state := ukInstalled(t, "/old/zalki")
 	path := filepath.Join(home, ".claude", "settings.json")

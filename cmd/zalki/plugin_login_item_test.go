@@ -119,7 +119,7 @@ func TestPluginLoginItemOwnerLines(t *testing.T) {
 		{"refusal after build", fmt.Sprintf(loginItemChangedRefusal, "NAME", "REASON"), "Nothing was installed: the zalki login item changed while NAME was being built (REASON). Run the install again."},
 		{"not changed", fmt.Sprintf(loginItemNotChangedLine, "REASON"), "Background setup was not changed (REASON); you can run zalki plugins supervise."},
 		{"disabled", loginItemDisabledLine, "Background plugins are disabled for dev.zalki.plugins. Check System Settings > General > Login Items & Extensions > Allow in the Background."},
-		{"D1 idle", loginItemIdleLine, "The zalki login item stays installed and idle. Remove it with zalki uninstall --apply."},
+		{"idle", loginItemIdleLine, "The zalki login item stays installed and idle. Remove it with zalki uninstall --apply."},
 		{"start requested", fmt.Sprintf(loginItemStartedLine, "NAME", "NAME"), "Installed and enabled NAME. Start requested. Status: zalki plugins status NAME"},
 		{"partial", fmt.Sprintf(loginItemPartialLine, "NAME", "REASON", "DIR"), "Installed and enabled NAME. Background setup failed: REASON. Run zalki install --apply in your own terminal to review the login item, or run zalki plugins supervise --state DIR."},
 		{"yes not set up", loginItemNotSetUpLine, "Installed and enabled. Background plugins are not set up yet; run zalki plugins install once in your own terminal."},
@@ -173,12 +173,12 @@ func TestPluginLoginItemConsentCLI(t *testing.T) {
 	t.Run("extended access with yes", consentExtendedAccessYes)
 }
 
-// assertRowChange: a row with no change keeps the slice4 line; a changing
+// assertRowChange: a row with no change keeps the plain install line; a changing
 // row makes exactly its action and says "Start requested".
 func assertRowChange(t *testing.T, output string, changes []string, change string) {
 	t.Helper()
 	if change == "" {
-		// A refused row is not changed and not kickstarted (R7-H2/M3).
+		// A refused row is not changed and not kickstarted.
 		if len(changes) != 0 || !strings.Contains(output, fmt.Sprintf(wakeInstallUnknown, "demo", "demo")) {
 			t.Fatalf("a refused row changed the item: %v\n%s", changes, output)
 		}
@@ -232,7 +232,7 @@ func consentYesFlagOwnedItem(t *testing.T) {
 	home, fake := defaultHome(t, reportOwned(thisBinary(t)))
 	folder := nativeInstallFolder(t)
 	output, err := runDefault(t, home, installNoTerminal, "", "plugins", "install", "--yes", "--allow-unsandboxed", "--tree-sha256", treeOf(t, folder), folder)
-	// R7-H2: the owned, loaded item gets the non-killing kickstart only
+	// The owned, loaded item gets the non-killing kickstart only
 	// ("upgrade" wakes; it never creates or changes the item).
 	if err != nil || !slices.Equal(fake.changes, []string{"upgrade"}) || !strings.Contains(output, fmt.Sprintf(loginItemStartedLine, "demo", "demo")) {
 		t.Fatalf("--yes with an owned item did not wake the supervisor: %v %v\n%s", err, fake.changes, output)
@@ -651,25 +651,25 @@ func TestPluginLoginItemUpgradeKickstart(t *testing.T) {
 	}
 }
 
-// D1: the last plugin removed while our item stays gives one extra line.
+// The last plugin removed while our item stays gives one extra line.
 func TestPluginLoginItemLastPluginLine(t *testing.T) {
 	_, target, store, _, _ := rootFixture(t, reportOwned("/x/zalki"))
 	if line := target.idleLine(t.Context(), store); line != "" {
-		t.Fatalf("D1 line with a plugin installed: %q", line)
+		t.Fatalf("idle line with a plugin installed: %q", line)
 	}
 	if output, err := pluginOwnerLocal(t, store.Dir, "remove", "demo"); err != nil {
 		t.Fatal(string(output), err)
 	}
 	if line := target.idleLine(t.Context(), store); line != loginItemIdleLine {
-		t.Fatalf("no D1 line after the last plugin: %q", line)
+		t.Fatalf("no idle line after the last plugin: %q", line)
 	}
 	loginItems = (&fakeLoginItems{reports: []install.Report{reportNone}}).call
 	if line := target.idleLine(t.Context(), store); line != "" {
-		t.Fatalf("D1 line without an item: %q", line)
+		t.Fatalf("idle line without an item: %q", line)
 	}
 }
 
-// checkUninstallManualSteps (R7-L6): an owned item whose job cannot be
+// checkUninstallManualSteps: an owned item whose job cannot be
 // checked is not removed; the note gives the by-hand route, which confirms
 // the job is ours, stops it, and deletes the files only once it is gone.
 func checkUninstallManualSteps(t *testing.T) {

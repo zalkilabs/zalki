@@ -33,7 +33,7 @@ func pendingFixture(t *testing.T) (*supervisor, *supervised, *pendingRecord) {
 	return s, p, record
 }
 
-// ZAL-74: a host that ends while its record is unreadable is neither a
+// A host that ends while its record is unreadable is neither a
 // crash nor a stop; the first readable snapshot classifies it, once.
 func TestPluginSupervisorUnknownSnapshotAtExitIsNotACrash(t *testing.T) {
 	t.Run("unreadable", checkPendingStaysUnknown)
@@ -118,7 +118,7 @@ func supervisorLogHas(t *testing.T, s *supervisor, text string) bool {
 	return strings.Contains(string(raw), text)
 }
 
-// Pending waiting reasons keep the inherited R7 backoff without consuming a crash.
+// Pending waiting reasons keep the inherited backoff without consuming a crash.
 func checkPendingWaitingReasons(t *testing.T) {
 	t.Helper()
 	for _, reason := range []string{"lease_held", "log_failed"} {

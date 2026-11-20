@@ -186,7 +186,7 @@ func savedRun(t *testing.T, s *supervisor) pluginRunState {
 	return run
 }
 
-// S18: the banner copies slice4's receipt evidence; a plugin without proof
+// The banner copies the install receipt evidence; a plugin without proof
 // or without a receipt gets the exact unverified-installer sentence, and
 // status keeps "unknown" for it.
 func TestPluginBackgroundInstalledBy(t *testing.T) {
@@ -222,7 +222,7 @@ func TestPluginBackgroundInstalledBy(t *testing.T) {
 	}
 }
 
-// S19: the intent is durable with the first start, the host runs at once,
+// The intent is durable with the first start, the host runs at once,
 // and no banner work happens on the start path. A failed or timed-out
 // child keeps the plugin running and charges nothing.
 func TestPluginFirstStartNotificationBestEffort(t *testing.T) {
@@ -374,7 +374,7 @@ func TestFirstStartNotificationNeverRepeats(t *testing.T) {
 	}
 }
 
-// Q4: one child at a time, at least 10 s apart, at most 6 in any 60 s, a
+// One child at a time, at least 10 s apart, at most 6 in any 60 s, a
 // 60 s hold after a new generation, all on the monotonic clock.
 func TestPluginNotificationBudget(t *testing.T) {
 	wall := stateEpoch
@@ -478,7 +478,7 @@ func TestPluginNotificationArgvAndBounds(t *testing.T) {
 
 // Only the real default installation sends banners: macOS, the OS account
 // home and a state that resolves to its default state (also when given with
-// --state or through a link, R7-M4). Anything else records no intent and
+// --state or through a link). Anything else records no intent and
 // calls no notifier.
 func TestPluginNotificationCustomStateSendsNothing(t *testing.T) {
 	home := t.TempDir()

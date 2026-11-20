@@ -17,7 +17,7 @@ const invalidPluginNameDetail = "invalid plugin name; expected [a-z][a-z0-9-]{0,
 
 // pluginRecordCause names why a plugin record or folder cannot be read
 // safely. It is always one fixed class and never error text: a strict
-// decode error can quote the record's own field names or values (ZAL-85).
+// decode error can quote the record's own field names or values.
 func pluginRecordCause(err error) string {
 	var pathErr *fs.PathError
 	switch {

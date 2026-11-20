@@ -21,7 +21,7 @@ func realLaunchctlFixture(t *testing.T, name string) string {
 	return strings.Replace(string(raw), "gui/UID = {", domain()+" = {", 1)
 }
 
-// R7-H1: the real outputs of a current Mac parse. `print gui/UID` is larger
+// The real outputs of a current Mac parse. `print gui/UID` is larger
 // than the old 64 KiB limit and has status words such as "(pe)"; only its
 // services block counts. `print-disabled` is read by its one "disabled
 // services" block; another block after it is skipped.

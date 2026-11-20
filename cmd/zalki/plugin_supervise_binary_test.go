@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// S21: a changed executable is a handover; a missing one is retried for
+// A changed executable is a handover; a missing one is retried for
 // the grace and only then gone; one that comes back unchanged resumes.
 func TestPluginSupervisorBinaryCheck(t *testing.T) {
 	start := binaryIdentity{dev: 1, ino: 2, size: 3, modified: 4}
@@ -68,7 +68,7 @@ func copyExecutable(t *testing.T, from, to string) {
 	}
 }
 
-// S21/S22: a supervisor started through a stable link exits 75 when the
+// A supervisor started through a stable link exits 75 when the
 // link moves to a new build, after stopping its hosts; the stop is not
 // counted. With no plugins folder it exits 0 at once.
 func TestPluginSupervisorBinaryReplacement(t *testing.T) {

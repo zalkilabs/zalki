@@ -47,7 +47,7 @@ func requestFor(key bindingKey, seq uint64) restartRequest {
 	return restartRequest{Installation: key.id, Epoch: key.epoch, Revision: key.revision, Seq: seq, Nonce: model.NewUUID(), RequestedAt: stateEpoch}
 }
 
-// S13: a matching request clears the crash limit and records its sequence
+// A matching request clears the crash limit and records its sequence
 // in the same durable write; the request is then removed.
 func TestPluginRestartRequestResets(t *testing.T) {
 	s, p, key := restartFixture(t)
@@ -66,7 +66,7 @@ func TestPluginRestartRequestResets(t *testing.T) {
 	}
 }
 
-// S13: after a crash between the reset write and the request's removal,
+// After a crash between the reset write and the request's removal,
 // later failures were recorded; the replayed request (equal or older
 // sequence) is cleanup only and never clears them.
 func TestPluginRestartRequestReplayIsCleanupOnly(t *testing.T) {
@@ -85,7 +85,7 @@ func TestPluginRestartRequestReplayIsCleanupOnly(t *testing.T) {
 	}
 }
 
-// S13: a request for another installation or binding is never applied.
+// A request for another installation or binding is never applied.
 func TestPluginRestartRequestForAnotherBindingIsIgnored(t *testing.T) {
 	for name, change := range map[string]func(*restartRequest){
 		"installation": func(r *restartRequest) { r.Installation = model.NewUUID() },
@@ -102,7 +102,7 @@ func TestPluginRestartRequestForAnotherBindingIsIgnored(t *testing.T) {
 	}
 }
 
-// S13: a new request is numbered above both the pending request and the
+// A new request is numbered above both the pending request and the
 // consumed high-water mark.
 func TestPluginRestartRequestSequence(t *testing.T) {
 	s, p, key := restartFixture(t)

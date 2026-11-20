@@ -55,7 +55,7 @@ func checkRelaunched(t *testing.T, f *loginFixture, name string, desired loginIt
 	}
 }
 
-// R1-R5: a relaunch cut at any step is finished by an install for its own
+// A relaunch cut at any step is finished by an install for its own
 // launcher, with no new question, from what is observed now.
 func TestPluginLoginItemRelaunchCrashPoints(t *testing.T) {
 	for _, tc := range []struct {
@@ -63,17 +63,17 @@ func TestPluginLoginItemRelaunchCrashPoints(t *testing.T) {
 		cut   func(f *loginFixture, desired loginItemRecord)
 		wants string // the launchd change that must still run, besides bootstrap
 	}{
-		{"R1 after pending, before bootout", func(*loginFixture, loginItemRecord) {}, "bootout"},
-		{"R2 after bootout, before confirm", func(f *loginFixture, _ loginItemRecord) { f.fake.loaded = false }, ""},
-		{"R3 temp written, not renamed", func(f *loginFixture, _ loginItemRecord) {
+		{"after pending, before bootout", func(*loginFixture, loginItemRecord) {}, "bootout"},
+		{"after bootout, before confirm", func(f *loginFixture, _ loginItemRecord) { f.fake.loaded = false }, ""},
+		{"temp written, not renamed", func(f *loginFixture, _ loginItemRecord) {
 			f.fake.loaded = false
 			writeFile(t, filepath.Join(filepath.Dir(f.paths.plist), ".zalki-config-123"), []byte("partial"))
 		}, ""},
-		{"R4 renamed, before commit", func(f *loginFixture, d loginItemRecord) {
+		{"renamed, before commit", func(f *loginFixture, d loginItemRecord) {
 			f.fake.loaded = false
 			writeFile(t, f.paths.plist, renderLoginItem(d.Binary, d.State))
 		}, ""},
-		{"R5 committed, before pending removal", func(f *loginFixture, d loginItemRecord) {
+		{"committed, before pending removal", func(f *loginFixture, d loginItemRecord) {
 			f.fake.loaded = false
 			writeFile(t, f.paths.plist, renderLoginItem(d.Binary, d.State))
 			if err := writePrivateJSON(f.paths.record, d); err != nil {
@@ -104,7 +104,7 @@ func TestPluginLoginItemRelaunchCrashPoints(t *testing.T) {
 	}
 }
 
-// R2b: a bootout that fails (or a job that stays loaded) keeps the relaunch
+// A bootout that fails (or a job that stays loaded) keeps the relaunch
 // pending and writes no B2 plist.
 func TestPluginLoginItemRelaunchStopMustBeConfirmed(t *testing.T) {
 	f := newLoginFixture(t)
@@ -141,7 +141,7 @@ func TestPluginLoginItemRelaunchStopMustBeConfirmed(t *testing.T) {
 	}
 }
 
-// R6: a known bootstrap failure after the commit keeps the B2 record (the
+// A known bootstrap failure after the commit keeps the B2 record (the
 // change is Zalki's) and reports the failure; nothing stays pending.
 func TestPluginLoginItemRelaunchBootstrapFailure(t *testing.T) {
 	f := newLoginFixture(t)

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// R7-L1: a stopped group whose only member is its exited, unreaped leader
+// A stopped group whose only member is its exited, unreaped leader
 // answers EPERM on Darwin; the wait ends at once on the zombie-only proof
 // instead of the whole grace. The leader stays an owned child with one Wait.
 func TestPluginStopWaitSeesZombieOnlyGroup(t *testing.T) {

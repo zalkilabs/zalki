@@ -120,7 +120,7 @@ func TestRememberOwnerForAnAdapterThatSharesItsProcess(t *testing.T) {
 	// A live process, so that only the adapter's policy can explain a drop.
 	recorded := *selfOwner(t)
 	build := func(v *model.Session) { v.HookBuild = currentExecutable.loadedBuild }
-	// M2-PORT: old shared-process owners are refused, not kept or repaired.
+	// Old shared-process owners are refused, not kept or repaired.
 	for _, refresh := range []bool{false, true} {
 		v := ownedSession(t, store, func(v *model.Session) { build(v); v.Owner = &recorded })
 		path, _ := store.sessionPath(v.ID)

@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// S26: under a real controller the plugin gets the read-only lease at FD 3
+// Under a real controller the plugin gets the read-only lease at FD 3
 // (never the control pipe), no other descriptor, and only HOME and PATH.
 func TestPluginSupervisedPluginFDsCLI(t *testing.T) {
 	binary := os.Getenv("ZALKI_TEST_BINARY")

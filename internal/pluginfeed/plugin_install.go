@@ -387,7 +387,7 @@ func (s PluginFeed) commitInstall(view bus.JournalView, launch PluginLaunch, acc
 	if err := s.checkEmptyPluginData(); err != nil {
 		return false, err
 	}
-	// The selected sessions are fixed IDs; each must be live now (U16/U17).
+	// The selected sessions are fixed IDs; each must be live now.
 	for _, id := range slices.Concat(access.Send, access.Read) {
 		if member, err := view.PluginMember(id, s.name); err != nil || !member {
 			return false, model.NewError(model.CodeConflict, "a selected session is no longer live; nothing was installed")

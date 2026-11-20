@@ -146,7 +146,7 @@ func (t *loginItemTarget) uninstallNote(ctx context.Context, apply bool) (string
 	}
 	if _, err := loginItems(ctx, t.request("uninstall", true)); err != nil {
 		if t.inspect(ctx).seen.service == "unknown" {
-			return t.manualRemoval(), err // R7-L6: the way out by hand
+			return t.manualRemoval(), err // the way out by hand
 		}
 		return "", err
 	}
@@ -179,7 +179,7 @@ func (t *loginItemTarget) kickstart(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// idleLine is the D1 line after the last plugin was removed while the
+// idleLine is the idle line after the last plugin was removed while the
 // owned item stays.
 func (t *loginItemTarget) idleLine(ctx context.Context, store bus.Store) string {
 	if total, _, err := installedPlugins(store); err != nil || total != 0 {

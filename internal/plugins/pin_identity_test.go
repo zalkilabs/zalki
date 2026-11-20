@@ -36,7 +36,7 @@ func openTestLease(t *testing.T) *os.File {
 	return lease
 }
 
-// S03: a manual plugin child gets exactly HOME and the fixed PATH; agent
+// A manual plugin child gets exactly HOME and the fixed PATH; agent
 // selectors, capabilities, loader and runtime variables and the parent's
 // PATH are not passed on.
 func TestPluginManualRuntimeEnvironment(t *testing.T) {
@@ -138,7 +138,7 @@ func changeMode(t *testing.T, path string) {
 	}
 }
 
-// S16: the identity read before the digest check must still hold once the
+// The identity read before the digest check must still hold once the
 // child has started. A same-size replacement, an in-place rewrite or a mode
 // change in that window stops and reaps the child with a permanent reason.
 func TestPluginPinIdentityAfterStart(t *testing.T) {

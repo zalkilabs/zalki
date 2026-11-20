@@ -190,7 +190,7 @@ func hostProcessGone(pid int) bool {
 	return errors.Is(syscall.Kill(pid, 0), syscall.ESRCH)
 }
 
-// S01: two real host/plugin pairs run in separate host processes. Killing
+// Two real host/plugin pairs run in separate host processes. Killing
 // one host is counted and restarted after its backoff; the other plugin
 // keeps the same live host and plugin throughout.
 func TestPluginSupervisorRealChildrenCLI(t *testing.T) {
@@ -220,7 +220,7 @@ func TestPluginSupervisorRealChildrenCLI(t *testing.T) {
 	}
 }
 
-// S14/S22: an orderly stop (SIGTERM) ends every host and plugin, records a
+// An orderly stop (SIGTERM) ends every host and plugin, records a
 // clean stop without counting it, and exits 0. A second supervisor for the
 // same state exits 0 at once while the first runs.
 func TestPluginSupervisorForegroundAndStopCLI(t *testing.T) {
@@ -257,7 +257,7 @@ func TestPluginSupervisorForegroundAndStopCLI(t *testing.T) {
 	}
 }
 
-// S12: a new session changes membership only and never restarts the host;
+// A new session changes membership only and never restarts the host;
 // a scope change is a new binding: the host is replaced, not counted.
 func TestPluginSupervisorBindingAndMembership(t *testing.T) {
 	binary := os.Getenv("ZALKI_TEST_BINARY")
@@ -287,7 +287,7 @@ func TestPluginSupervisorBindingAndMembership(t *testing.T) {
 	}
 }
 
-// S15: a lease someone else holds stops the start without a crash count or
+// A lease someone else holds stops the start without a crash count or
 // backoff; once the lease is free the plugin starts.
 func TestPluginSupervisorLeaseHeldIsNotACrash(t *testing.T) {
 	binary := os.Getenv("ZALKI_TEST_BINARY")
@@ -306,7 +306,7 @@ func TestPluginSupervisorLeaseHeldIsNotACrash(t *testing.T) {
 	if len(now.Restarts) != 0 {
 		t.Fatalf("a held lease was charged: %s, %d failures, step %d", now.State, len(now.Restarts), now.BackoffStep)
 	}
-	// R7-M1: the retries back off (1 s, 2 s, 4 s ...) instead of a new host
+	// The retries back off (1 s, 2 s, 4 s ...) instead of a new host
 	// at every poll.
 	if held.State != runBackoff || now.BackoffStep < 2 || now.ReasonCode != "lease_held" {
 		t.Fatalf("a held lease was retried without backoff: %s, step %d", now.State, now.BackoffStep)
@@ -364,7 +364,7 @@ func stubbornState(t *testing.T, binary string) string {
 	return store.Dir
 }
 
-// S14: when a host dies first (SIGKILL), the controller still ends its
+// When a host dies first (SIGKILL), the controller still ends its
 // whole group: the grandchild that ignores TERM is gone too.
 func TestPluginSupervisorCleansGroupAfterHostDeath(t *testing.T) {
 	binary := os.Getenv("ZALKI_TEST_BINARY")
@@ -381,7 +381,7 @@ func TestPluginSupervisorCleansGroupAfterHostDeath(t *testing.T) {
 	}
 }
 
-// S14: when the controller itself is killed, each host sees lifeline EOF
+// When the controller itself is killed, each host sees lifeline EOF
 // and, as its last action, ends its own group: no ordinary descendant
 // outlives a dead controller.
 func TestPluginSupervisorControllerDeathCleansGroups(t *testing.T) {
@@ -401,7 +401,7 @@ func TestPluginSupervisorControllerDeathCleansGroups(t *testing.T) {
 	}
 }
 
-// S14: controller death is bounded even while the host is stuck on a held
+// Controller death is bounded even while the host is stuck on a held
 // journal lock: lifeline EOF ends the whole group after its grace, without
 // waiting for the host's Run to return.
 func TestPluginSupervisorControllerDeathUnderJournalLock(t *testing.T) {
@@ -435,7 +435,7 @@ func TestPluginSupervisorControllerDeathUnderJournalLock(t *testing.T) {
 	}
 }
 
-// M6: the real pre-lease window. The first controller's host is blocked
+// The real pre-lease window. The first controller's host is blocked
 // reading its record (journal lock held) and has not taken the lease when
 // that controller is killed. A second controller must not start another
 // host before the recovery grace ends; once the lock is free, the plugin

@@ -25,7 +25,7 @@ type sessionLatencySubject struct {
 	activation int64
 }
 
-// This harness is copied unchanged to the accepted PR2 baseline. Fixtures and
+// This harness is copied unchanged to the baseline build. Fixtures and
 // reset work are outside each timed call; raw values are never filtered.
 func TestSessionPathLatency(t *testing.T) {
 	if os.Getenv("ZALKI_SESSION_LATENCY") != "1" {

@@ -117,7 +117,7 @@ func readFrames(name string, h *hostProcess, control *os.File, events chan<- hos
 // groupGrace bounds each stage of a group stop; with the final kill, one
 // group stop stays within seven seconds. It is longer than a plugin's own
 // 2 s EOF grace in its host, so a slow but correct plugin ends before the
-// TERM (R7-L1).
+// TERM.
 const groupGrace = 3 * time.Second
 
 // stop ends the host and its whole group: lifeline EOF first (orderly
@@ -155,7 +155,7 @@ func waitFor(ended <-chan struct{}, limit time.Duration) bool {
 // waitGroupGone polls until no process is left in the group or the limit
 // passes. The unreaped leader keeps the group number ours meanwhile. On
 // Darwin a group whose only member is the zombie leader answers EPERM, not
-// ESRCH; the bounded zombie-only proof ends the wait then (R7-L1).
+// ESRCH; the bounded zombie-only proof ends the wait then.
 func waitGroupGone(pgid int, limit time.Duration) {
 	deadline := time.Now().Add(limit)
 	for time.Now().Before(deadline) {

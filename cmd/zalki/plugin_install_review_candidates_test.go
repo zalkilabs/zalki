@@ -119,8 +119,8 @@ func TestPluginReviewSummaryUsesAllCandidates(t *testing.T) {
 }
 
 func TestPluginReviewSimpleNamesAndBlankRemainUsable(t *testing.T) {
-	rows := []pluginReviewTarget{{reviewActorA, "zlaki"}, {reviewActorB, "worker-3"}}
-	assertReviewPick(t, "zlaki,worker-3", rows, []string{reviewActorA, reviewActorB})
+	rows := []pluginReviewTarget{{reviewActorA, "reviewer-a"}, {reviewActorB, "builder-b"}}
+	assertReviewPick(t, "reviewer-a,builder-b", rows, []string{reviewActorA, reviewActorB})
 	assertReviewPick(t, "", rows, []string{})
 }
 

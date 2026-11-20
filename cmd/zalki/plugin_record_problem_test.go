@@ -16,7 +16,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// ZAL-85: doctor has no plugin section, so a plugin record or folder that
+// Doctor has no plugin section, so a plugin record or folder that
 // cannot be read is named with its cause and its file, never "run zalki
 // doctor", and the record's content is not shown.
 func TestPluginUnreadableRecordNamesCause(t *testing.T) {
@@ -50,7 +50,7 @@ func TestPluginUnreadableRecordNamesCause(t *testing.T) {
 
 // checkRecordContentNotEchoed: the strict decoder names an unknown field in
 // its error; neither that name nor its value reaches show or list, and a
-// session-list error is never echoed (ZAL-85 M1).
+// session-list error is never echoed.
 func checkRecordContentNotEchoed(t *testing.T) {
 	t.Helper()
 	store, _ := pluginOwnerFixture(t)

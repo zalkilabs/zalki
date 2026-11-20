@@ -259,7 +259,7 @@ func (r *pluginRunState) recordFailure(now time.Time, reason string) {
 
 // waitingReasons are causes outside the plugin (a held lease, a log that
 // cannot be written): the start waits with the normal backoff steps, and
-// nothing is counted as a crash (R7-M1).
+// nothing is counted as a crash.
 var waitingReasons = map[string]bool{"lease_held": true, "log_failed": true}
 
 // recordWaiting delays the next start by the next backoff step without a
