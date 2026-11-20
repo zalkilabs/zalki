@@ -286,8 +286,9 @@ func managedMCPName(servers map[string]any) (string, error) {
 // file. It needs a patch that validateInstallationPatch has accepted: every
 // caller reads the patch from an installation record that was validated when
 // it was loaded (see readInstallationManifest), so the shape of patch is not
-// checked again here.
-func removeConfig(before []byte, patches ...map[string]any) ([]byte, error) {
+// checked again here. With keepServer the zalki MCP entry stays in the file:
+// an upgrade merges the next entry into it and keeps the user's own keys.
+func removeConfig(before []byte, keepServer bool, patches ...map[string]any) ([]byte, error) {
 	var current map[string]any
 	if err := decodeSettings(before, &current); err != nil || current == nil {
 		return nil, errors.New("settings must be a JSON object")
@@ -300,6 +301,12 @@ func removeConfig(before []byte, patches ...map[string]any) ([]byte, error) {
 	}
 	for _, patch := range patches {
 		for key, value := range patch {
+			if keepServer && key == "mcpServers" {
+				if err := checkServersObject(current); err != nil {
+					return nil, err
+				}
+				continue
+			}
 			if err := removePatchKey(current, key, value, servers); err != nil {
 				return nil, err
 			}
@@ -326,21 +333,30 @@ func removePatchKey(current map[string]any, key string, value any, servers []any
 // removeManagedMCPServer deletes the zalki MCP server when it equals one of
 // the owned entries. Any other entry was edited by the user and is refused.
 func removeManagedMCPServer(current map[string]any, owned []any) error {
-	if current["mcpServers"] == nil {
-		return nil
+	if err := checkServersObject(current); err != nil {
+		return err
 	}
 	servers, ok := current["mcpServers"].(map[string]any)
 	if !ok {
-		return errors.New("mcpServers is not an object")
+		return nil // absent or null
 	}
 	found, exists := servers[zalkiMCPServer]
 	if !exists {
 		return nil
 	}
 	if !containsJSON(owned, found) {
-		return fmt.Errorf("managed %s MCP entry was edited; review it before removing or upgrading", zalkiMCPServer)
+		return editedEntryRefusal(found, owned)
 	}
 	delete(servers, zalkiMCPServer)
+	return nil
+}
+
+// checkServersObject refuses an mcpServers value that is neither absent, null
+// nor an object. An upgrade keeps the zalki entry but still refuses such a file here.
+func checkServersObject(current map[string]any) error {
+	if _, isObject := current["mcpServers"].(map[string]any); current["mcpServers"] != nil && !isObject {
+		return errors.New("mcpServers is not an object")
+	}
 	return nil
 }
 
@@ -459,7 +475,7 @@ func removeMCPFragment(before []byte, fragments ...string) ([]byte, error) {
 		}
 	}
 	if fragment == "" {
-		return nil, errors.New("managed zalki MCP table was edited; review it before removing or upgrading")
+		return nil, editedFragmentRefusal(current, fragments)
 	}
 	after := []byte(strings.Replace(string(before), fragment, "", 1))
 	remaining, err := mcpNamedTable(after, name)

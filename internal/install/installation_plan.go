@@ -344,33 +344,63 @@ func (change settingsChange) plan(action string) (configEdit, error) {
 		return edit, err
 	}
 	if change.isJSON {
-		if owned := slices.DeleteFunc(slices.Clone(change.ownedPatches), func(p map[string]any) bool { return p == nil }); len(owned) > 0 && action != "install" && exists {
-			edit.after, err = removeConfig(edit.after, owned...)
-			if err != nil {
-				return edit, fmt.Errorf("%s: %w", change.path, err)
-			}
-		}
-		if change.nextPatch != nil {
-			edit.after, err = mergeConfig(edit.after, change.nextPatch)
-			if err != nil {
-				return edit, fmt.Errorf("%s: %w", change.path, err)
-			}
-		}
+		edit.after, err = planJSONFile(change, action, before, exists)
 	} else {
-		if owned := slices.DeleteFunc(slices.Clone(change.ownedFragments), func(f string) bool { return f == "" }); len(owned) > 0 && action != "install" && exists {
-			edit.after, err = removeMCPFragment(edit.after, owned...)
-			if err != nil {
-				return edit, err
-			}
-		}
-		if change.nextFragment != "" {
-			edit.after, err = addMCPFragment(edit.after, change.nextFragment)
-			if err != nil {
-				return edit, err
-			}
+		edit.after, err = planTOMLFile(change, action, before, exists)
+	}
+	return edit, err
+}
+
+// planJSONFile plans a JSON client file. Hooks of the recorded entries are removed
+// on upgrade and uninstall. The zalki MCP entry is removed only on uninstall; an
+// upgrade merges the next entry into it, and an install accepts an entry that
+// already has every owned key.
+func planJSONFile(change settingsChange, action string, before []byte, exists bool) ([]byte, error) {
+	after := before
+	owned := slices.DeleteFunc(slices.Clone(change.ownedPatches), func(p map[string]any) bool { return p == nil })
+	var err error
+	if len(owned) > 0 && action != "install" && exists {
+		after, err = removeConfig(after, action == "upgrade", owned...)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", change.path, err)
 		}
 	}
-	return edit, nil
+	if change.nextPatch != nil {
+		versions := owned
+		if action != "upgrade" {
+			versions = nil
+		}
+		after, err = mergeConfig(after, change.nextPatch, versions)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", change.path, err)
+		}
+	}
+	return after, nil
+}
+
+// planTOMLFile plans a Codex TOML file. Uninstall removes the recorded table when it
+// is exactly zalki's. An upgrade or install updates the managed table in place.
+func planTOMLFile(change settingsChange, action string, before []byte, exists bool) ([]byte, error) {
+	after := before
+	owned := slices.DeleteFunc(slices.Clone(change.ownedFragments), func(f string) bool { return f == "" })
+	var err error
+	if action == "uninstall" && len(owned) > 0 && exists {
+		after, err = removeMCPFragment(after, owned...)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", change.path, err)
+		}
+	}
+	if change.nextFragment != "" {
+		versions := owned
+		if action != "upgrade" {
+			versions = nil
+		}
+		after, err = updateMCPFragment(change.path, after, versions, change.nextFragment)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return after, nil
 }
 
 func (declare Declare) planDeclarations(request Request) (map[string]ConfigFile, error) {
