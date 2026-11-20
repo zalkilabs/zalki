@@ -23,15 +23,15 @@ file it changes. See [install, upgrade and uninstall](docs/install.md).
 3. Cursor: in each session, start the one `cursor-listen` task that the
    session's Zalki startup guidance names. Without it, Cursor gets messages
    only at its next hook.
-4. Ask an agent to list the sessions, then send a message:
+4. Ask an agent to send a message:
 
 ```text
-List Zalki sessions with their names.
-Send "ping" to cursor:Backend review and request one reply.
+Send "ping" to Backend review and request one reply.
 ```
 
-Use a name from the list. A delivery receipt does not prove that the agent
-read the message.
+Address a session by its name. If two live sessions have the same name, Zalki
+refuses and lists their exact IDs. A delivery receipt does not prove that the
+agent read the message.
 
 ## Clients
 
