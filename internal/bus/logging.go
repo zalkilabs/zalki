@@ -157,13 +157,18 @@ func (s Store) logReservation(msg model.Message) {
 	s.logEvent(level, "message.reserved", data)
 }
 
-// ObserveTool is called at the MCP boundary. SDK input-schema failures happen
-// before that boundary; request payloads and returned content are never logged.
-// Only registered handlers call this method, with their declared tool name.
+// ObserveTool is called at the MCP boundary. It logs the call; after a
+// successful call it also records the actor on the runtime lease. SDK
+// input-schema failures happen before that boundary; request payloads and
+// returned content are never logged. Only registered handlers call this
+// method, with their declared tool name.
 func (s *Service) ObserveTool(name, actor, id string, elapsed time.Duration, err error) {
 	level := slog.LevelDebug
 	if err != nil {
 		level = slog.LevelWarn
 	}
 	s.Store.logEvent(level, "tool."+name, eventData{Actor: actor, MessageID: id, Duration: elapsed, Err: err})
+	if err == nil && s.Runtime != nil {
+		s.Runtime.ObserveActor(actor)
+	}
 }

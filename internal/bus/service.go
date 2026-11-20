@@ -189,3 +189,18 @@ func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result model
 func reservedMessageID(id string) bool {
 	return len(id) == 36 && id[14] == '8'
 }
+
+// Ack records receipt of a message by its recipient. It calls the Store.
+func (s *Service) Ack(actor, key, id string) (model.Message, error) {
+	return s.Store.Ack(actor, key, id)
+}
+
+// ReadMessages returns a page of the caller's messages. It calls the Store.
+func (s *Service) ReadMessages(query MessageQuery) (MessageBatch, error) {
+	return s.Store.ReadMessages(query)
+}
+
+// DiscoverWithWarnings lists the sessions the caller may see. It calls the Store.
+func (s *Service) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error) {
+	return s.Store.DiscoverWithWarnings(actor, key)
+}
