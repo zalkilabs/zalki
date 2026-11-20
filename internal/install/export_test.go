@@ -43,6 +43,11 @@ func CrashAfter(declare Declare, request Request, n int) (int, error) {
 
 var (
 	AddMCPFragment            = addMCPFragment
-	RemoveMCPFragment         = removeMCPFragment
 	ValidateInstallationPatch = validateInstallationPatch
 )
+
+// RemoveMCPFragment removes the zalki table and returns the new bytes only.
+func RemoveMCPFragment(before []byte, fragments ...string) ([]byte, error) {
+	after, _, err := removeMCPFragment(before, "", fragments...)
+	return after, err
+}

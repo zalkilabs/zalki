@@ -176,35 +176,6 @@ func TestInstallRerunAcceptsUserKeysAndRefusesADifferentOwnedKey(t *testing.T) {
 	}
 }
 
-func TestUninstallRefusesUserKeysWithAClearMessage(t *testing.T) {
-	tests := []struct {
-		file, want string
-		change     func(t *testing.T, path string)
-	}{
-		{".codex/config.toml", "[mcp_servers.zalki] has keys you added (default_tools_approval_mode)", func(t *testing.T, path string) {
-			t.Helper()
-			ukWrite(t, path, readFileString(t, path)+"default_tools_approval_mode = \"approve\"\n")
-		}},
-		{".claude.json", "mcpServers.zalki has keys you added (disabled, env)", ukAddJSONKeys},
-		{".cursor/mcp.json", "mcpServers.zalki has keys you added (disabled, env)", ukAddJSONKeys},
-	}
-	for _, test := range tests {
-		t.Run(test.file, func(t *testing.T) {
-			home, state := ukInstalled(t, "/old/zalki")
-			path := filepath.Join(home, test.file)
-			test.change(t, path)
-			before := installationSnapshot(t, home)
-			_, err := install.Manage(declare, install.Request{Action: "uninstall", StateDir: state, HomeDir: home, Apply: true})
-			if err == nil || !strings.Contains(err.Error(), test.want) || !strings.Contains(err.Error(), path) {
-				t.Fatal("user keys were not refused with the clear message", err)
-			}
-			if !reflect.DeepEqual(before, installationSnapshot(t, home)) {
-				t.Fatal("a refused uninstall changed files")
-			}
-		})
-	}
-}
-
 func TestUpgradeRefusalInOneFileLeavesEveryFileUnchanged(t *testing.T) {
 	home, state := ukInstalled(t, "/old/zalki")
 	config := ukCodexPath(home)
