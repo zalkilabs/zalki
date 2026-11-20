@@ -13,5 +13,4 @@ var (
 	_ agent.ConfigurationAdapter = Adapter{}
 	_ agent.LivenessAdapter      = Adapter{}
 	_ agent.RecoveryHintAdapter  = Adapter{}
-	_ agent.CompatibilityAdapter = Adapter{}
 )

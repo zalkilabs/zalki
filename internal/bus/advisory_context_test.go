@@ -100,12 +100,12 @@ func (f advisoryFixture) diagnostics(ctx context.Context) advisoryResult {
 		return advisoryResult{err: fmt.Errorf("agents=%d", len(report.Agents))}
 	}
 	diagnostic := report.Agents[0]
-	want := "fixture_covered"
+	want := "installed"
 	if diagnostic.Version == "" {
 		want = "version_unavailable"
 	}
-	if !diagnostic.Found || diagnostic.Compatibility != want || len(diagnostic.FixtureVersions) == 0 || diagnostic.RecoveryHint == "" {
-		return advisoryResult{err: errors.New("advisory diagnosis lost installed-client status or fixture evidence")}
+	if !diagnostic.Found || diagnostic.Compatibility != want || (diagnostic.Version == "") != (diagnostic.RecoveryHint != "") {
+		return advisoryResult{err: errors.New("advisory diagnosis lost installed-client status")}
 	}
 	return advisoryResult{version: diagnostic.Version}
 }

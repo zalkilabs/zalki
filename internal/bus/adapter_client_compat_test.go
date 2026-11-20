@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -62,51 +61,24 @@ func TestClientVersionProbeAndUnknownVersionDiagnostics(t *testing.T) {
 		}
 		diagnostic := AgentDiagnostic{Kind: "codex", Binary: path, Found: true}
 		annotateClientCompatibility(t.Context(), &diagnostic)
-		if test.want == "0.163.0" && diagnostic.Compatibility != "fixture_covered" {
-			t.Fatal("known fixture version was not identified")
+		if diagnostic.Version != test.want {
+			t.Fatalf("diagnostic version %q want %q", diagnostic.Version, test.want)
 		}
-		if test.want != "" && test.want != "0.163.0" && diagnostic.Compatibility != "unverified_version" {
-			t.Fatal("unknown version was treated as supported")
+		if test.want == "" && (diagnostic.Compatibility != "version_unavailable" || diagnostic.RecoveryHint == "") {
+			t.Fatalf("unreadable version was not reported with a next step: %+v", diagnostic)
 		}
-		if diagnostic.RecoveryHint == "" {
-			t.Fatal("diagnostics omitted a next step")
+		if test.want != "" && (diagnostic.Compatibility != "installed" || diagnostic.RecoveryHint != "") {
+			t.Fatalf("a readable version was judged or given a hint: %+v", diagnostic)
 		}
+	}
+	missing := AgentDiagnostic{Kind: "codex"}
+	annotateClientCompatibility(t.Context(), &missing)
+	if missing.Compatibility != "not_installed" || missing.RecoveryHint == "" || missing.Version != "" {
+		t.Fatalf("missing client was not reported: %+v", missing)
 	}
 	buffer := versionBuffer{}
 	_, _ = buffer.Write([]byte(strings.Repeat("x", 4096)))
 	if buffer.buffer.Len() != 1024 {
 		t.Fatal("version output was not bounded")
-	}
-}
-
-type compatibilityStub struct {
-	stubCodexAdapter
-	status, hint string
-}
-
-func (a compatibilityStub) Compatibility(string) (string, string) { return a.status, a.hint }
-
-func TestAdapterVersionEvidenceDoesNotOverrideUnavailableClientsOrMalformedHints(t *testing.T) {
-	for _, test := range []struct {
-		found   bool
-		version string
-		adapter agent.Adapter
-		want    string
-	}{
-		{true, "2.1.316", compatibilityStub{status: "live_verified", hint: "Historical smoke evidence; no per-message ACK."}, "live_verified"},
-		{false, "2.1.316", compatibilityStub{status: "live_verified", hint: "Known"}, "original"},
-		{true, "", compatibilityStub{status: "live_verified", hint: "Known"}, "original"},
-		{true, "2.1.316", compatibilityStub{status: "live_verified", hint: "bad\nhint"}, "original"},
-		{true, "2.1.316", compatibilityStub{status: "bad status", hint: "Known"}, "original"},
-		{true, "2.1.316", stubCodexAdapter{}, "original"},
-	} {
-		diagnostic := AgentDiagnostic{Found: test.found, Version: test.version, Compatibility: "original", RecoveryHint: "Original hint."}
-		annotateAdapterCompatibility(&diagnostic, test.adapter)
-		if diagnostic.Compatibility != test.want {
-			t.Fatalf("compatibility=%s want=%s", diagnostic.Compatibility, test.want)
-		}
-		if test.want == "original" && diagnostic.RecoveryHint != "Original hint." {
-			t.Fatal("unavailable or invalid evidence replaced the common next step")
-		}
 	}
 }

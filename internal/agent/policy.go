@@ -19,12 +19,6 @@ type RecoveryHintAdapter interface {
 	RecoveryHint(model.SessionDiagnostic) string
 }
 
-// CompatibilityAdapter supplements doctor with adapter-owned version evidence.
-// Empty or malformed results leave the common fixture diagnosis unchanged.
-type CompatibilityAdapter interface {
-	Compatibility(version string) (status, hint string)
-}
-
 type HealthHost interface {
 	Listener(model.Session) model.ListenerStatus
 }
