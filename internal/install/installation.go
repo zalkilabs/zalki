@@ -302,6 +302,9 @@ func removeConfig(before []byte, keepServer bool, patches ...map[string]any) ([]
 	for _, patch := range patches {
 		for key, value := range patch {
 			if keepServer && key == "mcpServers" {
+				if err := checkServersObject(current); err != nil {
+					return nil, err
+				}
 				continue
 			}
 			if err := removePatchKey(current, key, value, servers); err != nil {
@@ -330,12 +333,12 @@ func removePatchKey(current map[string]any, key string, value any, servers []any
 // removeManagedMCPServer deletes the zalki MCP server when it equals one of
 // the owned entries. Any other entry was edited by the user and is refused.
 func removeManagedMCPServer(current map[string]any, owned []any) error {
-	if current["mcpServers"] == nil {
-		return nil
+	if err := checkServersObject(current); err != nil {
+		return err
 	}
 	servers, ok := current["mcpServers"].(map[string]any)
 	if !ok {
-		return errors.New("mcpServers is not an object")
+		return nil // absent or null
 	}
 	found, exists := servers[zalkiMCPServer]
 	if !exists {
@@ -345,6 +348,15 @@ func removeManagedMCPServer(current map[string]any, owned []any) error {
 		return editedEntryRefusal(found, owned)
 	}
 	delete(servers, zalkiMCPServer)
+	return nil
+}
+
+// checkServersObject refuses an mcpServers value that is neither absent, null
+// nor an object. An upgrade keeps the zalki entry but still refuses such a file here.
+func checkServersObject(current map[string]any) error {
+	if _, isObject := current["mcpServers"].(map[string]any); current["mcpServers"] != nil && !isObject {
+		return errors.New("mcpServers is not an object")
+	}
 	return nil
 }
 

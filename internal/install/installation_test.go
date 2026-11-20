@@ -150,40 +150,7 @@ func TestInstallationConflictsRefusedBeforeAnyChanges(t *testing.T) {
 			if _, err := install.Apply(declare, "/old/zalki", state, home); err != nil {
 				t.Fatal(err)
 			}
-			switch conflict {
-			case "mcp":
-				path := filepath.Join(home, ".cursor", "mcp.json")
-				data, _ := os.ReadFile(path)
-				data = bytes.ReplaceAll(data, []byte("/old/zalki"), []byte("/user-edited/zalki"))
-				if err := os.WriteFile(path, data, 0600); err != nil {
-					t.Fatal(err)
-				}
-			case "toml":
-				path := filepath.Join(home, ".codex", "config.toml")
-				f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
-				if err != nil {
-					t.Fatal(err)
-				}
-				_, err = f.WriteString("extra_setting = true\n")
-				f.Close()
-				if err != nil {
-					t.Fatal(err)
-				}
-			case "manifest", "malformed-patch":
-				path := filepath.Join(state, "installation.json")
-				var record install.Installation
-				if err := readJSON(path, &record); err != nil {
-					t.Fatal(err)
-				}
-				if conflict == "manifest" {
-					record.Home = "/another-home"
-				} else {
-					record.Patches[".cursor/hooks.json"] = map[string]any{"hooks": "broken"}
-				}
-				if err := writeJSON(path, record); err != nil {
-					t.Fatal(err)
-				}
-			}
+			makeInstallationConflict(t, conflict, home, state)
 			before := installationSnapshot(t, home)
 			for _, action := range []string{"upgrade", "uninstall"} {
 				if _, err := install.Manage(declare, install.Request{Action: action, Binary: "/new/zalki", StateDir: state, HomeDir: home, Apply: true}); err == nil {
@@ -194,6 +161,43 @@ func TestInstallationConflictsRefusedBeforeAnyChanges(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// editOwnedCommand changes the command value that zalki wrote in a client file.
+func editOwnedCommand(t *testing.T, path string) {
+	t.Helper()
+	data, _ := os.ReadFile(path)
+	data = bytes.ReplaceAll(data, []byte("/old/zalki"), []byte("/user-edited/zalki"))
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// makeInstallationConflict breaks an installation in one way that upgrade and
+// uninstall must both refuse. A key the user adds to the managed entry is not
+// a conflict (see upgrade_userkeys_test.go); an edit of an owned key is.
+func makeInstallationConflict(t *testing.T, conflict, home, state string) {
+	t.Helper()
+	switch conflict {
+	case "mcp":
+		editOwnedCommand(t, filepath.Join(home, ".cursor", "mcp.json"))
+	case "toml":
+		editOwnedCommand(t, filepath.Join(home, ".codex", "config.toml"))
+	case "manifest", "malformed-patch":
+		path := filepath.Join(state, "installation.json")
+		var record install.Installation
+		if err := readJSON(path, &record); err != nil {
+			t.Fatal(err)
+		}
+		if conflict == "manifest" {
+			record.Home = "/another-home"
+		} else {
+			record.Patches[".cursor/hooks.json"] = map[string]any{"hooks": "broken"}
+		}
+		if err := writeJSON(path, record); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
