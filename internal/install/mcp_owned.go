@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -172,27 +173,90 @@ func onlyUserKeysDiffer(have map[string]any, versions []map[string]any) ([]strin
 	return nil, false
 }
 
-// userKeysRefusal is what uninstall does with an entry that holds keys the user
-// added: it refuses and names them. This is the only place that decides it. To
-// remove such an entry anyway, return the keys in a Report note here instead of
-// an error; the installer already writes a backup of the file before each edit.
-func userKeysRefusal(label, noun string, extra []string) error {
-	return fmt.Errorf("%s has keys you added (%s); remove that %s by hand, then run zalki uninstall again", label, strings.Join(extra, ", "), noun)
+// editNote is one sentence about the edit of one file, for the owner. A
+// preview says what would happen and a result says what happened.
+type editNote struct{ preview, result string }
+
+// maxListedUserKeys and maxUserKeyName bound what one note prints.
+const (
+	maxListedUserKeys = 20
+	maxUserKeyName    = 40
+)
+
+// plainKeyRune reports a character that a key name may hold without quoting.
+func plainKeyRune(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' || r == '.'
 }
 
-// editedEntryRefusal is the uninstall refusal for a JSON entry that is not
-// exactly one of the recorded entries.
-func editedEntryRefusal(found any, owned []any) error {
-	if have, ok := found.(map[string]any); ok {
-		var versions []map[string]any
-		for _, entry := range owned {
-			if version, isMap := entry.(map[string]any); isMap {
-				versions = append(versions, version)
-			}
-		}
-		if extra, only := onlyUserKeysDiffer(have, versions); only {
-			return userKeysRefusal("mcpServers.zalki", "entry", extra)
+// userKeyName prints a key name from a user file. A plain name stays as it is.
+// Any other name is quoted, so control characters never reach the terminal, and
+// a long name is cut.
+func userKeyName(key string) string {
+	if key != "" && len(key) <= maxUserKeyName && strings.IndexFunc(key, func(r rune) bool { return !plainKeyRune(r) }) < 0 {
+		return key
+	}
+	if len(key) > maxUserKeyName {
+		return strconv.Quote(key[:maxUserKeyName]) + "..."
+	}
+	return strconv.Quote(key)
+}
+
+// userKeysNotes is the uninstall note about the user keys removed with the
+// managed entry of one file; it is empty when there are none. The note lists
+// names only. The backup stamp is random, so the note names the backup with a star.
+func userKeysNotes(path, label, noun string, keys []string) []editNote {
+	if len(keys) == 0 {
+		return nil
+	}
+	shown := keys[:min(len(keys), maxListedUserKeys)]
+	names := make([]string, len(shown))
+	for i, key := range shown {
+		names[i] = userKeyName(key)
+	}
+	list := strings.Join(names, ", ")
+	if more := len(keys) - len(shown); more > 0 {
+		list += fmt.Sprintf(", and %d more", more)
+	}
+	return []editNote{{
+		preview: fmt.Sprintf("%s: %s has keys you added (%s). Uninstall would remove the whole %s with them. Values are not shown. A backup named %s.zalki-backup-* will keep the old file.", path, label, list, noun, path),
+		result:  fmt.Sprintf("%s: %s had keys you added (%s). Uninstall removed the whole %s with them. Values are not shown. The backup %s.zalki-backup-* keeps the old file.", path, label, list, noun, path),
+	}}
+}
+
+// recordedEntries returns the recorded JSON entries that are objects.
+func recordedEntries(owned []any) []map[string]any {
+	var versions []map[string]any
+	for _, entry := range owned {
+		if version, isMap := entry.(map[string]any); isMap {
+			versions = append(versions, version)
 		}
 	}
-	return fmt.Errorf("managed %s MCP entry was edited; review it before removing or upgrading", zalkiMCPServer)
+	return versions
+}
+
+// entryUserKeys decides what uninstall does with a JSON entry that is not
+// exactly a recorded entry. When it is one recorded entry plus keys the user
+// added, uninstall removes it and returns those key names. Otherwise it refuses.
+func entryUserKeys(found any, owned []any) ([]string, error) {
+	have, ok := found.(map[string]any)
+	if !ok {
+		return nil, editedKeyError(nil, nil, "mcpServers.zalki", "entry")
+	}
+	versions := recordedEntries(owned)
+	if extra, only := onlyUserKeysDiffer(have, versions); only {
+		return extra, nil
+	}
+	return nil, editedKeyError(have, versions, "mcpServers.zalki", "entry")
+}
+
+// editedKeyError is the uninstall refusal for an entry that is neither a
+// recorded entry nor one of them plus the user's keys. An edited owned key may
+// mean the entry is no longer zalki's, so it stays refused. The error names the
+// first owned key that differs. With no recorded key to name (an empty recorded
+// entry, or an entry that is not an object) the text is generic.
+func editedKeyError(have map[string]any, versions []map[string]any, label, noun string) error {
+	if key := firstDifference(have, versions, nil); key != "" {
+		return fmt.Errorf("%s key %q was edited after Zalki wrote it; restore it or delete that %s, then run zalki uninstall again", label, key, noun)
+	}
+	return fmt.Errorf("managed %s MCP %s was edited; review it before removing or upgrading", zalkiMCPServer, noun)
 }

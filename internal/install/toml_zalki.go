@@ -320,13 +320,133 @@ func updateMCPFragment(path string, before []byte, owned []string, next string) 
 	return after, nil
 }
 
-// editedFragmentRefusal is the uninstall refusal for a managed table that is
-// not exactly a recorded fragment.
-func editedFragmentRefusal(current map[string]any, fragments []string) error {
-	if tables, err := recordedTables(fragments); err == nil {
-		if extra, only := onlyUserKeysDiffer(current, tables); only {
-			return userKeysRefusal("[mcp_servers.zalki]", "table", extra)
+// tableUserKeys decides what uninstall does with a managed table that is not
+// exactly a recorded fragment. When it is one recorded table plus keys the user
+// added, uninstall removes it and returns those key names. Otherwise it refuses.
+func tableUserKeys(current map[string]any, fragments []string) ([]string, error) {
+	tables, err := recordedTables(fragments)
+	if err != nil {
+		return nil, editedKeyError(nil, nil, "[mcp_servers.zalki]", "table")
+	}
+	if extra, only := onlyUserKeysDiffer(current, tables); only {
+		return extra, nil
+	}
+	return nil, editedKeyError(current, tables, "[mcp_servers.zalki]", "table")
+}
+
+var (
+	errZalkiRemoveLayout = errors.New("zalki must be one explicit [mcp_servers.zalki] table; rewrite it that way or delete it, then run zalki uninstall again")
+	errZalkiRemoveUnsafe = errors.New("cannot remove the zalki table safely; delete it by hand, then run zalki uninstall again")
+)
+
+// isZalkiPath reports whether a table path is the managed table or lies under it.
+func isZalkiPath(path []string) bool {
+	return len(path) >= len(zalkiPath) && slices.Equal(path[:len(zalkiPath)], zalkiPath)
+}
+
+// lineStart returns the index of the first byte of the line that holds data[i].
+func lineStart(data []byte, i int) int { return bytes.LastIndexByte(data[:i], '\n') + 1 }
+
+// lineEnd returns the index after the line break of the line that holds data[i],
+// or len(data) for a last line with no break.
+func lineEnd(data []byte, i int) int {
+	if next := bytes.IndexByte(data[i:], '\n'); next >= 0 {
+		return i + next + 1
+	}
+	return len(data)
+}
+
+// zalkiBlocks returns the line ranges of the managed table and of every table
+// or array of tables under it. A range starts at the line of the header, plus
+// one empty line directly before it (LF or CRLF; a line with spaces does not
+// count). It ends after the line of the last key/value of the block, or after
+// the header line when the block has none. A table header has no byte range of
+// its own, so its line comes from its first key part. Comments after the last
+// key and blank lines stay: they belong to what follows.
+func zalkiBlocks(data []byte) ([]tomlSpan, error) {
+	var parser unstable.Parser
+	parser.Reset(data)
+	var blocks []tomlSpan
+	inside := false
+	for parser.NextExpression() {
+		node := parser.Expression()
+		if node.Kind == unstable.KeyValue && inside {
+			blocks[len(blocks)-1].end = lineEnd(data, int(node.Raw.Offset+node.Raw.Length))
+		}
+		if node.Kind == unstable.Table || node.Kind == unstable.ArrayTable {
+			if inside = isZalkiPath(keyParts(node)); inside {
+				blocks = append(blocks, headerBlock(data, node, blocks))
+			}
 		}
 	}
-	return errors.New("managed zalki MCP table was edited; review it before removing or upgrading")
+	if parser.Error() != nil {
+		return nil, errZalkiRemoveUnsafe
+	}
+	return blocks, nil
+}
+
+// headerBlock returns the range of a header line, with the empty line before it.
+func headerBlock(data []byte, header *unstable.Node, previous []tomlSpan) tomlSpan {
+	first, last := -1, 0
+	for it := header.Key(); it.Next(); {
+		raw := it.Node().Raw
+		if first < 0 {
+			first = int(raw.Offset)
+		}
+		last = int(raw.Offset + raw.Length)
+	}
+	start := lineStart(data, max(first, 0))
+	if start > 0 {
+		before := lineStart(data, start-1)
+		if line := data[before:start]; string(line) == "\n" || string(line) == "\r\n" {
+			start = before
+		}
+	}
+	if len(previous) > 0 {
+		start = max(start, previous[len(previous)-1].end)
+	}
+	return tomlSpan{start: start, end: lineEnd(data, last)}
+}
+
+// removeZalkiTable removes the managed table and every table under it. It
+// supports the layout the editor supports: one explicit [mcp_servers.zalki]
+// header. Anything it cannot prove safe is refused and nothing is written.
+func removeZalkiTable(before []byte) ([]byte, error) {
+	if _, _, err := locateZalkiTable(before); err != nil {
+		if errors.Is(err, errZalkiLayout) {
+			return nil, errZalkiRemoveLayout
+		}
+		return nil, errZalkiRemoveUnsafe
+	}
+	blocks, err := zalkiBlocks(before)
+	if err != nil || len(blocks) == 0 {
+		return nil, errZalkiRemoveUnsafe
+	}
+	edits := make([]tomlEdit, len(blocks))
+	for i, block := range blocks {
+		edits[i] = tomlEdit{span: block}
+	}
+	after := splice(before, edits)
+	if err := verifyZalkiRemoval(before, after, edits); err != nil {
+		return nil, err
+	}
+	return after, nil
+}
+
+// verifyZalkiRemoval is the safety net of a removal. It refuses unless the new
+// text is the old text with only the removed ranges gone, parses, has no
+// managed table, and equals the old document everywhere else.
+func verifyZalkiRemoval(before, after []byte, edits []tomlEdit) error {
+	if !outsideUnchanged(before, after, edits) {
+		return errZalkiRemoveUnsafe
+	}
+	if table, err := mcpNamedTable(after, zalkiMCPServer); err != nil || table != nil {
+		return errZalkiRemoveUnsafe
+	}
+	oldRest, errOld := documentWithoutZalki(before)
+	newRest, errNew := documentWithoutZalki(after)
+	if errOld != nil || errNew != nil || !bytes.Equal(oldRest, newRest) {
+		return errZalkiRemoveUnsafe
+	}
+	return nil
 }

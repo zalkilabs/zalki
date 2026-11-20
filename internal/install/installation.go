@@ -288,10 +288,10 @@ func managedMCPName(servers map[string]any) (string, error) {
 // it was loaded (see readInstallationManifest), so the shape of patch is not
 // checked again here. With keepServer the zalki MCP entry stays in the file:
 // an upgrade merges the next entry into it and keeps the user's own keys.
-func removeConfig(before []byte, keepServer bool, patches ...map[string]any) ([]byte, error) {
+func removeConfig(before []byte, keepServer bool, path string, patches ...map[string]any) ([]byte, []editNote, error) {
 	var current map[string]any
 	if err := decodeSettings(before, &current); err != nil || current == nil {
-		return nil, errors.New("settings must be a JSON object")
+		return nil, nil, errors.New("settings must be a JSON object")
 	}
 	var servers []any
 	for _, patch := range patches {
@@ -299,56 +299,67 @@ func removeConfig(before []byte, keepServer bool, patches ...map[string]any) ([]
 			servers = append(servers, owned[zalkiMCPServer])
 		}
 	}
+	var userKeys []string
 	for _, patch := range patches {
 		for key, value := range patch {
 			if keepServer && key == "mcpServers" {
 				if err := checkServersObject(current); err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				continue
 			}
-			if err := removePatchKey(current, key, value, servers); err != nil {
-				return nil, err
+			removed, err := removePatchKey(current, key, value, servers)
+			if err != nil {
+				return nil, nil, err
 			}
+			userKeys = append(userKeys, removed...)
 		}
 	}
-	return encodeSettings(current)
+	after, err := encodeSettings(current)
+	return after, userKeysNotes(path, "mcpServers.zalki", "entry", slices.Compact(slices.Sorted(slices.Values(userKeys)))), err
 }
 
 // removePatchKey removes what one top-level key of a recorded patch added.
-// servers lists every zalki MCP entry that one of the patches recorded.
-func removePatchKey(current map[string]any, key string, value any, servers []any) error {
+// servers lists every zalki MCP entry that one of the patches recorded. It
+// returns the names of the user's keys that went with a removed MCP entry.
+func removePatchKey(current map[string]any, key string, value any, servers []any) ([]string, error) {
 	switch key {
 	case "version": // Cursor schema version is shared with unrelated hooks.
-		return nil
+		return nil, nil
 	case "mcpServers":
 		return removeManagedMCPServer(current, servers)
 	case "hooks":
-		return removeOwnedHooks(current, value.(map[string]any))
+		return nil, removeOwnedHooks(current, value.(map[string]any))
 	default:
-		return errors.New("unexpected installation patch key")
+		return nil, errors.New("unexpected installation patch key")
 	}
 }
 
 // removeManagedMCPServer deletes the zalki MCP server when it equals one of
-// the owned entries. Any other entry was edited by the user and is refused.
-func removeManagedMCPServer(current map[string]any, owned []any) error {
+// the owned entries, or one of them plus keys the user added; the user's keys
+// go with it and their names are returned. Any other entry was edited in a key
+// zalki owns and is refused.
+func removeManagedMCPServer(current map[string]any, owned []any) ([]string, error) {
 	if err := checkServersObject(current); err != nil {
-		return err
+		return nil, err
 	}
 	servers, ok := current["mcpServers"].(map[string]any)
 	if !ok {
-		return nil // absent or null
+		return nil, nil // absent or null
 	}
 	found, exists := servers[zalkiMCPServer]
 	if !exists {
-		return nil
+		return nil, nil
 	}
+	var userKeys []string
 	if !containsJSON(owned, found) {
-		return editedEntryRefusal(found, owned)
+		var err error
+		if userKeys, err = entryUserKeys(found, owned); err != nil {
+			return nil, err
+		}
 	}
 	delete(servers, zalkiMCPServer)
-	return nil
+	return userKeys, nil
 }
 
 // checkServersObject refuses an mcpServers value that is neither absent, null
@@ -454,20 +465,22 @@ func addMCPFragment(before []byte, fragment string) ([]byte, error) {
 }
 
 // removeMCPFragment removes the zalki table when it equals one of the owned
-// fragments and that fragment is in the file exactly once.
-func removeMCPFragment(before []byte, fragments ...string) ([]byte, error) {
+// fragments and that fragment is in the file exactly once. A table that is one
+// owned fragment plus keys the user added is removed whole, with its
+// sub-tables, and a note names the user's keys.
+func removeMCPFragment(before []byte, path string, fragments ...string) ([]byte, []editNote, error) {
 	var name, fragment string
 	var current map[string]any
 	for _, owned := range fragments {
 		tableName, wanted, err := mcpFragmentTable(owned)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if current, err = mcpNamedTable(before, tableName); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if current == nil {
-			return before, nil
+			return before, nil, nil
 		}
 		if equalJSON(current, wanted) && strings.Count(string(before), owned) == 1 {
 			name, fragment = tableName, owned
@@ -475,14 +488,19 @@ func removeMCPFragment(before []byte, fragments ...string) ([]byte, error) {
 		}
 	}
 	if fragment == "" {
-		return nil, editedFragmentRefusal(current, fragments)
+		userKeys, err := tableUserKeys(current, fragments)
+		if err != nil {
+			return nil, nil, err
+		}
+		after, err := removeZalkiTable(before)
+		return after, userKeysNotes(path, "[mcp_servers.zalki]", "table", userKeys), err
 	}
 	after := []byte(strings.Replace(string(before), fragment, "", 1))
 	remaining, err := mcpNamedTable(after, name)
 	if err != nil || remaining != nil {
-		return nil, errors.New("cannot remove zalki TOML safely; review the table manually")
+		return nil, nil, errors.New("cannot remove zalki TOML safely; review the table manually")
 	}
-	return after, nil
+	return after, nil, nil
 }
 
 func mcpFragmentTable(fragment string) (string, map[string]any, error) {

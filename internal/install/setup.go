@@ -173,6 +173,8 @@ type configEdit struct {
 	existed       bool
 	backup        string
 	remove        bool
+	// notes are the owner's sentences about this edit, for a preview and a result.
+	notes []editNote
 }
 
 // Apply installs the reviewed user-config additions and records their ownership.
