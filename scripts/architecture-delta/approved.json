@@ -1064,5 +1064,109 @@
       }
     },
     "reason": "Measured and source-reviewed Stage B delta on actual a350: add bounded targeted bus.PluginMembers under the existing borrowed writable journal scope and work charges; change exact Next/Ack API and PluginDelivery/PluginFeed/PluginFeedStatus shapes for captured-launch per-part handoff, attempted-receipt ACK and private runtime/features. PluginFeed public method count stays 20; its 17 new PRIVATE shared-launch/view/lock coordination methods are ackStream, ackStreamStep, advanceStream, advanceStreamForOffer, attemptStreamPart, captureStreamCut, finishStreamStep, nextStream, nextStreamStep, noteStreamIntegrity, noteStreamReadFailure, pendingStreamCurrent, prepareStreamLaunch, projectStreamEvent, scanStream, streamResourceFailure, withStreamStep. Separate private checkpoint state, work budget, pending validation and core work accounting are measured explicitly; pluginFiles gains checkpoint paths/read/status while old pluginRecord cursor/gap helpers disappear, and v2Host gains bounded part preflight/write/timeout handling. Complete named five-category native delta is identical on both OS; import graph and raw OS differences are empty. This exact allowance is not a functional/runtime pass, numeric growth ceiling or broad exception; actual corrected-head native comparison/application remains required."
+  },
+  {
+    "base_commit": "1aa96a2d581671e28cee6a8abdddc95f5599c79b",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/adapters/claude.Adapter.Compatibility",
+          "internal/agent.CompatibilityAdapter"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/adapters/claude.Adapter.Compatibility": "func(Adapter) func(version string) (string, string)",
+          "type:internal/agent.CompatibilityAdapter": "CompatibilityAdapter interface {\n\tCompatibility(version string) (status, hint string)\n}"
+        },
+        "changed": {
+          "type:internal/bus.AgentDiagnostic": {
+            "before": "AgentDiagnostic struct {\n\tVersion\t\tstring\t\t\t\t`json:\"installed_version,omitempty\"`\n\tFixtureVersions\t[]string\t\t\t`json:\"fixture_versions,omitempty\"`\n\tCompatibility\tstring\t\t\t\t`json:\"compatibility\"`\n\tRecoveryHint\tstring\t\t\t\t`json:\"recovery_hint,omitempty\"`\n\tKind\t\tstring\t\t\t\t`json:\"kind\"`\n\tLabel\t\tstring\t\t\t\t`json:\"label\"`\n\tBinary\t\tstring\t\t\t\t`json:\"binary,omitempty\"`\n\tFound\t\tbool\t\t\t\t`json:\"found\"`\n\tReceive\t\tmodel.ReceiveCapabilities\t`json:\"receive\"`\n}",
+            "after": "AgentDiagnostic struct {\n\tVersion\t\tstring\t\t\t\t`json:\"installed_version,omitempty\"`\n\tCompatibility\tstring\t\t\t\t`json:\"compatibility\"`\n\tRecoveryHint\tstring\t\t\t\t`json:\"recovery_hint,omitempty\"`\n\tKind\t\tstring\t\t\t\t`json:\"kind\"`\n\tLabel\t\tstring\t\t\t\t`json:\"label\"`\n\tBinary\t\tstring\t\t\t\t`json:\"binary,omitempty\"`\n\tFound\t\tbool\t\t\t\t`json:\"found\"`\n\tReceive\t\tmodel.ReceiveCapabilities\t`json:\"receive\"`\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/adapters/claude.Adapter": {
+            "before": {
+              "Methods": 12,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 11,
+              "Files": 2
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Removes the client version allowlist (ZAL-106): interface agent.CompatibilityAdapter, method claude.Adapter.Compatibility and field AgentDiagnostic.FixtureVersions. Nothing is added; imports and OS calls are unchanged. Delta measured on base 1aa96a2, same on both OS."
+  },
+  {
+    "base_commit": "1aa96a2d581671e28cee6a8abdddc95f5599c79b",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/adapters/claude.Adapter.Compatibility",
+          "internal/agent.CompatibilityAdapter"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/adapters/claude.Adapter.Compatibility": "func(Adapter) func(version string) (string, string)",
+          "type:internal/agent.CompatibilityAdapter": "CompatibilityAdapter interface {\n\tCompatibility(version string) (status, hint string)\n}"
+        },
+        "changed": {
+          "type:internal/bus.AgentDiagnostic": {
+            "before": "AgentDiagnostic struct {\n\tVersion\t\tstring\t\t\t\t`json:\"installed_version,omitempty\"`\n\tFixtureVersions\t[]string\t\t\t`json:\"fixture_versions,omitempty\"`\n\tCompatibility\tstring\t\t\t\t`json:\"compatibility\"`\n\tRecoveryHint\tstring\t\t\t\t`json:\"recovery_hint,omitempty\"`\n\tKind\t\tstring\t\t\t\t`json:\"kind\"`\n\tLabel\t\tstring\t\t\t\t`json:\"label\"`\n\tBinary\t\tstring\t\t\t\t`json:\"binary,omitempty\"`\n\tFound\t\tbool\t\t\t\t`json:\"found\"`\n\tReceive\t\tmodel.ReceiveCapabilities\t`json:\"receive\"`\n}",
+            "after": "AgentDiagnostic struct {\n\tVersion\t\tstring\t\t\t\t`json:\"installed_version,omitempty\"`\n\tCompatibility\tstring\t\t\t\t`json:\"compatibility\"`\n\tRecoveryHint\tstring\t\t\t\t`json:\"recovery_hint,omitempty\"`\n\tKind\t\tstring\t\t\t\t`json:\"kind\"`\n\tLabel\t\tstring\t\t\t\t`json:\"label\"`\n\tBinary\t\tstring\t\t\t\t`json:\"binary,omitempty\"`\n\tFound\t\tbool\t\t\t\t`json:\"found\"`\n\tReceive\t\tmodel.ReceiveCapabilities\t`json:\"receive\"`\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/adapters/claude.Adapter": {
+            "before": {
+              "Methods": 12,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 11,
+              "Files": 2
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Removes the client version allowlist (ZAL-106): interface agent.CompatibilityAdapter, method claude.Adapter.Compatibility and field AgentDiagnostic.FixtureVersions. Nothing is added; imports and OS calls are unchanged. Delta measured on base 1aa96a2, same on both OS."
   }
 ]
