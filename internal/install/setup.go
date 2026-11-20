@@ -52,14 +52,16 @@ func WriteSetup(declare Declare, binary, state, out, home, configFile string) er
 }
 
 // mergeConfig adds the entries of patch to a JSON settings file. It refuses
-// to change entries the user already has in a different form.
-func mergeConfig(existing []byte, patch map[string]any) ([]byte, error) {
+// to change entries the user already has in a different form. owned holds the
+// recorded patches of an upgrade: the zalki MCP entry is then updated key by key
+// and the user's own keys in it are kept.
+func mergeConfig(existing []byte, patch map[string]any, owned []map[string]any) ([]byte, error) {
 	current, err := decodeSettingsToMerge(existing)
 	if err != nil {
 		return nil, err
 	}
 	for key, value := range patch {
-		if err := mergePatchKey(current, key, value); err != nil {
+		if err := mergePatchKey(current, key, value, owned); err != nil {
 			return nil, err
 		}
 	}
@@ -83,12 +85,12 @@ func decodeSettingsToMerge(existing []byte) (map[string]any, error) {
 }
 
 // mergePatchKey merges what one top-level key of a patch adds.
-func mergePatchKey(current map[string]any, key string, value any) error {
+func mergePatchKey(current map[string]any, key string, value any, owned []map[string]any) error {
 	switch key {
 	case "version":
 		return mergeSchemaVersion(current, value)
 	case "mcpServers":
-		return mergeMCPServer(current, value)
+		return mergeMCPServer(current, value, ownedEntries(owned))
 	case "hooks":
 		return mergeHooks(current, value)
 	default:
@@ -109,9 +111,10 @@ func mergeSchemaVersion(current map[string]any, version any) error {
 	return nil
 }
 
-// mergeMCPServer adds the zalki MCP server. It refuses a different server
-// with the same name.
-func mergeMCPServer(current map[string]any, value any) error {
+// mergeMCPServer adds the zalki MCP server. An existing entry is accepted when
+// it already holds every owned key with the next value, and is updated key by key
+// when it still holds a recorded entry. It refuses an entry that differs in an owned key.
+func mergeMCPServer(current map[string]any, value any, versions []map[string]any) error {
 	servers, ok := current["mcpServers"].(map[string]any)
 	if current["mcpServers"] != nil && !ok {
 		return errors.New("existing mcpServers is not an object")
@@ -120,8 +123,12 @@ func mergeMCPServer(current map[string]any, value any) error {
 		servers = map[string]any{}
 	}
 	wanted := value.(map[string]any)[zalkiMCPServer]
-	if old, exists := servers[zalkiMCPServer]; exists && !equalJSON(old, wanted) {
-		return errors.New("an existing zalki MCP server differs; review it before replacing")
+	if old, exists := servers[zalkiMCPServer]; exists {
+		merged, err := mergeOwnedEntry(old, wanted, versions)
+		if err != nil {
+			return err
+		}
+		wanted = merged
 	}
 	servers[zalkiMCPServer] = wanted
 	current["mcpServers"] = servers
