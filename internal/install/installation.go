@@ -301,35 +301,54 @@ func removeConfig(before []byte, keepServer bool, path string, patches ...map[st
 	}
 	var userKeys []string
 	for _, patch := range patches {
-		for key, value := range patch {
-			if keepServer && key == "mcpServers" {
-				if err := checkServersObject(current); err != nil {
-					return nil, nil, err
-				}
-				continue
-			}
-			removed, err := removePatchKey(current, key, value, servers)
-			if err != nil {
-				return nil, nil, err
-			}
-			userKeys = append(userKeys, removed...)
+		removed, err := removePatchKeys(current, patch, keepServer, servers)
+		if err != nil {
+			return nil, nil, err
 		}
+		userKeys = append(userKeys, removed...)
+	}
+	hooks, err := removeRecordedHooks(current, patches, !keepServer)
+	if err != nil {
+		return nil, nil, err
 	}
 	after, err := encodeSettings(current)
-	return after, userKeysNotes(path, "mcpServers.zalki", "entry", slices.Compact(slices.Sorted(slices.Values(userKeys)))), err
+	notes := slices.Concat(userKeysNotes(path, "mcpServers.zalki", "entry", slices.Compact(slices.Sorted(slices.Values(userKeys)))), hookNotes(path, hooks))
+	return after, notes, err
+}
+
+// removePatchKeys removes what the keys of one recorded patch added, except the
+// hooks: removeRecordedHooks handles those for every recorded patch at once. It
+// returns the names of the user's keys that went with a removed MCP entry.
+func removePatchKeys(current, patch map[string]any, keepServer bool, servers []any) ([]string, error) {
+	var userKeys []string
+	for key := range patch {
+		if key == "hooks" {
+			continue
+		}
+		if keepServer && key == "mcpServers" {
+			if err := checkServersObject(current); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		removed, err := removePatchKey(current, key, servers)
+		if err != nil {
+			return nil, err
+		}
+		userKeys = append(userKeys, removed...)
+	}
+	return userKeys, nil
 }
 
 // removePatchKey removes what one top-level key of a recorded patch added.
 // servers lists every zalki MCP entry that one of the patches recorded. It
 // returns the names of the user's keys that went with a removed MCP entry.
-func removePatchKey(current map[string]any, key string, value any, servers []any) ([]string, error) {
+func removePatchKey(current map[string]any, key string, servers []any) ([]string, error) {
 	switch key {
 	case "version": // Cursor schema version is shared with unrelated hooks.
 		return nil, nil
 	case "mcpServers":
 		return removeManagedMCPServer(current, servers)
-	case "hooks":
-		return nil, removeOwnedHooks(current, value.(map[string]any))
 	default:
 		return nil, errors.New("unexpected installation patch key")
 	}
@@ -368,44 +387,6 @@ func checkServersObject(current map[string]any) error {
 	if _, isObject := current["mcpServers"].(map[string]any); current["mcpServers"] != nil && !isObject {
 		return errors.New("mcpServers is not an object")
 	}
-	return nil
-}
-
-// removeOwnedHooks removes the recorded hook entries, event by event, and
-// keeps every entry the user added.
-func removeOwnedHooks(current, owned map[string]any) error {
-	if current["hooks"] == nil {
-		return nil
-	}
-	hooks, ok := current["hooks"].(map[string]any)
-	if !ok {
-		return errors.New("hooks is not an object")
-	}
-	for event, additions := range owned {
-		if err := removeOwnedHookEntries(hooks, event, additions.([]any)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// removeOwnedHookEntries drops the entries of one hook event that equal a
-// recorded addition. An event that is left empty stays as an empty list.
-func removeOwnedHookEntries(hooks map[string]any, event string, additions []any) error {
-	if hooks[event] == nil {
-		return nil
-	}
-	entries, ok := hooks[event].([]any)
-	if !ok {
-		return errors.New("hook event is not an array")
-	}
-	kept := []any{}
-	for _, entry := range entries {
-		if !containsJSON(additions, entry) {
-			kept = append(kept, entry)
-		}
-	}
-	hooks[event] = kept
 	return nil
 }
 

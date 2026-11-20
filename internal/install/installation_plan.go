@@ -389,7 +389,7 @@ func planJSONFile(change settingsChange, action string, before []byte, exists bo
 		if action != "upgrade" {
 			versions = nil
 		}
-		after, err = mergeConfig(after, change.nextPatch, versions)
+		after, err = mergeConfig(after, change.nextPatch, versions, action)
 		if err != nil {
 			return nil, nil, fmt.Errorf("%s: %w", change.path, err)
 		}

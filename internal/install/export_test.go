@@ -51,3 +51,15 @@ func RemoveMCPFragment(before []byte, fragments ...string) ([]byte, error) {
 	after, _, err := removeMCPFragment(before, "", fragments...)
 	return after, err
 }
+
+// RemoveRecordedHooks exposes the hook removal for unit tests. It returns the
+// result sentences of the notes that name the changed keys.
+func RemoveRecordedHooks(current map[string]any, patches []map[string]any, uninstall bool) ([]string, error) {
+	removed, err := removeRecordedHooks(current, patches, uninstall)
+	notes := hookNotes("PATH", removed)
+	results := make([]string, 0, len(notes))
+	for _, note := range notes {
+		results = append(results, note.result)
+	}
+	return results, err
+}
