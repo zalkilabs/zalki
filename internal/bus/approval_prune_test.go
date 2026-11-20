@@ -171,7 +171,7 @@ func TestPruneReportsUnreadableMessagesAndContinues(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := newID()
-	path := filepath.Join(store.Dir, "messages", id+".json")
+	path := filepath.Join(store.dir, "messages", id+".json")
 	if err := os.WriteFile(path, []byte("{"), 0600); err != nil {
 		t.Fatal(err)
 	}

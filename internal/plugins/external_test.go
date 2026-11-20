@@ -78,7 +78,7 @@ func TestExternalPluginLiteralArgsHomeOnlyAndPersistentCwd(t *testing.T) {
 		t.Fatal(err)
 	}
 	feed := pluginfeed.NewPluginFeed(store, "external")
-	data := filepath.Join(store.Dir, "plugins", "external.data")
+	data := filepath.Join(store.Dir(), "plugins", "external.data")
 	evidence := filepath.Join(data, "observed.json")
 	marker := filepath.Join(data, "shell-was-used")
 	literals := []string{"$(/usr/bin/touch " + marker + ")", "$HOME", "literal space", "--not-an-internal-flag"}

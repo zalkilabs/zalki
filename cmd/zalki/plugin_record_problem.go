@@ -32,7 +32,7 @@ func pluginRecordCause(err error) string {
 }
 
 func pluginRecordPath(store bus.Store, name string) string {
-	return filepath.Join(store.Dir, "plugins", name+".json")
+	return filepath.Join(store.Dir(), "plugins", name+".json")
 }
 
 // pluginRecordDetail is the cause and the file, as a list line shows them.

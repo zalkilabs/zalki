@@ -27,7 +27,7 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 				t.Fatal(err)
 			}
 			tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: model.Timestamp(), Reply: reply}
-			dir := filepath.Join(store.Dir, "transactions")
+			dir := filepath.Join(store.dir, "transactions")
 			if err := privateDir(dir); err != nil {
 				t.Fatal(err)
 			}
@@ -56,7 +56,7 @@ func TestReplyRecoveryAtEachDurableBoundary(t *testing.T) {
 			}
 			// A fresh Store represents a restarted process. Its first journal read
 			// completes the transaction before exposing either half to callers.
-			restarted := Store{Dir: store.Dir, Registry: testRegistry()}
+			restarted := Store{dir: store.dir, registry: testRegistry()}
 			if _, err := restarted.List(); err != nil {
 				t.Fatal(err)
 			}
@@ -92,7 +92,7 @@ func TestReplyCannotAcknowledgeWithoutDurableIntent(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Prevent creation of the private transaction directory.
-	if err := os.WriteFile(filepath.Join(store.Dir, "transactions"), []byte("blocked"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(store.dir, "transactions"), []byte("blocked"), 0600); err != nil {
 		t.Fatal(err)
 	}
 

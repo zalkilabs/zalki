@@ -66,7 +66,7 @@ func TestConfigCodexRegistryUsesSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter, err := service.Store.Registry.Lookup("codex")
+	adapter, err := service.Store.Registry().Lookup("codex")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestConfigCodexRegistryUsesSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := freshService.Store.Registry.Lookup("codex")
+	other, err := freshService.Store.Registry().Lookup("codex")
 	if err != nil || reflect.DeepEqual(adapter, other) {
 		t.Fatal("fresh invocation reused another invocation's queue policy", err)
 	}
@@ -103,7 +103,7 @@ func checkCodexRegistrySnapshot(t *testing.T, opts *commandOptions, want any) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter, err := service.Store.Registry.Lookup("codex")
+	adapter, err := service.Store.Registry().Lookup("codex")
 	if err != nil || !reflect.DeepEqual(adapter, want) {
 		t.Fatal("service reloaded policy after its invocation snapshot", err)
 	}
@@ -113,7 +113,7 @@ func TestConfigCodexPreservesInjectedRegistry(t *testing.T) {
 	registry := adapters.Builtin()
 	opts := &commandOptions{registry: registry, snapshot: &config.Snapshot{Paths: config.Paths{StateDir: config.Value[string]{Value: t.TempDir()}}}}
 	service, err := opts.service()
-	if err != nil || service.Store.Registry != registry {
+	if err != nil || service.Store.Registry() != registry {
 		t.Fatal("explicit registry injection was replaced by builtin policy wiring", err)
 	}
 }

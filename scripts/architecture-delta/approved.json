@@ -1500,5 +1500,153 @@
       }
     },
     "reason": "Moves the four config helpers (HookCommand, HookConfig, MCPConfig, ShellQuote) from install to the new clientconfig package, moves ListenerHandle to agent and adds the agent.Listener capability that cursor implements, and adds codex.Adapter.WithClientVersion. Clients no longer import install, cmd/zalki no longer imports cursor, and codex no longer imports bus. Behavior is unchanged. Delta measured on base 9000a75, same on both OS."
+  },
+  {
+    "base_commit": "abac4d216411cdd6ae793c22d3aa7c2cbe918769",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/bus.Store.Dir",
+          "internal/bus.Store.Logger",
+          "internal/bus.Store.Registry",
+          "internal/bus.Store.With",
+          "internal/bus.StoreAt",
+          "internal/bus.StoreOption",
+          "internal/bus.WithConfigFile",
+          "internal/bus.WithLogger",
+          "internal/bus.WithMaxBodyBytes",
+          "internal/bus.WithPluginDelivery",
+          "internal/bus.WithRegistry"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/bus.Store.Dir": "func(Store) func() string",
+          "function:internal/bus.Store.Logger": "func(Store) func() *slog.Logger",
+          "function:internal/bus.Store.Registry": "func(Store) func() *agent.Registry",
+          "function:internal/bus.Store.With": "func(Store) func(opts ...StoreOption) Store",
+          "function:internal/bus.StoreAt": "func(dir string, opts ...StoreOption) Store",
+          "function:internal/bus.WithConfigFile": "func(path string) StoreOption",
+          "function:internal/bus.WithLogger": "func(logger *slog.Logger) StoreOption",
+          "function:internal/bus.WithMaxBodyBytes": "func(n int) StoreOption",
+          "function:internal/bus.WithPluginDelivery": "func(check pluginDeliveryCheck) StoreOption",
+          "function:internal/bus.WithRegistry": "func(registry *agent.Registry) StoreOption",
+          "type:internal/bus.StoreOption": "StoreOption func(*Store)"
+        },
+        "removed": {},
+        "changed": {
+          "function:internal/bus.NewStore": {
+            "before": "func(dir string, registry *agent.Registry, logger *slog.Logger) (Store, error)",
+            "after": "func(dir string, registry *agent.Registry, logger *slog.Logger, opts ...StoreOption) (Store, error)"
+          },
+          "type:internal/bus.Store": {
+            "before": "Store struct {\n\tPluginDelivery\tpluginDeliveryCheck\n\tDir\t\tstring\n\tRegistry\t*agent.Registry\n\tLogger\t\t*slog.Logger\n\tMaxBodyBytes\tint\n\tConfigFile\tstring\n}",
+            "after": "Store struct {\n\tpluginDelivery\tpluginDeliveryCheck\n\tdir\t\tstring\n\tregistry\t*agent.Registry\n\tlogger\t\t*slog.Logger\n\tmaxBodyBytes\tint\n\tconfigFile\tstring\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 113,
+              "Files": 26
+            },
+            "after": {
+              "Methods": 116,
+              "Files": 25
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Store fields private: the six Store fields (PluginDelivery, Dir, Registry, Logger, MaxBodyBytes, ConfigFile) become private. Adds StoreOption, StoreAt, With and the options WithRegistry, WithLogger, WithMaxBodyBytes, WithConfigFile and WithPluginDelivery, plus the Store methods Dir, Registry, Logger and With. NewStore takes optional StoreOption arguments. The Store receiver goes from 113 methods in 26 files to 116 in 25 (the unexported registry helper file is removed). Imports and OS calls are unchanged. Delta measured on the base, same on both OS."
+  },
+  {
+    "base_commit": "abac4d216411cdd6ae793c22d3aa7c2cbe918769",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/bus.Store.Dir",
+          "internal/bus.Store.Logger",
+          "internal/bus.Store.Registry",
+          "internal/bus.Store.With",
+          "internal/bus.StoreAt",
+          "internal/bus.StoreOption",
+          "internal/bus.WithConfigFile",
+          "internal/bus.WithLogger",
+          "internal/bus.WithMaxBodyBytes",
+          "internal/bus.WithPluginDelivery",
+          "internal/bus.WithRegistry"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/bus.Store.Dir": "func(Store) func() string",
+          "function:internal/bus.Store.Logger": "func(Store) func() *slog.Logger",
+          "function:internal/bus.Store.Registry": "func(Store) func() *agent.Registry",
+          "function:internal/bus.Store.With": "func(Store) func(opts ...StoreOption) Store",
+          "function:internal/bus.StoreAt": "func(dir string, opts ...StoreOption) Store",
+          "function:internal/bus.WithConfigFile": "func(path string) StoreOption",
+          "function:internal/bus.WithLogger": "func(logger *slog.Logger) StoreOption",
+          "function:internal/bus.WithMaxBodyBytes": "func(n int) StoreOption",
+          "function:internal/bus.WithPluginDelivery": "func(check pluginDeliveryCheck) StoreOption",
+          "function:internal/bus.WithRegistry": "func(registry *agent.Registry) StoreOption",
+          "type:internal/bus.StoreOption": "StoreOption func(*Store)"
+        },
+        "removed": {},
+        "changed": {
+          "function:internal/bus.NewStore": {
+            "before": "func(dir string, registry *agent.Registry, logger *slog.Logger) (Store, error)",
+            "after": "func(dir string, registry *agent.Registry, logger *slog.Logger, opts ...StoreOption) (Store, error)"
+          },
+          "type:internal/bus.Store": {
+            "before": "Store struct {\n\tPluginDelivery\tpluginDeliveryCheck\n\tDir\t\tstring\n\tRegistry\t*agent.Registry\n\tLogger\t\t*slog.Logger\n\tMaxBodyBytes\tint\n\tConfigFile\tstring\n}",
+            "after": "Store struct {\n\tpluginDelivery\tpluginDeliveryCheck\n\tdir\t\tstring\n\tregistry\t*agent.Registry\n\tlogger\t\t*slog.Logger\n\tmaxBodyBytes\tint\n\tconfigFile\tstring\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 113,
+              "Files": 26
+            },
+            "after": {
+              "Methods": 116,
+              "Files": 25
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Store fields private: the six Store fields (PluginDelivery, Dir, Registry, Logger, MaxBodyBytes, ConfigFile) become private. Adds StoreOption, StoreAt, With and the options WithRegistry, WithLogger, WithMaxBodyBytes, WithConfigFile and WithPluginDelivery, plus the Store methods Dir, Registry, Logger and With. NewStore takes optional StoreOption arguments. The Store receiver goes from 113 methods in 26 files to 116 in 25 (the unexported registry helper file is removed). Imports and OS calls are unchanged. Delta measured on the base, same on both OS."
   }
 ]

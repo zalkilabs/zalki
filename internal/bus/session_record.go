@@ -12,7 +12,7 @@ func prepareSessionRecord(s Store, v model.Session) (sessionRecord, error) {
 	if err != nil {
 		return sessionRecord{}, err
 	}
-	adapter, err := s.registry().Lookup(v.Kind)
+	adapter, err := s.registry.Lookup(v.Kind)
 	if err != nil {
 		return sessionRecord{}, err
 	}

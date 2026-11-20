@@ -183,7 +183,7 @@ func TestBinaryLoadedBuildSurvivesOnDiskUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := filepath.Join(dir, "state")
-	store := bus.Store{Dir: state, Registry: adapters.Builtin()}
+	store := bus.StoreAt(state, bus.WithRegistry(adapters.Builtin()))
 	actor, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000011", "/fixture", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -277,7 +277,7 @@ func TestBinarySTDIOAndCursorHook(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	dir := filepath.Join(t.TempDir(), "state")
-	store := bus.Store{Dir: dir, Registry: adapters.Builtin()}
+	store := bus.StoreAt(dir, bus.WithRegistry(adapters.Builtin()))
 	cursorConfig := filepath.Join(t.TempDir(), "cursor")
 	t.Setenv("CURSOR_CONFIG_DIR", cursorConfig)
 	from, key, to, toKey := registerPair(t, store, "cursor", "00000000-0000-4000-8000-000000000001", "cursor", "00000000-0000-4000-8000-000000000002")

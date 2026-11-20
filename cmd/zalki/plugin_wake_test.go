@@ -55,15 +55,15 @@ func TestPluginEnableWakesSupervisor(t *testing.T) {
 // that it starts the plugin, never "Start it with: zalki plugins run".
 func TestPluginInstallLineWithRunningSupervisor(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
-	if err := os.MkdirAll(filepath.Join(store.Dir, "plugins"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(store.Dir(), "plugins"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	lock, busy, err := acquireSupervisorLock(store.Dir)
+	lock, busy, err := acquireSupervisorLock(store.Dir())
 	if err != nil || busy || lock == nil {
 		t.Fatal("the test could not hold the supervisor lock", busy, err)
 	}
 	defer lock.Close()
-	line := wakeInstallLine(wakeSupervisor(t.Context(), nil, store.Dir), "demo")
+	line := wakeInstallLine(wakeSupervisor(t.Context(), nil, store.Dir()), "demo")
 	if line != fmt.Sprintf(wakeInstallRunning, "demo", "demo") {
 		t.Fatalf("a running supervisor was answered with %q", line)
 	}

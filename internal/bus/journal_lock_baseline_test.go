@@ -69,7 +69,7 @@ func checkJournalFailureReleasesLock(t *testing.T, failure string) {
 	store := fixtureStore(t)
 	// Prepare the root independently so a broken first transaction cannot
 	// leave a lock that hides this test behind a second blocking acquire.
-	if err := os.MkdirAll(store.Dir, 0700); err != nil {
+	if err := os.MkdirAll(store.dir, 0700); err != nil {
 		t.Fatal(err)
 	}
 	callbackError := errors.New("baseline callback failure")
@@ -84,13 +84,13 @@ func checkJournalFailureReleasesLock(t *testing.T, failure string) {
 	if failure == "callback" && err != callbackError { //nolint:errorlint // Characterize exact callback error identity, including absence of wrapping.
 		t.Fatalf("callback error changed: %v", err)
 	}
-	assertRawLockState(t, filepath.Join(store.Dir, "lock"), false)
+	assertRawLockState(t, filepath.Join(store.dir, "lock"), false)
 }
 
 // writeBrokenReplyIntent leaves a reply transaction that recovery cannot read.
 func writeBrokenReplyIntent(t *testing.T, store Store) {
 	t.Helper()
-	dir := filepath.Join(store.Dir, "transactions")
+	dir := filepath.Join(store.dir, "transactions")
 	if err := os.Mkdir(dir, 0700); err != nil {
 		t.Fatal(err)
 	}

@@ -94,7 +94,7 @@ func TestPromptRegistrationPreservesExistingAndRetired(t *testing.T) {
 			t.Fatal("C04_EXISTING_PROMPT_NEVER_REPLACES", err, current)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, "hook-registration-quota.json")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(store.dir, "hook-registration-quota.json")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("C04_EXISTING_RECORD_NOT_CHARGED", err)
 	}
 }
@@ -140,7 +140,7 @@ func assertDamagedPromptRecord(t *testing.T, damage string) {
 	if _, err := prepareHookRuntime(store, "cursor", v.ID, trustedPrompt(v.NativeID)); err == nil {
 		t.Fatal("C03_ONLY_ENOENT_IS_ABSENCE")
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, "hook-registration-quota.json")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(store.dir, "hook-registration-quota.json")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("C03_DAMAGED_RECORD_NOT_CHARGED", err)
 	}
 }
@@ -181,7 +181,7 @@ func assertPromptDebitFailure(t *testing.T, failAfterRename bool) {
 		t.Fatal("C08_NO_SESSION_AFTER_FAILED_DEBIT", err)
 	}
 	if failAfterRename {
-		if err := debitPromptRegistration(store.Dir, actor, now.Add(time.Second), journal.WriteAtomic); !errors.Is(err, errPromptQuota) {
+		if err := debitPromptRegistration(store.dir, actor, now.Add(time.Second), journal.WriteAtomic); !errors.Is(err, errPromptQuota) {
 			t.Fatal("C08_PUBLISHED_FAILED_DEBIT_IS_SPENT", err)
 		}
 	}

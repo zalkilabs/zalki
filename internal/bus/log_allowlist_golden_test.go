@@ -124,7 +124,7 @@ func loggedAttrs(t *testing.T, data eventData) []string {
 	t.Helper()
 	store := fixtureStore(t)
 	handler := newCaptureHandler(slog.LevelDebug)
-	store.Logger = slog.New(handler)
+	store.logger = slog.New(handler)
 	store.logEvent(slog.LevelInfo, "test.event", data)
 	if len(handler.records) != 1 || handler.records[0].event != "test.event" || handler.records[0].level != slog.LevelInfo {
 		t.Fatalf("expected one test.event record at info level, got %+v", handler.records)
@@ -298,7 +298,7 @@ func TestLogEventDoesNothingWhenTheLevelIsOffOrThereIsNoLogger(t *testing.T) {
 	store := fixtureStore(t)
 	store.logEvent(slog.LevelError, "test.event", eventData{MessageID: goodUUID}) // no logger: must not panic
 	handler := newCaptureHandler(slog.LevelWarn)
-	store.Logger = slog.New(handler)
+	store.logger = slog.New(handler)
 	store.logEvent(slog.LevelInfo, "below.level", eventData{MessageID: goodUUID, Err: errors.New("x")})
 	if len(handler.records) != 0 || handler.asked != 1 {
 		t.Fatalf("a record below the level was handled (%d records, handler asked %d times)", len(handler.records), handler.asked)
@@ -320,7 +320,7 @@ func TestLogEventDoesNothingWhenTheLevelIsOffOrThereIsNoLogger(t *testing.T) {
 func TestOnlyAPreservingRegistrationIsLoggedAsReused(t *testing.T) {
 	store := fixtureStore(t)
 	handler := newCaptureHandler(slog.LevelDebug)
-	store.Logger = slog.New(handler)
+	store.logger = slog.New(handler)
 	id := newID()
 	if _, _, err := store.Register("cursor", id, "/workspace", nil); err != nil {
 		t.Fatal(err)

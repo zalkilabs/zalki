@@ -25,7 +25,7 @@ func TestBinaryMCPLoggingStaysOffProtocolStdout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	state := filepath.Join(t.TempDir(), "state")
-	store := bus.Store{Dir: state, Registry: adapters.Builtin()}
+	store := bus.StoreAt(state, bus.WithRegistry(adapters.Builtin()))
 	actor, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000041", "/fixture", nil)
 	if err != nil {
 		t.Fatal(err)

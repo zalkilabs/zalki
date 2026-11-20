@@ -31,7 +31,7 @@ func TestExplicitPruneDoesNotProbeSessionLiveness(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		store.Registry = registry
+		store.registry = registry
 		target, _ := register(t, store, "cursor")
 		calls = 0
 		if got := store.sessionLiveness(target); got != model.LivenessExited || calls != 1 {

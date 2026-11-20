@@ -30,7 +30,7 @@ func checkInboxReadIndex(t *testing.T, kind string) {
 			t.Fatal(err)
 		}
 	case "orphan":
-		if err := os.Remove(filepath.Join(x.f.store.Dir, "messages", x.message.ID+".json")); err != nil {
+		if err := os.Remove(filepath.Join(x.f.store.Dir(), "messages", x.message.ID+".json")); err != nil {
 			t.Fatal(err)
 		}
 	case "expired":
@@ -95,7 +95,7 @@ func checkInboxReadRecord(t *testing.T, kind string) {
 	case "unknown-field":
 		raw = bytes.Replace(raw, []byte(`"schema":`), []byte(`"secret_unknown":true,"schema":`), 1)
 	}
-	if err = os.WriteFile(filepath.Join(x.f.store.Dir, "messages", x.message.ID+".json"), raw, 0600); err != nil {
+	if err = os.WriteFile(filepath.Join(x.f.store.Dir(), "messages", x.message.ID+".json"), raw, 0600); err != nil {
 		t.Fatal(err)
 	}
 	// Match the encoded length so every other fence is tested independently.

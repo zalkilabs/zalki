@@ -22,12 +22,12 @@ func newUninstallCommand(opts *commandOptions) *cobra.Command {
 			}
 			report, err := install.Manage(installDeclarations(opts.registry, opts.snapshot.Paths.ConfigFile.Value), install.Request{
 				Action: "uninstall", Binary: binary,
-				StateDir: service.Store.Dir, HomeDir: opts.home, Apply: apply,
+				StateDir: service.Store.Dir(), HomeDir: opts.home, Apply: apply,
 			})
 			if err != nil {
 				return err
 			}
-			if target := newLoginItemTarget(opts, service.Store.Dir); target != nil {
+			if target := newLoginItemTarget(opts, service.Store.Dir()); target != nil {
 				note, err := target.uninstallNote(cmd.Context(), apply)
 				if note != "" {
 					report.Notes = append(report.Notes, note)

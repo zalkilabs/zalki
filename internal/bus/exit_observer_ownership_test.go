@@ -76,7 +76,7 @@ func newOwnershipObserver(t *testing.T) ownershipObserverFixture {
 	counter := &noticeCounter{}
 	service.Deliver = counter.hook
 	records := make(chan string, 8)
-	service.Store.Logger = slog.New(ownershipObserverLog{
+	service.Store.logger = slog.New(ownershipObserverLog{
 		Handler: slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug}), records: records,
 	})
 	source := &ownershipExitSource{fakeExitSource: newFakeExitSource(), ready: make(chan struct{})}
@@ -107,7 +107,7 @@ func waitOwnershipRecord(t *testing.T, records <-chan string, want string) {
 
 func assertFailedSourceRetained(t *testing.T, f ownershipObserverFixture, calls int32) {
 	t.Helper()
-	if f.source.closeCount() != 0 || !f.source.watchingProcess(*f.owner) || !f.source.watchingDir(filepath.Join(f.service.Store.Dir, "watches")) {
+	if f.source.closeCount() != 0 || !f.source.watchingProcess(*f.owner) || !f.source.watchingDir(filepath.Join(f.service.Store.dir, "watches")) {
 		t.Fatal("source failure closed the owned source before shutdown")
 	}
 	if f.source.calls.Load() != calls || f.counter.count() != 1 {
@@ -119,7 +119,7 @@ func assertFailedSourceRetained(t *testing.T, f ownershipObserverFixture, calls 
 // and its registrations exactly once.
 func assertSourceClosedOnce(t *testing.T, f ownershipObserverFixture) {
 	t.Helper()
-	if f.source.closeCount() != 1 || f.source.watchingProcess(*f.owner) || f.source.watchingDir(filepath.Join(f.service.Store.Dir, "watches")) {
+	if f.source.closeCount() != 1 || f.source.watchingProcess(*f.owner) || f.source.watchingDir(filepath.Join(f.service.Store.dir, "watches")) {
 		t.Fatal("shutdown did not release the retained source and registrations exactly once")
 	}
 }

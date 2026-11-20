@@ -26,7 +26,7 @@ func TestPluginInboxReadAuditFailureReturnsNoBody(t *testing.T) {
 func checkInboxReadAuditRaw(t *testing.T, raw []byte) {
 	t.Helper()
 	x := newInboxReadFixture(t, "")
-	path := filepath.Join(x.f.store.Dir, "plugin-inbox-read-audit.json")
+	path := filepath.Join(x.f.store.Dir(), "plugin-inbox-read-audit.json")
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func checkInboxReadAuditSymlink(t *testing.T) {
 	if err := os.WriteFile(outside, []byte("outside trap"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(outside, filepath.Join(x.f.store.Dir, "plugin-inbox-read-audit.json")); err != nil {
+	if err := os.Symlink(outside, filepath.Join(x.f.store.Dir(), "plugin-inbox-read-audit.json")); err != nil {
 		t.Fatal(err)
 	}
 	out, err := x.f.ReadPluginInboxMessage(x.message.ID)
@@ -63,11 +63,11 @@ func checkInboxReadAuditWriteFailure(t *testing.T, mode os.FileMode) {
 	var raw []byte
 	var readErr error
 	if err := x.f.write(func(view bus.JournalView) error {
-		if err := os.Chmod(x.f.store.Dir, mode); err != nil {
+		if err := os.Chmod(x.f.store.Dir(), mode); err != nil {
 			return err
 		}
 		defer func() {
-			if err := os.Chmod(x.f.store.Dir, 0700); err != nil {
+			if err := os.Chmod(x.f.store.Dir(), 0700); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -153,7 +153,7 @@ func checkInboxReadAuditLimits(t *testing.T, x inboxReadFixture, base pluginRead
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(x.f.store.Dir, "plugin-inbox-read-audit.json")
+	path := filepath.Join(x.f.store.Dir(), "plugin-inbox-read-audit.json")
 	if err = os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}

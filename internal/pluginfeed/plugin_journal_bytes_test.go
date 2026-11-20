@@ -39,12 +39,12 @@ func TestPluginJournalPersistedBytes(t *testing.T) {
 		"installation":  f.pluginPath(),
 		"identity hint": filepath.Join(f.pluginDir(), "id-"+byteFixturePlugin+".json"),
 		"inbox index":   filepath.Join(f.pluginDataPath(), "inbox.json"),
-		"native audit":  filepath.Join(f.store.Dir, "plugin-read-audit.json"),
+		"native audit":  filepath.Join(f.store.Dir(), "plugin-read-audit.json"),
 	}
 	for name, path := range paths {
 		assertPluginJournalBytes(t, name, readCommitFile(t, path))
 	}
-	raw := readCommitFile(t, filepath.Join(f.store.Dir, "plugin-inbox-read-audit.json"))
+	raw := readCommitFile(t, filepath.Join(f.store.Dir(), "plugin-inbox-read-audit.json"))
 	// The owner inbox read allocates its own UUID. Compare every other byte.
 	if bytes.Count(raw, []byte(request)) != 1 {
 		t.Fatal("audit did not record exactly one generated request ID")

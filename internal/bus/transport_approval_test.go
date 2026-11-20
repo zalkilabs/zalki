@@ -123,7 +123,7 @@ func TestTransportApprovalPreservesConcurrentFinalOutcome(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			path := filepath.Join(store.Dir, "messages", request.MessageID+".json")
+			path := filepath.Join(store.dir, "messages", request.MessageID+".json")
 			before, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
@@ -207,7 +207,7 @@ func TestTransportApprovalRejectsChangedAttemptIdentity(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(store.Dir, "messages", request.MessageID+".json")
+	path := filepath.Join(store.dir, "messages", request.MessageID+".json")
 	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -247,7 +247,7 @@ func TestTransportApprovalSaveFailureDoesNotClaimAHold(t *testing.T) {
 	request := SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "private read-only save refusal"}
 	result, release := pauseTransportApproval(t, &service, request)
 	// Refuse intent creation, rather than a target write after intent publication.
-	dir := filepath.Join(store.Dir, "commits")
+	dir := filepath.Join(store.dir, "commits")
 	if err := os.Chmod(dir, 0500); err != nil {
 		t.Fatal(err)
 	}

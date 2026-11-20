@@ -41,7 +41,7 @@ func checkSupervisedFDInheritance(t *testing.T, binary, probe string, extraFiles
 			return
 		}
 		for _, name := range []string{"demo.log.1", "demo.log"} {
-			file, err := os.Open(filepath.Join(store.Dir, "plugins", name))
+			file, err := os.Open(filepath.Join(store.Dir(), "plugins", name))
 			if err != nil {
 				t.Logf("descriptor fixture host log %s could not be read: %v", name, err)
 				continue
@@ -55,14 +55,14 @@ func checkSupervisedFDInheritance(t *testing.T, binary, probe string, extraFiles
 		}
 	})
 	for _, args := range [][]string{{"add", "demo", "--exec", probe}, {"configure", "demo", "--scope", "all"}, {"grant", "demo", "--status"}, {"enable", "demo"}} {
-		if output, err := pluginOwnerCLI(t, binary, store.Dir, args...); err != nil {
+		if output, err := pluginOwnerCLI(t, binary, store.Dir(), args...); err != nil {
 			t.Fatal(args, string(output), err)
 		}
 	}
-	startSupervisor(t, binary, store.Dir, extraFiles...)
-	report := awaitFDReport(t, store.Dir)
+	startSupervisor(t, binary, store.Dir(), extraFiles...)
+	report := awaitFDReport(t, store.Dir())
 	var lease syscall.Stat_t
-	if err := syscall.Stat(filepath.Join(store.Dir, "plugins", "demo.lock"), &lease); err != nil {
+	if err := syscall.Stat(filepath.Join(store.Dir(), "plugins", "demo.lock"), &lease); err != nil {
 		t.Fatal(err)
 	}
 	if err := pluginFDReportProblem(report, &lease); err != nil {

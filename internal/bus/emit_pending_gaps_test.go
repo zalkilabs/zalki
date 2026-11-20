@@ -302,7 +302,7 @@ func TestEmitPendingForAnUnreachableTargetReturnsNothingAndNoError(t *testing.T)
 		t.Fatal(err)
 	}
 	// An unreadable record is not even read for an unreachable target.
-	garbage := filepath.Join(f.store.Dir, "messages", newID()+".json")
+	garbage := filepath.Join(f.store.dir, "messages", newID()+".json")
 	if err := os.WriteFile(garbage, []byte("not json"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +347,7 @@ func TestEmitPendingForAnUnreachableTargetSettlesQueuedApprovals(t *testing.T) {
 func TestEmitPendingForALiveTargetSkipsAnUnreadableRecord(t *testing.T) {
 	f := newEmitFixture(t)
 	pending := f.queue(t, "still delivered", time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC))
-	garbage := filepath.Join(f.store.Dir, "messages", newID()+".json")
+	garbage := filepath.Join(f.store.dir, "messages", newID()+".json")
 	if err := os.WriteFile(garbage, []byte("not json"), 0600); err != nil {
 		t.Fatal(err)
 	}

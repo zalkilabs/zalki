@@ -67,7 +67,7 @@ func assertRestrictedFinalEvent(t *testing.T, kind string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		f.store.Registry = registry
+		f.store = f.store.With(bus.WithRegistry(registry))
 		if _, err := f.store.Prune(false, nil); err != nil {
 			t.Fatal(err)
 		}

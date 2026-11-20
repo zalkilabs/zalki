@@ -35,7 +35,7 @@ func assertSessionPluginCrash(t *testing.T, muted bool, cut int) {
 	}
 	_, old := pluginPolicyForTest(t, s, v.ID)
 	child := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestSessionPluginFilesystemCrashCuts$", "-test.count=1")
-	child.Env = append(os.Environ(), "ZALKI_Z6_FS_ROOT="+s.Dir, "ZALKI_Z6_FS_ACTOR="+v.ID, "ZALKI_Z6_FS_KEY="+key, "ZALKI_Z6_FS_MUTED="+strconv.FormatBool(muted), "ZALKI_Z6_FS_CUT="+strconv.Itoa(cut))
+	child.Env = append(os.Environ(), "ZALKI_Z6_FS_ROOT="+s.dir, "ZALKI_Z6_FS_ACTOR="+v.ID, "ZALKI_Z6_FS_KEY="+key, "ZALKI_Z6_FS_MUTED="+strconv.FormatBool(muted), "ZALKI_Z6_FS_CUT="+strconv.Itoa(cut))
 	err := child.Run()
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) || exit.ExitCode() != 23 {
@@ -45,7 +45,7 @@ func assertSessionPluginCrash(t *testing.T, muted bool, cut int) {
 		t.Fatal(err)
 	}
 	_, got := pluginPolicyForTest(t, s, v.ID)
-	expected, err := os.ReadFile(filepath.Join(s.Dir, "expected-policy-audit"))
+	expected, err := os.ReadFile(filepath.Join(s.dir, "expected-policy-audit"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func assertSessionPluginCrash(t *testing.T, muted bool, cut int) {
 
 func runSessionPluginCrash(t *testing.T, root string) {
 	t.Helper()
-	s := Store{Dir: root, Registry: testRegistry()}
+	s := Store{dir: root, registry: testRegistry()}
 	actor := os.Getenv("ZALKI_Z6_FS_ACTOR")
 	key := os.Getenv("ZALKI_Z6_FS_KEY")
 	muted, err := strconv.ParseBool(os.Getenv("ZALKI_Z6_FS_MUTED"))

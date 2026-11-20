@@ -71,7 +71,7 @@ func checkPluginJournalBytes(t *testing.T, f commitFixture, redo string) {
 	}
 	stageCommit(t, f, preparedCommit(t, f))
 	assertPluginJournalBytes(t, redo, readCommitFile(t, filepath.Join(f.writer.dir, "commits", "pending.json")))
-	store := Store{Dir: f.writer.dir, Registry: testRegistry()}
+	store := Store{dir: f.writer.dir, registry: testRegistry()}
 	if err := WithJournalRead(store, func(view JournalView) error {
 		event, err := view.EventAt(byteFixturePlugin, 2)
 		if err != nil || event != f.event {
@@ -125,6 +125,6 @@ func TestPluginJournalCanonicalMessageBytes(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	assertPluginJournalBytes(t, "native message", readCommitFile(t, filepath.Join(store.Dir, "messages", byteFixtureNative+".json")))
-	assertPluginJournalBytes(t, "inbox message", readCommitFile(t, filepath.Join(store.Dir, "messages", byteFixtureInbox+".json")))
+	assertPluginJournalBytes(t, "native message", readCommitFile(t, filepath.Join(store.dir, "messages", byteFixtureNative+".json")))
+	assertPluginJournalBytes(t, "inbox message", readCommitFile(t, filepath.Join(store.dir, "messages", byteFixtureInbox+".json")))
 }

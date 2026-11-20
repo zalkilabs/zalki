@@ -34,7 +34,7 @@ func memberCacheFixture(t *testing.T) (Store, model.Session, *atomic.Int64, *ato
 		t.Fatal(err)
 	}
 	store := fixtureStore(t)
-	store.Registry = registry
+	store.registry = registry
 	session, _ := register(t, store, "fixture")
 	calls.Store(0)
 	return store, session, calls, alive
@@ -63,7 +63,7 @@ func TestFeedMemberEvidenceIsOncePerViewAndPluginIsolated(t *testing.T) {
 	if _, err := escaped.PluginMember(session.ID, "first"); err == nil {
 		t.Fatal("F_CACHE_EXPIRED_VIEW_CLOSED")
 	}
-	if _, ok := pluginMemberViews.Load(store.Dir); ok {
+	if _, ok := pluginMemberViews.Load(store.dir); ok {
 		t.Fatal("F_CACHE_NO_POSITIVE_AFTER_VIEW")
 	}
 	alive.Store(false)
@@ -174,7 +174,7 @@ func TestFeedMemberReadsAndDecodesNativeOncePerView(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := fixtureStore(t)
-	store.Registry = registry
+	store.registry = registry
 	session, _ := register(t, store, "fixture")
 	calls.Store(0)
 	decodes.Store(0)
@@ -210,7 +210,7 @@ func TestFeedMemberZeroReferenceCacheCannotBeRevived(t *testing.T) {
 	}
 	// This is the exact state after the last release decrements to zero but
 	// before its CompareAndDelete. Native evidence is now different.
-	pluginMemberViews.Store(store.Dir, previous)
+	pluginMemberViews.Store(store.dir, previous)
 	alive.Store(false)
 	if err := WithJournalRead(store, func(view JournalView) error {
 		member, err := view.PluginMember(session.ID, "first")

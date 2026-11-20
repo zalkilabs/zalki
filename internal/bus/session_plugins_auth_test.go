@@ -39,7 +39,7 @@ func TestSessionPluginAuthenticatedRetiredSelfIsRefused(t *testing.T) {
 func TestSessionPluginAuthenticatedExitedSelfIsRefused(t *testing.T) {
 	s := fixtureStore(t)
 	var err error
-	s.Registry, err = agent.NewRegistry(exitedPluginCursor{})
+	s.registry, err = agent.NewRegistry(exitedPluginCursor{})
 	if err != nil {
 		t.Fatal(err)
 	}

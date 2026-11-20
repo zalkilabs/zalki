@@ -43,15 +43,15 @@ func (s PluginFeed) finishStreamStep() {
 	s.stream.integrityPending = nil
 	s.stream.waitingPending = nil
 	s.stream.mu.Unlock()
-	if s.store.Logger == nil {
+	if s.store.Logger() == nil {
 		return
 	}
 	// Both the Store journal view and the runtime mutex have ended before
 	// invoking a diagnostic sink. Never serialize errors or domain records.
 	if pending != nil {
-		s.store.Logger.LogAttrs(context.Background(), slog.LevelInfo, "plugin.feed.integrity", slog.String("event_id", pending.id), slog.String("reason", pending.reason))
+		s.store.Logger().LogAttrs(context.Background(), slog.LevelInfo, "plugin.feed.integrity", slog.String("event_id", pending.id), slog.String("reason", pending.reason))
 	}
 	if waiting != nil {
-		s.store.Logger.LogAttrs(context.Background(), slog.LevelInfo, "plugin.feed.waiting", slog.String("reason", waiting.reason), slog.Int("retry_delay_seconds", waiting.delay))
+		s.store.Logger().LogAttrs(context.Background(), slog.LevelInfo, "plugin.feed.waiting", slog.String("reason", waiting.reason), slog.Int("retry_delay_seconds", waiting.delay))
 	}
 }

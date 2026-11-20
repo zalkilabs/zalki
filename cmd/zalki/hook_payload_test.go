@@ -27,7 +27,7 @@ func TestHookLargePayloadActualCLI(t *testing.T) {
 	input := fmt.Sprintf(`{"hook_event_name":"PostToolUse","session_id":%q,"cwd":"/fixture/workspace","tool_response":%q}`, native, strings.Repeat("x", 131000))
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, binary, "--state", store.Dir, "--log-level", "off", "hook", "--agent", "claude")
+	cmd := exec.CommandContext(ctx, binary, "--state", store.Dir(), "--log-level", "off", "hook", "--agent", "claude")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatal(err)

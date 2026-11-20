@@ -321,7 +321,7 @@ func (p *pluginInstaller) reportBackground() error {
 	}
 	// Enabled without a login-item change: make sure a supervisor starts it
 	// and say what really happens.
-	return p.say("%s\n", wakeInstallLine(wakeSupervisor(ctx, p.background, p.store.Dir), p.name))
+	return p.say("%s\n", wakeInstallLine(wakeSupervisor(ctx, p.background, p.store.Dir()), p.name))
 }
 
 // Product-facing consent failures preserve the reviewed sentence verbatim.

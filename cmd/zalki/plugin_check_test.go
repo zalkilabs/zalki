@@ -41,15 +41,15 @@ func TestPluginCheckRawExecDoesNotCreateRealStateOrLogger(t *testing.T) {
 func TestPluginCheckNamedDisabledDoesNotAdvanceProfileOrUseRealData(t *testing.T) {
 	binary := checkRealBinary(t)
 	store, _ := pluginOwnerFixture(t)
-	if raw, err := pluginOwnerCLI(t, binary, store.Dir, "add", "fake-notifier", "--exec", feedFixture(t)); err != nil {
+	if raw, err := pluginOwnerCLI(t, binary, store.Dir(), "add", "fake-notifier", "--exec", feedFixture(t)); err != nil {
 		t.Fatal(string(raw), err)
 	}
-	path := filepath.Join(store.Dir, "plugins", "fake-notifier.json")
+	path := filepath.Join(store.Dir(), "plugins", "fake-notifier.json")
 	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	output, err := pluginOwnerCLI(t, binary, store.Dir, "check", "fake-notifier")
+	output, err := pluginOwnerCLI(t, binary, store.Dir(), "check", "fake-notifier")
 	if err != nil || !strings.Contains(string(output), "PASS event-2\n") {
 		t.Fatal(string(output), err)
 	}
@@ -57,7 +57,7 @@ func TestPluginCheckNamedDisabledDoesNotAdvanceProfileOrUseRealData(t *testing.T
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatal("check changed enabled/grants/feed/pin", err)
 	}
-	files, err := os.ReadDir(filepath.Join(store.Dir, "plugins", "fake-notifier.data"))
+	files, err := os.ReadDir(filepath.Join(store.Dir(), "plugins", "fake-notifier.data"))
 	if err != nil || len(files) != 0 {
 		t.Fatal("check wrote real plugin data", files, err)
 	}
@@ -77,7 +77,7 @@ func TestPluginCheckNamedRefusesDriftAndActiveNameLease(t *testing.T) {
 	if err := os.WriteFile(file, []byte("#!/bin/sh\nexit 1\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if output, err := pluginOwnerCLI(t, binary, store.Dir, "check", "external"); err == nil || !strings.Contains(string(output), "FAIL launch") {
+	if output, err := pluginOwnerCLI(t, binary, store.Dir(), "check", "external"); err == nil || !strings.Contains(string(output), "FAIL launch") {
 		t.Fatal("named check silently repinned/executed drift", string(output), err)
 	}
 	lease, err := feed.AcquirePluginLease()
@@ -85,7 +85,7 @@ func TestPluginCheckNamedRefusesDriftAndActiveNameLease(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer lease.Close()
-	if output, err := pluginOwnerCLI(t, binary, store.Dir, "check", "external"); err == nil || !strings.Contains(string(output), "lease unavailable") {
+	if output, err := pluginOwnerCLI(t, binary, store.Dir(), "check", "external"); err == nil || !strings.Contains(string(output), "lease unavailable") {
 		t.Fatal("named check bypassed active host/child lease", string(output), err)
 	}
 }

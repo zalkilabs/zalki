@@ -68,7 +68,7 @@ func (x inboxStorageFixture) putIndex(t *testing.T, index pluginInboxIndex) {
 }
 func (x inboxStorageFixture) assertAbsent(t *testing.T, id string) {
 	t.Helper()
-	if _, err := os.Stat(filepath.Join(x.f.store.Dir, "messages", id+".json")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(x.f.store.Dir(), "messages", id+".json")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("canonical published after refusal", err)
 	}
 }
@@ -94,7 +94,7 @@ func TestPluginInboxStoredProvenanceAndExactRetry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(x.f.store.Dir, "messages", m.ID+".json")
+	path := filepath.Join(x.f.store.Dir(), "messages", m.ID+".json")
 	canonical, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -237,7 +237,7 @@ func checkInboxPublicationCut(t *testing.T, cut string) {
 	if err = os.Chmod(x.f.pluginDataPath(), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err = os.Chmod(filepath.Join(x.f.store.Dir, "messages"), 0700); err != nil {
+	if err = os.Chmod(filepath.Join(x.f.store.Dir(), "messages"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	index := x.index(t)
@@ -245,7 +245,7 @@ func checkInboxPublicationCut(t *testing.T, cut string) {
 		t.Fatal("post-rename index/quota reservation absent")
 	}
 	before, _ := os.ReadFile(indexPath)
-	fresh := bus.Service{Store: bus.Store{Dir: x.f.store.Dir, Registry: testRegistry()}, PluginInbox: AdmitPluginInbox}
+	fresh := bus.Service{Store: bus.StoreAt(x.f.store.Dir(), bus.WithRegistry(testRegistry())), PluginInbox: AdmitPluginInbox}
 	again, retryErr := fresh.Send(context.Background(), r)
 	after, _ := os.ReadFile(indexPath)
 	if !bytes.Equal(before, after) {
@@ -436,7 +436,7 @@ func prepareInboxPublicationCut(t *testing.T, x inboxStorageFixture, cut, indexP
 		}
 		dir := x.f.pluginDataPath()
 		if cut == "canonical-dir-sync" {
-			dir = filepath.Join(x.f.store.Dir, "messages")
+			dir = filepath.Join(x.f.store.Dir(), "messages")
 		}
 		t.Cleanup(func() { _ = os.Chmod(dir, 0700) })
 		if err := os.Chmod(dir, 0300); err != nil {

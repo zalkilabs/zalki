@@ -28,7 +28,7 @@ func runMCPSignalInterruptedSend(t *testing.T, sig os.Signal) {
 	t.Helper()
 	state := filepath.Join(t.TempDir(), "state")
 	marker := filepath.Join(t.TempDir(), "mid-write")
-	store := bus.Store{Dir: state, Registry: signalTestRegistry(marker)}
+	store := bus.StoreAt(state, bus.WithRegistry(signalTestRegistry(marker)))
 	actor, key, err := store.Register("signaltest", "00000000-0000-4000-8000-000000000101", t.TempDir(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func waitSignalWrite(t *testing.T, marker string) {
 
 func assertSignalSendSettled(t *testing.T, store bus.Store, request bus.SendRequest) {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(store.Dir, "messages", request.MessageID+".json"))
+	raw, err := os.ReadFile(filepath.Join(store.Dir(), "messages", request.MessageID+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func assertSignalSendSettled(t *testing.T, store bus.Store, request bus.SendRequ
 
 func assertSignalSendAttempting(t *testing.T, store bus.Store, id string) {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(store.Dir, "messages", id+".json"))
+	raw, err := os.ReadFile(filepath.Join(store.Dir(), "messages", id+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}

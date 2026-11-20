@@ -23,7 +23,7 @@ func TestMessageScanCallersKeepTheirUnreadableRecordPolicies(t *testing.T) {
 	}
 	unreadable := newID()
 	markOpen(t, store, unreadable)
-	if err := os.WriteFile(filepath.Join(store.Dir, "messages", unreadable+".json"), []byte("{bad"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(store.dir, "messages", unreadable+".json"), []byte("{bad"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	// The inbox list skips and counts the record (message_unreadable_list_test.go).

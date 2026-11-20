@@ -31,7 +31,7 @@ func unreadableMessages() []unreadableFile {
 // mode, so the test directory can be removed.
 func writeUnreadableMessage(t *testing.T, store Store, id string, kind unreadableFile) []byte {
 	t.Helper()
-	path := filepath.Join(store.Dir, "messages", id+".json")
+	path := filepath.Join(store.dir, "messages", id+".json")
 	original, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
@@ -64,7 +64,7 @@ func newUnreadableMessage(t *testing.T, store Store, kind unreadableFile) string
 // restoreMessage puts back the bytes writeUnreadableMessage returned.
 func restoreMessage(t *testing.T, store Store, id string, original []byte) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(store.Dir, "messages", id+".json"), original, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(store.dir, "messages", id+".json"), original, 0600); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -111,7 +111,7 @@ func retiredWithHeld(t *testing.T, store Store, last string, held int) model.Ses
 // kind is not a quota record, even when its session is gone; it is left alone.
 func TestPruneFloodKeepsAQuotaFileWhoseKindIsNotValid(t *testing.T) {
 	store := fixtureStore(t)
-	dir := filepath.Join(store.Dir, "flood")
+	dir := filepath.Join(store.dir, "flood")
 	if err := store.locked(func() error { return privateDir(dir) }); err != nil {
 		t.Fatal(err)
 	}

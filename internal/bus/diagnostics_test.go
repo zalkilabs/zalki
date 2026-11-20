@@ -55,7 +55,7 @@ func TestPrunePreservesQuietAndUnknownOwnersAndMessageJournal(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	before, err := os.ReadFile(filepath.Join(store.Dir, "messages", msg.ID+".json"))
+	before, err := os.ReadFile(filepath.Join(store.dir, "messages", msg.ID+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestPrunePreservesQuietAndUnknownOwnersAndMessageJournal(t *testing.T) {
 	if !stored.Retired || stored.RetiredReason != "owner_exited" {
 		t.Fatal("prune did not record exit reason")
 	}
-	after, _ := os.ReadFile(filepath.Join(store.Dir, "messages", msg.ID+".json"))
+	after, _ := os.ReadFile(filepath.Join(store.dir, "messages", msg.ID+".json"))
 	if string(before) != string(after) {
 		t.Fatal("cleanup changed historical messages or receipts")
 	}
@@ -179,7 +179,7 @@ func TestRuntimeTrackingCleanupAndNoCredentialLeak(t *testing.T) {
 	}
 	wg.Wait()
 	lease.ObserveActor("cursor:" + newID())
-	files, _ := filepath.Glob(filepath.Join(store.Dir, "runtimes", "*.json"))
+	files, _ := filepath.Glob(filepath.Join(store.dir, "runtimes", "*.json"))
 	if len(files) != 0 {
 		t.Fatal("closed runtime record was resurrected")
 	}
@@ -196,14 +196,14 @@ func TestPruneRemovesOnlyExitedRuntimeRecords(t *testing.T) {
 	stale := lease.Info()
 	stale.ID = newID()
 	stale.Process = &model.ProcessRef{PID: p.PID, Start: "previous-process", Role: "zalki"}
-	if err := store.locked(func() error { return writeJSON(filepath.Join(store.Dir, "runtimes", stale.ID+".json"), stale) }); err != nil {
+	if err := store.locked(func() error { return writeJSON(filepath.Join(store.dir, "runtimes", stale.ID+".json"), stale) }); err != nil {
 		t.Fatal(err)
 	}
 	report, err := store.Prune(false, nil)
 	if err != nil || len(report.Runtimes) != 1 || report.Runtimes[0] != stale.ID {
 		t.Fatalf("wrong runtime cleanup: %+v %v", report, err)
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, "runtimes", lease.info.ID+".json")); err != nil {
+	if _, err := os.Stat(filepath.Join(store.dir, "runtimes", lease.info.ID+".json")); err != nil {
 		t.Fatal("removed a running runtime")
 	}
 }

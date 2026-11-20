@@ -38,8 +38,8 @@ func newReplyFixture(t *testing.T) replyFixture {
 		t.Fatal(err)
 	}
 	scratch := restart(t, store)
-	scratch.Dir = filepath.Join(t.TempDir(), "state")
-	copyDir(t, store.Dir, scratch.Dir)
+	scratch = bus.StoreAt(filepath.Join(t.TempDir(), "state"), bus.WithRegistry(scratch.Registry()))
+	copyDir(t, store.Dir(), scratch.Dir())
 	reply, err := (&bus.Service{Store: scratch}).Reply(context.Background(), bus.ReplyRequest{Actor: replier.ID, Capability: replier.Key, MessageID: parent.ID, Body: "pong"})
 	if err != nil {
 		t.Fatal(err)
@@ -48,8 +48,8 @@ func newReplyFixture(t *testing.T) replyFixture {
 	// submitted reply. Recreate it through the public reservation API using
 	// the opaque ID returned above; no private ID derivation is duplicated.
 	reservation := restart(t, store)
-	reservation.Dir = filepath.Join(t.TempDir(), "state")
-	copyDir(t, store.Dir, reservation.Dir)
+	reservation = bus.StoreAt(filepath.Join(t.TempDir(), "state"), bus.WithRegistry(reservation.Registry()))
+	copyDir(t, store.Dir(), reservation.Dir())
 	reserved, _, fresh, err := reservation.ReserveMessage(bus.SendRequest{
 		Actor: replier.ID, Capability: replier.Key, To: asker.ID,
 		MessageID: reply.ID, Body: "pong", ReplyTo: parent.ID,
@@ -60,7 +60,7 @@ func newReplyFixture(t *testing.T) replyFixture {
 	return replyFixture{
 		store:     store,
 		parent:    parent,
-		reply:     readJSONFile(t, filepath.Join(reservation.Dir, "messages", reply.ID+".json")),
+		reply:     readJSONFile(t, filepath.Join(reservation.Dir(), "messages", reply.ID+".json")),
 		replier:   replier,
 		transport: target,
 	}
@@ -81,7 +81,7 @@ func (f replyFixture) intent() map[string]any {
 }
 
 func (f replyFixture) intentPath() string {
-	return filepath.Join(f.store.Dir, "transactions", f.reply["id"].(string)+".json")
+	return filepath.Join(f.store.Dir(), "transactions", f.reply["id"].(string)+".json")
 }
 
 func (f replyFixture) writeIntent(t *testing.T, tx map[string]any) {
@@ -129,7 +129,7 @@ func TestDamagedReplyIntentBlocksReadsAndSendsWithoutChangingState(t *testing.T)
 			f.writeIntent(t, tx)
 			setReplyProtectedTimes(t, f)
 			beforeTimes := replyProtectedTimes(t, f)
-			before := snapshot(t, f.store.Dir)
+			before := snapshot(t, f.store.Dir())
 
 			restarted := restart(t, f.store)
 			for attempt := 1; attempt <= 2; attempt++ {
@@ -141,7 +141,7 @@ func TestDamagedReplyIntentBlocksReadsAndSendsWithoutChangingState(t *testing.T)
 			if _, err := svc.Send(context.Background(), bus.SendRequest{Actor: f.replier.ID, Capability: f.replier.Key, To: f.parent.From, Body: "later"}); model.ErrorCodeOf(err) != test.want {
 				t.Fatalf("Send error code = %q (%v), want %q: a damaged intent must not be skipped", model.ErrorCodeOf(err), err, test.want)
 			}
-			if after := snapshot(t, f.store.Dir); !maps.Equal(before, after) {
+			if after := snapshot(t, f.store.Dir()); !maps.Equal(before, after) {
 				t.Fatalf("state changed while rejecting a damaged intent:\nbefore %v\nafter  %v", keys(before), keys(after))
 			}
 
@@ -161,14 +161,14 @@ func TestDamagedReplyIntentBlocksReadsAndSendsWithoutChangingState(t *testing.T)
 func TestReplyIntentForAMissingParentIsNotFound(t *testing.T) {
 	f := newReplyFixture(t)
 	f.writeIntent(t, f.intent())
-	if err := os.Remove(filepath.Join(f.store.Dir, "messages", f.parent.ID+".json")); err != nil {
+	if err := os.Remove(filepath.Join(f.store.Dir(), "messages", f.parent.ID+".json")); err != nil {
 		t.Fatal(err)
 	}
-	before := snapshot(t, f.store.Dir)
+	before := snapshot(t, f.store.Dir())
 	if _, err := restart(t, f.store).List(); model.ErrorCodeOf(err) != "not_found" {
 		t.Fatalf("List error code = %q (%v), want %q", model.ErrorCodeOf(err), err, "not_found")
 	}
-	if after := snapshot(t, f.store.Dir); !maps.Equal(before, after) {
+	if after := snapshot(t, f.store.Dir()); !maps.Equal(before, after) {
 		t.Fatal("state changed while rejecting an intent without a parent")
 	}
 }
@@ -181,13 +181,13 @@ func TestReplyIntentConflictingWithACommittedReservationIsRejected(t *testing.T)
 		existing[key] = value
 	}
 	existing["target_generation"] = "11111111-1111-4111-8111-111111111111"
-	writeJSONFile(t, filepath.Join(f.store.Dir, "messages", f.reply["id"].(string)+".json"), existing)
+	writeJSONFile(t, filepath.Join(f.store.Dir(), "messages", f.reply["id"].(string)+".json"), existing)
 	f.writeIntent(t, f.intent())
-	before := snapshot(t, f.store.Dir)
+	before := snapshot(t, f.store.Dir())
 	if _, err := restart(t, f.store).List(); model.ErrorCodeOf(err) != "conflict" {
 		t.Fatalf("List error code = %q (%v), want %q", model.ErrorCodeOf(err), err, "conflict")
 	}
-	if after := snapshot(t, f.store.Dir); !maps.Equal(before, after) {
+	if after := snapshot(t, f.store.Dir()); !maps.Equal(before, after) {
 		t.Fatal("state changed while rejecting a conflicting reservation")
 	}
 }
@@ -206,11 +206,11 @@ func TestReplyIntentIsAppliedOnceAndKeepsItsAcknowledgementTime(t *testing.T) {
 	if _, err := os.Stat(f.intentPath()); !os.IsNotExist(err) {
 		t.Fatal("recovered intent was not removed", err)
 	}
-	parent := readJSONFile(t, filepath.Join(f.store.Dir, "messages", f.parent.ID+".json"))
+	parent := readJSONFile(t, filepath.Join(f.store.Dir(), "messages", f.parent.ID+".json"))
 	if parent["acknowledged_at"] != tx["acknowledged_at"] {
 		t.Fatalf("parent acknowledged_at = %v, want the intent's %v", parent["acknowledged_at"], tx["acknowledged_at"])
 	}
-	reply := readJSONFile(t, filepath.Join(f.store.Dir, "messages", f.reply["id"].(string)+".json"))
+	reply := readJSONFile(t, filepath.Join(f.store.Dir(), "messages", f.reply["id"].(string)+".json"))
 	if reply["body"] != "pong" || reply["reply_to"] != f.parent.ID || reply["status"] != "attempting" || reply["receipt"] != nil {
 		t.Fatalf("recovered reply = %v", reply)
 	}
@@ -222,13 +222,13 @@ func TestReplyIntentIsAppliedOnceAndKeepsItsAcknowledgementTime(t *testing.T) {
 	}); err != nil || f.transport.transportCalls() != calls {
 		t.Fatalf("recovered reply retry: err %v, transport calls %d -> %d", err, calls, f.transport.transportCalls())
 	}
-	settled := snapshot(t, f.store.Dir)
+	settled := snapshot(t, f.store.Dir())
 	for range 2 {
 		if _, err := restart(t, f.store).List(); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if after := snapshot(t, f.store.Dir); !maps.Equal(settled, after) {
+	if after := snapshot(t, f.store.Dir()); !maps.Equal(settled, after) {
 		t.Fatal("repeated recovery changed the settled state")
 	}
 	var count int
@@ -254,7 +254,7 @@ func keys(files map[string]string) []string {
 // Fixed old mtimes detect a rewrite even if its bytes happen to be unchanged.
 func setReplyProtectedTimes(t *testing.T, f replyFixture) {
 	t.Helper()
-	for _, path := range []string{f.intentPath(), filepath.Join(f.store.Dir, "messages", f.parent.ID+".json")} {
+	for _, path := range []string{f.intentPath(), filepath.Join(f.store.Dir(), "messages", f.parent.ID+".json")} {
 		if err := os.Chtimes(path, time.Unix(1000, 0), time.Unix(1000, 0)); err != nil {
 			t.Fatal(err)
 		}
@@ -264,7 +264,7 @@ func setReplyProtectedTimes(t *testing.T, f replyFixture) {
 func replyProtectedTimes(t *testing.T, f replyFixture) map[string]int64 {
 	t.Helper()
 	result := map[string]int64{}
-	for _, path := range []string{f.intentPath(), filepath.Join(f.store.Dir, "messages", f.parent.ID+".json")} {
+	for _, path := range []string{f.intentPath(), filepath.Join(f.store.Dir(), "messages", f.parent.ID+".json")} {
 		info, err := os.Stat(path)
 		if err != nil {
 			t.Fatal(err)

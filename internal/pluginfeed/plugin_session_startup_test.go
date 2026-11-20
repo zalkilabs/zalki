@@ -18,7 +18,7 @@ func startupText(t *testing.T, f PluginFeed, s model.Session, reserve bool, fits
 	var text string
 	err := bus.WithJournalWrite(f.store, func(v bus.JournalView) error {
 		var err error
-		text, err = SessionPluginStartup(v, f.store.Dir, s, reserve, fits)
+		text, err = SessionPluginStartup(v, f.store.Dir(), s, reserve, fits)
 		return err
 	})
 	if err != nil {

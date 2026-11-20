@@ -17,9 +17,9 @@ import (
 func TestPluginReinstallIgnoresLeftoverRunFiles(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	old := installWithLeftovers(t, store)
-	runBefore, requestBefore := readLeftover(t, store.Dir)
+	runBefore, requestBefore := readLeftover(t, store.Dir())
 	for _, args := range [][]string{{"remove", "demo"}, {"add", "demo", "--exec", feedFixture(t)}} {
-		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
+		if raw, err := pluginOwnerLocal(t, store.Dir(), args...); err != nil {
 			t.Fatal(string(raw), err)
 		}
 	}
@@ -27,15 +27,15 @@ func TestPluginReinstallIgnoresLeftoverRunFiles(t *testing.T) {
 	if key.id == old.id {
 		t.Fatal("the reinstall kept the old installation ID")
 	}
-	if runAfter, requestAfter := readLeftover(t, store.Dir); !bytes.Equal(runAfter, runBefore) || !bytes.Equal(requestAfter, requestBefore) {
+	if runAfter, requestAfter := readLeftover(t, store.Dir()); !bytes.Equal(runAfter, runBefore) || !bytes.Equal(requestAfter, requestBefore) {
 		t.Fatal("remove or reinstall changed the old installation's run files")
 	}
-	loaded, err := loadRunState(store.Dir, "demo", key.id)
+	loaded, err := loadRunState(store.Dir(), "demo", key.id)
 	if err != nil || loaded.Installation != key.id || len(loaded.Restarts) != 0 || loaded.State != runStopped || loaded.BackoffStep != 0 {
 		t.Fatalf("the old installation's crash history was applied to the new one: %+v %v", loaded, err)
 	}
 	s, p, _ := restartFixture(t)
-	s.state, p.run = store.Dir, loaded
+	s.state, p.run = store.Dir(), loaded
 	if s.consumeRestart("demo", p, key) || p.run.RestartSeq != 0 {
 		t.Fatalf("the old installation's restart request was applied to the new one: seq %d", p.run.RestartSeq)
 	}
@@ -45,7 +45,7 @@ func TestPluginReinstallIgnoresLeftoverRunFiles(t *testing.T) {
 // a pending restart request.
 func installWithLeftovers(t *testing.T, store bus.Store) bindingKey {
 	t.Helper()
-	if raw, err := pluginOwnerLocal(t, store.Dir, "add", "demo", "--exec", feedFixture(t)); err != nil {
+	if raw, err := pluginOwnerLocal(t, store.Dir(), "add", "demo", "--exec", feedFixture(t)); err != nil {
 		t.Fatal(string(raw), err)
 	}
 	old := bindingOf(t, store, "demo")
@@ -53,10 +53,10 @@ func installWithLeftovers(t *testing.T, store bus.Store) bindingKey {
 	for i := range crashLimit {
 		run.recordFailure(stateEpoch.Add(time.Duration(i)*time.Minute), "failed")
 	}
-	if err := saveRunState(store.Dir, "demo", run); err != nil {
+	if err := saveRunState(store.Dir(), "demo", run); err != nil {
 		t.Fatal(err)
 	}
-	writeRequest(t, store.Dir, requestFor(old, 1))
+	writeRequest(t, store.Dir(), requestFor(old, 1))
 	return old
 }
 

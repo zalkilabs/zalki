@@ -20,7 +20,7 @@ func TestDiagnosticsKeepOutputWhenACompletionWatcherIsUnreachable(t *testing.T) 
 		t.Run(command, func(t *testing.T) {
 			home := t.TempDir()
 			state := filepath.Join(home, "state")
-			store := bus.Store{Dir: state, Registry: adapters.Builtin()}
+			store := bus.StoreAt(state, bus.WithRegistry(adapters.Builtin()))
 			watcher, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000031", "/fixture", nil)
 			if err != nil {
 				t.Fatal(err)

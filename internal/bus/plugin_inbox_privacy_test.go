@@ -93,7 +93,7 @@ func TestPluginInboxNonAuthorsCannotReadOrConsume(t *testing.T) {
 	x := newInboxPublicFixture(t)
 	message := x.send(t, "PRIVATE-PLUGIN-INBOX-BODY")
 	store := x.service.Store
-	canonical := filepath.Join(store.Dir, "messages", message.ID+".json")
+	canonical := filepath.Join(store.Dir(), "messages", message.ID+".json")
 	before, err := os.ReadFile(canonical)
 	if err != nil {
 		t.Fatal(err)
@@ -117,7 +117,7 @@ func TestPluginInboxNonAuthorsCannotReadOrConsume(t *testing.T) {
 			t.Fatal("plugin appeared in list_agents")
 		}
 	}
-	if _, err = os.Stat(filepath.Join(store.Dir, "sessions", "plugin_"+x.installation+".json")); !os.IsNotExist(err) {
+	if _, err = os.Stat(filepath.Join(store.Dir(), "sessions", "plugin_"+x.installation+".json")); !os.IsNotExist(err) {
 		t.Fatal("plugin was installed as a native session")
 	}
 }
@@ -126,7 +126,7 @@ func TestPluginInboxCannotBorrowNativeCapability(t *testing.T) {
 	x := newInboxPublicFixture(t)
 	message := x.send(t, "PRIVATE-PLUGIN-INBOX-BODY")
 	store := x.service.Store
-	before := snapshot(t, store.Dir)
+	before := snapshot(t, store.Dir())
 	forged := bus.MessageQuery{Actor: x.to, Capability: x.author.Key, MessageID: message.ID, IncludeBody: true}
 	if rows, err := store.QueryMessages(forged); err == nil || len(rows) != 0 {
 		t.Fatal("plugin actor borrowed native read authority")
@@ -140,7 +140,7 @@ func TestPluginInboxCannotBorrowNativeCapability(t *testing.T) {
 	if _, _, err := store.Register("plugin", x.installation, "/workspace", nil); err == nil {
 		t.Fatal("native registry admitted plugin actor")
 	}
-	if after := snapshot(t, store.Dir); !reflect.DeepEqual(before, after) {
+	if after := snapshot(t, store.Dir()); !reflect.DeepEqual(before, after) {
 		t.Fatal("forged native credentials changed state")
 	}
 }

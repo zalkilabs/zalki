@@ -11,7 +11,7 @@ import (
 )
 
 func (s Store) tracksOwnProcess(kind string) bool {
-	adapter, err := s.registry().Lookup(kind)
+	adapter, err := s.registry.Lookup(kind)
 	if err != nil {
 		return true
 	}
@@ -20,7 +20,7 @@ func (s Store) tracksOwnProcess(kind string) bool {
 }
 
 func (s Store) sessionLiveness(v model.Session) model.Liveness {
-	adapter, err := s.registry().Lookup(v.Kind)
+	adapter, err := s.registry.Lookup(v.Kind)
 	if err != nil {
 		return model.LivenessUnknown
 	}

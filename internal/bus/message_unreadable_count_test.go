@@ -78,7 +78,7 @@ func TestUnrelatedPoisonNeverRatchetsTheHeldCount(t *testing.T) {
 		bad := newUnreadableMessage(t, service.Store, truncatedMessage)
 		for cycle := 1; cycle <= 20; cycle++ {
 			if cycle == repairAt {
-				if err := os.Remove(filepath.Join(service.Store.Dir, "messages", bad+".json")); err != nil {
+				if err := os.Remove(filepath.Join(service.Store.dir, "messages", bad+".json")); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -112,7 +112,7 @@ func TestPersistentUnreadableHoldKeepsOneCredit(t *testing.T) {
 			t.Fatalf("cycle %d: %d diagnostics, want one per scan (3)", cycle, len(records))
 		}
 	}
-	if err := os.Remove(filepath.Join(service.Store.Dir, "messages", stuck.ID+".json")); err != nil {
+	if err := os.Remove(filepath.Join(service.Store.dir, "messages", stuck.ID+".json")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.Store.Prune(false, nil); err != nil {

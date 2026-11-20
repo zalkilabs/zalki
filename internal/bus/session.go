@@ -17,7 +17,7 @@ import (
 )
 
 func (s Store) sessionID(kind, id string) (string, error) {
-	if _, err := s.registry().Lookup(kind); err != nil {
+	if _, err := s.registry.Lookup(kind); err != nil {
 		return "", err
 	}
 	native, err := canonicalNativeID(id)
@@ -36,7 +36,7 @@ func (s Store) sessionRecordPath(id string) (string, error) {
 	if err := model.ValidateSessionAddress(id); err != nil {
 		return "", err
 	}
-	return filepath.Join(s.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json"), nil
+	return filepath.Join(s.dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json"), nil
 }
 
 func (s Store) sessionPath(id string) (string, error) {
@@ -45,7 +45,7 @@ func (s Store) sessionPath(id string) (string, error) {
 		return "", err
 	}
 	kind, _, _ := strings.Cut(id, ":")
-	if _, err := s.registry().Lookup(kind); err != nil {
+	if _, err := s.registry.Lookup(kind); err != nil {
 		return "", err
 	}
 	return path, nil
@@ -126,7 +126,7 @@ func newRegistration(s Store, kind, id, cwd string, endpoint *model.Endpoint, in
 	if !filepath.IsAbs(cwd) {
 		return session, "", model.NewError(model.CodeInvalidInput, "working directory must be absolute")
 	}
-	adapter, err := s.registry().Lookup(kind)
+	adapter, err := s.registry.Lookup(kind)
 	if err != nil {
 		return session, "", err
 	}
@@ -233,7 +233,7 @@ func (s Store) sessionsWithWarnings() ([]model.Session, int, error) {
 	sort.Slice(sessions, func(i, j int) bool { return sessions[i].ID < sessions[j].ID })
 	s.nativeNames(sessions)
 	for i := range sessions {
-		adapter, err := s.registry().Lookup(sessions[i].Kind)
+		adapter, err := s.registry.Lookup(sessions[i].Kind)
 		if err != nil {
 			return nil, 0, err
 		}

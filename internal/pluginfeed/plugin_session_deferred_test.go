@@ -16,7 +16,7 @@ import (
 
 func sessionQuotaSnapshot(t *testing.T, s bus.Store) map[string]string {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join(s.Dir, "flood", "*.json"))
+	paths, err := filepath.Glob(filepath.Join(s.Dir(), "flood", "*.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

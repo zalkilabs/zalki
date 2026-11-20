@@ -13,7 +13,7 @@ import (
 func eventAt(t *testing.T, store Store, sequence uint64) model.Event {
 	t.Helper()
 	var record eventRecord
-	if err := decodeEventJSON(readCommitFile(t, filepath.Join(store.Dir, eventRecordPath(sequence))), &record); err != nil {
+	if err := decodeEventJSON(readCommitFile(t, filepath.Join(store.dir, eventRecordPath(sequence))), &record); err != nil {
 		t.Fatal(err)
 	}
 	return record.Event
@@ -93,12 +93,12 @@ func TestMessageEventsHoldNoBody(t *testing.T) {
 	saveLocked(t, store, msg)
 	msg.Status = model.StatusTransportWritten
 	saveLocked(t, store, msg)
-	entries, err := os.ReadDir(filepath.Join(store.Dir, "events", "records"))
+	entries, err := os.ReadDir(filepath.Join(store.dir, "events", "records"))
 	if err != nil || len(entries) == 0 {
 		t.Fatal(entries, err)
 	}
 	for _, entry := range entries {
-		raw := readCommitFile(t, filepath.Join(store.Dir, "events", "records", entry.Name()))
+		raw := readCommitFile(t, filepath.Join(store.dir, "events", "records", entry.Name()))
 		if bytes.Contains(raw, []byte(body)) || bytes.Contains(raw, []byte(`"body`)) {
 			t.Fatalf("event %s holds the body: %s", entry.Name(), raw)
 		}
@@ -110,7 +110,7 @@ func TestMessageEventsHoldNoBody(t *testing.T) {
 func TestMessageCommitRecoversWithOneEvent(t *testing.T) {
 	store := fixtureStore(t)
 	msg := newEventMessage(t, store, "body")
-	writer := commitWriter{dir: store.Dir}
+	writer := commitWriter{dir: store.dir}
 	event, err := messageStatusEvent(nil, msg)
 	if err != nil {
 		t.Fatal(err)
@@ -123,10 +123,10 @@ func TestMessageCommitRecoversWithOneEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir, "commits", "pending.json"), raw); err != nil {
+	if err := journal.WriteAtomic(filepath.Join(store.dir, "commits", "pending.json"), raw); err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir, batch.Puts[0].Path), batch.Puts[0].Data); err != nil {
+	if err := journal.WriteAtomic(filepath.Join(store.dir, batch.Puts[0].Path), batch.Puts[0].Data); err != nil {
 		t.Fatal(err)
 	}
 	before := eventState(t, store).Last
@@ -141,7 +141,7 @@ func TestMessageCommitRecoversWithOneEvent(t *testing.T) {
 	if got := latestSessionEvent(t, store); got.ID != event.ID {
 		t.Fatalf("recovered event = %+v, want %+v", got, event)
 	}
-	if got := readCommitFile(t, filepath.Join(store.Dir, batch.Puts[0].Path)); !bytes.Equal(got, batch.Puts[0].Data) {
+	if got := readCommitFile(t, filepath.Join(store.dir, batch.Puts[0].Path)); !bytes.Equal(got, batch.Puts[0].Data) {
 		t.Fatal("recovery changed the message bytes")
 	}
 }
@@ -150,7 +150,7 @@ func TestMessageCommitRecoversWithOneEvent(t *testing.T) {
 func TestMessageBatchValidationChecksTheMessage(t *testing.T) {
 	store := fixtureStore(t)
 	msg := newEventMessage(t, store, "body")
-	writer := commitWriter{dir: store.Dir}
+	writer := commitWriter{dir: store.dir}
 	event, err := messageStatusEvent(nil, msg)
 	if err != nil {
 		t.Fatal(err)
@@ -175,7 +175,7 @@ func TestMessageBatchValidationChecksTheMessage(t *testing.T) {
 func TestMessageEventWriterKeepsTheRefusal(t *testing.T) {
 	store := fixtureStore(t)
 	msg := newEventMessage(t, store, "body")
-	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
+	path := filepath.Join(store.dir, "messages", msg.ID+".json")
 	before := []byte(`{"schema":2,"id":"` + msg.ID + `"}`)
 	if err := os.WriteFile(path, before, 0600); err != nil {
 		t.Fatal(err)
@@ -196,7 +196,7 @@ func TestMessageEventKeepsOpenMarkers(t *testing.T) {
 	msg := newEventMessage(t, store, "body")
 	msg.Status = model.StatusPendingActivity
 	saveLocked(t, store, msg)
-	marker := filepath.Join(store.Dir, "open-messages", msg.ID)
+	marker := filepath.Join(store.dir, "open-messages", msg.ID)
 	if _, err := os.Lstat(marker); err != nil {
 		t.Fatalf("open message has no marker: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestReplyToMustReverseTheParentParties(t *testing.T) {
 	if err := store.locked(func() error { return store.saveMessage(forged) }); err == nil {
 		t.Fatal("a reply to an unrelated parent was written")
 	}
-	if _, err := os.Lstat(filepath.Join(store.Dir, "messages", forged.ID+".json")); !os.IsNotExist(err) || eventState(t, store).Last != last {
+	if _, err := os.Lstat(filepath.Join(store.dir, "messages", forged.ID+".json")); !os.IsNotExist(err) || eventState(t, store).Last != last {
 		t.Fatalf("a refused reply left a record or an event: %v", err)
 	}
 	saveLocked(t, store, reply)

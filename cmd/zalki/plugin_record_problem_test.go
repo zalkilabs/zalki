@@ -21,8 +21,8 @@ import (
 // doctor", and the record's content is not shown.
 func TestPluginUnreadableRecordNamesCause(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
-	installReviewInstance(t, store.Dir, "demo", "0.1.0")
-	record := filepath.Join(store.Dir, "plugins", "demo.json")
+	installReviewInstance(t, store.Dir(), "demo", "0.1.0")
+	record := filepath.Join(store.Dir(), "plugins", "demo.json")
 	raw, err := os.ReadFile(record)
 	if err != nil {
 		t.Fatal(err)
@@ -36,11 +36,11 @@ func TestPluginUnreadableRecordNamesCause(t *testing.T) {
 		t.Fatal(err)
 	}
 	cause := "its content is not a valid plugin record; the record is "
-	out, err := pluginOwnerLocal(t, store.Dir, "show", "demo")
+	out, err := pluginOwnerLocal(t, store.Dir(), "show", "demo")
 	if err == nil || !strings.HasPrefix(err.Error(), `cannot safely read plugin "demo": `) || !pluginDiagnosticOutputMatches(t, err.Error(), record, `cannot safely read plugin "demo": `+cause, "") {
 		t.Fatalf("show dropped the cause of an unreadable record: %q %v", out, err)
 	}
-	out, err = pluginOwnerLocal(t, store.Dir, "list")
+	out, err = pluginOwnerLocal(t, store.Dir(), "list")
 	if err != nil || !strings.Contains(string(out), "demo  unreadable: its content") || !pluginDiagnosticOutputMatches(t, string(out), record, "Unreadable plugin records\n  demo  unreadable: "+cause, "\n") || strings.Contains(string(out), "doctor") {
 		t.Fatalf("list did not name the cause of an unreadable record: %q %v", out, err)
 	}
@@ -54,8 +54,8 @@ func TestPluginUnreadableRecordNamesCause(t *testing.T) {
 func checkRecordContentNotEchoed(t *testing.T) {
 	t.Helper()
 	store, _ := pluginOwnerFixture(t)
-	installReviewInstance(t, store.Dir, "demo", "0.1.0")
-	record := filepath.Join(store.Dir, "plugins", "demo.json")
+	installReviewInstance(t, store.Dir(), "demo", "0.1.0")
+	record := filepath.Join(store.Dir(), "plugins", "demo.json")
 	raw, err := os.ReadFile(record)
 	if err != nil {
 		t.Fatal(err)
@@ -67,8 +67,8 @@ func checkRecordContentNotEchoed(t *testing.T) {
 	if err := os.WriteFile(record, marked, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	show, showErr := pluginOwnerLocal(t, store.Dir, "show", "demo")
-	list, listErr := pluginOwnerLocal(t, store.Dir, "list")
+	show, showErr := pluginOwnerLocal(t, store.Dir(), "show", "demo")
+	list, listErr := pluginOwnerLocal(t, store.Dir(), "list")
 	all := string(show) + string(list) + fmt.Sprint(showErr) + fmt.Sprint(listErr)
 	if showErr == nil || strings.Contains(all, "zz_marker") || strings.Contains(all, "zz_value") || !strings.Contains(all, "its content is not a valid plugin record") {
 		t.Fatalf("record content reached the owner line: %q", all)
@@ -83,7 +83,7 @@ func checkRecordContentNotEchoed(t *testing.T) {
 func checkPluginsFolderNamed(t *testing.T) {
 	t.Helper()
 	store, _ := pluginOwnerFixture(t)
-	dir := filepath.Join(store.Dir, "plugins")
+	dir := filepath.Join(store.Dir(), "plugins")
 	_ = os.MkdirAll(dir, 0o700)
 	if err := os.RemoveAll(dir); err != nil {
 		t.Fatal(err)
@@ -91,7 +91,7 @@ func checkPluginsFolderNamed(t *testing.T) {
 	if err := os.WriteFile(dir, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	out, err := pluginOwnerLocal(t, store.Dir, "list")
+	out, err := pluginOwnerLocal(t, store.Dir(), "list")
 	if err == nil || !pluginDiagnosticOutputMatches(t, err.Error(), dir, "the plugins folder ", " is not a safe folder (it is a link or a file)") || strings.Contains(err.Error(), "doctor") {
 		t.Fatalf("list did not name an unsafe plugins folder: %q %v", out, err)
 	}
@@ -159,7 +159,7 @@ func TestPluginDiagnosticOutputMatchesOnlyEquivalentPaths(t *testing.T) {
 // their diagnostic classes while preserving the former wrapper's error code.
 func TestPluginDiagnosticCausesStayBounded(t *testing.T) {
 	const private = "private-diagnostic-sentinel"
-	store := bus.Store{Dir: filepath.Join(t.TempDir(), "state with 'quotes'")}
+	store := bus.StoreAt(filepath.Join(t.TempDir(), "state with 'quotes'"))
 	for _, tc := range []struct {
 		name, cause string
 		err         error
@@ -204,7 +204,7 @@ func TestPluginInvalidNameDiagnosticDoesNotConstructARecordPath(t *testing.T) {
 			if got := pluginRecordDetail(store, tc.name, "private-cause-sentinel"); got != invalidPluginNameDetail {
 				t.Fatal("invalid-name detail constructed a path or echoed content", got)
 			}
-			out, err := pluginOwnerLocal(t, store.Dir, "show", "--", tc.name)
+			out, err := pluginOwnerLocal(t, store.Dir(), "show", "--", tc.name)
 			if err == nil || err.Error() != want || len(out) != 0 || model.ErrorCodeOf(err) != model.CodeInternal {
 				t.Fatalf("show exposed an invalid name/path or changed its refusal: %q %v", out, err)
 			}

@@ -61,7 +61,7 @@ func TestV2ReadRefusesAnotherPluginsMail(t *testing.T) {
 // entry, the way base c0d7472 admitted a body before the frame-size check.
 func (x *v2Fixture) inflate(t *testing.T, id, body string) {
 	t.Helper()
-	size := rewriteJSON(t, filepath.Join(x.store.Dir, "messages", id+".json"), func(v map[string]any) { v["body"] = body })
+	size := rewriteJSON(t, filepath.Join(x.store.Dir(), "messages", id+".json"), func(v map[string]any) { v["body"] = body })
 	rewriteJSON(t, filepath.Join(x.status.DataDir, "inbox.json"), func(v map[string]any) {
 		for _, e := range v["entries"].([]any) {
 			if entry := e.(map[string]any); entry["id"] == id {

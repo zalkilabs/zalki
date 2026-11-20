@@ -171,13 +171,13 @@ func (opts *commandOptions) service() (*bus.Service, error) {
 	if opts.registryFactory != nil {
 		registry = opts.registryFactory(opts.snapshot.Settings.CodexAllowQueueFallback.Value, opts.snapshot.Paths.ConfigFile.Value)
 	}
-	store, err := bus.NewStore(opts.snapshot.Paths.StateDir.Value, registry, opts.logger)
+	store, err := bus.NewStore(opts.snapshot.Paths.StateDir.Value, registry, opts.logger,
+		bus.WithMaxBodyBytes(opts.snapshot.Settings.MaxBodyBytes.Value),
+		bus.WithConfigFile(opts.snapshot.Paths.ConfigFile.Value),
+		bus.WithPluginDelivery(pluginfeed.CheckPluginDelivery))
 	if err != nil {
 		return nil, err
 	}
-	store.MaxBodyBytes = opts.snapshot.Settings.MaxBodyBytes.Value
-	store.ConfigFile = opts.snapshot.Paths.ConfigFile.Value
-	store.PluginDelivery = pluginfeed.CheckPluginDelivery
 	return &bus.Service{Store: store, PluginInbox: pluginfeed.AdmitPluginInbox, PluginStartup: pluginfeed.SessionPluginStartup}, nil
 }
 

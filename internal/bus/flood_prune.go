@@ -14,7 +14,7 @@ import (
 // It works in this order: a missing flood directory is fine, one that is not
 // private is refused, then each entry is judged by deleteFloodEntry.
 func (r *pruneRun) deleteOrphanFlood() error {
-	dir := filepath.Join(r.store.Dir, "flood")
+	dir := filepath.Join(r.store.dir, "flood")
 	entries, err := readPruneDirectory(dir)
 	if err != nil {
 		return err
@@ -78,7 +78,7 @@ func floodRecordTarget(base string) (string, bool) {
 // another reason is an error.
 func (r *pruneRun) floodRecordIsOrphan(base, target string) (bool, error) {
 	if !r.deleted[target] {
-		if _, err := os.Lstat(filepath.Join(r.store.Dir, "sessions", base)); err == nil {
+		if _, err := os.Lstat(filepath.Join(r.store.dir, "sessions", base)); err == nil {
 			return false, nil
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return false, err

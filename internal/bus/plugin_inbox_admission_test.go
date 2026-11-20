@@ -83,7 +83,7 @@ func TestPluginInboxNilReservationDeniesBeforePublication(t *testing.T) {
 func TestPluginInboxAdmissionAndReservationUseTheLockedStore(t *testing.T) {
 	x := newInboxAdmissionFixture(t)
 	x.service.PluginInbox = func(view bus.JournalView, stateDir, to, sender, generation string) (func(model.Message, time.Time) error, error) {
-		if stateDir != x.store.Dir || sender != x.from.ID || generation != x.from.Generation {
+		if stateDir != x.store.Dir() || sender != x.from.ID || generation != x.from.Generation {
 			t.Fatal("admission got the wrong journal or sender")
 		}
 		assertPluginScopeLock(t, x.store, true)

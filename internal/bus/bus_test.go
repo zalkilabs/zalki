@@ -29,7 +29,7 @@ func TestConcurrentIdempotencyAcrossStoreInstances(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			service := Service{Store: Store{Dir: store.Dir, Registry: testRegistry()}, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
+			service := Service{Store: Store{dir: store.dir, registry: testRegistry()}, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {
 				calls.Add(1)
 				return model.Receipt{Status: "submitted"}
 			}}

@@ -60,7 +60,7 @@ func assertInactiveJournalView(t *testing.T, view JournalView) {
 
 func assertJournalLock(t *testing.T, store Store, held bool) {
 	t.Helper()
-	fd, err := journal.OpenLockFile(filepath.Join(store.Dir, "lock"), false)
+	fd, err := journal.OpenLockFile(filepath.Join(store.dir, "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestJournalViewReleasesOnErrorAndPanic(t *testing.T) {
 	stop := errors.New("callback stopped")
 	if err := WithJournalWrite(store, func(view JournalView) error {
 		retained = view
-		return view.WithWriteScope(store.Dir, func() error {
+		return view.WithWriteScope(store.dir, func() error {
 			if _, err := view.EventWindow(); err != nil {
 				t.Fatal("guarded writes must permit nested view reads", err)
 			}
@@ -97,7 +97,7 @@ func TestJournalViewReleasesOnErrorAndPanic(t *testing.T) {
 		}()
 		_ = WithJournalWrite(store, func(view JournalView) error {
 			retained = view
-			return view.WithWriteScope(store.Dir, func() error { panic(panicValue) })
+			return view.WithWriteScope(store.dir, func() error { panic(panicValue) })
 		})
 	}()
 	assertInactiveJournalView(t, retained)
@@ -116,7 +116,7 @@ func TestJournalViewWaitsForBorrowedWriteBeforeUnlock(t *testing.T) {
 		scopeDone <- WithJournalWrite(store, func(view JournalView) error {
 			retained = view
 			go func() {
-				operationDone <- view.WithWriteScope(store.Dir, func() error {
+				operationDone <- view.WithWriteScope(store.dir, func() error {
 					close(entered)
 					<-release
 					return nil

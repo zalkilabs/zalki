@@ -50,13 +50,13 @@ func preparePluginInbox(s Store, view JournalView, request SendRequest, admit pl
 	if err != nil || found {
 		return old, err
 	}
-	if err := checkAdmissionBody(request.Body, s.MaxBodyBytes); err != nil {
+	if err := checkAdmissionBody(request.Body, s.maxBodyBytes); err != nil {
 		return model.Message{}, err
 	}
 	if admit == nil {
 		return model.Message{}, model.NewError(model.CodeUnauthorized, "plugin inbox unavailable")
 	}
-	reserve, err := admit(view, s.Dir, request.To, sender.ID, sender.Generation)
+	reserve, err := admit(view, s.dir, request.To, sender.ID, sender.Generation)
 	if err != nil {
 		return model.Message{}, err
 	}
@@ -65,7 +65,7 @@ func preparePluginInbox(s Store, view JournalView, request SendRequest, admit pl
 	}
 	labels := []model.Session{sender}
 	s.nativeNames(labels)
-	adapter, err := s.registry().Lookup(sender.Kind)
+	adapter, err := s.registry.Lookup(sender.Kind)
 	if err != nil {
 		return model.Message{}, err
 	}
@@ -88,7 +88,7 @@ func existingPluginInboxMessage(store Store, request SendRequest) (model.Message
 			return model.Message{}, false, model.NewError(model.CodeConflict, "message UUID already used with different contents")
 		}
 		// Confirm durability after an earlier ambiguous post-rename failure.
-		if err = journal.SyncDir(filepath.Join(store.Dir, "messages")); err != nil {
+		if err = journal.SyncDir(filepath.Join(store.dir, "messages")); err != nil {
 			return model.Message{}, false, err
 		}
 		return old, true, nil

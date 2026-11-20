@@ -32,11 +32,11 @@ func TestZeroEventPriorRenameOrdering(t *testing.T) {
 	if err := os.Chmod(directory, 0500); err != nil {
 		t.Fatal(err)
 	}
-	writer := commitWriter{dir: store.Dir, orderSubject: func(parent string) error {
+	writer := commitWriter{dir: store.dir, orderSubject: func(parent string) error {
 		if parent != directory {
 			t.Fatal("ordered another directory", parent)
 		}
-		if _, err := os.Stat(filepath.Join(store.Dir, "commits", "pending.json")); !os.IsNotExist(err) {
+		if _, err := os.Stat(filepath.Join(store.dir, "commits", "pending.json")); !os.IsNotExist(err) {
 			t.Fatal("intent published before prior ordering", err)
 		}
 		if err := journal.OrderDirectory(parent); err != nil {
@@ -74,7 +74,7 @@ func simulatePrivateRenameSyncFailure(t *testing.T, store Store, session model.S
 	if !errors.Is(err, os.ErrPermission) {
 		t.Fatalf("private rename sync cut = %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, "commits", "pending.json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(store.dir, "commits", "pending.json")); !os.IsNotExist(err) {
 		t.Fatal("zero-event save published an intent", err)
 	}
 	got, err := store.session(session.ID)
@@ -93,7 +93,7 @@ func publishEventBeforeTargetCut(t *testing.T, store Store, session model.Sessio
 	if !errors.Is(err, os.ErrPermission) {
 		t.Fatalf("event target write cut = %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, "commits", "pending.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(store.dir, "commits", "pending.json")); err != nil {
 		t.Fatal("event intent was not durable before target cut", err)
 	}
 }

@@ -27,7 +27,7 @@ func assertAbsenceBarrier(t *testing.T, operation string) {
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
-	dir := filepath.Join(store.Dir, "commits")
+	dir := filepath.Join(store.dir, "commits")
 	before := journalSnapshot(t, store)
 	if err := os.Chmod(dir, 0300); err != nil {
 		t.Fatal(err)

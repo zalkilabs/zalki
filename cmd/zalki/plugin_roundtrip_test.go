@@ -29,7 +29,7 @@ func TestPluginOwnerBinaryRoundtrip(t *testing.T) {
 		t.Skip("requires the locally built real zalki binary")
 	}
 	store, session := pluginOwnerFixture(t)
-	state := store.Dir
+	state := store.Dir()
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {
 		t.Fatal(err)
 	}
@@ -251,13 +251,13 @@ func TestPluginOwnerForcedParentCleanupReleasesChildLease(t *testing.T) {
 	}
 	store, _ := pluginOwnerFixture(t)
 	for _, args := range [][]string{{"add", "fake-notifier", "--exec", feedFixture(t)}, {"configure", "fake-notifier", "--scope", "all"}, {"grant", "fake-notifier", "--status"}, {"enable", "fake-notifier"}} {
-		if raw, err := pluginOwnerCLI(t, binary, store.Dir, args...); err != nil {
+		if raw, err := pluginOwnerCLI(t, binary, store.Dir(), args...); err != nil {
 			t.Fatal("prepare cleanup host", string(raw), err)
 		}
 	}
-	cmd, done := startPluginOwnerHost(t, binary, store.Dir)
-	stopPluginOwnerHost(t, cmd, done, store.Dir)
-	assertPluginOwnerLeaseReleased(t, store.Dir)
+	cmd, done := startPluginOwnerHost(t, binary, store.Dir())
+	stopPluginOwnerHost(t, cmd, done, store.Dir())
+	assertPluginOwnerLeaseReleased(t, store.Dir())
 }
 
 func TestPluginOwnerCleanupLeaseProbeHonorsContention(t *testing.T) {
@@ -325,10 +325,10 @@ func pluginOwnerLocal(t *testing.T, state string, args ...string) ([]byte, error
 
 func TestPluginOwnerConfigureValidatesScopeAndEnabledState(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
-	if raw, err := pluginOwnerLocal(t, store.Dir, "add", "fake-notifier", "--exec", feedFixture(t)); err != nil {
+	if raw, err := pluginOwnerLocal(t, store.Dir(), "add", "fake-notifier", "--exec", feedFixture(t)); err != nil {
 		t.Fatal(string(raw), err)
 	}
-	if raw, err := pluginOwnerLocal(t, store.Dir, "configure", "fake-notifier", "--scope", "none"); err != nil {
+	if raw, err := pluginOwnerLocal(t, store.Dir(), "configure", "fake-notifier", "--scope", "none"); err != nil {
 		t.Fatal("scope none was refused", string(raw), err)
 	}
 	status, err := pluginfeed.NewPluginFeed(store, "fake-notifier").PluginStatus()
@@ -336,16 +336,16 @@ func TestPluginOwnerConfigureValidatesScopeAndEnabledState(t *testing.T) {
 		t.Fatal("configure did not store the scope", status, err)
 	}
 	for _, args := range [][]string{{"--scope", "everything"}, {"--scope", "ALL"}, {}, {"--session", "codex:00000000-0000-4000-8000-000000000002"}} {
-		if raw, err := pluginOwnerLocal(t, store.Dir, append([]string{"configure", "fake-notifier"}, args...)...); err == nil {
+		if raw, err := pluginOwnerLocal(t, store.Dir(), append([]string{"configure", "fake-notifier"}, args...)...); err == nil {
 			t.Fatal("configure accepted", args, string(raw))
 		}
 	}
 	for _, args := range [][]string{{"configure", "fake-notifier", "--scope", "all"}, {"grant", "fake-notifier", "--status"}, {"enable", "fake-notifier"}} {
-		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
+		if raw, err := pluginOwnerLocal(t, store.Dir(), args...); err != nil {
 			t.Fatal(args, string(raw), err)
 		}
 	}
-	if raw, err := pluginOwnerLocal(t, store.Dir, "configure", "fake-notifier", "--scope", "none"); err != nil {
+	if raw, err := pluginOwnerLocal(t, store.Dir(), "configure", "fake-notifier", "--scope", "none"); err != nil {
 		t.Fatal("a scope change on an enabled plugin did not rebind", string(raw), err)
 	}
 	if status, err := pluginfeed.NewPluginFeed(store, "fake-notifier").PluginStatus(); err != nil || !status.Enabled || status.Scope != "none" {
@@ -356,11 +356,11 @@ func TestPluginOwnerConfigureValidatesScopeAndEnabledState(t *testing.T) {
 func TestPluginOwnerStatusDoesNotClaimAHostIsRunning(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	for _, args := range [][]string{{"add", "fake-notifier", "--exec", feedFixture(t)}, {"configure", "fake-notifier", "--scope", "all"}, {"grant", "fake-notifier", "--status"}, {"enable", "fake-notifier"}} {
-		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
+		if raw, err := pluginOwnerLocal(t, store.Dir(), args...); err != nil {
 			t.Fatal(string(raw), err)
 		}
 	}
-	raw, err := pluginOwnerLocal(t, store.Dir, "status", "fake-notifier")
+	raw, err := pluginOwnerLocal(t, store.Dir(), "status", "fake-notifier")
 	var status map[string]json.RawMessage
 	if err != nil || json.Unmarshal(raw, &status) != nil {
 		t.Fatal("status failed", string(raw), err)
@@ -377,7 +377,7 @@ func TestPluginOwnerStatusDoesNotClaimAHostIsRunning(t *testing.T) {
 		t.Fatal("status inferred runtime state or omitted configuration", string(raw))
 	}
 	for _, name := range []string{"fake-notifier.data/events"} {
-		if _, err := os.Stat(filepath.Join(store.Dir, "plugins", name)); !os.IsNotExist(err) {
+		if _, err := os.Stat(filepath.Join(store.Dir(), "plugins", name)); !os.IsNotExist(err) {
 			t.Fatal("owner command launched or inspected a running host", name, err)
 		}
 	}

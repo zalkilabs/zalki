@@ -26,7 +26,7 @@ func sessionLockStore(t *testing.T, s bus.Store, assertion string) (bus.Store, *
 	calls := 0
 	probe := func() {
 		calls++
-		fd, err := journal.OpenLockFile(filepath.Join(s.Dir, "lock"), false)
+		fd, err := journal.OpenLockFile(filepath.Join(s.Dir(), "lock"), false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -40,7 +40,7 @@ func sessionLockStore(t *testing.T, s bus.Store, assertion string) (bus.Store, *
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Registry = registry
+	s = s.With(bus.WithRegistry(registry))
 	return s, &calls
 }
 

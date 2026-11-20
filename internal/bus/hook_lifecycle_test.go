@@ -259,7 +259,7 @@ func TestCodecResultIsBoundedBeforePersisting(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			store.Registry = registry
+			store.registry = registry
 			before := sessionBytes(t, store, to.ID)
 			if err := cursorHost(store, to.ID, "UserPromptSubmit").ApplyLifecycle(stubResumeOnPrompt); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 				t.Fatal("lifecycle persisted an unbounded codec result", err)

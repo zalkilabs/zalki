@@ -47,7 +47,7 @@ func assertForwardingChanges(t *testing.T, store Store, before map[string]string
 	t.Helper()
 	after := journalSnapshot(t, store)
 	for _, path := range changed {
-		rel, err := filepath.Rel(store.Dir, path)
+		rel, err := filepath.Rel(store.dir, path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -140,7 +140,7 @@ func TestHookHostUpdateSessionErrorsFollowActorCheck(t *testing.T) {
 // that emission removed it, then drops the marker from the before snapshot.
 func forgetEmittedMarker(t *testing.T, store Store, before map[string]string, id string) {
 	t.Helper()
-	marker, err := filepath.Rel(store.Dir, markers(store).path(id))
+	marker, err := filepath.Rel(store.dir, markers(store).path(id))
 	if _, open := before[marker]; err != nil || !open {
 		t.Fatal("pending message had no open marker", err)
 	}
@@ -187,8 +187,8 @@ func TestHookHostEmitPendingUsesBoundActor(t *testing.T) {
 			}
 			forgetEmittedMarker(t, host.store, before, msg.ID)
 			forgetMessageEvent(t, host.store, before, msg.ID)
-			assertForwardingChanges(t, host.store, before, filepath.Join(host.store.Dir, "messages", msg.ID+".json"),
-				filepath.Join(host.store.Dir, eventMetaPath))
+			assertForwardingChanges(t, host.store, before, filepath.Join(host.store.dir, "messages", msg.ID+".json"),
+				filepath.Join(host.store.dir, eventMetaPath))
 			before = journalSnapshot(t, host.store)
 			if text, err := host.EmitPending(target.ID); err != nil || text != "" {
 				t.Fatalf("second emission=%q error=%v, want empty context", text, err)
@@ -381,7 +381,7 @@ func TestHookHostChecksActorBeforeStoreIO(t *testing.T) {
 	for _, operation := range bindingOperations(prompt) {
 		t.Run(operation.name, func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "never-created")
-			host := hookRuntime{store: Store{Dir: dir, Registry: testRegistry()}, actor: "cursor:00000000-0000-4000-8000-000000000002"}
+			host := hookRuntime{store: Store{dir: dir, registry: testRegistry()}, actor: "cursor:00000000-0000-4000-8000-000000000002"}
 			text, err := operation.call(host, "cursor:00000000-0000-4000-8000-000000000003")
 			assertActorRefusal(t, err)
 			if text != "" {
@@ -412,7 +412,7 @@ func TestUnboundHookRuntimeStillSupportsHealth(t *testing.T) {
 
 func seedBindingLease(t *testing.T, store Store, target model.Session) {
 	t.Helper()
-	target.Listener = &model.ListenerLease{ID: newID(), Generation: target.Generation, Endpoint: model.Endpoint{Path: filepath.Join(store.Dir, "missing.sock")}}
+	target.Listener = &model.ListenerLease{ID: newID(), Generation: target.Generation, Endpoint: model.Endpoint{Path: filepath.Join(store.dir, "missing.sock")}}
 	if err := store.locked(func() error { return store.saveSession(target) }); err != nil {
 		t.Fatal(err)
 	}

@@ -55,7 +55,7 @@ func newResumedCursorFixture(t *testing.T) resumedCursorFixture {
 	if actor.NativeID != native || actor.CWD != "/fixture/resumed chat" || actor.Name != "Resumed chat" || actor.State != model.StateBusy || actor.Receive.IdleWake {
 		t.Fatal("C02_CONVERSATION_ID_WINS_AND_NORMALIZES", actor)
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, "sessions", "cursor_"+unrelated+".json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(store.Dir(), "sessions", "cursor_"+unrelated+".json")); !os.IsNotExist(err) {
 		t.Fatal("C02_SESSION_ALIAS_DID_NOT_CREATE_ANOTHER_ACTOR", err)
 	}
 	sender, key := registerAdapterSession(t, store, "codex")

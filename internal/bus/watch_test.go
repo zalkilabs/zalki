@@ -287,7 +287,7 @@ func TestWatchAnswersAnEndedSessionImmediately(t *testing.T) {
 	if _, err := store.watchPath(watcher.ID, target.ID); err != nil {
 		t.Fatal(err)
 	}
-	entries, err := os.ReadDir(store.Dir + "/watches")
+	entries, err := os.ReadDir(store.dir + "/watches")
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
@@ -333,7 +333,7 @@ func TestWatchSubscribedDuringStopSurvivesThatCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store.Registry = registry
+	store.registry = registry
 	watcher, key, target, _ := registerPair(t, store, "codex", "claude")
 	var delivered int
 	service := &Service{Store: store, Deliver: func(context.Context, model.Message, model.Session) model.Receipt {

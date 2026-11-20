@@ -34,7 +34,7 @@ func nearLimitMessage(t *testing.T, store Store, msg *model.Message) (string, []
 	if err != nil || len(raw) != maxStateFileBytes-4 {
 		t.Fatalf("fixture is %d bytes, want %d: %v", len(raw), maxStateFileBytes-4, err)
 	}
-	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
+	path := filepath.Join(store.dir, "messages", msg.ID+".json")
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestMessageWriteSizeRefusalKeepsDurableStatusAndLogsFailure(t *testing.T) {
 			path, before := nearLimitMessage(t, store, &msg)
 			snapshot := journalSnapshot(t, store)
 			var diagnostic bytes.Buffer
-			store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
+			store.logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
 			var result model.Message
 			var err error
 			wantEvent := "message.ack_failed"
@@ -183,7 +183,7 @@ func TestMaxControlCharacterBodyFitsEncodedJournalLimit(t *testing.T) {
 	if _, err := store.Ack(target.ID, targetKey, msg.ID); err != nil {
 		t.Fatal("maximum-body ACK failed", err)
 	}
-	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
+	path := filepath.Join(store.dir, "messages", msg.ID+".json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

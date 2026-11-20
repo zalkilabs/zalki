@@ -31,7 +31,7 @@ func profileFixtureStore(t *testing.T, root *string, captured func()) Store {
 		t.Fatal(err)
 	}
 	s := fixtureStore(t)
-	s.Registry = registry
+	s.registry = registry
 	return s
 }
 func TestRegistrationRequiresAbsoluteNativeProfile(t *testing.T) {
@@ -52,7 +52,7 @@ func TestRegistrationRequiresAbsoluteNativeProfile(t *testing.T) {
 			if model.ErrorCodeOf(err) != model.CodeInvalidInput || key != "" {
 				t.Fatal("INVALID_ROOT_REGISTERED", key != "", err)
 			}
-			if _, err := os.Stat(s.Dir); !os.IsNotExist(err) {
+			if _, err := os.Stat(s.dir); !os.IsNotExist(err) {
 				t.Fatal("INVALID_ROOT_CREATED_STATE", err)
 			}
 		})

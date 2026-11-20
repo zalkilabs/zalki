@@ -134,7 +134,7 @@ func newPluginLogsCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			lines, err := tailPluginLog(filepath.Join(service.Store.Dir, "plugins", name+".log"))
+			lines, err := tailPluginLog(filepath.Join(service.Store.Dir(), "plugins", name+".log"))
 			if err != nil {
 				return err
 			}

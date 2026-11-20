@@ -16,7 +16,7 @@ import (
 )
 
 func listenerLockFile(store bus.Store, a agent) string {
-	return filepath.Join(store.Dir, a.Kind+"-listener-"+a.NativeID+".lock")
+	return filepath.Join(store.Dir(), a.Kind+"-listener-"+a.NativeID+".lock")
 }
 
 func keysOf(record map[string]any) []string {
@@ -90,7 +90,7 @@ func pruneInSubprocess(t *testing.T, store bus.Store, removed string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestPruneKeepsAnOrphanedListenerLockWhileItIsHeld$", "-test.count=1")
-	cmd.Env = append(os.Environ(), "ZALKI_CHARACTERIZATION_PRUNE_STATE="+store.Dir, "ZALKI_CHARACTERIZATION_REMOVED_LOCK="+removed)
+	cmd.Env = append(os.Environ(), "ZALKI_CHARACTERIZATION_PRUNE_STATE="+store.Dir(), "ZALKI_CHARACTERIZATION_REMOVED_LOCK="+removed)
 	cmd.WaitDelay = time.Second
 	output, err := cmd.CombinedOutput()
 	if ctx.Err() != nil {
@@ -108,7 +108,7 @@ func pruneInSubprocess(t *testing.T, store bus.Store, removed string) {
 func TestPruneKeepsAnOrphanedListenerLockWhileItIsHeld(t *testing.T) {
 	if dir := os.Getenv("ZALKI_CHARACTERIZATION_PRUNE_STATE"); dir != "" {
 		store := newStore(t, listenerAdapter("cursor"))
-		store.Dir = dir
+		store = bus.StoreAt(dir, bus.WithRegistry(store.Registry()))
 		report, err := store.Prune(false, nil)
 		if err != nil {
 			t.Fatal(err)

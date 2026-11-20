@@ -100,7 +100,7 @@ func TestPluginInstallSignalCancels(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			store, _ := pluginOwnerFixture(t)
 			build := newGatedBuild(t, 200, "0") // never released: the cancel must stop it
-			run := startSignalInstall(t, binary, store.Dir, build.folder)
+			run := startSignalInstall(t, binary, store.Dir(), build.folder)
 			deadline := time.After(20 * time.Second)
 			run.waitFor(t, "Building...", deadline)
 			build.pid(t) // the build runs: the signal must stop it, not prevent it
@@ -112,7 +112,7 @@ func TestPluginInstallSignalCancels(t *testing.T) {
 			if strings.Contains(run.output(), "build failed") {
 				t.Fatal(run.output())
 			}
-			assertNothingInstalled(t, store.Dir)
+			assertNothingInstalled(t, store.Dir())
 		})
 		if after := openFDs(t); after != fds {
 			t.Fatalf("%s: %d open files after the test, %d before", c.name, after, fds)
@@ -131,14 +131,14 @@ func TestPluginInstallSecondSignalKills(t *testing.T) {
 			// The build waits at the gate, so the test can take the Store lock
 			// after zalki has read its sessions and before it commits.
 			build := newGatedBuild(t, 200, "0")
-			run := startSignalInstall(t, binary, store.Dir, build.folder)
+			run := startSignalInstall(t, binary, store.Dir(), build.folder)
 			deadline := time.After(20 * time.Second)
 			run.waitFor(t, "Building...", deadline)
-			lock := holdStoreLock(t, store.Dir)
+			lock := holdStoreLock(t, store.Dir())
 			defer lock.Close()
 			build.release(t)
 			run.waitFor(t, "Enabling...", deadline)
-			waitForPin(t, store.Dir, "demo", deadline)
+			waitForPin(t, store.Dir(), "demo", deadline)
 			run.send(t, c.signal)
 			select {
 			case <-run.exited:
@@ -150,7 +150,7 @@ func TestPluginInstallSecondSignalKills(t *testing.T) {
 			if status, ok := state.Sys().(syscall.WaitStatus); !ok || !status.Signaled() || status.Signal() != c.signal {
 				t.Fatalf("exit %v after the second %s, want killed by it:\n%s", state, c.name, run.output())
 			}
-			if _, err := os.Stat(filepath.Join(store.Dir, "plugins", "demo.json")); err == nil {
+			if _, err := os.Stat(filepath.Join(store.Dir(), "plugins", "demo.json")); err == nil {
 				t.Fatal("a record was written although the lock was held")
 			}
 		})
@@ -300,7 +300,7 @@ func killZalkiAfterBuildStarts(t *testing.T, binary string, steps int, pidDelay 
 	t.Helper()
 	store, _ := pluginOwnerFixture(t)
 	build := newGatedBuild(t, steps, pidDelay)
-	run := startSignalInstall(t, binary, store.Dir, build.folder)
+	run := startSignalInstall(t, binary, store.Dir(), build.folder)
 	run.waitFor(t, "Building...", time.After(20*time.Second))
 	build.waitStarted(t)
 	if err := run.process.Kill(); err != nil {

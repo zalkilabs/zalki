@@ -30,7 +30,7 @@ func (s Store) writeRecord(path string, value any) error {
 	if err != nil {
 		return err
 	}
-	relative, err := filepath.Rel(s.Dir, path)
+	relative, err := filepath.Rel(s.dir, path)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
 		return model.NewError(model.CodeInvalidIdentity, "record path is outside state directory")
 	}

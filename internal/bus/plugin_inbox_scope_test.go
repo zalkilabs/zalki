@@ -25,7 +25,7 @@ func checkPluginInboxAdmissionScope(t *testing.T, kind string) {
 	check := func(view bus.JournalView) error {
 		var denial error
 		for _, to := range []string{"plugin:" + x.status.ID, "plugin:invalid"} {
-			reserve, err := pluginfeed.AdmitPluginInbox(view, x.store.Dir, to, x.from.ID, x.from.Generation)
+			reserve, err := pluginfeed.AdmitPluginInbox(view, x.store.Dir(), to, x.from.ID, x.from.Generation)
 			if reserve != nil || model.ErrorCodeOf(err) != model.CodeUnauthorized {
 				t.Fatal("invalid scope must deny admission with a typed error", err)
 			}
@@ -88,7 +88,7 @@ func checkPluginInboxRetainedReservation(t *testing.T, kind string) {
 	if err := bus.WithJournalWrite(x.store, func(view bus.JournalView) error {
 		retained = view
 		var err error
-		reserve, err = pluginfeed.AdmitPluginInbox(view, x.store.Dir, "plugin:"+x.status.ID, x.from.ID, x.from.Generation)
+		reserve, err = pluginfeed.AdmitPluginInbox(view, x.store.Dir(), "plugin:"+x.status.ID, x.from.ID, x.from.Generation)
 		return err
 	}); err != nil || reserve == nil {
 		t.Fatal("live originating write scope must admit", err)

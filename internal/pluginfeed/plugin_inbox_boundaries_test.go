@@ -74,7 +74,7 @@ func TestPluginInboxNativeBackgroundPathsPreserveStoredBytes(t *testing.T) {
 	if err = saveTestMessage(x.f.store, m); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(x.f.store.Dir, "messages", m.ID+".json")
+	path := filepath.Join(x.f.store.Dir(), "messages", m.ID+".json")
 	canonical, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -120,11 +120,11 @@ func checkMaliciousInboxHint(t *testing.T, raw string) {
 		t.Fatal("hint touched outside plugin namespace", err)
 	}
 	if raw == `"../x"` {
-		entries, readErr := os.ReadDir(filepath.Join(x.f.store.Dir, "x.data"))
+		entries, readErr := os.ReadDir(filepath.Join(x.f.store.Dir(), "x.data"))
 		if readErr != nil || len(entries) != 0 {
 			t.Fatal("hint wrote outside plugin namespace", readErr)
 		}
-	} else if _, err = os.Stat(filepath.Join(x.f.store.Dir, "x.json")); !errors.Is(err, os.ErrNotExist) {
+	} else if _, err = os.Stat(filepath.Join(x.f.store.Dir(), "x.json")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("hint created an outside record")
 	}
 
@@ -132,7 +132,7 @@ func checkMaliciousInboxHint(t *testing.T, raw string) {
 
 func makeInboxHintTrap(t *testing.T, x inboxStorageFixture, raw string) (string, []byte) {
 	t.Helper()
-	outside := filepath.Join(x.f.store.Dir, "outside.json")
+	outside := filepath.Join(x.f.store.Dir(), "outside.json")
 	sentinel := []byte(`{"sentinel":"unchanged"}`)
 	if raw == `"../x"` {
 		p, _, loadErr := x.f.loadPlugin()
@@ -145,8 +145,8 @@ func makeInboxHintTrap(t *testing.T, x inboxStorageFixture, raw string) (string,
 		if encodeErr != nil {
 			t.Fatal(encodeErr)
 		}
-		outside = filepath.Join(x.f.store.Dir, "x.json")
-		if mkdirErr := os.Mkdir(filepath.Join(x.f.store.Dir, "x.data"), 0700); mkdirErr != nil {
+		outside = filepath.Join(x.f.store.Dir(), "x.json")
+		if mkdirErr := os.Mkdir(filepath.Join(x.f.store.Dir(), "x.data"), 0700); mkdirErr != nil {
 			t.Fatal(mkdirErr)
 		}
 	}

@@ -161,7 +161,7 @@ func TestHookPayloadFailureDiagnosticsAreBoundedAndPrivate(t *testing.T) {
 			target, _ := register(t, store, "claude")
 			before := sessionBytes(t, store, target.ID)
 			var diagnostic, output bytes.Buffer
-			store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
+			store.logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
 			err := (&Service{Store: store}).Hook(t.Context(), "claude", strings.NewReader(test.input), &output)
 			if err == nil {
 				t.Fatal("bad input accepted")

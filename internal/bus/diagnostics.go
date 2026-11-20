@@ -71,8 +71,8 @@ func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
 
 // diagnoseAgents reports each registered client's executable and compatibility.
 func (s Store) diagnoseAgents(ctx context.Context, report *DiagnosticReport) {
-	for _, kind := range s.registry().Kinds() {
-		adapter, _ := s.registry().Lookup(kind)
+	for _, kind := range s.registry.Kinds() {
+		adapter, _ := s.registry.Lookup(kind)
 		d := adapter.Descriptor()
 		diagnoseNativeProfile(report, adapter)
 		binary, err := exec.LookPath(d.Executable)
@@ -88,7 +88,7 @@ func (s Store) diagnoseSessions(report *DiagnosticReport, sessions []model.Sessi
 		d := model.SessionDiagnostic{ID: v.ID, Kind: v.Kind, Name: v.Name, State: v.State, Retired: v.Retired,
 			RetiredReason: v.RetiredReason, Liveness: s.sessionLiveness(v), Owner: v.Owner,
 			UpdatedAt: v.UpdatedAt, HookBuild: v.HookBuild, HookBuildStatus: hookBuildStatus(v.HookBuild, report.Runtime.DiskBuild)}
-		adapter, err := s.registry().Lookup(v.Kind)
+		adapter, err := s.registry.Lookup(v.Kind)
 		if err != nil {
 			return err
 		}

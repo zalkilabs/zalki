@@ -209,7 +209,7 @@ func assertCodexInvalidBulkCannotReleaseApproval(t *testing.T, damage string) {
 	}
 	before := journalSnapshot(t, store)
 	var logs, output bytes.Buffer
-	store.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
+	store.logger = slog.New(slog.NewJSONHandler(&logs, nil))
 	service.Store = store
 	prefix := fmt.Sprintf(`{"hook_event_name":"PostToolUse","session_id":%q,"tool_response":"`, target.NativeID)
 	suffix := `"}`

@@ -70,7 +70,7 @@ func TestMCPDiscoverySkipsUnreadableSessionsWithOneOptionalCount(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	healthy, _, future, _ := registerPair(t, store, "cursor", "00000000-0000-4000-8000-000000000051", "cursor", "00000000-0000-4000-8000-000000000052")
-	path := filepath.Join(store.Dir, "sessions", strings.ReplaceAll(future.ID, ":", "_")+".json")
+	path := filepath.Join(store.Dir(), "sessions", strings.ReplaceAll(future.ID, ":", "_")+".json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

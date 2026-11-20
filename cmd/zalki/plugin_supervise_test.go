@@ -25,12 +25,12 @@ func supervisorFixture(t *testing.T, binary string, names ...string) string {
 	store, _ := pluginOwnerFixture(t)
 	for _, name := range names {
 		for _, args := range [][]string{{"add", name, "--exec", crashableFixture(t, feedFixtureScript)}, {"configure", name, "--scope", "all"}, {"grant", name, "--status"}, {"enable", name}} {
-			if output, err := pluginOwnerCLI(t, binary, store.Dir, args...); err != nil {
+			if output, err := pluginOwnerCLI(t, binary, store.Dir(), args...); err != nil {
 				t.Fatal(args, len(output), err)
 			}
 		}
 	}
-	return store.Dir
+	return store.Dir()
 }
 
 // hostCrashWatcher makes a fixture plugin kill its own host (its live
@@ -121,11 +121,11 @@ func TestPluginSupervisorCleanupLeavesNoWriter(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"add", "alpha", "--exec", path}, {"configure", "alpha", "--scope", "all"}, {"grant", "alpha", "--status"}, {"enable", "alpha"}} {
-		if output, err := pluginOwnerCLI(t, binary, store.Dir, args...); err != nil {
+		if output, err := pluginOwnerCLI(t, binary, store.Dir(), args...); err != nil {
 			t.Fatal(args, len(output), err)
 		}
 	}
-	beat := filepath.Join(store.Dir, "plugins", "alpha.data", "beat")
+	beat := filepath.Join(store.Dir(), "plugins", "alpha.data", "beat")
 	t.Cleanup(func() {
 		before, _ := os.ReadFile(beat)
 		time.Sleep(time.Second)
@@ -133,7 +133,7 @@ func TestPluginSupervisorCleanupLeavesNoWriter(t *testing.T) {
 			t.Errorf("a plugin still wrote under state after the supervisor cleanup: %q then %q", before, after)
 		}
 	})
-	startSupervisor(t, binary, store.Dir)
+	startSupervisor(t, binary, store.Dir())
 	deadline := time.Now().Add(20 * time.Second)
 	for {
 		if raw, err := os.ReadFile(beat); err == nil && len(raw) > 0 {
@@ -357,11 +357,11 @@ func stubbornState(t *testing.T, binary string) string {
 	t.Helper()
 	store, _ := pluginOwnerFixture(t)
 	for _, args := range [][]string{{"add", "alpha", "--exec", crashableFixture(t, stubbornScript())}, {"configure", "alpha", "--scope", "all"}, {"grant", "alpha", "--status"}, {"enable", "alpha"}} {
-		if output, err := pluginOwnerCLI(t, binary, store.Dir, args...); err != nil {
+		if output, err := pluginOwnerCLI(t, binary, store.Dir(), args...); err != nil {
 			t.Fatal(args, len(output), err)
 		}
 	}
-	return store.Dir
+	return store.Dir()
 }
 
 // When a host dies first (SIGKILL), the controller still ends its

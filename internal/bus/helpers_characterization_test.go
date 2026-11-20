@@ -96,7 +96,7 @@ func newStore(t *testing.T, adapters ...agentapi.Adapter) bus.Store {
 // restart returns a Store on the same directory, as a new process would see it.
 func restart(t *testing.T, store bus.Store) bus.Store {
 	t.Helper()
-	fresh, err := bus.NewStore(store.Dir, store.Registry, nil)
+	fresh, err := bus.NewStore(store.Dir(), store.Registry(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func writeJSONFile(t *testing.T, path string, value any) {
 // sessionFile is where the journal keeps a registration: "kind:uuid" is stored
 // as sessions/kind_uuid.json.
 func sessionFile(store bus.Store, a agent) string {
-	return filepath.Join(store.Dir, "sessions", strings.Replace(a.ID, ":", "_", 1)+".json")
+	return filepath.Join(store.Dir(), "sessions", strings.Replace(a.ID, ":", "_", 1)+".json")
 }
 
 // snapshot returns every regular file under dir keyed by relative path.

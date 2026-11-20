@@ -142,11 +142,11 @@ func TestRefusedReplyRetryDoesNotSpendFloodQuotaAgain(t *testing.T) {
 				t.Fatalf("first reply = %+v, %v; want a recorded refusal", first, err)
 			}
 			f.requireOneArrivalForTheFirstReply(first)
-			recordAfterFirst := mustRead(t, store.Dir, "messages", first.ID+".json")
+			recordAfterFirst := mustRead(t, store.dir, "messages", first.ID+".json")
 
 			// A retry with the same body finds its record and takes no quota.
 			f.requireRetryTakesNothing(first, "", "a retry of a recorded refusal took flood quota again")
-			if string(mustRead(t, store.Dir, "messages", first.ID+".json")) != string(recordAfterFirst) {
+			if string(mustRead(t, store.dir, "messages", first.ID+".json")) != string(recordAfterFirst) {
 				t.Fatal("a retry rewrote the recorded refusal")
 			}
 

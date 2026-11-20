@@ -39,7 +39,7 @@ func TestLiveSmokeRunnerWithEmulatedClient(t *testing.T) {
 	t.Setenv("CODEX_HOME", filepath.Join(workspace, "codex"))
 	t.Setenv("CURSOR_CONFIG_DIR", filepath.Join(workspace, "cursor"))
 	configFile := smokeQueueConfigFixture(t, workspace)
-	store := bus.Store{Dir: state, Registry: adapters.BuiltinWithCodex(true, configFile, bus.Version)}
+	store := bus.StoreAt(state, bus.WithRegistry(adapters.BuiltinWithCodex(true, configFile, bus.Version)))
 	target, key, err := store.Register("codex", model.NewUUID(), workspace, nil)
 	if err != nil {
 		t.Fatal(err)

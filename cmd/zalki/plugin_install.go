@@ -73,7 +73,7 @@ func newPluginInstallCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			background := newLoginItemTarget(opts, service.Store.Dir)
+			background := newLoginItemTarget(opts, service.Store.Dir())
 			return (&pluginInstaller{cmd: cmd, store: service.Store, flags: flags, home: opts.home, background: background}).run(args[0])
 		},
 	}

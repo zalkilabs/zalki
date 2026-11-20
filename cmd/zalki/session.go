@@ -104,7 +104,7 @@ func newCursorListenCommand(opts *commandOptions) *cobra.Command {
 				return err
 			}
 			defer lease.Close() //nolint:errcheck // Stale runtime records can be pruned after shutdown.
-			adapter, err := service.Store.Registry.Lookup("cursor")
+			adapter, err := service.Store.Registry().Lookup("cursor")
 			if err != nil {
 				return err
 			}

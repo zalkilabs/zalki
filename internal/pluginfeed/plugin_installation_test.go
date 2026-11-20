@@ -151,14 +151,14 @@ func TestNamedPluginRemovalReaddAndPersistentData(t *testing.T) {
 func TestNamedPluginRejectsInvalidNamesWithoutState(t *testing.T) {
 	for _, name := range []string{"", "Alpha", "../escape", "a/b", "-a", "a_", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"} {
 		t.Run(name, func(t *testing.T) {
-			s := bus.Store{Dir: filepath.Join(t.TempDir(), "absent")}
+			s := bus.StoreAt(filepath.Join(t.TempDir(), "absent"))
 			f := NewPluginFeed(s, name)
 			for _, call := range []func() error{func() error { return f.AddExternalPlugin("/bin/sh", nil) }, f.RemovePlugin, func() error { return f.ConfigurePluginScope("all") }, func() error { return f.EnablePluginFeed(true) }, func() error { _, err := nextFeed(f); return err }, func() error { return testFeedAck(f, PluginDelivery{}) }, func() error { _, err := f.PluginStatus(); return err }} {
 				if err := call(); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 					t.Fatal("accepted invalid name", err)
 				}
 			}
-			if _, err := os.Lstat(s.Dir); !errors.Is(err, os.ErrNotExist) {
+			if _, err := os.Lstat(s.Dir()); !errors.Is(err, os.ErrNotExist) {
 				t.Fatal("invalid name created state", err)
 			}
 		})
@@ -183,7 +183,7 @@ func TestNamedPluginDoesNotAdoptAbandonedDataOrLegacyRecord(t *testing.T) {
 	if err := f.RemovePlugin(); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(s.Dir, "plugin.json"), []byte(`{"enabled":true}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(s.Dir(), "plugin.json"), []byte(`{"enabled":true}`), 0600); err != nil {
 		t.Fatal(err)
 	}
 	status, err := f.PluginStatus()

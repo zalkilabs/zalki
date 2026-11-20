@@ -95,7 +95,7 @@ func TestCallerVisibleErrorCodes(t *testing.T) {
 		}, "invalid_identity"},
 		{"use a store without an agent registry", func(t *testing.T, _ bus.Store, _, _ agent) error {
 			t.Helper()
-			_, _, err := bus.Store{Dir: filepath.Join(t.TempDir(), "state")}.Register("alpha", newUUID(t), "/workspace", nil)
+			_, _, err := bus.StoreAt(filepath.Join(t.TempDir(), "state")).Register("alpha", newUUID(t), "/workspace", nil)
 			return err
 		}, "internal"},
 	}
@@ -133,11 +133,11 @@ func sendOK(t *testing.T, store bus.Store, from, to agent) model.Message {
 func TestUpdateOfAnUnknownSessionIsASilentNoOp(t *testing.T) {
 	store := newStore(t, nativeAdapter("alpha"))
 	register(t, store, "alpha")
-	before := snapshot(t, store.Dir)
+	before := snapshot(t, store.Dir())
 	if err := store.Update("alpha:11111111-1111-4111-8111-111111111111", model.StateBusy, false); err != nil {
 		t.Fatalf("Update of an unknown session: %v", err)
 	}
-	if after := snapshot(t, store.Dir); !maps.Equal(before, after) {
+	if after := snapshot(t, store.Dir()); !maps.Equal(before, after) {
 		t.Fatal("Update of an unknown session wrote state")
 	}
 }

@@ -67,7 +67,7 @@ func TestApprovalPendingIntentErrorKeepsCountUntilRecovery(t *testing.T) {
 	if err := msg.Hold(); err != nil {
 		t.Fatal(err)
 	}
-	dir := filepath.Join(store.Dir, "messages")
+	dir := filepath.Join(store.dir, "messages")
 	if err := os.Chmod(dir, 0500); err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestApprovalPendingIntentErrorKeepsCountUntilRecovery(t *testing.T) {
 	if err == nil {
 		t.Fatal("target publication refusal did not fail")
 	}
-	if _, pendingErr := os.Stat(filepath.Join(store.Dir, "commits", "pending.json")); pendingErr != nil {
+	if _, pendingErr := os.Stat(filepath.Join(store.dir, "commits", "pending.json")); pendingErr != nil {
 		t.Fatal("target error did not retain a replayable intent", pendingErr)
 	}
 	assertTransportApprovalCount(t, store, target.ID, 1)
@@ -104,7 +104,7 @@ func publishedApprovalThenError(t *testing.T, store Store, msg model.Message, la
 			if err := store.saveMessageRecord(m); err != nil {
 				return err
 			}
-			if _, err := os.Stat(filepath.Join(store.Dir, "commits", "pending.json")); !errors.Is(err, os.ErrNotExist) {
+			if _, err := os.Stat(filepath.Join(store.dir, "commits", "pending.json")); !errors.Is(err, os.ErrNotExist) {
 				t.Fatal("real publication left a pending intent", err)
 			}
 			return late
@@ -122,7 +122,7 @@ func TestApprovalUnreadableInventoryKeepsConservativeCount(t *testing.T) {
 	if err := msg.Hold(); err != nil {
 		t.Fatal(err)
 	}
-	unknown := filepath.Join(store.Dir, "messages", newID()+".json")
+	unknown := filepath.Join(store.dir, "messages", newID()+".json")
 	original := errors.New("injected nonpublication with unreadable hold inventory")
 	err = store.locked(func() error {
 		return saveReservationWith(store, msg, func(model.Message) error {

@@ -210,7 +210,7 @@ func TestObserverNoticesAProcessExitEventWithoutAnySweep(t *testing.T) {
 	fake := newFakeExitSource()
 	runObserver(t, service, neverSweeps, fake.open)
 	waitFor(t, "owner registration", func() bool { return fake.watchingProcess(*setLive) })
-	if !fake.watchingDir(filepath.Join(service.Store.Dir, "watches")) {
+	if !fake.watchingDir(filepath.Join(service.Store.dir, "watches")) {
 		t.Fatal("the watches directory was not watched")
 	}
 	if counter.count() != 0 {
@@ -234,7 +234,7 @@ func TestObserverPicksUpAWatchArmedAfterItStartedFromADirectoryEvent(t *testing.
 	service.Deliver = counter.hook
 	fake := newFakeExitSource()
 	runObserver(t, service, neverSweeps, fake.open)
-	waitFor(t, "root watch", func() bool { return fake.watchingDir(filepath.Join(service.Store.Dir, "watches")) })
+	waitFor(t, "root watch", func() bool { return fake.watchingDir(filepath.Join(service.Store.dir, "watches")) })
 
 	owner := selfOwner(t)
 	_, _, target := watchedTarget(t, service, owner)
@@ -243,7 +243,7 @@ func TestObserverPicksUpAWatchArmedAfterItStartedFromADirectoryEvent(t *testing.
 	}
 	fake.events <- procwatch.Event{Kind: procwatch.DirectoryChanged}
 	waitFor(t, "owner registration after a directory event", func() bool { return fake.watchingProcess(*owner) })
-	if !fake.watchingDir(filepath.Join(service.Store.Dir, "watches", strings.ReplaceAll(target.ID, ":", "_"))) {
+	if !fake.watchingDir(filepath.Join(service.Store.dir, "watches", strings.ReplaceAll(target.ID, ":", "_"))) {
 		t.Fatal("the new target directory was not watched")
 	}
 }
@@ -354,7 +354,7 @@ func TestObserverIsIdleWithoutWatches(t *testing.T) {
 	holdJournalLock(t, service.Store)
 	fake := newFakeExitSource()
 	runObserver(t, service, neverSweeps, fake.open)
-	root := filepath.Join(service.Store.Dir, "watches")
+	root := filepath.Join(service.Store.dir, "watches")
 	waitFor(t, "the idle observer to watch the directory", func() bool { return fake.watchingDir(root) })
 	time.Sleep(100 * time.Millisecond)
 	fake.mu.Lock()
@@ -363,7 +363,7 @@ func TestObserverIsIdleWithoutWatches(t *testing.T) {
 	if registered != 0 {
 		t.Fatalf("registered %d processes with no watches", registered)
 	}
-	if _, err := os.Lstat(filepath.Join(service.Store.Dir, observerStampName)); !os.IsNotExist(err) {
+	if _, err := os.Lstat(filepath.Join(service.Store.dir, observerStampName)); !os.IsNotExist(err) {
 		t.Fatal("the observer wrote the sweep stamp without sweeping", err)
 	}
 }
@@ -381,7 +381,7 @@ func TestObserverScanDoesNotNeedTheJournalLock(t *testing.T) {
 
 func TestObserverClaimsASweepOncePerHalfIntervalAcrossServers(t *testing.T) {
 	store := fixtureStore(t)
-	if err := privateDir(store.Dir); err != nil {
+	if err := privateDir(store.dir); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now()
@@ -395,7 +395,7 @@ func TestObserverClaimsASweepOncePerHalfIntervalAcrossServers(t *testing.T) {
 	if !store.claimObservation(interval, now.Add(interval)) {
 		t.Fatal("no server swept after the interval")
 	}
-	stamp := filepath.Join(store.Dir, observerStampName)
+	stamp := filepath.Join(store.dir, observerStampName)
 	info, err := os.Stat(stamp)
 	if err != nil || info.Mode().Perm() != 0600 {
 		t.Fatalf("stamp: %v %v", info, err)
@@ -483,7 +483,7 @@ func TestObserverSkipsUntrustedEntriesAndStillNoticesOthers(t *testing.T) {
 	counter := &noticeCounter{}
 	service.Deliver = counter.hook
 	watcher, _, _ := exitedWatchedTarget(t, service)
-	root := filepath.Join(service.Store.Dir, "watches")
+	root := filepath.Join(service.Store.dir, "watches")
 
 	corrupt, _ := register(t, service.Store, "cursor")
 	writeTestWatch(t, service.Store, watcher.ID, corrupt.ID, time.Now().Add(time.Hour))
@@ -568,7 +568,7 @@ func TestObserverPanicStopsOnlyTheObserver(t *testing.T) {
 func TestPruneKeepsObserverStamp(t *testing.T) {
 	store := fixtureStore(t)
 	register(t, store, "codex")
-	path := filepath.Join(store.Dir, observerStampName)
+	path := filepath.Join(store.dir, observerStampName)
 	if err := os.WriteFile(path, []byte("stamp fixture"), 0600); err != nil {
 		t.Fatal(err)
 	}

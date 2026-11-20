@@ -43,16 +43,16 @@ exit 17
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir, "messages", id+".json"), raw); err != nil {
+	if err := journal.WriteAtomic(filepath.Join(store.Dir(), "messages", id+".json"), raw); err != nil {
 		t.Fatal(err)
 	}
-	capabilityCLIOK(t, binary, store.Dir, "add", "reader", "--exec", executable, "--", result, session.ID, id)
-	capabilityCLIOK(t, binary, store.Dir, "configure", "reader", "--scope", "all")
-	capabilityCLIOK(t, binary, store.Dir, "grant", "reader", "--status", "--read", session.ID)
-	capabilityCLIOK(t, binary, store.Dir, "enable", "reader")
+	capabilityCLIOK(t, binary, store.Dir(), "add", "reader", "--exec", executable, "--", result, session.ID, id)
+	capabilityCLIOK(t, binary, store.Dir(), "configure", "reader", "--scope", "all")
+	capabilityCLIOK(t, binary, store.Dir(), "grant", "reader", "--status", "--read", session.ID)
+	capabilityCLIOK(t, binary, store.Dir(), "enable", "reader")
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, binary, "--state", store.Dir, "--log-level", "debug", "plugins", "run", "reader")
+	cmd := exec.CommandContext(ctx, binary, "--state", store.Dir(), "--log-level", "debug", "plugins", "run", "reader")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err == nil {
@@ -62,7 +62,7 @@ exit 17
 		t.Fatal("actual CLI exposed child-echoed body")
 	}
 	assertCLIReadReceipt(t, result, body)
-	audit, err := os.ReadFile(filepath.Join(store.Dir, "plugin-read-audit.json"))
+	audit, err := os.ReadFile(filepath.Join(store.Dir(), "plugin-read-audit.json"))
 	if err != nil || bytes.Contains(audit, []byte(body)) {
 		t.Fatal("CLI audit absent or leaked", err)
 	}

@@ -15,7 +15,7 @@ import (
 func limitSnapshot(t *testing.T, store Store) map[string]string {
 	t.Helper()
 	files := map[string]string{}
-	err := filepath.WalkDir(store.Dir, func(path string, entry os.DirEntry, err error) error {
+	err := filepath.WalkDir(store.dir, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -42,7 +42,7 @@ func TestConfiguredBodyRefusalHasNoEffects(t *testing.T) {
 			if err := store.Update(to.ID, state, false); err != nil {
 				t.Fatal(err)
 			}
-			store.MaxBodyBytes = 4
+			store.maxBodyBytes = 4
 			var delivered []string
 			service := approvalService(t, store, &delivered)
 			before := limitSnapshot(t, store)
@@ -67,7 +67,7 @@ func TestConfiguredBodyDurableSendAndHistory(t *testing.T) {
 	if err != nil || len(delivered) != 1 {
 		t.Fatal("initial send", err)
 	}
-	service.Store.MaxBodyBytes = 4
+	service.Store.maxBodyBytes = 4
 	before := limitSnapshot(t, store)
 	again, err := service.Send(t.Context(), request)
 	if err != nil || again.ID != first.ID || again.Status != first.Status || len(delivered) != 1 {
@@ -99,7 +99,7 @@ func TestConfiguredBodyReplyRefusalAndRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := ReplyRequest{Actor: to.ID, Capability: toKey, MessageID: parent.ID, Body: "12345678"}
-	service.Store.MaxBodyBytes = 4
+	service.Store.maxBodyBytes = 4
 	before := limitSnapshot(t, store)
 	if _, err := service.Reply(t.Context(), request); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 		t.Fatal("oversize reply accepted", err)
@@ -107,12 +107,12 @@ func TestConfiguredBodyReplyRefusalAndRetry(t *testing.T) {
 	if !reflect.DeepEqual(before, limitSnapshot(t, store)) || len(delivered) != 1 {
 		t.Fatal("oversize reply ACKed, charged quota, reserved or wrote a marker")
 	}
-	service.Store.MaxBodyBytes = model.MaxMessageBodyBytes
+	service.Store.maxBodyBytes = model.MaxMessageBodyBytes
 	first, err := service.Reply(t.Context(), request)
 	if err != nil || len(delivered) != 2 {
 		t.Fatal("initial reply", err)
 	}
-	service.Store.MaxBodyBytes = 4
+	service.Store.maxBodyBytes = 4
 	before = limitSnapshot(t, store)
 	again, err := service.Reply(t.Context(), request)
 	if err != nil || again.ID != first.ID || len(delivered) != 2 {
@@ -136,11 +136,11 @@ func TestConfiguredBodyQueueReleaseKeepsHardLimit(t *testing.T) {
 	if err != nil || !queued.Held || len(delivered) != 0 {
 		t.Fatal("initial queue reservation", err)
 	}
-	marker := filepath.Join(store.Dir, openMessagesDir, queued.ID)
+	marker := filepath.Join(store.dir, openMessagesDir, queued.ID)
 	if _, err := os.Stat(marker); err != nil {
 		t.Fatal("queued message has no marker", err)
 	}
-	service.Store.MaxBodyBytes = 4
+	service.Store.maxBodyBytes = 4
 	if _, err := service.Send(t.Context(), request); err != nil {
 		t.Fatal("lower cap rejected a durable hold", err)
 	}
@@ -162,9 +162,9 @@ func TestConfiguredBodyDifferingSnapshots(t *testing.T) {
 		calls.Add(1)
 		return model.NewReceipt(model.StatusSubmitted)
 	}}
-	high.Store.MaxBodyBytes = 8
+	high.Store.maxBodyBytes = 8
 	low := high
-	low.Store.MaxBodyBytes = 4
+	low.Store.maxBodyBytes = 4
 	results := make(chan error, 2)
 	for _, service := range []Service{high, low} {
 		go func(service Service) {

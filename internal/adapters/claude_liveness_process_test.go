@@ -49,7 +49,7 @@ func TestClaudeLivenessAfterKillAndCleanExit(t *testing.T) {
 	t.Setenv("PATH", tools+":/usr/bin:/bin")
 	for _, clean := range []bool{false, true} {
 		t.Run(map[bool]string{false: "kill", true: "clean"}[clean], func(t *testing.T) {
-			store := bus.Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: adapters.Builtin()}
+			store := bus.StoreAt(filepath.Join(t.TempDir(), "state"), bus.WithRegistry(adapters.Builtin()))
 			sender, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000001", "/workspace", nil)
 			if err != nil {
 				t.Fatal(err)

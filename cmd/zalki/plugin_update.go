@@ -59,7 +59,7 @@ func newPluginUpdateCommand(opts *commandOptions) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				store = bus.Store{Dir: paths.StateDir.Value}
+				store = bus.StoreAt(paths.StateDir.Value)
 			} else {
 				service, err := opts.service()
 				if err != nil {

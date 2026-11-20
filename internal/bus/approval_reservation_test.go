@@ -17,7 +17,7 @@ func TestHeldReservationUnreadableFailureKeepsCountUntilRecount(t *testing.T) {
 	}
 	// A directory at the final filename refuses the write and makes the hold
 	// inventory unreadable. Error alone no longer proves that decrement is safe.
-	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
+	path := filepath.Join(store.dir, "messages", msg.ID+".json")
 	if err := os.Mkdir(path, 0700); err != nil {
 		t.Fatal(err)
 	}

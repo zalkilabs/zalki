@@ -80,8 +80,8 @@ func assertPromptInitializationParity(t *testing.T, policy string) {
 func runRegistrationPublication(t *testing.T, native, event string) (Store, *registrationPublication) {
 	t.Helper()
 	store := fixtureStore(t)
-	publication := &registrationPublication{dir: store.Dir, actor: "cursor:" + native}
-	store.Logger = slog.New(publication)
+	publication := &registrationPublication{dir: store.dir, actor: "cursor:" + native}
+	store.logger = slog.New(publication)
 	input := `{"conversation_id":"` + native + `","session_id":"` + native + `","cwd":"/workspace","session_title":"First publication","hook_event_name":"` + event + `"}`
 	if err := (&Service{Store: store}).Hook(t.Context(), "cursor", strings.NewReader(input), &bytes.Buffer{}); err != nil {
 		t.Fatal(err)

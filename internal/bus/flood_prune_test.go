@@ -45,7 +45,7 @@ func TestPruneDeletesOrphanFloodWithMatchingDryRun(t *testing.T) {
 		before[v.ID] = "invalid quota"
 	}
 	formerAdapter := "removed-client_" + newID() + ".json"
-	formerPath := filepath.Join(store.Dir, "flood", formerAdapter)
+	formerPath := filepath.Join(store.dir, "flood", formerAdapter)
 	if err := os.WriteFile(formerPath, []byte("old quota"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -97,10 +97,10 @@ func TestPruneDeletesOrphanFloodWithMatchingDryRun(t *testing.T) {
 
 func TestPruneFloodLeavesUnrelatedFilesAndSymlinks(t *testing.T) {
 	store := fixtureStore(t)
-	if err := store.locked(func() error { return privateDir(filepath.Join(store.Dir, "flood")) }); err != nil {
+	if err := store.locked(func() error { return privateDir(filepath.Join(store.dir, "flood")) }); err != nil {
 		t.Fatal(err)
 	}
-	dir := filepath.Join(store.Dir, "flood")
+	dir := filepath.Join(store.dir, "flood")
 	for _, base := range []string{"notes.json", "cursor_not-a-uuid.json"} {
 		if err := os.WriteFile(filepath.Join(dir, base), []byte("keep"), 0600); err != nil {
 			t.Fatal(err)

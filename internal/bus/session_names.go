@@ -12,7 +12,7 @@ func (s Store) nativeNames(sessions []model.Session) {
 	indexes := map[string]map[string]string{}
 	for i := range sessions {
 		v := &sessions[i]
-		adapter, err := s.registry().Lookup(v.Kind)
+		adapter, err := s.registry.Lookup(v.Kind)
 		if err != nil {
 			continue
 		}
@@ -35,7 +35,7 @@ func (s Store) resolve(destination string) (model.Session, error) {
 	}
 	kind, name := "", destination
 	if prefix, rest, ok := strings.Cut(destination, ":"); ok {
-		if _, err := s.registry().Lookup(prefix); err == nil {
+		if _, err := s.registry.Lookup(prefix); err == nil {
 			kind, name = prefix, rest
 		}
 	}

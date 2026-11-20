@@ -126,7 +126,7 @@ func TestPluginInboxCrashAfterAckIsRepaired(t *testing.T) {
 	x := newInboxReadFixture(t, "")
 	// The record ACK is written, then the process dies before the index write.
 	if err := x.f.write(func(view bus.JournalView) error {
-		return view.AckPluginInboxMessage(x.f.store.Dir, x.status.ID, x.message.ID)
+		return view.AckPluginInboxMessage(x.f.store.Dir(), x.status.ID, x.message.ID)
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +209,7 @@ func (x pluginSendFixture) send(client, to, body string) (model.Message, error) 
 
 func (x pluginSendFixture) messageCount(t *testing.T) int {
 	t.Helper()
-	entries, err := os.ReadDir(filepath.Join(x.store.Dir, "messages"))
+	entries, err := os.ReadDir(filepath.Join(x.store.Dir(), "messages"))
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
@@ -286,7 +286,7 @@ func TestPluginSendFollowsApprovalAndRetirement(t *testing.T) {
 
 func TestPluginSendObeysTheConfiguredBodyLimit(t *testing.T) {
 	x := newPluginSendFixture(t)
-	x.service.Store.MaxBodyBytes = 4
+	x.service.Store = x.service.Store.With(bus.WithMaxBodyBytes(4))
 	if _, err := x.send("big", x.granted.ID, "12345"); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 		t.Fatalf("body over the configured limit: %v", err)
 	}
@@ -297,7 +297,7 @@ func TestPluginSendObeysTheConfiguredBodyLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	x.service.Store.MaxBodyBytes = 2 // like send_message, a retry returns the stored record
+	x.service.Store = x.service.Store.With(bus.WithMaxBodyBytes(2)) // like send_message, a retry returns the stored record
 	if again, err := x.send("fits", x.granted.ID, "1234"); err != nil || again.ID != m.ID {
 		t.Fatalf("retry after the limit was lowered: %+v %v", again, err)
 	}

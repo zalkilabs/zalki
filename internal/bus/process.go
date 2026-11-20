@@ -31,7 +31,7 @@ func probeProcess(ref *model.ProcessRef, read func(int) (procwatch.Info, error))
 
 // Only trusted hooks supply process ownership; peer/model PIDs are not accepted.
 func (s Store) nativeOwner(kind string) *model.ProcessRef {
-	adapter, err := s.registry().Lookup(kind)
+	adapter, err := s.registry.Lookup(kind)
 	if err != nil {
 		return nil
 	}

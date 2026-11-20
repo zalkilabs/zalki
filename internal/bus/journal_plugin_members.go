@@ -122,7 +122,7 @@ func projectPluginMember(view JournalView, store Store, cache *pluginMemberCache
 	projection.Guard = guardPluginMember(entry)
 	projection.Digest = hex.EncodeToString(entry.digest[:])
 	if !entry.live {
-		projection.Retirement = currentPluginRetirement(store.Dir, id, plugin, entry)
+		projection.Retirement = currentPluginRetirement(store.dir, id, plugin, entry)
 		return projection, nil
 	}
 	if !entry.record.State.Valid() || entry.record.State == model.StateRetired || !model.IsCanonicalUUID(entry.record.Generation) {

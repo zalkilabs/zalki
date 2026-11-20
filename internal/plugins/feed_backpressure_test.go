@@ -33,7 +33,7 @@ func TestPlainFeedPipeBackpressureReleasesStoreAndCancels(t *testing.T) {
 	eventually(t, func() bool {
 		return pluginGoroutineContains("plugins.(*v2Host).writeFeedPart", "internal/poll.(*FD).Write")
 	})
-	fd, err := journal.OpenLockFile(filepath.Join(store.Dir, "lock"), false)
+	fd, err := journal.OpenLockFile(filepath.Join(store.Dir(), "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -36,7 +36,7 @@ import (
 // newSyncObserver is an observer for one service, over the given source.
 func newSyncObserver(service Service, source procwatch.Source) *exitObserver {
 	return &exitObserver{
-		service: &service, root: filepath.Join(service.Store.Dir, "watches"), source: source,
+		service: &service, root: filepath.Join(service.Store.dir, "watches"), source: source,
 		procs: map[procwatch.Identity]struct{}{}, owners: map[procwatch.Identity][]string{},
 	}
 }

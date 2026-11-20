@@ -13,7 +13,7 @@ import (
 
 // saveSessionFor saves a session; cause is recorded on the event, if any.
 func saveSessionFor(s Store, next model.Session, cause model.EventCause) error {
-	return saveSessionWith(s, next, cause, commitWriter{dir: s.Dir})
+	return saveSessionWith(s, next, cause, commitWriter{dir: s.dir})
 }
 
 func saveSessionWith(s Store, next model.Session, cause model.EventCause, writer commitWriter) error {
@@ -21,8 +21,8 @@ func saveSessionWith(s Store, next model.Session, cause model.EventCause, writer
 	if err != nil {
 		return err
 	}
-	invalidatePluginMember(s.Dir, record.value.ID)
-	discardPluginRetirement(s.Dir, record.value.ID)
+	invalidatePluginMember(s.dir, record.value.ID)
+	discardPluginRetirement(s.dir, record.value.ID)
 	prior, err := journal.ReadBytes(record.path, maxStateFileBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		prior, err = nil, nil
@@ -59,7 +59,7 @@ func saveSessionWith(s Store, next model.Session, cause model.EventCause, writer
 	if err := writer.log().Commit(batch); err != nil {
 		return fmt.Errorf("session commit failed or may require recovery: %w", err)
 	}
-	rememberPluginRetirement(s.Dir, prior, record.value, event, batch.Puts[0])
+	rememberPluginRetirement(s.dir, prior, record.value, event, batch.Puts[0])
 	return nil
 }
 
@@ -91,7 +91,7 @@ func orderEventDirectory(path string) error { return journal.OrderDirectory(path
 
 func ensureEventDirectories(s Store, orderDir func(string) error, initialized bool) error {
 	for _, relative := range []string{"commits", "events", "events/records"} {
-		path := filepath.Join(s.Dir, relative)
+		path := filepath.Join(s.dir, relative)
 		if initialized {
 			if _, err := os.Lstat(path); err != nil {
 				return err
@@ -106,27 +106,27 @@ func ensureEventDirectories(s Store, orderDir func(string) error, initialized bo
 	}
 	// Parent namespace links must precede the fully durable intent. Empty child
 	// directories need no full sync; a failed attempt repeats these barriers.
-	if err := orderDir(filepath.Join(s.Dir, "events")); err != nil {
+	if err := orderDir(filepath.Join(s.dir, "events")); err != nil {
 		return err
 	}
-	return orderDir(s.Dir)
+	return orderDir(s.dir)
 }
 
 func eventStorePresent(s Store) bool {
-	_, err := os.Lstat(filepath.Join(s.Dir, "commits"))
+	_, err := os.Lstat(filepath.Join(s.dir, "commits"))
 	return !errors.Is(err, os.ErrNotExist)
 }
 
 func recoverEventCommit(s Store) error {
-	_, err := os.Lstat(filepath.Join(s.Dir, "commits", "pending.json"))
+	_, err := os.Lstat(filepath.Join(s.dir, "commits", "pending.json"))
 	if errors.Is(err, os.ErrNotExist) {
 		if !eventStorePresent(s) {
 			return nil
 		}
-		return (commitWriter{dir: s.Dir}).recover()
+		return (commitWriter{dir: s.dir}).recover()
 	}
 	if err != nil {
 		return err
 	}
-	return (commitWriter{dir: s.Dir}).recover()
+	return (commitWriter{dir: s.dir}).recover()
 }

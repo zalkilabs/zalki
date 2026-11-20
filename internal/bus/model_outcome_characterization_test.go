@@ -37,7 +37,7 @@ func TestModelLateWakeReceiptKeepsItsOwnStatus(t *testing.T) {
 	}
 	const wantReceipt = `{"at":"late","status":"wake_hint_written","code":"unavailable","error":"wake detail","output":"native output"}`
 	requireModelJSON(t, msg.Receipt, wantReceipt)
-	stored := readJSONFile(t, filepath.Join(store.Dir, "messages", id+".json"))
+	stored := readJSONFile(t, filepath.Join(store.Dir(), "messages", id+".json"))
 	if stored["status"] != "hook_context_emitted" {
 		t.Fatalf("stored message status=%v", stored["status"])
 	}
@@ -96,7 +96,7 @@ func TestModelNativeReleaseClearsReceiptBeforeTransport(t *testing.T) {
 		if msg.Held || msg.Status != "attempting" || msg.Receipt != nil {
 			t.Fatalf("native transport received the held receipt: %+v", msg)
 		}
-		stored := readJSONFile(t, filepath.Join(service.Store.Dir, "messages", msg.ID+".json"))
+		stored := readJSONFile(t, filepath.Join(service.Store.Dir(), "messages", msg.ID+".json"))
 		if _, present := stored["receipt"]; present {
 			t.Fatal("native release did not clear the durable held receipt before transport")
 		}
@@ -104,7 +104,7 @@ func TestModelNativeReleaseClearsReceiptBeforeTransport(t *testing.T) {
 		return model.NewReceipt(model.StatusSubmitted)
 	})
 	releaseModelHeld(t, service, to)
-	stored := readJSONFile(t, filepath.Join(service.Store.Dir, "messages", held.ID+".json"))
+	stored := readJSONFile(t, filepath.Join(service.Store.Dir(), "messages", held.ID+".json"))
 	if _, present := stored["held"]; present {
 		t.Fatal("released message kept its persisted held flag")
 	}
@@ -116,7 +116,7 @@ func TestModelNativeReleaseClearsReceiptBeforeTransport(t *testing.T) {
 func TestModelHookReleaseRebuildsPendingReceipt(t *testing.T) {
 	service, target, to, held := newModelHeldFixture(t, true)
 	releaseModelHeld(t, service, to)
-	stored := readJSONFile(t, filepath.Join(service.Store.Dir, "messages", held.ID+".json"))
+	stored := readJSONFile(t, filepath.Join(service.Store.Dir(), "messages", held.ID+".json"))
 	if _, present := stored["held"]; present {
 		t.Fatal("released message kept its persisted held flag")
 	}

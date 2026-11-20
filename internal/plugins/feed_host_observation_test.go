@@ -33,7 +33,7 @@ type hostFeedCheckpoint struct {
 
 func readHostFeedCheckpoint(t *testing.T, store bus.Store, name string) (hostFeedCheckpoint, bool) {
 	t.Helper()
-	raw, err := journal.ReadBytes(filepath.Join(store.Dir, "plugins", name+".feed-state.json"), 524288)
+	raw, err := journal.ReadBytes(filepath.Join(store.Dir(), "plugins", name+".feed-state.json"), 524288)
 	if os.IsNotExist(err) {
 		return hostFeedCheckpoint{}, false
 	}

@@ -90,7 +90,7 @@ func TestPersistedJournalLayout(t *testing.T) {
 			store := newStore(t, alpha, beta)
 			from, to := register(t, store, "alpha"), register(t, store, "beta")
 			test.run(t, alpha, beta, bus.Service{Store: store}, from, to)
-			got := describeJournal(t, store.Dir, test.prefixes, test.skip...)
+			got := describeJournal(t, store.Dir(), test.prefixes, test.skip...)
 			if want := layoutGolden[test.name]; got != want {
 				t.Errorf("persisted journal changed.\n--- got ---\n%s--- want ---\n%s", got, want)
 			}

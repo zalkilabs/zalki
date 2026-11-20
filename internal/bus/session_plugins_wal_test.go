@@ -27,7 +27,7 @@ func assertSessionPluginWALCut(t *testing.T, kind string, cut int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writer := commitWriter{dir: s.Dir}
+	writer := commitWriter{dir: s.dir}
 	batch, err := writer.prepare(prior, next, event)
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func assertSessionPluginWALCut(t *testing.T, kind string, cut int) {
 	}
 	stageCommit(t, commitFixture{writer: writer}, batch)
 	for _, put := range batch.Puts[:cut] {
-		if err := journal.WriteAtomic(filepath.Join(s.Dir, put.Path), put.Data); err != nil {
+		if err := journal.WriteAtomic(filepath.Join(s.dir, put.Path), put.Data); err != nil {
 			t.Fatal(err)
 		}
 	}

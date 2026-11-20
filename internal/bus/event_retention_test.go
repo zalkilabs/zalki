@@ -15,7 +15,7 @@ func retainedEventFixture(t *testing.T) (Store, model.Session, commitWriter) {
 	t.Helper()
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")
-	writer := commitWriter{dir: store.Dir, limit: 2}
+	writer := commitWriter{dir: store.dir, limit: 2}
 	for range 2 {
 		testCoveredUpdate(t, store, session.ID, writer)
 	}
@@ -62,11 +62,11 @@ func TestEventRetentionRecoversEveryMaterializationBoundary(t *testing.T) {
 			if metadata != expected {
 				t.Fatalf("recovered retention = %+v", metadata)
 			}
-			got := readCommitFile(t, filepath.Join(store.Dir, batch.Puts[1].Path))
+			got := readCommitFile(t, filepath.Join(store.dir, batch.Puts[1].Path))
 			if !bytes.Equal(got, batch.Puts[1].Data) {
 				t.Fatal("recovery changed latest event")
 			}
-			if _, err := os.Stat(filepath.Join(store.Dir, batch.Deletes[0].Path)); !os.IsNotExist(err) {
+			if _, err := os.Stat(filepath.Join(store.dir, batch.Deletes[0].Path)); !os.IsNotExist(err) {
 				t.Fatalf("old record remains: %v", err)
 			}
 		})
@@ -77,12 +77,12 @@ func materializeRetentionCut(t *testing.T, store Store, batch journal.Batch, com
 	t.Helper()
 	puts := min(completed, len(batch.Puts))
 	for _, put := range batch.Puts[:puts] {
-		if err := journal.WriteAtomic(filepath.Join(store.Dir, put.Path), put.Data); err != nil {
+		if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if completed > len(batch.Puts) {
-		if err := os.Remove(filepath.Join(store.Dir, batch.Deletes[0].Path)); err != nil {
+		if err := os.Remove(filepath.Join(store.dir, batch.Deletes[0].Path)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -100,12 +100,12 @@ func assertInvalidOldestDoesNotWrite(t *testing.T, fault string) {
 	t.Helper()
 	store, session, writer := retainedEventFixture(t)
 	metadata := eventState(t, store)
-	oldest := filepath.Join(store.Dir, eventRecordPath(metadata.First))
+	oldest := filepath.Join(store.dir, eventRecordPath(metadata.First))
 	if err := os.Remove(oldest); err != nil {
 		t.Fatal(err)
 	}
 	if fault == "symlink" {
-		if err := os.Symlink(filepath.Join(store.Dir, eventRecordPath(metadata.First+1)), oldest); err != nil {
+		if err := os.Symlink(filepath.Join(store.dir, eventRecordPath(metadata.First+1)), oldest); err != nil {
 			t.Fatal(err)
 		}
 	} else if err := os.WriteFile(oldest, []byte("{"), 0600); err != nil {

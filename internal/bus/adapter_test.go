@@ -99,7 +99,7 @@ func TestNewAdapterUsesCoreWithoutAgentSpecificBranches(t *testing.T) {
 				t.Fatal(err)
 			}
 			store := fixtureStore(t)
-			store.Registry = registry
+			store.registry = registry
 			from, fromKey, err := store.Register(adapter.kind, newID(), "/workspace", nil)
 			if err != nil {
 				t.Fatal(err)

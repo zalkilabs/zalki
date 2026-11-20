@@ -9,7 +9,7 @@ import (
 
 func fixtureStore(t *testing.T) Store {
 	t.Helper()
-	return Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: testRegistry()}
+	return Store{dir: filepath.Join(t.TempDir(), "state"), registry: testRegistry()}
 }
 
 func register(t *testing.T, store Store, kind string) (model.Session, string) {

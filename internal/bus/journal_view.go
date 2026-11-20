@@ -70,7 +70,7 @@ func (v JournalView) acquire(writeRoot *string) (Store, func(), error) {
 	if v.scope.store == nil {
 		return Store{}, nil, errJournalViewInactive
 	}
-	if writeRoot != nil && (!v.scope.writable || v.scope.store.Dir != *writeRoot) {
+	if writeRoot != nil && (!v.scope.writable || v.scope.store.dir != *writeRoot) {
 		return Store{}, nil, errJournalViewInactive
 	}
 	v.scope.active.Add(1)
@@ -115,7 +115,7 @@ type EventWindow struct {
 // EventWindow reads and validates the current event metadata.
 func (v JournalView) EventWindow() (window EventWindow, err error) {
 	err = v.use(func(store Store) error {
-		head, raw, err := (commitWriter{dir: store.Dir}).readMetadata()
+		head, raw, err := (commitWriter{dir: store.dir}).readMetadata()
 		if raw == nil {
 			head.Epoch = ""
 		}
@@ -128,7 +128,7 @@ func (v JournalView) EventWindow() (window EventWindow, err error) {
 // EventAt verifies the stored event and its expected epoch and sequence.
 func (v JournalView) EventAt(epoch string, sequence uint64) (event model.Event, err error) {
 	err = v.use(func(store Store) error {
-		data, err := readScopedPluginBytes(store, filepath.Join(store.Dir, eventRecordPath(sequence)), maxEventBytes)
+		data, err := readScopedPluginBytes(store, filepath.Join(store.dir, eventRecordPath(sequence)), maxEventBytes)
 		if err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func currentMessage(store Store, id string) (model.Message, int, error) {
 	if !model.IsCanonicalUUID(id) {
 		return model.Message{}, 0, journal.ErrInvalidFile
 	}
-	raw, err := journal.ReadBytes(filepath.Join(store.Dir, "messages", id+".json"), maxStateFileBytes)
+	raw, err := journal.ReadBytes(filepath.Join(store.dir, "messages", id+".json"), maxStateFileBytes)
 	if err != nil {
 		return model.Message{}, 0, err
 	}

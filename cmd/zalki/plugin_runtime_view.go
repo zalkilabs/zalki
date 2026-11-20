@@ -255,7 +255,7 @@ type doctorBackgroundView struct {
 }
 
 func doctorBackground(cmd *cobra.Command, opts *commandOptions, store bus.Store) doctorBackgroundView {
-	view, launcher := backgroundView(cmd.Context(), newLoginItemTarget(opts, store.Dir))
+	view, launcher := backgroundView(cmd.Context(), newLoginItemTarget(opts, store.Dir()))
 	_, enabled, err := installedPlugins(store)
 	if err != nil {
 		enabled = -1 // unreadable records: the count is unknown

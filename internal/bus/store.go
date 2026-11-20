@@ -18,23 +18,69 @@ var errJournalRootChanged = model.NewError(model.CodeConflict, "Zalki state chan
 var storeLockOpened = func() {}
 
 type Store struct {
-	PluginDelivery pluginDeliveryCheck
-	Dir            string
-	// Registry is required; NewStore rejects a nil or empty registry.
-	Registry *agent.Registry
-	Logger   *slog.Logger
-	// MaxBodyBytes limits fresh admission. Zero uses the fixed hard ceiling.
-	MaxBodyBytes int
-	// ConfigFile pins the selected settings file in trusted child guidance.
-	ConfigFile string
+	pluginDelivery pluginDeliveryCheck
+	dir            string
+	// registry is required; NewStore rejects a nil or empty registry.
+	registry *agent.Registry
+	logger   *slog.Logger
+	// maxBodyBytes limits fresh admission. Zero uses the fixed hard ceiling.
+	maxBodyBytes int
+	// configFile pins the selected settings file in trusted child guidance.
+	configFile string
 }
 
-// NewStore returns a Store that resolves agent kinds through registry.
-func NewStore(dir string, registry *agent.Registry, logger *slog.Logger) (Store, error) {
+// StoreOption sets one optional part of a Store.
+type StoreOption func(*Store)
+
+// WithRegistry sets the registry that resolves agent kinds.
+func WithRegistry(registry *agent.Registry) StoreOption {
+	return func(s *Store) { s.registry = registry }
+}
+
+// WithLogger sets the logger.
+func WithLogger(logger *slog.Logger) StoreOption { return func(s *Store) { s.logger = logger } }
+
+// WithMaxBodyBytes sets the limit for fresh message bodies. Zero uses the fixed hard ceiling.
+func WithMaxBodyBytes(n int) StoreOption { return func(s *Store) { s.maxBodyBytes = n } }
+
+// WithConfigFile sets the settings file that trusted child guidance names.
+func WithConfigFile(path string) StoreOption { return func(s *Store) { s.configFile = path } }
+
+// WithPluginDelivery sets the check that decides whether a plugin may receive a message.
+func WithPluginDelivery(check pluginDeliveryCheck) StoreOption {
+	return func(s *Store) { s.pluginDelivery = check }
+}
+
+// StoreAt returns a Store for the state directory dir. It does not check the
+// registry: use NewStore when the Store must resolve agent kinds.
+func StoreAt(dir string, opts ...StoreOption) Store {
+	return Store{dir: dir}.With(opts...)
+}
+
+// With returns a copy of the Store with the options applied.
+func (s Store) With(opts ...StoreOption) Store {
+	for _, opt := range opts {
+		opt(&s)
+	}
+	return s
+}
+
+// Dir returns the state directory.
+func (s Store) Dir() string { return s.dir }
+
+// Registry returns the registry that resolves agent kinds.
+func (s Store) Registry() *agent.Registry { return s.registry }
+
+// Logger returns the logger. It may be nil.
+func (s Store) Logger() *slog.Logger { return s.logger }
+
+// NewStore returns a Store that resolves agent kinds through registry. The
+// body limit starts at the model default; options may change it.
+func NewStore(dir string, registry *agent.Registry, logger *slog.Logger, opts ...StoreOption) (Store, error) {
 	if len(registry.Kinds()) == 0 {
 		return Store{}, errors.New("an agent registry with at least one adapter is required")
 	}
-	return Store{Dir: dir, Registry: registry, Logger: logger, MaxBodyBytes: model.MaxMessageBodyBytes}, nil
+	return Store{dir: dir, registry: registry, logger: logger, maxBodyBytes: model.MaxMessageBodyBytes}.With(opts...), nil
 }
 
 func privateDir(path string) error {
@@ -51,15 +97,15 @@ func (s Store) readLocked(fn func() error) error {
 }
 
 func (s Store) locked(fn func() error) error {
-	if err := privateDir(s.Dir); err != nil {
+	if err := privateDir(s.dir); err != nil {
 		return err
 	}
 	for _, dir := range []string{"sessions", "messages", openMessagesDir} {
-		if err := privateDir(filepath.Join(s.Dir, dir)); err != nil {
+		if err := privateDir(filepath.Join(s.dir, dir)); err != nil {
 			return err
 		}
 	}
-	fd, err := journal.OpenLockFile(filepath.Join(s.Dir, "lock"), true)
+	fd, err := journal.OpenLockFile(filepath.Join(s.dir, "lock"), true)
 	if err != nil {
 		return err
 	}
@@ -69,7 +115,7 @@ func (s Store) locked(fn func() error) error {
 		return err
 	}
 	defer journal.Unlock(fd) //nolint:errcheck // Descriptor close also releases the lock.
-	linked, err := journal.Linked(fd, filepath.Join(s.Dir, "lock"))
+	linked, err := journal.Linked(fd, filepath.Join(s.dir, "lock"))
 	if err != nil {
 		return err
 	}

@@ -97,7 +97,7 @@ func (s Store) writeMessage(path string, next model.Message) error {
 	if event.ID == "" {
 		return s.writeRecord(path, next)
 	}
-	writer := commitWriter{dir: s.Dir}
+	writer := commitWriter{dir: s.dir}
 	batch, err := writer.prepareMessage(prior, next, event)
 	if err != nil {
 		return err

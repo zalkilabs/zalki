@@ -63,7 +63,7 @@ func TestPluginOwnerCommandsSayWhatTheyDid(t *testing.T) {
 		{[]string{"grant", "external", "--status", "--receive"}, "Recorded access for external.\n"},
 		{[]string{"revoke", "external"}, "Revoked all access of external; it is disabled.\n"},
 	} {
-		raw, err := pluginOwnerLocal(t, store.Dir, step.args...)
+		raw, err := pluginOwnerLocal(t, store.Dir(), step.args...)
 		if err != nil || string(raw) != step.want {
 			t.Fatalf("%v: got %q, want %q (%v)", step.args, raw, step.want, err)
 		}
@@ -73,7 +73,7 @@ func TestPluginOwnerCommandsSayWhatTheyDid(t *testing.T) {
 func TestPluginInstallBuildFailureShowsRealLines(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	folder := fakeGoFolder(t, `printf '# demo\n./main.go:3:15: undefined: x\n' >&2; exit 1`)
-	output, err := pluginInstallLocal(t, store.Dir, installRawKeys, "y", folder)
+	output, err := pluginInstallLocal(t, store.Dir(), installRawKeys, "y", folder)
 	if err == nil || !strings.Contains(output, "# demo\n./main.go:3:15: undefined: x\n") || strings.Contains(output, `\n`) {
 		t.Fatalf("build output not shown line by line: %v\n%s", err, output)
 	}

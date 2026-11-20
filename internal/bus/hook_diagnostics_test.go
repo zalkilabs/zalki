@@ -40,7 +40,7 @@ func TestHookFailuresIdentifyStageWithoutLoggingInput(t *testing.T) {
 			t.Setenv("ZALKI_CAPTURE_CONTRACTS", "")
 			store := fixtureStore(t)
 			var diagnostic, output bytes.Buffer
-			store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
+			store.logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
 			service := Service{Store: store}
 			if err := service.Hook(t.Context(), "codex", strings.NewReader(test.input), &output); err == nil {
 				t.Fatal("invalid hook input was accepted")
@@ -59,7 +59,7 @@ func TestHookFailuresIdentifyStageWithoutLoggingInput(t *testing.T) {
 			if strings.Contains(diagnostic.String(), private) || strings.Contains(diagnostic.String(), "/fixture/workspace") {
 				t.Fatal("hook content or path reached diagnostics")
 			}
-			files, err := filepath.Glob(filepath.Join(store.Dir, "sessions", "*.json"))
+			files, err := filepath.Glob(filepath.Join(store.dir, "sessions", "*.json"))
 			if err != nil || len(files) != 0 || output.Len() != 0 {
 				t.Fatal("failed hook registered a session or issued startup context")
 			}
@@ -70,7 +70,7 @@ func TestHookFailuresIdentifyStageWithoutLoggingInput(t *testing.T) {
 func TestHookDiagnosticStageRejectsArbitraryText(t *testing.T) {
 	store := fixtureStore(t)
 	var output bytes.Buffer
-	store.Logger = slog.New(slog.NewJSONHandler(&output, nil))
+	store.logger = slog.New(slog.NewJSONHandler(&output, nil))
 	store.logEvent(slog.LevelWarn, "hook.failed", eventData{HookStage: "private-stage-sentinel"})
 	rows := logRows(t, &output)
 	if len(rows) != 1 || rows[0]["hook_stage"] != nil || strings.Contains(output.String(), "private-stage-sentinel") {
@@ -116,12 +116,12 @@ func TestHookAdapterFailuresPreserveStageAndRegistrationBoundary(t *testing.T) {
 			t.Setenv("ZALKI_CAPTURE_CONTRACTS", "")
 			store := fixtureStore(t)
 			var err error
-			store.Registry, err = agent.NewRegistry(hookStageFailureAdapter{stage: stage})
+			store.registry, err = agent.NewRegistry(hookStageFailureAdapter{stage: stage})
 			if err != nil {
 				t.Fatal(err)
 			}
 			var diagnostic bytes.Buffer
-			store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
+			store.logger = slog.New(slog.NewJSONHandler(&diagnostic, nil))
 			id := newID()
 			if stage == "identity" {
 				id = ""
@@ -150,7 +150,7 @@ func TestHookAdapterFailuresPreserveStageAndRegistrationBoundary(t *testing.T) {
 			if failures != 1 || strings.Contains(diagnostic.String(), "private-hook-stage-sentinel") || strings.Contains(diagnostic.String(), "private capability") {
 				t.Fatal("failure diagnostic count or content changed")
 			}
-			files, err := filepath.Glob(filepath.Join(store.Dir, "sessions", "*.json"))
+			files, err := filepath.Glob(filepath.Join(store.dir, "sessions", "*.json"))
 			wantRecords := 0
 			if stage == "startup" || stage == "output" {
 				wantRecords = 1

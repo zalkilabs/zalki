@@ -84,7 +84,7 @@ func (s Store) watchPath(watcher, target string) (string, error) {
 	if _, err := s.sessionPath(target); err != nil {
 		return "", err
 	}
-	return filepath.Join(s.Dir, "watches", strings.ReplaceAll(target, ":", "_"), strings.ReplaceAll(watcher, ":", "_")+".json"), nil
+	return filepath.Join(s.dir, "watches", strings.ReplaceAll(target, ":", "_"), strings.ReplaceAll(watcher, ":", "_")+".json"), nil
 }
 
 func (s Store) saveWatch(v Watch) error {
@@ -117,7 +117,7 @@ func (s Store) consumeWatchesLocked(target string, asOf time.Time) ([]Watch, err
 	if _, err := s.sessionPath(target); err != nil {
 		return nil, err
 	}
-	dir := filepath.Join(s.Dir, "watches", strings.ReplaceAll(target, ":", "_"))
+	dir := filepath.Join(s.dir, "watches", strings.ReplaceAll(target, ":", "_"))
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil

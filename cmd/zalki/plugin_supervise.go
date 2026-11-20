@@ -280,7 +280,7 @@ func (s *supervisor) readSnapshot(name string) (pluginfeed.PluginFeedStatus, err
 	if s.snapshot != nil {
 		return s.snapshot(name)
 	}
-	return pluginfeed.NewPluginFeed(bus.Store{Dir: s.state}, name).PluginSnapshot()
+	return pluginfeed.NewPluginFeed(bus.StoreAt(s.state), name).PluginSnapshot()
 }
 
 // run is one event loop: host events, one 5-second poll, and a wake-up at

@@ -34,7 +34,7 @@ func signalFixture(t *testing.T) (pluginfeed.PluginFeed, string, string) {
 		t.Fatal(err)
 	}
 	feed := pluginfeed.NewPluginFeed(store, "signal-child")
-	data := filepath.Join(store.Dir, "plugins", "signal-child.data")
+	data := filepath.Join(store.Dir(), "plugins", "signal-child.data")
 	if err := feed.AddExternalPlugin(binary, []string{"host-fake-child"}); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func signalFixture(t *testing.T) (pluginfeed.PluginFeed, string, string) {
 	if err := os.WriteFile(filepath.Join(data, ".child-mode"), []byte("cleanup-eof"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	return feed, store.Dir, data
+	return feed, store.Dir(), data
 }
 
 func startSignalFixtureHost(t *testing.T) *signalFixtureHost {

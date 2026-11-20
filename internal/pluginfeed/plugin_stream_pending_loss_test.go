@@ -34,7 +34,7 @@ func checkAttemptedContinuationLoss(t *testing.T, kind, reason string) {
 	} else {
 		head := eventState(t, feed.store)
 		head.Epoch = model.NewUUID()
-		if err := writeJSON(filepath.Join(feed.store.Dir, eventMetaPath), head); err != nil {
+		if err := writeJSON(filepath.Join(feed.store.Dir(), eventMetaPath), head); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -79,7 +79,7 @@ func TestStreamPreparedHistoryCannotUseAttemptedContinuation(t *testing.T) {
 	}
 	head := eventState(t, feed.store)
 	head.Epoch = model.NewUUID()
-	if err := writeJSON(filepath.Join(feed.store.Dir, eventMetaPath), head); err != nil {
+	if err := writeJSON(filepath.Join(feed.store.Dir(), eventMetaPath), head); err != nil {
 		t.Fatal(err)
 	}
 	restarted := NewPluginFeed(feed.store, feed.name)

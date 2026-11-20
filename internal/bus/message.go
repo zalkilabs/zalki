@@ -15,7 +15,7 @@ func (s Store) message(id string) (model.Message, error) {
 	var msg model.Message
 	id, err := model.UUID(id)
 	if err == nil {
-		err = readRecord(filepath.Join(s.Dir, "messages", id+".json"), &msg, &msg.Schema)
+		err = readRecord(filepath.Join(s.dir, "messages", id+".json"), &msg, &msg.Schema)
 	}
 	if err == nil && msg.ID != id {
 		err = model.NewError(model.CodeInvalidIdentity, "message file identity mismatch")
@@ -27,7 +27,7 @@ func (s Store) message(id string) (model.Message, error) {
 // The caller holds the journal lock and chooses whether a read error is fatal,
 // ignored, or reported. Exact-ID reads do not use this scan.
 func (s Store) eachMessage(visit func(id string, message model.Message, readErr error) error) error {
-	files, err := filepath.Glob(filepath.Join(s.Dir, "messages", "*.json"))
+	files, err := filepath.Glob(filepath.Join(s.dir, "messages", "*.json"))
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (s Store) saveMessageRecord(v model.Message) error {
 			return err
 		}
 	}
-	if err := s.writeMessage(filepath.Join(s.Dir, "messages", v.ID+".json"), v); err != nil {
+	if err := s.writeMessage(filepath.Join(s.dir, "messages", v.ID+".json"), v); err != nil {
 		return err
 	}
 	if !open {
@@ -123,7 +123,7 @@ func (s Store) prepareMessage(request SendRequest, persist bool) (message model.
 	if !errors.Is(err, os.ErrNotExist) {
 		return message, target, false, err
 	}
-	if err := checkAdmissionBody(request.Body, s.MaxBodyBytes); err != nil {
+	if err := checkAdmissionBody(request.Body, s.maxBodyBytes); err != nil {
 		return message, target, false, err
 	}
 	return s.reserveNewMessage(sender, request, persist)
@@ -208,7 +208,7 @@ func prepareReservation(s Store, message *model.Message, target model.Session) e
 func (s Store) outgoingMessage(sender, target model.Session, id, body, replyTo string) (model.Message, error) {
 	senders := []model.Session{sender}
 	s.nativeNames(senders)
-	adapter, err := s.registry().Lookup(sender.Kind)
+	adapter, err := s.registry.Lookup(sender.Kind)
 	if err != nil {
 		return model.Message{}, err
 	}

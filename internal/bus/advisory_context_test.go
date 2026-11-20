@@ -51,7 +51,7 @@ printf 'client 0.163.0\n'
 		t.Fatal(err)
 	}
 	store := fixtureStore(t)
-	store.Registry = registry
+	store.registry = registry
 	return advisoryFixture{store: store, path: path, root: root, captures: captures}
 }
 

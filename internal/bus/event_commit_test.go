@@ -15,7 +15,7 @@ import (
 
 func eventState(t *testing.T, store Store) eventMetadata {
 	t.Helper()
-	metadata, _, err := (commitWriter{dir: store.Dir}).readMetadata()
+	metadata, _, err := (commitWriter{dir: store.dir}).readMetadata()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestEventUpdatePublishesOneCoveredTransition(t *testing.T) {
 	if metadata.Count != 2 || metadata.Last != 2 || metadata.First != 1 {
 		t.Fatalf("metadata = %+v", metadata)
 	}
-	raw := readCommitFile(t, filepath.Join(store.Dir, eventRecordPath(2)))
+	raw := readCommitFile(t, filepath.Join(store.dir, eventRecordPath(2)))
 	var record eventRecord
 	if err := decodeEventJSON(raw, &record); err != nil || record.Event.Session.State != model.StateBusy || record.Event.Session.Previous != model.StateReady {
 		t.Fatalf("event = %+v, %v", record, err)
@@ -68,14 +68,14 @@ func testCoveredUpdate(t *testing.T, store Store, id string, writer commitWriter
 func TestEventRetentionNeverBlocksHealthyFullLog(t *testing.T) {
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")
-	writer := commitWriter{dir: store.Dir, limit: 2}
+	writer := commitWriter{dir: store.dir, limit: 2}
 	for i := uint64(1); i <= 10; i++ {
 		testCoveredUpdate(t, store, session.ID, writer)
 		metadata := eventState(t, store)
 		if metadata.Last != 2*i || metadata.Count > 2 || metadata.Bytes > 2*maxEventBytes {
 			t.Fatalf("unbounded metadata = %+v", metadata)
 		}
-		entries, err := os.ReadDir(filepath.Join(store.Dir, "events", "records"))
+		entries, err := os.ReadDir(filepath.Join(store.dir, "events", "records"))
 		if err != nil || uint64(len(entries)) != metadata.Count {
 			t.Fatalf("record count = %d, %v", len(entries), err)
 		}
@@ -84,7 +84,7 @@ func TestEventRetentionNeverBlocksHealthyFullLog(t *testing.T) {
 	if metadata.First != 19 || metadata.Count != 2 {
 		t.Fatalf("low watermark did not advance: %+v", metadata)
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, eventRecordPath(18))); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(store.dir, eventRecordPath(18))); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("old record remains: %v", err)
 	}
 }
@@ -102,14 +102,14 @@ func stagedLiveCommit(t *testing.T) (Store, model.Session, journal.Batch) {
 	next.State, next.UpdatedAt = model.StateBusy, model.Timestamp()
 	event := model.Event{ID: newID(), Type: "session.state_changed", OccurredAt: next.UpdatedAt, TransactionID: newID(),
 		Session: model.EventSession{ID: next.ID, Generation: next.Generation, Previous: model.StateReady, State: model.StateBusy}}
-	batch, err := (commitWriter{dir: store.Dir}).prepare(before, next, event)
+	batch, err := (commitWriter{dir: store.dir}).prepare(before, next, event)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := ensureEventDirectories(store, orderEventDirectory, false); err != nil {
 		t.Fatal(err)
 	}
-	stageCommit(t, commitFixture{writer: commitWriter{dir: store.Dir}}, batch)
+	stageCommit(t, commitFixture{writer: commitWriter{dir: store.dir}}, batch)
 	return store, session, batch
 }
 
@@ -127,7 +127,7 @@ func assertEventRecoveryCase(t *testing.T, operation string, applied int) {
 	t.Helper()
 	store, session, batch := stagedLiveCommit(t)
 	for _, put := range batch.Puts[:applied] {
-		if err := journal.WriteAtomic(filepath.Join(store.Dir, put.Path), put.Data); err != nil {
+		if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -145,7 +145,7 @@ func assertEventRecoveryCase(t *testing.T, operation string, applied int) {
 	if got := eventState(t, store); got.Count != expectedCount {
 		t.Fatalf("recovery not complete: %+v", got)
 	}
-	got := readCommitFile(t, filepath.Join(store.Dir, batch.Puts[1].Path))
+	got := readCommitFile(t, filepath.Join(store.dir, batch.Puts[1].Path))
 	if !bytes.Equal(got, batch.Puts[1].Data) {
 		t.Fatal("recovery changed saved event ID/bytes")
 	}
@@ -153,7 +153,7 @@ func assertEventRecoveryCase(t *testing.T, operation string, applied int) {
 
 func TestEventMalformedIntentBlocksReadsAndWrites(t *testing.T) {
 	store, session, _ := stagedLiveCommit(t)
-	if err := os.WriteFile(filepath.Join(store.Dir, "commits/pending.json"), []byte("{"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(store.dir, "commits/pending.json"), []byte("{"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	before := journalSnapshot(t, store)

@@ -78,7 +78,7 @@ func assertCanceledPlainHostGap(t *testing.T, store bus.Store, host *v2Host, rea
 	if json.Unmarshal([]byte(firstFrame(t, reader)), &gap) != nil || gap.Gap != "policy" || gap.ID != host.offer.ID {
 		t.Fatal("F_HOST_CANCELED_END_NO_RICH_WIRE")
 	}
-	path := filepath.Join(store.Dir, "plugins", "fake-notifier.feed-state.json")
+	path := filepath.Join(store.Dir(), "plugins", "fake-notifier.feed-state.json")
 	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

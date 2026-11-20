@@ -21,7 +21,7 @@ func allowBoundStateEvent(t *testing.T, store Store, target model.Session, befor
 		t.Fatalf("unexpected bound event count: %+v", metadata)
 	}
 	var record eventRecord
-	raw := readCommitFile(t, filepath.Join(store.Dir, eventRecordPath(metadata.Last)))
+	raw := readCommitFile(t, filepath.Join(store.dir, eventRecordPath(metadata.Last)))
 	if err := decodeEventJSON(raw, &record); err != nil {
 		t.Fatal(err)
 	}
@@ -29,6 +29,6 @@ func allowBoundStateEvent(t *testing.T, store Store, target model.Session, befor
 		t.Fatal("event was not bound to the updated session")
 	}
 	for _, path := range []string{eventRecordPath(metadata.Last), eventMetaPath} {
-		before[path] = string(readCommitFile(t, filepath.Join(store.Dir, path)))
+		before[path] = string(readCommitFile(t, filepath.Join(store.dir, path)))
 	}
 }

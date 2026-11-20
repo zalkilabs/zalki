@@ -149,7 +149,7 @@ func kickstartAfterUpgrade(cmd *cobra.Command, opts *commandOptions) error {
 	if err != nil {
 		return err
 	}
-	target := newLoginItemTarget(opts, service.Store.Dir)
+	target := newLoginItemTarget(opts, service.Store.Dir())
 	if target == nil {
 		return nil
 	}
@@ -201,7 +201,7 @@ func manageConfiguration(opts *commandOptions, binary string, apply bool) (insta
 		return install.Report{}, err
 	}
 	return install.Manage(installDeclarations(opts.registry, opts.snapshot.Paths.ConfigFile.Value), install.Request{
-		Action: "upgrade", Binary: binary, StateDir: service.Store.Dir, HomeDir: opts.home, ConfigFile: opts.snapshot.Paths.ConfigFile.Value, Apply: apply,
+		Action: "upgrade", Binary: binary, StateDir: service.Store.Dir(), HomeDir: opts.home, ConfigFile: opts.snapshot.Paths.ConfigFile.Value, Apply: apply,
 	})
 }
 

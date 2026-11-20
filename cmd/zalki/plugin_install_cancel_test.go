@@ -128,8 +128,8 @@ func TestPluginInstallCtrlCAtPromptsCancels(t *testing.T) {
 				case <-ended:
 				}
 			}()
-			output, err := pluginInstallCancelled(t, store.Dir, c.mode, ctx, input, folder)
-			assertInstallCancelled(t, store.Dir, output, err)
+			output, err := pluginInstallCancelled(t, store.Dir(), c.mode, ctx, input, folder)
+			assertInstallCancelled(t, store.Dir(), output, err)
 			if strings.Contains(output, "Building...") || strings.Contains(output, "Verifying...") || strings.Count(output, installQuestion) > c.prompts || time.Since(start) > 3*time.Second {
 				t.Fatalf("the install went on after Ctrl-C (%s):\n%s", time.Since(start), output)
 			}
@@ -154,8 +154,8 @@ func TestPluginInstallCancelBeforeBuildAndCommit(t *testing.T) {
 				}
 			}
 			defer func() { installStep = func(string) {} }()
-			output, err := pluginInstallCancelled(t, store.Dir, installRawKeys, ctx, strings.NewReader("y"), folder)
-			assertInstallCancelled(t, store.Dir, output, err)
+			output, err := pluginInstallCancelled(t, store.Dir(), installRawKeys, ctx, strings.NewReader("y"), folder)
+			assertInstallCancelled(t, store.Dir(), output, err)
 			// "Enabling..." comes before the last check, so it may show; the build may not.
 			if strings.Contains(output, "Building...") || (step == "build" && strings.Contains(output, "Enabling...")) {
 				t.Fatal("work started after the cancel", output)
@@ -181,8 +181,8 @@ func TestPluginInstallCancelDuringBuildKeepsNoLog(t *testing.T) {
 		}
 	}()
 	start := time.Now()
-	output, err := pluginInstallCancelled(t, store.Dir, installRawKeys, ctx, strings.NewReader("y"), folder)
-	assertInstallCancelled(t, store.Dir, output, err)
+	output, err := pluginInstallCancelled(t, store.Dir(), installRawKeys, ctx, strings.NewReader("y"), folder)
+	assertInstallCancelled(t, store.Dir(), output, err)
 	if !strings.Contains(output, "Building...") || time.Since(start) > 15*time.Second {
 		t.Fatal("the build was not stopped by the cancel", time.Since(start), output)
 	}
@@ -219,8 +219,8 @@ func TestPluginInstallCancelAtEnablingOutput(t *testing.T) {
 		if goTool {
 			folder = fakeGoFolder(t, `printf built > plugin; chmod 700 plugin`)
 		}
-		output, err := pluginInstallCancelled(t, store.Dir, installRawKeys, t.Context(), strings.NewReader("y"), folder, "Enabling...")
-		assertInstallCancelled(t, store.Dir, output, err)
+		output, err := pluginInstallCancelled(t, store.Dir(), installRawKeys, t.Context(), strings.NewReader("y"), folder, "Enabling...")
+		assertInstallCancelled(t, store.Dir(), output, err)
 		if !strings.Contains(output, "Enabling...") {
 			t.Fatal("the cancel did not come from the Enabling output", output)
 		}

@@ -20,12 +20,12 @@ func checkPluginMessageDelivery(s Store, message model.Message) error {
 	if !model.IsPluginInboxAddress(message.From) {
 		return model.NewError(model.CodeUnauthorized, "invalid plugin delivery origin")
 	}
-	if message.PluginBinding == "" || s.PluginDelivery == nil {
+	if message.PluginBinding == "" || s.pluginDelivery == nil {
 		return model.NewError(model.CodeUnauthorized, "plugin delivery is not permitted now")
 	}
 	scope := &journalScope{store: &s, writable: true}
 	defer scope.expire()
-	return s.PluginDelivery(JournalView{scope: scope}, s.Dir, message)
+	return s.pluginDelivery(JournalView{scope: scope}, s.dir, message)
 }
 
 // A native read cannot serve as a fallback around a refused plugin handoff.

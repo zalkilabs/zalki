@@ -70,7 +70,7 @@ func TestFloodTamperedArrivalsAndBucketsFailClosedThroughTheStore(t *testing.T) 
 
 func TestPruneFloodDeletesOrphansOfAnySchemaAndKeepsNonRecordFiles(t *testing.T) {
 	store := fixtureStore(t)
-	dir := filepath.Join(store.Dir, "flood")
+	dir := filepath.Join(store.dir, "flood")
 	if err := store.locked(func() error { return privateDir(dir) }); err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestPruneFloodRefusesADirectoryThatIsNotPrivate(t *testing.T) {
 			if err := store.locked(func() error { return nil }); err != nil {
 				t.Fatal(err)
 			}
-			dir := filepath.Join(store.Dir, "flood")
+			dir := filepath.Join(store.dir, "flood")
 			setup(t, dir)
 			orphan := "cursor_" + newID() + ".json"
 			if err := os.WriteFile(filepath.Join(dir, orphan), []byte(`{"schema":1}`), 0600); err != nil {

@@ -41,7 +41,7 @@ func TestListMessagesReportsUnreadableFilesInStructuredContent(t *testing.T) {
 	if healthy := list(); strings.Contains(healthy, "unreadable") || !strings.Contains(healthy, msg.ID) {
 		t.Fatalf("healthy output = %s", healthy)
 	}
-	bad := filepath.Join(service.Store.Dir, "messages", "00000000-0000-4000-8000-000000000204.json")
+	bad := filepath.Join(service.Store.Dir(), "messages", "00000000-0000-4000-8000-000000000204.json")
 	if err := os.WriteFile(bad, []byte(`{"schema":1,"id":"`), 0600); err != nil {
 		t.Fatal(err)
 	}
