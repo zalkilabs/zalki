@@ -234,9 +234,9 @@ func ukHookEntries(t *testing.T, doc map[string]any, event string) []any {
 	return entries
 }
 
-// A hook entry the user edited stays as theirs and zalki appends its own, so two
-// zalki hooks can run. This pins today's behavior; the follow-up is ZAL-104.
-func TestUpgradeKeepsAUserEditedHookEntryAndAddsOwn(t *testing.T) {
+// A hook entry the user edited stays, and upgrade rewrites only its command: no
+// second zalki hook is added (ZAL-104).
+func TestUpgradeKeepsAUserEditedHookEntryAndRewritesItsCommand(t *testing.T) {
 	home, state := ukInstalled(t, "/old/zalki")
 	path := filepath.Join(home, ".claude", "settings.json")
 	doc := ukDoc(t, path)
@@ -259,7 +259,7 @@ func TestUpgradeKeepsAUserEditedHookEntryAndAddsOwn(t *testing.T) {
 	}
 	after := ukHookEntries(t, ukDoc(t, path), event)
 	joined, err := json.Marshal(after)
-	if err != nil || len(after) != 2 || !strings.Contains(string(joined), "user_note") || !strings.Contains(string(joined), "/new/zalki") {
-		t.Fatal("expected the edited entry and a new zalki entry", string(joined), err)
+	if err != nil || len(after) != 1 || !strings.Contains(string(joined), "user_note") || !strings.Contains(string(joined), "/new/zalki") || strings.Contains(string(joined), "/old/zalki") {
+		t.Fatal("expected the edited entry with the new command and no second hook", string(joined), err)
 	}
 }

@@ -201,13 +201,9 @@ func userKeyName(key string) string {
 	return strconv.Quote(key)
 }
 
-// userKeysNotes is the uninstall note about the user keys removed with the
-// managed entry of one file; it is empty when there are none. The note lists
-// names only. The backup stamp is random, so the note names the backup with a star.
-func userKeysNotes(path, label, noun string, keys []string) []editNote {
-	if len(keys) == 0 {
-		return nil
-	}
+// listUserKeys prints the key names of a note: plain names, at most
+// maxListedUserKeys of them, and the number of the rest.
+func listUserKeys(keys []string) string {
 	shown := keys[:min(len(keys), maxListedUserKeys)]
 	names := make([]string, len(shown))
 	for i, key := range shown {
@@ -217,6 +213,17 @@ func userKeysNotes(path, label, noun string, keys []string) []editNote {
 	if more := len(keys) - len(shown); more > 0 {
 		list += fmt.Sprintf(", and %d more", more)
 	}
+	return list
+}
+
+// userKeysNotes is the uninstall note about the user keys removed with the
+// managed entry of one file; it is empty when there are none. The note lists
+// names only. The backup stamp is random, so the note names the backup with a star.
+func userKeysNotes(path, label, noun string, keys []string) []editNote {
+	if len(keys) == 0 {
+		return nil
+	}
+	list := listUserKeys(keys)
 	return []editNote{{
 		preview: fmt.Sprintf("%s: %s has keys you added (%s). Uninstall would remove the whole %s with them. Values are not shown. A backup named %s.zalki-backup-* will keep the old file.", path, label, list, noun, path),
 		result:  fmt.Sprintf("%s: %s had keys you added (%s). Uninstall removed the whole %s with them. Values are not shown. The backup %s.zalki-backup-* keeps the old file.", path, label, list, noun, path),

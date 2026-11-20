@@ -55,13 +55,13 @@ func WriteSetup(declare Declare, binary, state, out, home, configFile string) er
 // to change entries the user already has in a different form. owned holds the
 // recorded patches of an upgrade: the zalki MCP entry is then updated key by key
 // and the user's own keys in it are kept.
-func mergeConfig(existing []byte, patch map[string]any, owned []map[string]any) ([]byte, error) {
+func mergeConfig(existing []byte, patch map[string]any, owned []map[string]any, action string) ([]byte, error) {
 	current, err := decodeSettingsToMerge(existing)
 	if err != nil {
 		return nil, err
 	}
 	for key, value := range patch {
-		if err := mergePatchKey(current, key, value, owned); err != nil {
+		if err := mergePatchKey(current, key, value, owned, action); err != nil {
 			return nil, err
 		}
 	}
@@ -85,14 +85,14 @@ func decodeSettingsToMerge(existing []byte) (map[string]any, error) {
 }
 
 // mergePatchKey merges what one top-level key of a patch adds.
-func mergePatchKey(current map[string]any, key string, value any, owned []map[string]any) error {
+func mergePatchKey(current map[string]any, key string, value any, owned []map[string]any, action string) error {
 	switch key {
 	case "version":
 		return mergeSchemaVersion(current, value)
 	case "mcpServers":
 		return mergeMCPServer(current, value, ownedEntries(owned))
 	case "hooks":
-		return mergeHooks(current, value)
+		return mergeHooks(current, value, owned, action)
 	default:
 		return errors.New("unexpected settings key")
 	}
@@ -136,7 +136,9 @@ func mergeMCPServer(current map[string]any, value any, versions []map[string]any
 }
 
 // mergeHooks adds the wanted hook of each event next to the hooks the user has.
-func mergeHooks(current map[string]any, value any) error {
+// owned holds the recorded patches of an upgrade: a hook handler with a recorded
+// command is zalki's, and gets the new command instead of a second hook.
+func mergeHooks(current map[string]any, value any, owned []map[string]any, action string) error {
 	hooks, ok := current["hooks"].(map[string]any)
 	if current["hooks"] != nil && !ok {
 		return errors.New("existing hooks is not an object")
@@ -145,7 +147,7 @@ func mergeHooks(current map[string]any, value any) error {
 		hooks = map[string]any{}
 	}
 	for event, addition := range value.(map[string]any) {
-		if err := mergeHookEvent(hooks, event, addition); err != nil {
+		if err := mergeHookEvent(hooks, event, addition, recordedHooks(owned, event), action); err != nil {
 			return err
 		}
 	}
@@ -153,15 +155,18 @@ func mergeHooks(current map[string]any, value any) error {
 	return nil
 }
 
-// mergeHookEvent appends the wanted entry to one hook event unless it is there.
-func mergeHookEvent(hooks map[string]any, event string, addition any) error {
+// mergeHookEvent adds the wanted entry to one hook event unless it is there.
+func mergeHookEvent(hooks map[string]any, event string, addition any, recorded map[string]recordedHook, action string) error {
 	entries, ok := hooks[event].([]any)
 	if hooks[event] != nil && !ok {
 		return errors.New("existing hook event is not an array")
 	}
 	wanted := addition.([]any)[0]
 	if !containsJSON(entries, wanted) {
-		entries = append(entries, wanted)
+		var err error
+		if entries, err = addWantedHook(entries, event, wanted, recorded, action); err != nil {
+			return err
+		}
 	}
 	hooks[event] = entries
 	return nil
