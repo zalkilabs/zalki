@@ -50,7 +50,7 @@ func checkRuntimeHeaderRefusal(t *testing.T, s Store, path string, raw []byte, s
 	if err := os.WriteFile(path, before, 0600); err != nil {
 		t.Fatal(err)
 	}
-	// PORT H1: direct read refuses; aggregate scan counts and skips unchanged.
+	// Direct read refuses; aggregate scan counts and skips unchanged.
 	var refused RuntimeInfo
 	if err := readRuntimeRecord(path, &refused); model.ErrorCodeOf(err) != model.CodeUnsupportedSchema {
 		t.Fatal("RUNTIME_OLD_HEADER_WAS_READ", err)

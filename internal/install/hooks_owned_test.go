@@ -344,7 +344,7 @@ func TestUninstallWithAPendingRecordRemovesAnEditedHookOfBothRecords(t *testing.
 
 func TestUpgradeKeepsAnUnrecognizedZalkiSiblingNextToARecognizedHandler(t *testing.T) {
 	// A recognized handler plus an unrecognized zalki-kind sibling is not refused: the
-	// recognized one is rewritten and the sibling stays as the user's own (ZAL-104 note).
+	// recognized one is rewritten and the sibling stays as the user's own.
 	home, state := ukInstalled(t, "/old/zalki")
 	path := filepath.Join(home, ".claude", "settings.json")
 	event := hkEvent(t, ukDoc(t, path))

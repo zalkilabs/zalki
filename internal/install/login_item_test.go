@@ -199,7 +199,7 @@ const plistGolden = `<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 `
 
-// S04: the plist is the contract's exact golden, values are XML-escaped,
+// The plist is the contract's exact golden, values are XML-escaped,
 // and no environment, log path or other key is ever written.
 func TestPluginLoginItemPlistGolden(t *testing.T) {
 	if got := string(renderLoginItem("/opt/homebrew/bin/zalki", "/home/example/.local/state/zalki")); got != plistGolden {
@@ -216,7 +216,7 @@ func TestPluginLoginItemPlistGolden(t *testing.T) {
 	}
 }
 
-// S02: a scratch HOME or any state but the default one never reaches the
+// A scratch HOME or any state but the default one never reaches the
 // real item: no file, no lock, no launchctl call.
 func TestPluginLoginItemDefaultGuard(t *testing.T) {
 	f := newLoginFixture(t)
@@ -237,7 +237,7 @@ func TestPluginLoginItemDefaultGuard(t *testing.T) {
 	}
 }
 
-// S20: inspect reports only what it can prove and never changes anything.
+// Inspect reports only what it can prove and never changes anything.
 func TestPluginBackgroundStatusEvidence(t *testing.T) {
 	for name, test := range map[string]struct {
 		set            func(*fakeLaunchd)
@@ -273,7 +273,7 @@ func TestPluginBackgroundStatusEvidence(t *testing.T) {
 	}
 }
 
-// S05: first setup writes the exact plist and its record, then bootstraps;
+// First setup writes the exact plist and its record, then bootstraps;
 // a foreign file (even byte-identical), a changed one or a damaged record is
 // named and kept byte for byte, with no launchctl change.
 func TestPluginLoginItemOwnershipAndRecovery(t *testing.T) {
@@ -333,7 +333,7 @@ func checkLoginItemKept(t *testing.T, plant func(*loginFixture)) {
 	}
 }
 
-// S20/S23: first setup needs positive absence; a disabled, unknown or
+// First setup needs positive absence; a disabled, unknown or
 // different loaded job is never bootstrapped over.
 func TestPluginLoginItemNeverOverridesTheOS(t *testing.T) {
 	for name, set := range map[string]func(*fakeLaunchd){
@@ -352,7 +352,7 @@ func TestPluginLoginItemNeverOverridesTheOS(t *testing.T) {
 	}
 }
 
-// S23: uninstall stops the exact job BEFORE deleting the owned plist; a
+// Uninstall stops the exact job BEFORE deleting the owned plist; a
 // failed stop keeps the plist, the record and the pending ownership.
 func TestPluginLoginItemUninstallOrder(t *testing.T) {
 	f := newLoginFixture(t)
@@ -382,7 +382,7 @@ func TestPluginLoginItemUninstallOrder(t *testing.T) {
 	}
 }
 
-// Q5: a held operation lock makes another change wait at most its bound
+// A held operation lock makes another change wait at most its bound
 // and give up as busy, changing nothing.
 func TestPluginLoginItemOperationLock(t *testing.T) {
 	f := newLoginFixture(t)
@@ -471,7 +471,7 @@ func TestPluginLoginItemRefusesUnsafeLaunchAgents(t *testing.T) {
 	}
 }
 
-// S23/Q2: uninstall never boots out a job it does not own: a different
+// Uninstall never boots out a job it does not own: a different
 // program under the same label stays loaded and the owned files are kept.
 func TestPluginLoginItemUninstallLeavesForeignLoadedJob(t *testing.T) {
 	f := newLoginFixture(t)
@@ -506,7 +506,7 @@ func TestPluginLoginItemRefusesAnotherLauncher(t *testing.T) {
 	}
 }
 
-// S23 with an OS-disabled label: a different or unreadable loaded job is
+// With an OS-disabled label, a different or unreadable loaded job is
 // never booted out, and nothing is written, whatever the disabled state.
 func TestPluginLoginItemDisabledLabelKeepsForeignJob(t *testing.T) {
 	for name, tc := range map[string]struct {
@@ -546,7 +546,7 @@ func TestPluginLoginItemDisabledOwnedJobIsRemoved(t *testing.T) {
 	}
 }
 
-// S20: a first setup never adopts a loaded job it has no record of, even
+// A first setup never adopts a loaded job it has no record of, even
 // one that runs this launcher.
 func TestPluginLoginItemFirstSetupRefusesUnrecordedJob(t *testing.T) {
 	f := newLoginFixture(t)
@@ -557,7 +557,7 @@ func TestPluginLoginItemFirstSetupRefusesUnrecordedJob(t *testing.T) {
 	}
 }
 
-// M4: an unreadable discovery (disabled query failed or unrecognised, or a
+// An unreadable discovery (disabled query failed or unrecognised, or a
 // service row it cannot read) is unknown: no first setup, no writes.
 func TestPluginLoginItemUnreadableDiscoveryIsUnknown(t *testing.T) {
 	for name, set := range map[string]func(*fakeLaunchd){
@@ -578,7 +578,7 @@ func TestPluginLoginItemUnreadableDiscoveryIsUnknown(t *testing.T) {
 	}
 }
 
-// M3: a resumed uninstall still proves the files are ours: a changed
+// A resumed uninstall still proves the files are ours: a changed
 // plist or a damaged or different committed record stops it before any
 // launchctl change.
 func TestPluginLoginItemResumedUninstallChecksFiles(t *testing.T) {
@@ -613,7 +613,7 @@ func TestPluginLoginItemResumedUninstallChecksFiles(t *testing.T) {
 	}
 }
 
-// M3: the pending record is checked as a whole: token, action, phase and
+// The pending record is checked as a whole: token, action, phase and
 // the identity each action may recover to.
 func TestPluginLoginItemPendingMustBeValid(t *testing.T) {
 	f := newLoginFixture(t)
@@ -651,7 +651,7 @@ func TestPluginLoginItemPendingMustBeValid(t *testing.T) {
 	}
 }
 
-// M5: every folder from the account home down is checked: a linked
+// Every folder from the account home down is checked: a linked
 // ancestor is refused and nothing is created through it.
 func TestPluginLoginItemRefusesLinkedAncestors(t *testing.T) {
 	for _, ancestor := range []string{"Library", ".local"} {
@@ -668,7 +668,7 @@ func TestPluginLoginItemRefusesLinkedAncestors(t *testing.T) {
 	}
 }
 
-// M5: after an install, a LaunchAgents folder swapped for a link to a copy
+// After an install, a LaunchAgents folder swapped for a link to a copy
 // is never read as ours or emptied at uninstall.
 func TestPluginLoginItemUninstallRefusesLinkedParent(t *testing.T) {
 	f := newLoginFixture(t)
@@ -689,7 +689,7 @@ func TestPluginLoginItemUninstallRefusesLinkedParent(t *testing.T) {
 	}
 }
 
-// M5: a planted FIFO or a shared file at the lock path is refused before
+// A planted FIFO or a shared file at the lock path is refused before
 // any operation.
 func TestPluginLoginItemRefusesUnsafeLock(t *testing.T) {
 	for name, plant := range map[string]func(path string) error{
@@ -709,7 +709,7 @@ func TestPluginLoginItemRefusesUnsafeLock(t *testing.T) {
 	}
 }
 
-// M4: job output that is cut off or carries a second program is unknown:
+// Job output that is cut off or carries a second program is unknown:
 // uninstall stops before any write or launchctl change.
 func TestPluginLoginItemJobOutputMustBeComplete(t *testing.T) {
 	for name, set := range map[string]func(*fakeLaunchd){
@@ -729,7 +729,7 @@ func TestPluginLoginItemJobOutputMustBeComplete(t *testing.T) {
 	}
 }
 
-// Q5: a known bootstrap failure on first setup commits the written file (it
+// A known bootstrap failure on first setup commits the written file (it
 // is Zalki's) and says launchd did not start it.
 func TestPluginLoginItemKnownFailureCommitsFile(t *testing.T) {
 	f := newLoginFixture(t)
@@ -741,7 +741,7 @@ func TestPluginLoginItemKnownFailureCommitsFile(t *testing.T) {
 	}
 }
 
-// Q5: a setup over an existing record (its plist gone) raises the
+// A setup over an existing record (its plist gone) raises the
 // generation; it never restarts at 1.
 func TestPluginLoginItemGenerationIsMonotonic(t *testing.T) {
 	f := newLoginFixture(t)
@@ -761,7 +761,7 @@ func TestPluginLoginItemGenerationIsMonotonic(t *testing.T) {
 	}
 }
 
-// Q5: the token is checked again right before the change: an operation
+// The token is checked again right before the change: an operation
 // taken over in between changes nothing more.
 func TestPluginLoginItemRevalidatesTokenBeforeChange(t *testing.T) {
 	f := newLoginFixture(t)
@@ -788,7 +788,7 @@ func TestPluginLoginItemRevalidatesTokenBeforeChange(t *testing.T) {
 	}
 }
 
-// S23 (in-process part of the gate): while an uninstall holds the
+// In-process part of the gate: while an uninstall holds the
 // operation lock between bootout and deletion, an install waits and gets
 // busy; no bootstrap happens before the uninstall commits. The cross-process
 // interleaving control is a 7d gate item.
@@ -808,7 +808,7 @@ func TestPluginLoginItemUninstallHoldsTheGate(t *testing.T) {
 	}
 }
 
-// M5: inspect checks the record folder chain too: records behind a linked
+// Inspect checks the record folder chain too: records behind a linked
 // ancestor are a damaged record, never ownership.
 func TestPluginLoginItemInspectRefusesLinkedRecordFolder(t *testing.T) {
 	f := newLoginFixture(t)
@@ -827,7 +827,7 @@ func TestPluginLoginItemInspectRefusesLinkedRecordFolder(t *testing.T) {
 	}
 }
 
-// M3: a record's hash must be the renderer's lowercase hash for its own
+// A record's hash must be the renderer's lowercase hash for its own
 // launcher and state; anything else is a damaged record.
 func TestPluginLoginItemRecordHashMustMatchRenderer(t *testing.T) {
 	f := newLoginFixture(t)
@@ -848,7 +848,7 @@ func TestPluginLoginItemRecordHashMustMatchRenderer(t *testing.T) {
 	}
 }
 
-// Q5: a crash inside Zalki's own first setup never blocks later commands:
+// A crash inside Zalki's own first setup never blocks later commands:
 // install and uninstall finish the file transaction first (plist only
 // with the recorded bytes, then the record).
 func TestPluginLoginItemFinishesOwnInstall(t *testing.T) {
@@ -887,7 +887,7 @@ func plantOwnSetup(t *testing.T, f *loginFixture, point string) {
 	}
 }
 
-// Q5: under its own pending setup, other plist bytes are foreign and kept.
+// Under its own pending setup, other plist bytes are foreign and kept.
 func TestPluginLoginItemOwnSetupKeepsOtherPlist(t *testing.T) {
 	f := newLoginFixture(t)
 	plantOwnSetup(t, f, "pending only")
@@ -898,7 +898,7 @@ func TestPluginLoginItemOwnSetupKeepsOtherPlist(t *testing.T) {
 	}
 }
 
-// Q5: an unknown launchd answer keeps the operation pending and blocks new
+// An unknown launchd answer keeps the operation pending and blocks new
 // starts; a later run takes it over with its OWN token (phase recovering)
 // and reconciles only from a fresh look at the job.
 func TestPluginLoginItemUnknownAnswerKeepsOperation(t *testing.T) {
@@ -958,7 +958,7 @@ func checkTakeover(t *testing.T, f *loginFixture, name, action string) {
 	}
 }
 
-// S23: a resumed uninstall (its pending record is already there) also
+// A resumed uninstall (its pending record is already there) also
 // stops only the owned job.
 func TestPluginLoginItemResumedUninstallLeavesForeignJob(t *testing.T) {
 	r := newLoginFixture(t)
@@ -992,7 +992,7 @@ func TestPluginLoginItemResumedUninstallLeavesForeignJob(t *testing.T) {
 	}
 }
 
-// Q5: the job's identity is checked again right before bootout: a job that
+// The job's identity is checked again right before bootout: a job that
 // changed after the first look is never stopped.
 func TestPluginLoginItemRechecksIdentityBeforeBootout(t *testing.T) {
 	f := newLoginFixture(t)
@@ -1030,7 +1030,7 @@ func replacePending(t *testing.T, f *loginFixture) []byte {
 	return raw
 }
 
-// Q5: an operation taken over before or during its launchd change never
+// An operation taken over before or during its launchd change never
 // commits or clears: the other operation's pending record stays exactly as
 // written, and nothing is started after the takeover.
 func TestPluginLoginItemTokenLossStopsCommit(t *testing.T) {
@@ -1064,7 +1064,7 @@ func TestPluginLoginItemTokenLossStopsCommit(t *testing.T) {
 	}
 }
 
-// M4: an unreadable disabled list never allows a start, even when the
+// An unreadable disabled list never allows a start, even when the
 // loaded job matches the owned record.
 func TestPluginLoginItemUnknownDisablementBlocksStart(t *testing.T) {
 	for _, tc := range []struct {
@@ -1088,7 +1088,7 @@ func TestPluginLoginItemUnknownDisablementBlocksStart(t *testing.T) {
 	}
 }
 
-// M4: the fresh look right before a start rechecks the disablement: a list
+// The fresh look right before a start rechecks the disablement: a list
 // that turns unreadable after the plan stops the kickstart (owned) or the
 // bootstrap (first setup).
 func TestPluginLoginItemFreshLookRechecksDisablement(t *testing.T) {
@@ -1111,7 +1111,7 @@ func TestPluginLoginItemFreshLookRechecksDisablement(t *testing.T) {
 	}
 }
 
-// Q5: a takeover while recovery reconciles never lets recovery commit: the
+// A takeover while recovery reconciles never lets recovery commit: the
 // other operation's pending record stays exactly as written.
 func TestPluginLoginItemRecoveryTakeoverStopsCommit(t *testing.T) {
 	f := newLoginFixture(t)
@@ -1131,7 +1131,7 @@ func TestPluginLoginItemRecoveryTakeoverStopsCommit(t *testing.T) {
 	}
 }
 
-// Q5: the final fence checks the exact owned files, not only the token: a
+// The final fence checks the exact owned files, not only the token: a
 // plist or record changed during the launchd call stops the commit or the
 // clear, and the operation stays pending.
 func TestPluginLoginItemFinalFenceChecksFiles(t *testing.T) {
@@ -1171,7 +1171,7 @@ func TestPluginLoginItemFinalFenceChecksFiles(t *testing.T) {
 	}
 }
 
-// Q5: the generation never wraps: at its limit a setup is refused before any
+// The generation never wraps: at its limit a setup is refused before any
 // write and the prior state is kept.
 func TestPluginLoginItemGenerationCannotOverflow(t *testing.T) {
 	f := newLoginFixture(t)
@@ -1196,7 +1196,7 @@ func TestPluginLoginItemGenerationCannotOverflow(t *testing.T) {
 	}
 }
 
-// C27: an install for another launcher never finishes this launcher's own
+// An install for another launcher never finishes this launcher's own
 // unfinished setup: it is named and nothing is written.
 func TestPluginLoginItemOwnSetupForAnotherLauncherIsKept(t *testing.T) {
 	for _, point := range []string{"pending only", "plist written"} {
@@ -1224,7 +1224,7 @@ func fakeLaunchctlScript(t *testing.T, body string) string {
 	return path
 }
 
-// Q5 (real adapter): a deadline or a signal that ends the command is an
+// Real adapter: a deadline or a signal that ends the command is an
 // UNKNOWN result, never a known exit status; a normal non-zero exit is known.
 func TestPluginLoginItemAdapterKeepsUnknownExits(t *testing.T) {
 	old := launchctlPath
@@ -1272,7 +1272,7 @@ func TestPluginLoginItemAdapterKeepsUnknownExits(t *testing.T) {
 	}
 }
 
-// Q5: the files are checked again right before a change: a plist or a
+// The files are checked again right before a change: a plist or a
 // committed record changed after the plan stops the bootout.
 func TestPluginLoginItemFilesRecheckedBeforeChange(t *testing.T) {
 	for name, change := range map[string]func(f *loginFixture){
@@ -1329,7 +1329,7 @@ func takeOverAt(t *testing.T, f *loginFixture, verb string, during bool) *[]byte
 	return &foreign
 }
 
-// Q5: recovery looks at the job BEFORE it repairs any file: with only its
+// Recovery looks at the job BEFORE it repairs any file: with only its
 // pending record left, a foreign or unknown loaded job is refused and no
 // plist is written.
 func TestPluginLoginItemRecoveryLooksBeforeRepair(t *testing.T) {
@@ -1347,7 +1347,7 @@ func TestPluginLoginItemRecoveryLooksBeforeRepair(t *testing.T) {
 	}
 }
 
-// Q5: a takeover right after the record is published never lets this
+// A takeover right after the record is published never lets this
 // operation remove the other operation's pending record.
 func TestPluginLoginItemPublishTakeoverKeepsOtherPending(t *testing.T) {
 	f := newLoginFixture(t)
@@ -1362,7 +1362,7 @@ func TestPluginLoginItemPublishTakeoverKeepsOtherPending(t *testing.T) {
 	}
 }
 
-// Q5 (real adapter, bounded): a command that ends but leaves a descendant
+// Real adapter, bounded: a command that ends but leaves a descendant
 // holding its output returns UNKNOWN within the bound, not when the
 // descendant lets go.
 func TestPluginLoginItemAdapterBoundsHeldOutput(t *testing.T) {
@@ -1378,7 +1378,7 @@ func TestPluginLoginItemAdapterBoundsHeldOutput(t *testing.T) {
 	}
 }
 
-// Q5 final fence: after a known launchd answer the job is looked at again;
+// Final fence: after a known launchd answer the job is looked at again;
 // a job that became different or unreadable during the call keeps the
 // operation pending, and nothing is committed or cleared.
 func TestPluginLoginItemFinalLookAfterChange(t *testing.T) {

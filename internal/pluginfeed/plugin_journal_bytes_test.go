@@ -122,9 +122,9 @@ func assertPluginJournalBytes(t *testing.T, name string, raw []byte) {
 	// Captured with production files at 149740f before the journal boundary.
 	// installation: captured again when receive replaced inbox_from/inbox_read,
 	// and all but identity when scope, access and the hash revision replaced
-	// sessions and capabilities (slice 2). Feed slices 3+6 remove the owner
+	// sessions and capabilities. Later feed changes remove the owner
 	// cursor/gap fields and retain the enable incarnation; every other golden
-	// remains unchanged. Characterization: checkpoint-cleanup-1440.
+	// remains unchanged.
 	want := map[string]string{
 		"installation":  "3d6ad48a43c0d3472a6db7ccc3e5ea7926d9e235ff76ee2ef2bee795d455c610",
 		"identity hint": "6427652d690a10e557e0354e70a402d50ebe7180f4bbc03bb7bc0848ff2e235b",

@@ -214,7 +214,7 @@ func lifecycleCause(event string) model.EventCause { return lifecycleCauses[even
 
 // promptRegistrationFailed says what happened and where the cause is: doctor
 // does not show hook failures, only the log does, and only when it records
-// warnings (ZAL-85).
+// warnings.
 func (s Store) promptRegistrationFailed() string {
 	const failed = "Zalki could not safely register this chat. Your message was not blocked."
 	if s.Logger == nil || !s.Logger.Enabled(context.Background(), slog.LevelWarn) {

@@ -129,7 +129,7 @@ func classifyLoginItem(r install.Report, binary string) loginItemPlan {
 	case r.ServiceState == "disabled":
 		plan.row = rowDisabled
 	case r.OperationPending:
-		plan.reason = loginItemPendingReason // R7-L2: names the one repair
+		plan.reason = loginItemPendingReason // names the one repair
 	case r.ManagedState == "managed" && r.LoginItemLauncher != "":
 		plan.launcher = r.LoginItemLauncher
 		switch {

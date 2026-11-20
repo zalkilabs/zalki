@@ -29,7 +29,7 @@ func TestPluginReviewScreens(t *testing.T) {
 				p.access.receive, p.access.send = true, true
 				p.build = []string{"go", "build", "-p=1", "-mod=readonly", "-trimpath", "-o", "plugin", "./cmd/spawner"}
 				p.run = []string{"plugin", "serve"}
-				p.candidates = []pluginReviewTarget{{reviewActorA, "zlaki"}, {reviewActorB, "worker-3"}}
+				p.candidates = []pluginReviewTarget{{reviewActorA, "reviewer-a"}, {reviewActorB, "builder-b"}}
 				p.send = []string{reviewActorA, reviewActorB}
 			}
 			got, err := renderPluginReview(p)

@@ -50,7 +50,7 @@ func TestCompactEnvelopeKeepsRoutingPrivate(t *testing.T) {
 	}
 }
 
-// PORT: old unlabeled records render without registry reconstruction.
+// Old unlabeled records render without registry reconstruction.
 func TestUnlabeledMessageDoesNotUseRegistry(t *testing.T) {
 	store := fixtureStore(t)
 	from, key, to, _ := registerPair(t, store, "claude", "codex")

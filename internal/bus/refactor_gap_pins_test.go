@@ -17,7 +17,7 @@ import (
 // retired session that has no queue, and quota files whose kind is not valid.
 // They pin today's behavior; it is not judged here.
 
-// PORT: an unlabeled old message now uses Agent, without registry backfill.
+// An unlabeled old message now uses Agent, without registry backfill.
 func TestEmitPendingUsesGenericLabelOfARecordWithoutOne(t *testing.T) {
 	f := newEmitFixture(t)
 	msg := f.queue(t, "hello", time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC))

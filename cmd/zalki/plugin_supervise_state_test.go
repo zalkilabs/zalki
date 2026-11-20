@@ -13,7 +13,7 @@ import (
 
 var stateEpoch = time.Date(2026, 11, 13, 18, 0, 0, 0, time.UTC)
 
-// S11: failures spaced three minutes apart never reach five in ten minutes,
+// Failures spaced three minutes apart never reach five in ten minutes,
 // yet the backoff still grows 1, 2, 4, 8, 16, 32, 60 and stays at 60.
 func TestPluginCrashBackoffSteps(t *testing.T) {
 	run := pluginRunState{Schema: 1, Installation: model.NewUUID(), State: runStopped}
@@ -31,7 +31,7 @@ func TestPluginCrashBackoffSteps(t *testing.T) {
 	}
 }
 
-// S11: the fifth failure inside the window, counting one exactly at its
+// The fifth failure inside the window, counting one exactly at its
 // start, is a crash with no further automatic start.
 func TestPluginCrashWindowIsInclusive(t *testing.T) {
 	run := pluginRunState{Schema: 1, Installation: model.NewUUID(), State: runStopped}
@@ -54,7 +54,7 @@ func TestPluginCrashWindowIsInclusive(t *testing.T) {
 	}
 }
 
-// S11: after a clock rollback, future entries are kept, so a rollback never
+// After a clock rollback, future entries are kept, so a rollback never
 // frees five new attempts.
 func TestPluginCrashWindowClockRollback(t *testing.T) {
 	run := pluginRunState{Schema: 1, Installation: model.NewUUID(), State: runStopped}
@@ -67,7 +67,7 @@ func TestPluginCrashWindowClockRollback(t *testing.T) {
 	}
 }
 
-// S11: neither a handshake nor a short healthy run resets the backoff;
+// Neither a handshake nor a short healthy run resets the backoff;
 // ten continuous healthy minutes do.
 func TestPluginBackoffResetsAfterTenHealthyMinutes(t *testing.T) {
 	run := pluginRunState{Schema: 1, Installation: model.NewUUID(), State: runStopped}
@@ -85,7 +85,7 @@ func TestPluginBackoffResetsAfterTenHealthyMinutes(t *testing.T) {
 }
 
 // Permanent reasons crash without counting; a held lease or a failed log
-// waits with the backoff steps but counts nothing (R7-M1).
+// waits with the backoff steps but counts nothing.
 func TestPluginStopKinds(t *testing.T) {
 	run := pluginRunState{Schema: 1, Installation: model.NewUUID(), State: runRunning}
 	for _, reason := range []string{"lease_held", "log_failed"} {
@@ -105,7 +105,7 @@ func TestPluginStopKinds(t *testing.T) {
 	}
 }
 
-// S09/S10: the state survives a save and load; an unsafe or damaged file is
+// The state survives a save and load; an unsafe or damaged file is
 // refused and kept byte for byte; another installation starts fresh.
 func TestPluginRunStateRefusesUnsafeOrForeign(t *testing.T) {
 	dir := t.TempDir()

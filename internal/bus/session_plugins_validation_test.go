@@ -63,7 +63,7 @@ func TestSessionPluginCapacity(t *testing.T) {
 }
 
 func TestSessionPluginLegacyCleanupDoesNotInitialize(t *testing.T) {
-	// PORT: missing policy is now refused; present damaged policy still permits cleanup.
+	// Missing policy is now refused; present damaged policy still permits cleanup.
 	for _, raw := range []json.RawMessage{json.RawMessage(`{"mode":"owner"}`)} {
 		s := fixtureStore(t)
 		v, _ := register(t, s, "cursor")

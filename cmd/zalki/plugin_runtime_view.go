@@ -69,7 +69,7 @@ type pluginRunView struct {
 	FirstStartedAt *time.Time `json:"first_started_at,omitempty"`
 	InstalledBy    string     `json:"installed_by"`
 	RestartSeq     uint64     `json:"restart_seq,omitempty"`
-	// The first-start banner state (7d3); absent before the first start.
+	// The first-start banner state; absent before the first start.
 	NotificationState  string `json:"notification_state,omitempty"`
 	NotificationReason string `json:"notification_reason,omitempty"`
 }
@@ -134,7 +134,7 @@ func observeRun(state string, r pluginRunState) string {
 	return observedRunning
 }
 
-// installedBy is slice4's receipt evidence as an enum-like string.
+// installedBy is the install receipt evidence as an enum-like string.
 func installedBy(receipt *pluginfeed.PluginInstallReceipt) string {
 	if receipt == nil || receipt.InstalledBy == "" {
 		return "unknown"
@@ -169,7 +169,7 @@ func crashedPhrase(name string, view pluginRunView, run pluginRunState) string {
 	case reinstallReasons[run.ReasonCode]:
 		return fmt.Sprintf(runPhraseReinstall, reasonText[run.ReasonCode]) // a restart cannot help
 	case permanentReasons[run.ReasonCode] || len(run.Restarts) < crashLimit:
-		// Stopped for a reason, not by the crash limit (R7-M3).
+		// Stopped for a reason, not by the crash limit.
 		return fmt.Sprintf(runPhraseNeedsYou, reasonText[run.ReasonCode], plainText(name))
 	case run.LastReasonAt != nil:
 		return fmt.Sprintf(runPhraseCrashed, run.LastReasonAt.Local().Format("15:04"), len(run.Restarts), view.Restarts10m, plainText(name))

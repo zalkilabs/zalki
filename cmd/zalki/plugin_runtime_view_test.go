@@ -324,7 +324,7 @@ func TestPluginBackgroundDoctor(t *testing.T) {
 	checkBackgroundNotRead(t, target)
 }
 
-// ZAL-64: a status or restart probe holds the controller lock shared for a
+// A status or restart probe holds the controller lock shared for a
 // moment. A controller starting in that moment must wait it out and take
 // its lock, not exit as "already held"; a lock held for the whole bounded
 // wait is still reported as held, within the bound.

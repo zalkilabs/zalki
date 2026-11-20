@@ -137,7 +137,7 @@
         }
       }
     },
-    "reason": "Reviewed R7 login-item consent and background lifecycle: ManagedLoginItem export, seven Request/Report fields, named private implementation receivers, cmd-to-procwatch dependency, and exact login-item/supervisor raw OS import changes."
+    "reason": "Reviewed login-item consent and background lifecycle: ManagedLoginItem export, seven Request/Report fields, named private implementation receivers, cmd-to-procwatch dependency, and exact login-item/supervisor raw OS import changes."
   },
   {
     "base_commit": "fbf5582b569b2b3e547fb0ccb3c4eeb500ef8d3e",
@@ -277,7 +277,7 @@
         }
       }
     },
-    "reason": "Reviewed R7 login-item consent and background lifecycle: ManagedLoginItem export, seven Request/Report fields, named private implementation receivers, cmd-to-procwatch dependency, and exact login-item/supervisor raw OS import changes."
+    "reason": "Reviewed login-item consent and background lifecycle: ManagedLoginItem export, seven Request/Report fields, named private implementation receivers, cmd-to-procwatch dependency, and exact login-item/supervisor raw OS import changes."
   },
   {
     "base_commit": "cbf95f19235dcdca456fa0f11f9043a3ac0364eb",
@@ -581,7 +581,7 @@
         "changed": {}
       }
     },
-    "reason": "Source-qualified expected D1 privacy API delta: export the existing PluginAccess.Messages predicate and make the unchanged CheckPluginLeaseFD validator private; exact function shapes change identities, while receiver methods/files, internal import graph and raw OS users remain unchanged. This is expected source data, not a native candidate measurement; complete actual-cd65226/head native comparison and exact policy application remain mandatory."
+    "reason": "Source-qualified expected privacy API delta: export the existing PluginAccess.Messages predicate and make the unchanged CheckPluginLeaseFD validator private; exact function shapes change identities, while receiver methods/files, internal import graph and raw OS users remain unchanged. This is expected source data, not a native candidate measurement; complete actual-cd65226/head native comparison and exact policy application remain mandatory."
   },
   {
     "base_commit": "cd65226f92f248a8d4cb68ed7b20b847332a0ff4",
@@ -619,7 +619,7 @@
         "changed": {}
       }
     },
-    "reason": "Source-qualified expected D1 privacy API delta: export the existing PluginAccess.Messages predicate and make the unchanged CheckPluginLeaseFD validator private; exact function shapes change identities, while receiver methods/files, internal import graph and raw OS users remain unchanged. This is expected source data, not a native candidate measurement; complete actual-cd65226/head native comparison and exact policy application remain mandatory."
+    "reason": "Source-qualified expected privacy API delta: export the existing PluginAccess.Messages predicate and make the unchanged CheckPluginLeaseFD validator private; exact function shapes change identities, while receiver methods/files, internal import graph and raw OS users remain unchanged. This is expected source data, not a native candidate measurement; complete actual-cd65226/head native comparison and exact policy application remain mandatory."
   },
   {
     "base_commit": "2ccd9cecf4d8fbea7116fa14871ca7081c190a5e",
@@ -670,7 +670,7 @@
         "changed": {}
       }
     },
-    "reason": "Source-qualified expected D2 cleanup delta: move the test-only commitWriter.commit method out of production (14/2 to 13/2) and extract the existing receipt preparation as private PluginInstallReceipt.prepareForCommit (4/1 to 5/1); exports, shapes, import edges and raw OS users remain unchanged. Expected source data on actual 2ccd9cec (the merged D1 parent), not a candidate native measurement. Hosted CI must measure complete native base/head facts and apply the exact policy before final acceptance/merge."
+    "reason": "Source-qualified expected cleanup delta: move the test-only commitWriter.commit method out of production (14/2 to 13/2) and extract the existing receipt preparation as private PluginInstallReceipt.prepareForCommit (4/1 to 5/1); exports, shapes, import edges and raw OS users remain unchanged. Expected source data on actual 2ccd9cec (the merged D1 parent), not a candidate native measurement. Hosted CI must measure complete native base/head facts and apply the exact policy before final acceptance/merge."
   },
   {
     "base_commit": "2ccd9cecf4d8fbea7116fa14871ca7081c190a5e",
@@ -721,7 +721,7 @@
         "changed": {}
       }
     },
-    "reason": "Source-qualified expected D2 cleanup delta: move the test-only commitWriter.commit method out of production (14/2 to 13/2) and extract the existing receipt preparation as private PluginInstallReceipt.prepareForCommit (4/1 to 5/1); exports, shapes, import edges and raw OS users remain unchanged. Expected source data on actual 2ccd9cec (the merged D1 parent), not a candidate native measurement. Hosted CI must measure complete native base/head facts and apply the exact policy before final acceptance/merge."
+    "reason": "Source-qualified expected cleanup delta: move the test-only commitWriter.commit method out of production (14/2 to 13/2) and extract the existing receipt preparation as private PluginInstallReceipt.prepareForCommit (4/1 to 5/1); exports, shapes, import edges and raw OS users remain unchanged. Expected source data on actual 2ccd9cec (the merged D1 parent), not a candidate native measurement. Hosted CI must measure complete native base/head facts and apply the exact policy before final acceptance/merge."
   },
   {
     "base_commit": "d444528616aeb8b1cc8a2ba53ab4f8fe3b4ea6b8",
@@ -779,7 +779,7 @@
         "changed": {}
       }
     },
-    "reason": "Source-qualified EXPECTED full ZAL-99 delta on actual d444528: optional agent.HookPayloadAdapter and Codex Adapter.ExtendedHookEvent move trusted per-event selection out of bus. Add exactly the interface, adapter method, and selector io.Reader Read API shapes; two private selector receivers and one extra Codex Adapter method in its existing file. Existing API shapes, import edges and raw OS users otherwise unchanged. No boundary-test exception, no measured candidate snapshot or native pass. Hosted BOTHOS complete actual-base/head snapshots and exact policy application remain mandatory."
+    "reason": "Source-qualified EXPECTED full delta on actual d444528: optional agent.HookPayloadAdapter and Codex Adapter.ExtendedHookEvent move trusted per-event selection out of bus. Add exactly the interface, adapter method, and selector io.Reader Read API shapes; two private selector receivers and one extra Codex Adapter method in its existing file. Existing API shapes, import edges and raw OS users otherwise unchanged. No boundary-test exception, no measured candidate snapshot or native pass. Hosted BOTHOS complete actual-base/head snapshots and exact policy application remain mandatory."
   },
   {
     "base_commit": "d444528616aeb8b1cc8a2ba53ab4f8fe3b4ea6b8",
@@ -837,7 +837,7 @@
         "changed": {}
       }
     },
-    "reason": "Source-qualified EXPECTED full ZAL-99 delta on actual d444528: optional agent.HookPayloadAdapter and Codex Adapter.ExtendedHookEvent move trusted per-event selection out of bus. Add exactly the interface, adapter method, and selector io.Reader Read API shapes; two private selector receivers and one extra Codex Adapter method in its existing file. Existing API shapes, import edges and raw OS users otherwise unchanged. No boundary-test exception, no measured candidate snapshot or native pass. Hosted BOTHOS complete actual-base/head snapshots and exact policy application remain mandatory."
+    "reason": "Source-qualified EXPECTED full delta on actual d444528: optional agent.HookPayloadAdapter and Codex Adapter.ExtendedHookEvent move trusted per-event selection out of bus. Add exactly the interface, adapter method, and selector io.Reader Read API shapes; two private selector receivers and one extra Codex Adapter method in its existing file. Existing API shapes, import edges and raw OS users otherwise unchanged. No boundary-test exception, no measured candidate snapshot or native pass. Hosted BOTHOS complete actual-base/head snapshots and exact policy application remain mandatory."
   },
   {
     "base_commit": "a350eae1030203c26179f1647d2c558907ef9dc3",
@@ -1115,7 +1115,7 @@
         "changed": {}
       }
     },
-    "reason": "Removes the client version allowlist (ZAL-106): interface agent.CompatibilityAdapter, method claude.Adapter.Compatibility and field AgentDiagnostic.FixtureVersions. Nothing is added; imports and OS calls are unchanged. Delta measured on base 1aa96a2, same on both OS."
+    "reason": "Removes the client version allowlist: interface agent.CompatibilityAdapter, method claude.Adapter.Compatibility and field AgentDiagnostic.FixtureVersions. Nothing is added; imports and OS calls are unchanged. Delta measured on base 1aa96a2, same on both OS."
   },
   {
     "base_commit": "1aa96a2d581671e28cee6a8abdddc95f5599c79b",
@@ -1167,6 +1167,6 @@
         "changed": {}
       }
     },
-    "reason": "Removes the client version allowlist (ZAL-106): interface agent.CompatibilityAdapter, method claude.Adapter.Compatibility and field AgentDiagnostic.FixtureVersions. Nothing is added; imports and OS calls are unchanged. Delta measured on base 1aa96a2, same on both OS."
+    "reason": "Removes the client version allowlist: interface agent.CompatibilityAdapter, method claude.Adapter.Compatibility and field AgentDiagnostic.FixtureVersions. Nothing is added; imports and OS calls are unchanged. Delta measured on base 1aa96a2, same on both OS."
   }
 ]

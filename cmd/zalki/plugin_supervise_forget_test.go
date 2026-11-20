@@ -59,7 +59,7 @@ func checkForgetBounds(t *testing.T, s *supervisor, listed int) {
 	}
 }
 
-// ZAL-68: removed names are forgotten after their host is stopped; the
+// Removed names are forgotten after their host is stopped; the
 // kept plugin is untouched; a listing failure forgets nothing; an unsaved
 // entry stays until a save is confirmed.
 func TestPluginSupervisorForgetsRemovedNames(t *testing.T) {

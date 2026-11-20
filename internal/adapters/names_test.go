@@ -320,7 +320,7 @@ func TestNamesUseOwningSessionConfigDirectory(t *testing.T) {
 	}
 }
 
-// C4-PORT: old HOME search behavior is characterized on the parent. Rootless
+// Old HOME search behavior is characterized on the parent. Rootless
 // stored records now refuse; existing metadata remains untouched and unread.
 func TestLegacyCursorNameRootsAreRefused(t *testing.T) {
 	home := t.TempDir()
@@ -346,7 +346,7 @@ func TestLegacyCursorNameRootsAreRefused(t *testing.T) {
 	}
 }
 
-// C4-PORT: hooks must not backfill the sender's current environment into an old
+// Hooks must not backfill the sender's current environment into an old
 // record. Preserve the saved identity and refuse use of its old capability.
 func TestHookDoesNotBackfillNativeConfig(t *testing.T) {
 	nameFixture(t)

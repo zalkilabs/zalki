@@ -13,7 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// R3-M1: the zombie-only proof reads ONE fixed kinfo_proc row and fails
+// The zombie-only proof reads ONE fixed kinfo_proc row and fails
 // closed on an error (even with a row), a live leader or another pid.
 func TestPluginNotificationGroupCensusIsBounded(t *testing.T) {
 	old := pgrpQuery
@@ -44,7 +44,7 @@ func TestPluginNotificationGroupCensusIsBounded(t *testing.T) {
 	}
 }
 
-// R3-M1 admission: for a real group with two members the census is refused
+// For a real group with two members the census is refused
 // by the kernel (ENOMEM into its one fixed row), never read in full.
 func TestPluginNotificationGroupCensusAdmission(t *testing.T) {
 	cmd := exec.CommandContext(context.WithoutCancel(t.Context()), "/bin/sh", "-c", "/bin/sleep 2 & /bin/sleep 2")

@@ -237,7 +237,7 @@ func TestPluginSupervisorUnknownErrorsAreNotAbsence(t *testing.T) {
 	}
 }
 
-// S14: after lifeline EOF a host ends within its bound even when its run
+// After lifeline EOF a host ends within its bound even when its run
 // never returns (stuck, for example, on a held journal lock): the child
 // below blocks forever and ignores cancellation.
 func TestPluginSupervisedHostLifelineIsBounded(t *testing.T) {
@@ -321,7 +321,7 @@ func TestPluginSupervisorUnknownDirErrorIsNotPermanent(t *testing.T) {
 	}
 }
 
-// M2: a run that completes before lifeline EOF is seen (the lifeline here
+// A run that completes before lifeline EOF is seen (the lifeline here
 // never closes) still ends the host's whole group: the descendant it left
 // does not outlive the host.
 func TestPluginSupervisedHostCompletedRunEndsGroup(t *testing.T) {
@@ -375,7 +375,7 @@ func TestPluginCompletedRunChild(t *testing.T) {
 	}
 }
 
-// M1: a reset whose save failed BEFORE publication keeps its request while
+// A reset whose save failed BEFORE publication keeps its request while
 // the new mark is only in memory; replays do not delete it. Only after a
 // save confirms the mark is the request cleaned up.
 func TestPluginRestartPrePublicationFailureKeepsRequest(t *testing.T) {
@@ -396,7 +396,7 @@ func TestPluginRestartPrePublicationFailureKeepsRequest(t *testing.T) {
 	}
 }
 
-// R7-M1: a log that cannot be opened at start waits with the backoff steps
+// A log that cannot be opened at start waits with the backoff steps
 // and counts nothing; the next start is not at the next poll.
 func TestPluginLogFailureWaits(t *testing.T) {
 	s, p, key := restartFixture(t)
@@ -414,7 +414,7 @@ func TestPluginLogFailureWaits(t *testing.T) {
 	}
 }
 
-// R7-L1: the supervisor's grace is longer than the host's 2 s EOF grace.
+// The supervisor's grace is longer than the host's 2 s EOF grace.
 func TestPluginGroupGraceExceedsPluginGrace(t *testing.T) {
 	if groupGrace <= 2*time.Second {
 		t.Fatalf("the group grace %v does not exceed the plugin's 2 s EOF grace", groupGrace)

@@ -14,7 +14,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// This opt-in harness also compiles on the PR1 baseline. Its disk fixture is
+// This opt-in harness also compiles on the baseline build. Its disk fixture is
 // deliberately encoded without new private types so both builds run the same
 // source, paths, sample counts and ordinary public Update calls.
 func TestEventUpdateLatency(t *testing.T) {

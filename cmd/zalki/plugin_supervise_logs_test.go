@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 )
 
-// S17: more than 2 MiB through the log leaves exactly the active file and
+// More than 2 MiB through the log leaves exactly the active file and
 // one .1 file, each at most 1 MiB and mode 0600; one large write is split.
 func TestPluginSupervisorLogRotationCap(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "demo.log")
@@ -41,7 +41,7 @@ func TestPluginSupervisorLogRotationCap(t *testing.T) {
 	}
 }
 
-// S17: a link, another mode or an unsafe older file is refused and kept;
+// A link, another mode or an unsafe older file is refused and kept;
 // after a failed rotation every later write fails.
 func TestPluginSupervisorLogRefusesUnsafePaths(t *testing.T) {
 	dir := t.TempDir()
@@ -79,7 +79,7 @@ func TestPluginSupervisorLogRefusesUnsafePaths(t *testing.T) {
 	}
 }
 
-// S17: the explicit tail shows only the last 50 of 70 lines, across the
+// The explicit tail shows only the last 50 of 70 lines, across the
 // older and the active file, and no line can drive the terminal.
 func TestPluginLogsTailIsSafe(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "demo.log")

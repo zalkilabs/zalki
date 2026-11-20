@@ -89,7 +89,7 @@ func TestSharedProcessOwnerIsNotRecorded(t *testing.T) {
 	if err != nil || session.Owner != nil {
 		t.Fatal("SHARED_PROCESS_OWNER_WAS_CAPTURED", err)
 	}
-	// PORT: a pre-existing helper owner is refused instead of silently cleared.
+	// A pre-existing helper owner is refused instead of silently cleared.
 	session.Owner = &model.ProcessRef{PID: 7, Start: "helper", Role: "client"}
 	if err := store.locked(func() error { return store.saveSession(session) }); err != nil {
 		t.Fatal(err)

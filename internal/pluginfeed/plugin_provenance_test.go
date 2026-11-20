@@ -36,7 +36,7 @@ func commitWith(t *testing.T, s bus.Store, access PluginAccess, declared, actor,
 
 const declaredAll = `{"status":true,"receive":true,"send":true,"read":true}`
 
-// U30: the receipt keeps exactly the four declared booleans, in canonical form.
+// The receipt keeps exactly the four declared booleans, in canonical form.
 func TestPluginInstallReceiptAccess(t *testing.T) {
 	for raw, ok := range map[string]bool{
 		declaredAll: true,
@@ -89,7 +89,7 @@ func TestCommitAccessRules(t *testing.T) {
 	}
 }
 
-// U26/U28: the installer is proven at commit. A valid session is recorded by
+// The installer is proven at commit. A valid session is recorded by
 // its ID, an anonymous reviewed terminal as terminal, and anything else as
 // unproven; the capability is never stored.
 func TestPluginInstallAuthenticatedInstaller(t *testing.T) {
@@ -149,7 +149,7 @@ func checkInstaller(t *testing.T, actor, capability, otherKey, want string, revi
 	}
 }
 
-// U27: credentials that stopped proving by commit time (the session
+// Credentials that stopped proving by commit time (the session
 // registered again, so its key rotated) give unproven, and the install
 // still succeeds.
 func TestPluginInstallInstallerRotatesDuringBuild(t *testing.T) {
@@ -167,10 +167,10 @@ func TestPluginInstallInstallerRotatesDuringBuild(t *testing.T) {
 	}
 }
 
-// U29: the label is printable ASCII of at most 64 bytes, else the actor ID.
+// The label is printable ASCII of at most 64 bytes, else the actor ID.
 func TestPluginInstallHistoricalLabel(t *testing.T) {
 	for in, want := range map[string]string{
-		"worker-3": "worker-3", "": "", strings.Repeat("a", 64): strings.Repeat("a", 64), strings.Repeat("a", 65): "",
+		"builder-b": "builder-b", "": "", strings.Repeat("a", 64): strings.Repeat("a", 64), strings.Repeat("a", 65): "",
 		"evil\x1b[2J": "", "tab\there": "", "naïve": "", "line\nbreak": "",
 	} {
 		if got := safeLabel(in); got != want {
@@ -188,7 +188,7 @@ func TestPluginInstallHistoricalLabel(t *testing.T) {
 	}
 }
 
-// U16/U17: a selected send/read session must be live at commit; the commit
+// A selected send/read session must be live at commit; the commit
 // checks the fixed IDs and publishes nothing when one has gone.
 func TestPluginInstallTargetExitBeforeCommit(t *testing.T) {
 	s := fixtureStore(t)
@@ -217,7 +217,7 @@ func TestExtendedOnlyInstallWithNoTargets(t *testing.T) {
 	}
 }
 
-// U44: a receipt from before install provenance is an old record: never
+// A receipt from before install provenance is an old record: never
 // completed with a guessed installer.
 func TestPluginOldRecordRefusal(t *testing.T) {
 	s := fixtureStore(t)
@@ -256,7 +256,7 @@ func startNoticeFixture(t *testing.T) (PluginFeed, pluginRecord) {
 	return f, p
 }
 
-// U31: notices are due only from installed_at to 24 hours after; a future or
+// Notices are due only from installed_at to 24 hours after; a future or
 // invalid time is never due.
 func TestPluginNoticeTimeWindow(t *testing.T) {
 	_, p := startNoticeFixture(t)
@@ -275,7 +275,7 @@ func TestPluginNoticeTimeWindow(t *testing.T) {
 	}
 }
 
-// U32/U33: at most three starts per installation; a repeated start (same
+// At most three starts per installation; a repeated start (same
 // actor and generation) never spends twice.
 func TestPluginNoticeGlobalThree(t *testing.T) {
 	f, p := startNoticeFixture(t)
@@ -304,7 +304,7 @@ func TestPluginNoticeGlobalThree(t *testing.T) {
 	}
 }
 
-// U38/U39: a corrupt ledger or one of another installation is an error and
+// A corrupt ledger or one of another installation is an error and
 // is never reset or adopted.
 func TestPluginNoticeCorruptLedgerAndInstallationFence(t *testing.T) {
 	f, p := startNoticeFixture(t)
@@ -417,7 +417,7 @@ func plantOrphanArtifacts(t *testing.T, f PluginFeed) map[string]string {
 // Only artifacts Zalki proves it made are removed. A link, an unknown file in
 // the pin folder, a pin whose bytes do not match its name, or a ledger of
 // another live installation refuses the commit with the path named, removes
-// nothing, and leaves no partial sweep (U75: the defer removes nothing).
+// nothing, and leaves no partial sweep (the defer removes nothing).
 func TestInstallKeepsForeignArtifacts(t *testing.T) {
 	for name, plant := range map[string]func(*testing.T, PluginFeed) string{
 		"unknown file in pin folder":    plantUnknownPinFile,

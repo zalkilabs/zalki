@@ -165,7 +165,7 @@ func enablePluginOwner(cmd *cobra.Command, feed pluginfeed.PluginFeed, state, ra
 	if err != nil {
 		return fmt.Errorf(enabledResetUnconfirmed, name, name)
 	}
-	// A confirmed change: an idle supervisor has exited, so wake it (H2).
+	// A confirmed change: an idle supervisor has exited, so wake it.
 	// Without a login item (a custom state) the line stays as it was.
 	if result := wakeSupervisor(cmd.Context(), target, state); result != wakeManual {
 		return pluginDone(cmd, nil, enabledLine+"\n%s", name, wakeEnableLine(result, name))

@@ -585,7 +585,7 @@ func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reas
 }
 
 // The disable is quiet whether the child exits 0 or 1 after the host's
-// terminal frame (ZAL-71).
+// terminal frame.
 func TestHostConsumesOneOfferAndHonorsDisable(t *testing.T) {
 	for _, mode := range []string{"", "exit1-on-code"} {
 		t.Run("mode="+mode, func(t *testing.T) { checkOneOfferAndDisable(t, mode) })
@@ -1014,7 +1014,7 @@ func TestGrantedPluginStderrIsWithheldWhenTheHelloFails(t *testing.T) {
 	}
 }
 
-// U48: a request the hello did not enable stops the child with a named,
+// A request the hello did not enable stops the child with a named,
 // host-made reason (a fixed op name and code), never plugin text.
 func TestPluginRunNamedRefusal(t *testing.T) {
 	store, _ := hostStore(t)

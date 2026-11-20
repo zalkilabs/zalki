@@ -29,7 +29,7 @@ func restartPending(t *testing.T, state string) (restartRequest, bool) {
 	return request, ok
 }
 
-// S13 remainder: a confirmed disabled->enabled change writes the restart
+// A confirmed disabled->enabled change writes the restart
 // request that clears the crash limit; an enable that was already true and
 // a grant on an enabled plugin write none; a failed request after a good
 // enable is a one-line partial success with exit 1.

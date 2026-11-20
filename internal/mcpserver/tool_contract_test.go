@@ -47,7 +47,7 @@ func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// B3b: only list_messages' output schema gains the optional unreadable
+	// Only list_messages' output schema gains the optional unreadable
 	// integer (+32 schema bytes, like skipped_sessions); no description changed.
 	const want = "43dcfa767e91a155e985b48fe4b9f731ba4f5a23e04c908f65ea9ae69a6962c8"
 	if got := fmt.Sprintf("%x", sha256.Sum256(encoded)); got != want {

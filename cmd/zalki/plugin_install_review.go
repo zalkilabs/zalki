@@ -34,7 +34,7 @@ type pluginReviewPlan struct {
 }
 
 // renderPluginReview has no terminal, process, journal or environment access.
-// It renders slice 4 only; future supervisor consent is not wired here.
+// It renders the install review only; future supervisor consent is not wired here.
 func renderPluginReview(p pluginReviewPlan) ([]string, error) {
 	if err := validatePluginReview(p); err != nil {
 		return nil, err

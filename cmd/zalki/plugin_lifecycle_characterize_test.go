@@ -63,8 +63,8 @@ func pluginRecordKeys(t *testing.T, state, name string) []string {
 
 // Pristine characterization of the manual add/configure/grant/enable/status/
 // disable/revoke/remove lifecycle that plugins install must not change. The
-// enable writes a restart request for the supervisor (7d4); remove leaves it
-// and its lock as inert files that a new installation ignores (ZAL-66).
+// enable writes a restart request for the supervisor; remove leaves it
+// and its lock as inert files that a new installation ignores.
 func TestPluginLifecycleCharacterization(t *testing.T) {
 	store, session := pluginOwnerFixture(t)
 	file := filepath.Join(t.TempDir(), "plugin")

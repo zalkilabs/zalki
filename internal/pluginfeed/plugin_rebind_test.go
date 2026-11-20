@@ -10,7 +10,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// U49: a grant or scope change on an enabled plugin is one rebind: the record
+// A grant or scope change on an enabled plugin is one rebind: the record
 // stays enabled with the new access and a fresh epoch, and the old launch no
 // longer holds, so its child stops.
 func TestPluginGrantEnabledRebind(t *testing.T) {
@@ -43,7 +43,7 @@ func TestPluginGrantEnabledRebind(t *testing.T) {
 	}
 }
 
-// U50: a change that cannot be applied leaves the enabled record byte for
+// A change that cannot be applied leaves the enabled record byte for
 // byte: no half state, no broader access, no false success.
 func TestPluginGrantRefusedChangeLeavesTheRecord(t *testing.T) {
 	s := fixtureStore(t)
@@ -67,7 +67,7 @@ func TestPluginGrantRefusedChangeLeavesTheRecord(t *testing.T) {
 	}
 }
 
-// U51: remove is one command for an enabled plugin, and a held lease (a
+// Remove is one command for an enabled plugin, and a held lease (a
 // running host or helper) refuses with nothing removed.
 func TestPluginRemoveHeldLease(t *testing.T) {
 	s := fixtureStore(t)
@@ -95,7 +95,7 @@ func TestPluginRemoveHeldLease(t *testing.T) {
 	}
 }
 
-// U50: a record write is atomic: old or new. A write refused before the
+// A record write is atomic: old or new. A write refused before the
 // rename leaves the old record byte for byte and says so; a rename whose
 // directory sync fails leaves the new record and says it may be in effect,
 // never that nothing changed.
@@ -146,7 +146,7 @@ func checkPublication(t *testing.T, mode os.FileMode, want string, wantChanged b
 	}
 }
 
-// U50: after a failed write, only what the record proves is reported: the
+// After a failed write, only what the record proves is reported: the
 // new bytes (written, not confirmed), the old bytes (not written), and
 // anything else (missing, unreadable, other bytes) as possibly in effect,
 // never as unchanged.

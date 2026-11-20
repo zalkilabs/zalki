@@ -147,7 +147,7 @@ func TestHookReadsOnlyMarkedMessages(t *testing.T) {
 	if records := skippedRecords(t, output); len(records) != 0 {
 		t.Fatalf("the hook read unmarked files: %v", records)
 	}
-	// The list still scans every file and counts them (B3b).
+	// The list still scans every file and counts them.
 	batch, err := f.store.ReadMessages(MessageQuery{Actor: f.target.ID, Capability: f.targetKey, History: true})
 	if err != nil || batch.Unreadable != 50 {
 		t.Fatalf("history unreadable = %d, %v; want 50", batch.Unreadable, err)
@@ -201,7 +201,7 @@ func TestPruneRestoresAHoldMarker(t *testing.T) {
 }
 
 // The manual prune marks an unreadable file. The marker does not hide it from
-// the list count (B3b), and the hook still counts it until it can be read.
+// the list count, and the hook still counts it until it can be read.
 func TestPruneMarksAnUnreadableFileAndKeepsEveryCount(t *testing.T) {
 	f := newOpenFixture(t)
 	bad := newUnreadableMessage(t, f.store, truncatedMessage)

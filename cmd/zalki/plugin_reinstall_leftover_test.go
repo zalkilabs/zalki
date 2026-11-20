@@ -10,7 +10,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
-// ZAL-66: after remove and a same-NAME reinstall, the old installation's
+// After remove and a same-NAME reinstall, the old installation's
 // NAME.run.json and NAME.restart.json stay byte-identical and are ignored:
 // its crash history and its restart request never apply to the new one.
 // (Normal controller processing may later replace or clean them.)

@@ -18,10 +18,10 @@ import (
 )
 
 // The first-start banner (title "Zalki"). It says only that a background
-// plugin is new and what slice4's receipt recorded about its installer.
+// plugin is new and what the install receipt recorded about its installer.
 const (
 	notifyTitle       = "Zalki"
-	notifyTextSession = `new background plugin "%s", installed by session "%s"` // the label quoted (R7-L5)
+	notifyTextSession = `new background plugin "%s", installed by session "%s"` // the label quoted
 	notifyTextTerm    = `new background plugin "%s", installed by terminal`
 	// A receipt without proof, and a plugin with no receipt at all, both
 	// get this exact sentence: nothing is inserted.
@@ -260,7 +260,7 @@ func sameResolvedDir(a, b string) bool {
 // notifierFor is the controller's notifier. Banners go out only for the
 // real default installation: macOS, the OS account home (not $HOME alone)
 // and a state folder that resolves to its default state, however it was
-// given (R7-M4).
+// given.
 func notifierFor(state, home, controller string) *notifier {
 	switch {
 	case backgroundPlatform != "darwin":
@@ -423,8 +423,8 @@ func notifySuffix(run pluginRunState, ok bool) string {
 // or that a plugin's record names as unfinished.
 func notifyNotes(store bus.Store) []string {
 	record, err := loadNotifyRecord(store.Dir)
-	// The way out is a manual step (R7-M2 is deferred: nothing clears an
-	// unfinished dispatch automatically).
+	// The way out is a manual step (nothing clears an unfinished
+	// dispatch automatically).
 	service := "gui/" + strconv.Itoa(os.Getuid()) + "/" + backgroundLabel
 	resume := fmt.Sprintf(noteNotifyResume, service, shellQuote(filepath.Join(store.Dir, "plugins", notifyFileName)))
 	switch {

@@ -31,7 +31,7 @@
     "In Zalki it will:",
     "  see the status of all sessions, now and later",
     "  get messages that sessions send to it, and answer the sender",
-    "  SEND messages on its own to: \"zlaki\", \"worker-3\"",
+    "  SEND messages on its own to: \"reviewer-a\", \"builder-b\"",
     "It can send only to the sessions named above. Change later: zalki plugins grant spawner",
     "Install it? [y/N]"
   ]

@@ -73,7 +73,7 @@ func installFakeGateGo(t *testing.T, root, mode string) {
 	}
 	script := `#!/bin/sh
 set -eu
-if [ "${ZAL33_CREDENTIAL_SENTINEL+x}" = x ]; then printf '%s\n' ZAL33_CREDENTIAL_SENTINEL >> '` + filepath.Join(root, "credential-seen") + `'; fi
+if [ "${TEST_ALIAS_CREDENTIAL_SENTINEL+x}" = x ]; then printf '%s\n' TEST_ALIAS_CREDENTIAL_SENTINEL >> '` + filepath.Join(root, "credential-seen") + `'; fi
 mode='` + mode + `'
 case "$1" in
 env) printf '%s\n' '` + string(raw) + `' ;;
@@ -191,7 +191,7 @@ func TestAliasAmbientCredentialNeverReachesChild(t *testing.T) {
 	}
 	installFakeGateGo(t, root, "success")
 	const value = "synthetic-credential-value-do-not-echo"
-	t.Setenv("ZAL33_CREDENTIAL_SENTINEL", value)
+	t.Setenv("TEST_ALIAS_CREDENTIAL_SENTINEL", value)
 	t.Setenv("GOFLAGS", "-run=should-not-filter-tests")
 	t.Setenv("ZALKI_TEST_ALIAS_REPORT", filepath.Join(root, "report.json"))
 	t.Chdir(repo)

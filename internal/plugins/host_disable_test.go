@@ -11,7 +11,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
-// ZAL-71: the host stops the child itself when the owner disables it, so
+// The host stops the child itself when the owner disables it, so
 // any exit code of a child that leaves by itself is a quiet stop. A signal
 // death, a kill after the grace, a stderr flood, a host failure and a stop
 // for another reason stay errors.
@@ -65,7 +65,7 @@ func checkLoudStop(t *testing.T, mode string, receive bool, failure string) {
 // checkCancelAfterDisable is the requested-stop boundary itself: a real child
 // that holds EOF longer than the grace (hold-eof, 3 s), the run canceled
 // before the stop, then finish with requested=true. The kill after the 2 s
-// grace is a signal death and stays an error (ZAL-71, BUNDLE-M1).
+// grace is a signal death and stays an error.
 func checkCancelAfterDisable(t *testing.T) {
 	c, cancel, _, _, data := gracefulChildFixture(t, "hold-eof")
 	cancel()

@@ -137,7 +137,7 @@ func runSupervisor(ctx context.Context, explicitState string, stateGiven bool) e
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
 	s := &supervisor{state: state, home: home, binary: binary, binaryID: binaryID, resolve: resolveBinary, saveRun: saveRunState, instance: model.NewUUID(), log: logs, now: time.Now, plugins: map[string]*supervised{}, events: make(chan hostEvent, 64)}
-	s.notify = notifierFor(state, home, s.instance) // by the resolved path, not by how --state was given (R7-M4)
+	s.notify = notifierFor(state, home, s.instance) // by the resolved path, not by how --state was given
 	return s.runWithNotifier(ctx)
 }
 
@@ -209,7 +209,7 @@ func acquireSupervisorLock(state string) (*os.File, bool, error) {
 	}
 	// A status or restart probe holds the lock shared for a moment; only a
 	// lock that stays held for the whole bounded wait is another controller
-	// (ZAL-64). The wait never grows beyond supervisorLockWait.
+	// The wait never grows beyond supervisorLockWait.
 	deadline := time.Now().Add(supervisorLockWait)
 	for {
 		err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
@@ -396,7 +396,7 @@ func (s *supervisor) scan() (bool, error) {
 // forget ends a removed name: its host is stopped and reaped through its
 // own handle, a pending end is classified, and the entry is dropped once
 // its run state is durable. An unsaved entry stays (the save fence) and
-// keeps the controller running, so the next scan saves it again (ZAL-68).
+// keeps the controller running, so the next scan saves it again.
 // retained reports that case.
 func (s *supervisor) forget(name string, p *supervised) (retained bool) {
 	if p.host != nil {
@@ -702,7 +702,7 @@ func (s *supervisor) handle(ev hostEvent) {
 }
 
 // finish cleans up a host that ended on its own and classifies the end.
-// While the record is unreadable the end stays unknown (ZAL-74).
+// While the record is unreadable the end stays unknown.
 func (s *supervisor) finish(name string, p *supervised) {
 	status := p.host.stop()
 	p.host = nil

@@ -13,7 +13,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// Q4b: a controller dies (SIGKILL through its owned handle) while its banner
+// A controller dies (SIGKILL through its owned handle) while its banner
 // child runs. Several new generations see its in-flight record: none starts
 // a second child, none clears or signals anything, plugins still start, and
 // the pause is named. The fixture child ends by itself within its bound.

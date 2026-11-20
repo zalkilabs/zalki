@@ -12,7 +12,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
-// R7-H2: a confirmed `plugins enable` wakes an idle supervisor with the
+// A confirmed `plugins enable` wakes an idle supervisor with the
 // non-killing kickstart, only when the login item is ours, loaded and
 // matching; otherwise it changes nothing and says what is true.
 func TestPluginEnableWakesSupervisor(t *testing.T) {
@@ -51,7 +51,7 @@ func TestPluginEnableWakesSupervisor(t *testing.T) {
 	}
 }
 
-// R7-M3: with a running supervisor (its lock held) the install line says
+// With a running supervisor (its lock held) the install line says
 // that it starts the plugin, never "Start it with: zalki plugins run".
 func TestPluginInstallLineWithRunningSupervisor(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
@@ -69,7 +69,7 @@ func TestPluginInstallLineWithRunningSupervisor(t *testing.T) {
 	}
 }
 
-// R7-L2: an unfinished login-item change names its one repair.
+// An unfinished login-item change names its one repair.
 func TestPluginLoginItemPendingNamesRepair(t *testing.T) {
 	if !strings.Contains(loginItemPendingReason, "run zalki install --apply in your own terminal") {
 		t.Fatalf("the unfinished-change reason names no repair: %q", loginItemPendingReason)

@@ -310,7 +310,7 @@ func (p *pluginInstaller) question() string {
 }
 
 // reportBackground makes the login-item change the owner agreed to and
-// says what happened. Every other route keeps the slice4 line.
+// says what happened. Every other route keeps the plain install line.
 func (p *pluginInstaller) reportBackground() error {
 	ctx := p.cmd.Context()
 	if p.loginPlan != nil && p.loginPlan.changes() {
@@ -320,7 +320,7 @@ func (p *pluginInstaller) reportBackground() error {
 		return p.say(loginItemStartedLine+"\n", p.name, p.name)
 	}
 	// Enabled without a login-item change: make sure a supervisor starts it
-	// (H2) and say what really happens (M3).
+	// and say what really happens.
 	return p.say("%s\n", wakeInstallLine(wakeSupervisor(ctx, p.background, p.store.Dir), p.name))
 }
 
