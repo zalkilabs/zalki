@@ -46,34 +46,35 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 		}
 	}
 	runtime.pluginStartup = s.PluginStartup
+	fence := fenceOf(runtime)
 	trace.stage = "handler"
 	handled, err := s.runHookHandler(hooks, runtime, event, id, life, output)
 	if err != nil {
 		return err
 	}
 	trace.stage = "watch"
-	if err := s.notifyWatches(ctx, id, event, life, started, runtime); err != nil {
+	if err := s.notifyWatches(ctx, id, event, life, started, fence); err != nil {
 		return err
 	}
 	if handled {
 		trace.stage = "approval"
-		return s.releaseApprovalQueue(ctx, id, runtime)
+		return s.releaseApprovalQueue(ctx, id, fence)
 	}
 	if event.Event == "SessionStart" {
 		return s.startSession(kind, hooks, event, id, output, &trace)
 	}
 	if event.SessionTitle != nil {
 		trace.stage = "name"
-		if err := s.Store.hookName(id, *event.SessionTitle, runtime); err != nil {
+		if err := s.Store.hookName(id, *event.SessionTitle, fence); err != nil {
 			return err
 		}
 	}
 	trace.stage = "state"
-	if err := s.applyLifecycleState(id, event.Event, runtime); err != nil {
+	if err := s.applyLifecycleState(id, event.Event, fence); err != nil {
 		return err
 	}
 	trace.stage = "approval"
-	return s.releaseApprovalQueue(ctx, id, runtime)
+	return s.releaseApprovalQueue(ctx, id, fence)
 }
 
 // finishHook logs the hook's outcome and returns its final error. A record the
@@ -171,13 +172,14 @@ func (s *Service) startSession(kind string, hooks agent.HookAdapter, event agent
 		return err
 	}
 	runtime := hookRuntime{store: s.Store, actor: id, kind: kind, event: event.Event, generation: session.Generation, generationBound: true}
+	fence := fenceOf(runtime)
 	trace.stage = "owner"
-	if err := s.Store.rememberOwner(id, kind, true, runtime); err != nil {
+	if err := s.Store.rememberOwner(id, kind, true, fence); err != nil {
 		return err
 	}
 	if event.SessionTitle != nil {
 		trace.stage = "name"
-		if err := s.Store.hookName(id, *event.SessionTitle, runtime); err != nil {
+		if err := s.Store.hookName(id, *event.SessionTitle, fence); err != nil {
 			return err
 		}
 	}
@@ -209,12 +211,12 @@ var lifecycleRules = map[string]lifecycleRule{
 	"Interrupt":         {state: model.StateReady},
 }
 
-func (s *Service) applyLifecycleState(id, event string, snapshots ...hookRuntime) error {
+func (s *Service) applyLifecycleState(id, event string, fences ...sessionFence) error {
 	rule, ok := lifecycleRules[event]
 	if !ok {
 		return errors.New("unsupported agent lifecycle event")
 	}
-	return updateSession(s.Store, id, rule.state, rule.retire, lifecycleCause(event), snapshots...)
+	return updateSession(s.Store, id, rule.state, rule.retire, lifecycleCause(event), fences...)
 }
 
 // runHookHandler applies the descriptor's session-end rule, then runs the
@@ -235,7 +237,7 @@ func (s *Service) keepEndedSession(id, event string, life agent.Lifecycle, runti
 	if rule, ok := lifecycleRules[event]; !ok || !rule.endsSession || !life.KeepOnSessionEnd {
 		return false, nil
 	}
-	return true, updateSession(s.Store, id, model.StateReady, false, lifecycleCause(event), runtime)
+	return true, updateSession(s.Store, id, model.StateReady, false, lifecycleCause(event), fenceOf(runtime))
 }
 
 // lifecycleCauses names the event cause of each native hook event.
@@ -288,7 +290,7 @@ func prepareLifecycleHook(store Store, kind, actor string, event agent.HookInput
 		return runtime, err
 	}
 	trace.stage = "owner"
-	if err := store.rememberOwner(actor, kind, event.Event == "UserPromptSubmit", runtime); err != nil {
+	if err := store.rememberOwner(actor, kind, event.Event == "UserPromptSubmit", fenceOf(runtime)); err != nil {
 		return runtime, err
 	}
 	return runtime, nil

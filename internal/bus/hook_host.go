@@ -8,8 +8,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-var errStaleHook = errors.New("hook registration changed")
-
 // hookRuntime supplies trusted hook and diagnostic host operations.
 // UpdateSession, EmitPending and CompletedNativePrompt require its nonempty
 // actor and reject other ids before delegating. ApplyLifecycle and ClaimRecovery
@@ -27,7 +25,7 @@ func (h hookRuntime) UpdateSession(id string, state model.SessionState, retired 
 	if h.actor == "" || id != h.actor {
 		return model.NewError(model.CodeUnauthorized, "hook operation must use its bound session")
 	}
-	return updateSession(h.store, id, state, retired, lifecycleCause(h.event), h)
+	return updateSession(h.store, id, state, retired, lifecycleCause(h.event), fenceOf(h))
 }
 func (h hookRuntime) EmitPending(id string) (string, error) {
 	if h.actor == "" || id != h.actor {
@@ -35,7 +33,7 @@ func (h hookRuntime) EmitPending(id string) (string, error) {
 	}
 	var context strings.Builder
 	err := h.store.locked(func() error {
-		if _, err := sessionForHook(h.store, id, h); err != nil {
+		if _, err := sessionUnderFence(h.store, id, fenceOf(h)); err != nil {
 			return err
 		}
 		return h.store.emitPendingLocked(id, &context)
@@ -51,31 +49,11 @@ func (h hookRuntime) CompletedNativePrompt(id, prompt string) (string, error) {
 
 func (h hookRuntime) Listener(v model.Session) model.ListenerStatus { return h.store.listenerStatus(v) }
 
-// Called only inside the operation's existing journal lock. A bound missing
-// snapshot never adopts a registration created by another hook later.
-func sessionForHook(s Store, actor string, snapshots ...hookRuntime) (model.Session, error) {
-	v, err := s.session(actor)
-	if len(snapshots) == 0 || !snapshots[0].generationBound {
-		return v, err
-	}
-	h := snapshots[0]
-	if errors.Is(err, os.ErrNotExist) {
-		return v, errStaleHook
-	}
-	if err != nil {
-		return v, err
-	}
-	if h.actor != actor || v.ID != actor || v.Kind != h.kind || h.generation == "" || v.Generation != h.generation {
-		return v, errStaleHook
-	}
-	return v, nil
-}
-
 func lifecycleSessionForHook(h hookRuntime) (model.Session, bool, error) {
 	if !h.generationBound {
 		return h.store.lifecycleSession(h.actor, h.kind)
 	}
-	v, err := sessionForHook(h.store, h.actor, h)
+	v, err := sessionUnderFence(h.store, h.actor, fenceOf(h))
 	if errors.Is(err, os.ErrNotExist) {
 		return v, false, nil
 	}

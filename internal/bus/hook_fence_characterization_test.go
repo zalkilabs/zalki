@@ -19,49 +19,49 @@ const staleGeneration = "00000000-0000-4000-8000-00000000dead"
 type fenceKind struct {
 	name  string
 	stale bool
-	make  func(v model.Session) []hookRuntime
+	make  func(v model.Session) []sessionFence
 }
 
 func fenceKinds() []fenceKind {
-	bound := func(v model.Session) hookRuntime {
-		return hookRuntime{actor: v.ID, kind: v.Kind, generation: v.Generation, generationBound: true}
+	bound := func(v model.Session) sessionFence {
+		return sessionFence{actor: v.ID, kind: v.Kind, generation: v.Generation, bound: true}
 	}
 	return []fenceKind{
-		{"no capture", false, func(model.Session) []hookRuntime { return nil }},
-		{"unbound capture", false, func(v model.Session) []hookRuntime {
+		{"no capture", false, func(model.Session) []sessionFence { return nil }},
+		{"unbound capture", false, func(v model.Session) []sessionFence {
 			h := bound(v)
-			h.generationBound = false
-			return []hookRuntime{h}
+			h.bound = false
+			return []sessionFence{h}
 		}},
-		{"matching capture", false, func(v model.Session) []hookRuntime { return []hookRuntime{bound(v)} }},
-		{"other generation", true, func(v model.Session) []hookRuntime {
+		{"matching capture", false, func(v model.Session) []sessionFence { return []sessionFence{bound(v)} }},
+		{"other generation", true, func(v model.Session) []sessionFence {
 			h := bound(v)
 			h.generation = staleGeneration
-			return []hookRuntime{h}
+			return []sessionFence{h}
 		}},
-		{"empty generation", true, func(v model.Session) []hookRuntime {
+		{"empty generation", true, func(v model.Session) []sessionFence {
 			h := bound(v)
 			h.generation = ""
-			return []hookRuntime{h}
+			return []sessionFence{h}
 		}},
-		{"other kind", true, func(v model.Session) []hookRuntime {
+		{"other kind", true, func(v model.Session) []sessionFence {
 			h := bound(v)
 			h.kind = "codex"
-			return []hookRuntime{h}
+			return []sessionFence{h}
 		}},
-		{"other actor", true, func(v model.Session) []hookRuntime {
+		{"other actor", true, func(v model.Session) []sessionFence {
 			h := bound(v)
 			h.actor = "cursor:00000000-0000-4000-8000-0000000000aa"
-			return []hookRuntime{h}
+			return []sessionFence{h}
 		}},
 	}
 }
 
-func TestSessionForHookAppliesTheCapture(t *testing.T) {
+func TestSessionUnderFenceAppliesTheCapture(t *testing.T) {
 	store := fixtureStore(t)
 	v, _ := register(t, store, "cursor")
 	for _, kind := range fenceKinds() {
-		got, err := sessionForHook(store, v.ID, kind.make(v)...)
+		got, err := sessionUnderFence(store, v.ID, kind.make(v)...)
 		if kind.stale {
 			if !errors.Is(err, errStaleHook) {
 				t.Errorf("%s: error = %v, want a stale hook", kind.name, err)
@@ -74,12 +74,12 @@ func TestSessionForHookAppliesTheCapture(t *testing.T) {
 	}
 }
 
-func TestSessionForHookWithAMissingRecord(t *testing.T) {
+func TestSessionUnderFenceWithAMissingRecord(t *testing.T) {
 	store := fixtureStore(t)
 	missing := "cursor:00000000-0000-4000-8000-0000000000bb"
 	ghost := model.Session{ID: missing, Kind: "cursor", Generation: staleGeneration}
 	for _, kind := range fenceKinds() {
-		_, err := sessionForHook(store, missing, kind.make(ghost)...)
+		_, err := sessionUnderFence(store, missing, kind.make(ghost)...)
 		// A bound capture never adopts a record that is missing; an unbound
 		// one and no capture report the missing record as it is.
 		if wantStale := kind.name == "matching capture" || kind.stale; wantStale != errors.Is(err, errStaleHook) {
@@ -117,7 +117,7 @@ func TestUpdateSessionWithAMissingRecord(t *testing.T) {
 	if err := updateSession(store, missing, model.StateBusy, false, model.CauseTool); err != nil {
 		t.Errorf("no capture: error = %v, want none", err)
 	}
-	unbound := hookRuntime{actor: missing, kind: "cursor", generation: staleGeneration}
+	unbound := sessionFence{actor: missing, kind: "cursor", generation: staleGeneration}
 	if err := updateSession(store, missing, model.StateBusy, false, model.CauseTool, unbound); err != nil {
 		t.Errorf("unbound capture: error = %v, want none", err)
 	}
@@ -218,7 +218,7 @@ func TestConsumeHookWatchesAppliesTheCapture(t *testing.T) {
 	if _, err := consumeHookWatches(store, missing, time.Now()); err != nil {
 		t.Errorf("no capture, missing record: error = %v, want none", err)
 	}
-	unbound := hookRuntime{actor: missing, kind: "cursor"}
+	unbound := sessionFence{actor: missing, kind: "cursor"}
 	if _, err := consumeHookWatches(store, missing, time.Now(), unbound); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("unbound capture, missing record: error = %v, want a missing record", err)
 	}
@@ -231,8 +231,7 @@ func TestLifecycleSessionForHookAppliesTheCapture(t *testing.T) {
 		caps := kind.make(v)
 		h := hookRuntime{store: store, actor: v.ID, kind: v.Kind}
 		if len(caps) == 1 {
-			h = caps[0]
-			h.store = store
+			h = hookRuntime{store: store, actor: caps[0].actor, kind: caps[0].kind, generation: caps[0].generation, generationBound: caps[0].bound}
 		}
 		got, ok, err := lifecycleSessionForHook(h)
 		switch {
@@ -267,4 +266,15 @@ func mustSession(t *testing.T, store Store, id string) model.Session {
 		t.Fatal(err)
 	}
 	return v
+}
+
+func TestFenceOfCopiesTheCapturedRegistration(t *testing.T) {
+	h := hookRuntime{actor: "cursor:a", kind: "cursor", event: "Stop", generation: "g1", generationBound: true}
+	if got, want := fenceOf(h), (sessionFence{actor: "cursor:a", kind: "cursor", generation: "g1", bound: true}); got != want {
+		t.Errorf("fenceOf = %+v, want %+v", got, want)
+	}
+	h.generationBound = false
+	if fenceOf(h).bound {
+		t.Error("an unbound host gave a bound fence")
+	}
 }
