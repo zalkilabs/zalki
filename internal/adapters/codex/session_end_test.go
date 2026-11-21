@@ -29,16 +29,15 @@ func (*endHookHost) CompletedNativePrompt(string, string) (string, error) {
 	return "", errors.New("unexpected prompt read")
 }
 
-func TestCodexSessionEndBoundUpdateAndError(t *testing.T) {
-	failure := errors.New("controlled write failure")
-	for _, want := range []error{nil, failure} {
-		host := &endHookHost{err: want}
-		handled, err := New(false, "fixture.json").HandleHook(host, agent.HookInput{Event: "SessionEnd"}, "codex:fixture", io.Discard)
-		if !handled || host.calls != 1 || host.id != "codex:fixture" || host.state != model.StateReady || host.retired {
-			t.Fatal("CODEX_END_BOUND_UPDATE_CHANGED")
-		}
-		if !errors.Is(err, want) {
-			t.Fatal("CODEX_END_DROPPED_WRITE_ERROR")
-		}
+// Core keeps an ended Codex session from its descriptor; the hook itself writes nothing.
+func TestCodexSessionEndIsCoreOwned(t *testing.T) {
+	adapter := New(false, "fixture.json")
+	if !adapter.Descriptor().Lifecycle.KeepOnSessionEnd {
+		t.Fatal("CODEX_END_NOT_KEPT_BY_DESCRIPTOR")
+	}
+	host := &endHookHost{}
+	handled, err := adapter.HandleHook(host, agent.HookInput{Event: "SessionEnd"}, "codex:fixture", io.Discard)
+	if handled || err != nil || host.calls != 0 {
+		t.Fatal("CODEX_END_HOOK_WROTE_STATE")
 	}
 }

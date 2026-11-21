@@ -1736,5 +1736,145 @@
       }
     },
     "reason": "Moves Version out of bus into the new internal/buildinfo package and adds buildinfo.WithBuild, which formats the version with the first 12 characters of the build id. bus, plugins and cmd/zalki import buildinfo; bus keeps BuildVersion, which calls WithBuild with the build id it captured. Behavior is unchanged. Delta measured on base e9c50a3, same on both OS."
+  },
+  {
+    "base_commit": "7d3c776b3af3be47323369d4a128eba0ed382091",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/agent.Lifecycle",
+          "internal/agent/agenttest.Run",
+          "internal/agent/agenttest.host.ApplyLifecycle",
+          "internal/agent/agenttest.host.ClaimRecovery",
+          "internal/agent/agenttest.host.CompletedNativePrompt",
+          "internal/agent/agenttest.host.EmitPending",
+          "internal/agent/agenttest.host.UpdateSession"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/agent/agenttest.Run": "func(t *testing.T, adapter agent.Adapter)",
+          "function:internal/agent/agenttest.host.ApplyLifecycle": "func(host) func(func(model.SessionView) (agent.LifecycleChange, error)) error",
+          "function:internal/agent/agenttest.host.ClaimRecovery": "func(host) func(func(model.SessionView) (agent.RecoveryDecision, error)) (agent.RecoveryGrant, error)",
+          "function:internal/agent/agenttest.host.CompletedNativePrompt": "func(host) func(string, string) (string, error)",
+          "function:internal/agent/agenttest.host.EmitPending": "func(host) func(string) (string, error)",
+          "function:internal/agent/agenttest.host.UpdateSession": "func(host) func(string, model.SessionState, bool) error",
+          "type:internal/agent.Lifecycle": "Lifecycle struct {\n\tKeepOnSessionEnd\tbool\n\tPromptMayRegister\tbool\n}"
+        },
+        "removed": {},
+        "changed": {
+          "type:internal/agent.AdapterDescriptor": {
+            "before": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHooks\t\tmap[string]string\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}",
+            "after": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {
+          "internal/agent/agenttest.host": {
+            "Methods": 5,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Service": {
+            "before": {
+              "Methods": 29,
+              "Files": 11
+            },
+            "after": {
+              "Methods": 31,
+              "Files": 11
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [
+          "internal/agent/agenttest -> internal/agent",
+          "internal/agent/agenttest -> internal/model"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Adapter descriptors declare lifecycle behavior with the new Lifecycle type. The new agenttest package (test support) adds one Run function and a small fake host. The hook service gains two helper methods. Internal change; behavior stays the same."
+  },
+  {
+    "base_commit": "7d3c776b3af3be47323369d4a128eba0ed382091",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/agent.Lifecycle",
+          "internal/agent/agenttest.Run",
+          "internal/agent/agenttest.host.ApplyLifecycle",
+          "internal/agent/agenttest.host.ClaimRecovery",
+          "internal/agent/agenttest.host.CompletedNativePrompt",
+          "internal/agent/agenttest.host.EmitPending",
+          "internal/agent/agenttest.host.UpdateSession"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/agent/agenttest.Run": "func(t *testing.T, adapter agent.Adapter)",
+          "function:internal/agent/agenttest.host.ApplyLifecycle": "func(host) func(func(model.SessionView) (agent.LifecycleChange, error)) error",
+          "function:internal/agent/agenttest.host.ClaimRecovery": "func(host) func(func(model.SessionView) (agent.RecoveryDecision, error)) (agent.RecoveryGrant, error)",
+          "function:internal/agent/agenttest.host.CompletedNativePrompt": "func(host) func(string, string) (string, error)",
+          "function:internal/agent/agenttest.host.EmitPending": "func(host) func(string) (string, error)",
+          "function:internal/agent/agenttest.host.UpdateSession": "func(host) func(string, model.SessionState, bool) error",
+          "type:internal/agent.Lifecycle": "Lifecycle struct {\n\tKeepOnSessionEnd\tbool\n\tPromptMayRegister\tbool\n}"
+        },
+        "removed": {},
+        "changed": {
+          "type:internal/agent.AdapterDescriptor": {
+            "before": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHooks\t\tmap[string]string\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}",
+            "after": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {
+          "internal/agent/agenttest.host": {
+            "Methods": 5,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Service": {
+            "before": {
+              "Methods": 29,
+              "Files": 11
+            },
+            "after": {
+              "Methods": 31,
+              "Files": 11
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [
+          "internal/agent/agenttest -> internal/agent",
+          "internal/agent/agenttest -> internal/model"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Adapter descriptors declare lifecycle behavior with the new Lifecycle type. The new agenttest package (test support) adds one Run function and a small fake host. The hook service gains two helper methods. Internal change; behavior stays the same."
   }
 ]

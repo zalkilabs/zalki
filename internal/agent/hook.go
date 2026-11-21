@@ -7,7 +7,7 @@ import (
 )
 
 type HookInput struct {
-	// Set only by trusted native normalization; JSON cannot select creation.
+	// Set only by core from the adapter's Lifecycle; JSON cannot select creation.
 	AllowPromptRegistration bool     `json:"-"`
 	SessionID               string   `json:"session_id"`
 	CWD                     string   `json:"cwd"`
