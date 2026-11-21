@@ -19,6 +19,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/adapters/cursor"
 	agentapi "github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/buildinfo"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/config"
 	"github.com/zalkilabs/zalki/internal/fsutil"
@@ -340,5 +341,5 @@ func configuredSmokeStore(t *testing.T, state, workspace string) bus.Store {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return bus.StoreAt(state, bus.WithRegistry(adapters.BuiltinWithCodex(snapshot.Settings.CodexAllowQueueFallback.Value, snapshot.Paths.ConfigFile.Value, bus.Version)))
+	return bus.StoreAt(state, bus.WithRegistry(adapters.BuiltinWithCodex(snapshot.Settings.CodexAllowQueueFallback.Value, snapshot.Paths.ConfigFile.Value, buildinfo.Version)))
 }

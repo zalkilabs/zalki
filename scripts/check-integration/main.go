@@ -51,7 +51,7 @@ var required = []requiredTest{
 	{"scripts/issue-scopes", "TestStrictScopeRejectsMissingEscapedAndOutOfBoundsSource"},
 	{"bus", "TestEndpointRecordsTheResolvedPath"},
 	{"bus", "TestEndpointRejectsFilesAndSymlinks"},
-	{"bus", "TestReleaseLinkerFlagNamesTheVersionVariable"},
+	{"buildinfo", "TestReleaseLinkerFlagNamesTheVersionVariable"},
 	{"bus", "TestFeedMemberZeroReferenceCacheCannotBeRevived"},
 	{"bus", "TestFeedMemberReadsAndDecodesNativeOncePerView"},
 	{"bus", "TestFeedMemberEvidenceIsOncePerViewAndPluginIsolated"},

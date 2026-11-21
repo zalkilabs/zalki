@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/buildinfo"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
@@ -90,7 +90,7 @@ func greet(c *child, offered []string) ([]string, error) {
 	if err := c.input.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
 		return nil, c.deadlineError(c.input, err)
 	}
-	if err := c.pipeError(writeFrame(c.input, map[string]hostHello{"hello": {Wire: wireName, Host: hostInfo{Version: bus.Version, Capabilities: offered}}})); err != nil {
+	if err := c.pipeError(writeFrame(c.input, map[string]hostHello{"hello": {Wire: wireName, Host: hostInfo{Version: buildinfo.Version, Capabilities: offered}}})); err != nil {
 		return nil, err
 	}
 	header, err := c.receive(helloTimeout)
