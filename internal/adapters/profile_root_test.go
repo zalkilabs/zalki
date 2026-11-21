@@ -24,8 +24,15 @@ func selectedProfile(t *testing.T, kind string) string {
 	}
 	return a.(agent.NameAdapter).ConfigDir()
 }
+
+// clearProfileEnvironment also moves the test into an empty folder and hides
+// installed clients: diagnostics run a client's --version, and a real client
+// started with an invalid profile (relative or empty config path) writes its
+// config file into the current folder.
 func clearProfileEnvironment(t *testing.T) {
 	t.Helper()
+	t.Chdir(t.TempDir())
+	t.Setenv("PATH", t.TempDir())
 	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {
 		t.Setenv(name, "")
 	}
@@ -158,7 +165,7 @@ func TestCursorPromptProfileRefusalDoesNotDebitQuota(t *testing.T) {
 	t.Setenv("HOME", "")
 	s := adapterTestStore(t)
 	id := model.NewUUID()
-	raw, _ := json.Marshal(agent.HookInput{ConversationID: id, CWD: "/workspace", Event: "beforeSubmitPrompt"})
+	raw, _ := json.Marshal(map[string]string{"conversation_id": id, "cwd": "/workspace", "hook_event_name": "beforeSubmitPrompt"})
 	var output bytes.Buffer
 	if err := (&bus.Service{Store: s}).Hook(t.Context(), "cursor", bytes.NewReader(raw), &output); err != nil || !strings.Contains(output.String(), `"continue":true`) {
 		t.Fatal("PROFILE_REFUSAL_BLOCKED_PROMPT", err, output.String())

@@ -61,6 +61,10 @@ func TestChecksCatchBrokenAdapters(t *testing.T) {
 		{"unknown mapped event", func(a *brokenAdapter) { a.descriptor.Hooks = map[string]string{"start": "SessionStart", "x": "Nope"} }, "unknown event"},
 		{"no session start", func(a *brokenAdapter) { a.descriptor.Hooks = map[string]string{"stop": "Stop"} }, "SessionStart"},
 		{"no hooks mapped", func(a *brokenAdapter) { a.descriptor.Hooks = nil }, "at least one"},
+		{"empty native key", func(a *brokenAdapter) { a.descriptor.Native = []agent.NativeField{{Key: ""}} }, "empty or declared twice"},
+		{"native key twice", func(a *brokenAdapter) {
+			a.descriptor.Native = []agent.NativeField{{Key: "status"}, {Key: "STATUS"}}
+		}, "empty or declared twice"},
 		{"normalizer allows registration", func(a *brokenAdapter) {
 			a.normalize = func(v agent.HookInput) (agent.HookInput, error) { v.AllowPromptRegistration = true; return v, nil }
 		}, "descriptor does"},

@@ -96,7 +96,7 @@ func TestHookPayloadPreservesFirstValueAndNativeErrors(t *testing.T) {
 			t.Fatalf("first value with %q: %v %v %s", tail, err, stateErr, current.State)
 		}
 	}
-	for _, input := range []string{"", "{", `{"hook_event_name":"PostToolUse","status":{}}`, `[1]`, `{"bad":!}`} {
+	for _, input := range []string{"", "{", `{"hook_event_name":"PostToolUse","source":{}}`, `[1]`, `{"bad":!}`} {
 		var expected agent.HookInput
 		nativeErr := json.NewDecoder(strings.NewReader(input)).Decode(&expected)
 		store := fixtureStore(t)
@@ -150,7 +150,7 @@ func TestHookPayloadFailureDiagnosticsAreBoundedAndPrivate(t *testing.T) {
 		{"truncated", `{"hook_event_name":"PostToolUse","tool_response":"` + private, "PostToolUse", "le_128kib"},
 		{"large_truncated", `{"hook_event_name":"PostToolUse","tool_response":"` + strings.Repeat(private, 8000), "PostToolUse", "128kib_to_8mib"},
 		{"oversize", `{"hook_event_name":"PostToolUse","tool_response":"` + strings.Repeat(private, 350000), "PostToolUse", "gt_8mib"},
-		{"late_type", `{"tool_response":"` + strings.Repeat("x", 17000) + `","hook_event_name":"PostToolUse","status":{}}`, "PostToolUse", "le_128kib"},
+		{"late_type", `{"tool_response":"` + strings.Repeat("x", 17000) + `","hook_event_name":"PostToolUse","source":{}}`, "PostToolUse", "le_128kib"},
 		{"trailing_header_after_type_error", `{"hook_event_name":{}} {"hook_event_name":"Stop"}`, "unknown", "le_128kib"},
 		{"private_event", `{"hook_event_name":"` + private + `","tool_response":"`, "unknown", "le_128kib"},
 		{"nested_event", `{"nested":{"hook_event_name":"SessionEnd"},"bad":`, "unknown", "le_128kib"},
@@ -309,7 +309,7 @@ func TestHookPayloadTypeErrorKeepsNativeErrorWithReadAhead(t *testing.T) {
 	store := fixtureStore(t)
 	target, _ := register(t, store, "claude")
 	before := sessionBytes(t, store, target.ID)
-	suffix := `,"status":{}}`
+	suffix := `,"source":{}}`
 	base := strings.TrimSuffix(hookPayload(target.NativeID, "PostToolUse", 0), "}") + suffix
 	input := strings.TrimSuffix(hookPayload(target.NativeID, "PostToolUse", 8*1024*1024-len(base)), "}") + suffix + " trailing garbage"
 	err := (&Service{Store: store}).Hook(t.Context(), "claude", strings.NewReader(input), io.Discard)

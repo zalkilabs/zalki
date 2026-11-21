@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
@@ -53,6 +54,25 @@ func checkDescriptor(t reporter, adapter agent.Adapter) {
 	}
 	if hooked && !mapsTo(d.Hooks, "SessionStart") {
 		t.Errorf("a hook adapter must map a native event to SessionStart")
+	}
+	checkNative(t, adapter, d.Native)
+}
+
+func checkNative(t reporter, adapter agent.Adapter, fields []agent.NativeField) {
+	t.Helper()
+	if _, ok := adapter.(agent.HookAdapter); !ok && len(fields) > 0 {
+		t.Errorf("native hook fields need a HookAdapter")
+	}
+	if payload, ok := adapter.(agent.HookPayloadAdapter); ok && payload.ExtendedHookEvent() != "" && len(fields) > 0 {
+		t.Errorf("native hook fields are not supported with the streaming payload selector")
+	}
+	seen := map[string]bool{}
+	for _, field := range fields {
+		key := strings.ToLower(field.Key)
+		if key == "" || seen[key] {
+			t.Errorf("native hook field %q is empty or declared twice (keys match ignoring case)", field.Key)
+		}
+		seen[key] = true
 	}
 }
 

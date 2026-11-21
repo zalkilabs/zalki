@@ -218,7 +218,7 @@ func assertCodexInvalidBulkCannotReleaseApproval(t *testing.T, damage string) {
 	case "bulk_syntax":
 		suffix = `\q"}`
 	case "late_type":
-		suffix = `","status":{}}`
+		suffix = `","source":{}}`
 	case "duplicate":
 		suffix = `","hook_event_name":"SessionEnd"}`
 	case "wire_limit":

@@ -2010,5 +2010,123 @@
       }
     },
     "reason": "Moves the file lock primitives (OpenLockFile, LockExclusive, Unlock, CloseLockFile, Linked) from journal to platform, adds platform.LockShared and platform.LockBusy, and makes log rotation, the installation lock, the login item lock and the plugin supervisor files call them instead of flock. Behavior is unchanged. Delta measured on base 5817c36, same on both OS."
+  },
+  {
+    "base_commit": "542c1d4016acff4b268c42c0488cd2be45982703",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/agent.CaptureID",
+          "internal/agent.CaptureNone",
+          "internal/agent.CapturePaths",
+          "internal/agent.NativeCapture",
+          "internal/agent.NativeField",
+          "internal/agent.NativeInt",
+          "internal/agent.NativeKind",
+          "internal/agent.NativeString",
+          "internal/agent.NativeStrings"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "const:internal/agent.CaptureID": "const (\n\tCaptureNone\tNativeCapture\t= iota\n\tCaptureID\n\tCapturePaths\n)",
+          "const:internal/agent.CaptureNone": "const (\n\tCaptureNone\tNativeCapture\t= iota\n\tCaptureID\n\tCapturePaths\n)",
+          "const:internal/agent.CapturePaths": "const (\n\tCaptureNone\tNativeCapture\t= iota\n\tCaptureID\n\tCapturePaths\n)",
+          "const:internal/agent.NativeInt": "const (\n\tNativeString\tNativeKind\t= iota\n\tNativeStrings\n\tNativeInt\n)",
+          "const:internal/agent.NativeString": "const (\n\tNativeString\tNativeKind\t= iota\n\tNativeStrings\n\tNativeInt\n)",
+          "const:internal/agent.NativeStrings": "const (\n\tNativeString\tNativeKind\t= iota\n\tNativeStrings\n\tNativeInt\n)",
+          "type:internal/agent.NativeCapture": "NativeCapture int",
+          "type:internal/agent.NativeField": "NativeField struct {\n\tKey\tstring\n\tKind\tNativeKind\n\tCapture\tNativeCapture\n}",
+          "type:internal/agent.NativeKind": "NativeKind int"
+        },
+        "removed": {},
+        "changed": {
+          "type:internal/agent.AdapterDescriptor": {
+            "before": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}",
+            "after": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tNative\t\t[]NativeField\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}"
+          },
+          "type:internal/agent.HookInput": {
+            "before": "HookInput struct {\n\tAllowPromptRegistration\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tConversationID\t\tstring\t\t`json:\"conversation_id\"`\n\tWorkspaceRoots\t\t[]string\t`json:\"workspace_roots\"`\n\tStatus\t\t\tstring\t\t`json:\"status\"`\n\tLoopCount\t\tint\t\t`json:\"loop_count\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}",
+            "after": "HookInput struct {\n\tAllowPromptRegistration\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tNative\t\t\tjson.RawMessage\t`json:\"-\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Adapter descriptors can declare the extra hook fields they read (new NativeField, NativeKind and NativeCapture types). Internal change; behavior stays the same."
+  },
+  {
+    "base_commit": "542c1d4016acff4b268c42c0488cd2be45982703",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/agent.CaptureID",
+          "internal/agent.CaptureNone",
+          "internal/agent.CapturePaths",
+          "internal/agent.NativeCapture",
+          "internal/agent.NativeField",
+          "internal/agent.NativeInt",
+          "internal/agent.NativeKind",
+          "internal/agent.NativeString",
+          "internal/agent.NativeStrings"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "const:internal/agent.CaptureID": "const (\n\tCaptureNone\tNativeCapture\t= iota\n\tCaptureID\n\tCapturePaths\n)",
+          "const:internal/agent.CaptureNone": "const (\n\tCaptureNone\tNativeCapture\t= iota\n\tCaptureID\n\tCapturePaths\n)",
+          "const:internal/agent.CapturePaths": "const (\n\tCaptureNone\tNativeCapture\t= iota\n\tCaptureID\n\tCapturePaths\n)",
+          "const:internal/agent.NativeInt": "const (\n\tNativeString\tNativeKind\t= iota\n\tNativeStrings\n\tNativeInt\n)",
+          "const:internal/agent.NativeString": "const (\n\tNativeString\tNativeKind\t= iota\n\tNativeStrings\n\tNativeInt\n)",
+          "const:internal/agent.NativeStrings": "const (\n\tNativeString\tNativeKind\t= iota\n\tNativeStrings\n\tNativeInt\n)",
+          "type:internal/agent.NativeCapture": "NativeCapture int",
+          "type:internal/agent.NativeField": "NativeField struct {\n\tKey\tstring\n\tKind\tNativeKind\n\tCapture\tNativeCapture\n}",
+          "type:internal/agent.NativeKind": "NativeKind int"
+        },
+        "removed": {},
+        "changed": {
+          "type:internal/agent.AdapterDescriptor": {
+            "before": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}",
+            "after": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tNative\t\t[]NativeField\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}"
+          },
+          "type:internal/agent.HookInput": {
+            "before": "HookInput struct {\n\tAllowPromptRegistration\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tConversationID\t\tstring\t\t`json:\"conversation_id\"`\n\tWorkspaceRoots\t\t[]string\t`json:\"workspace_roots\"`\n\tStatus\t\t\tstring\t\t`json:\"status\"`\n\tLoopCount\t\tint\t\t`json:\"loop_count\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}",
+            "after": "HookInput struct {\n\tAllowPromptRegistration\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tNative\t\t\tjson.RawMessage\t`json:\"-\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Adapter descriptors can declare the extra hook fields they read (new NativeField, NativeKind and NativeCapture types). Internal change; behavior stays the same."
   }
 ]
