@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
@@ -33,15 +33,15 @@ func TestPlainFeedPipeBackpressureReleasesStoreAndCancels(t *testing.T) {
 	eventually(t, func() bool {
 		return pluginGoroutineContains("plugins.(*v2Host).writeFeedPart", "internal/poll.(*FD).Write")
 	})
-	fd, err := journal.OpenLockFile(filepath.Join(store.Dir(), "lock"), false)
+	fd, err := platform.OpenLockFile(filepath.Join(store.Dir(), "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer journal.CloseLockFile(fd)
-	if err := journal.LockExclusive(fd, true); err != nil {
+	defer platform.CloseLockFile(fd)
+	if err := platform.LockExclusive(fd, true); err != nil {
 		t.Fatal("F_HOST_BLOCKED_PIPE_NEVER_HOLDS_STORE_LOCK", err)
 	}
-	if err := journal.Unlock(fd); err != nil {
+	if err := platform.Unlock(fd); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Update(session.ID, model.StateBusy, false); err != nil {

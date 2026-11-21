@@ -13,8 +13,8 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 // listenSocket binds a private Unix socket so leases can arm a real endpoint.
@@ -114,13 +114,13 @@ func TestAcquireDropsALockUnlinkedBeforeFlock(t *testing.T) {
 	to, key := register(t, store, "cursor")
 	unlinked := false
 	open := func(path string, create bool) (int, error) {
-		fd, err := journal.OpenLockFile(path, create)
+		fd, err := platform.OpenLockFile(path, create)
 		if err != nil {
 			return fd, err
 		}
 		if !unlinked {
 			if err := os.Remove(path); err != nil {
-				_ = journal.CloseLockFile(fd)
+				_ = platform.CloseLockFile(fd)
 				return -1, err
 			}
 			unlinked = true
@@ -131,7 +131,7 @@ func TestAcquireDropsALockUnlinkedBeforeFlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = journal.CloseLockFile(fd) })
+	t.Cleanup(func() { _ = platform.CloseLockFile(fd) })
 	if !unlinked {
 		t.Fatal("lock file was not unlinked between open and flock")
 	}

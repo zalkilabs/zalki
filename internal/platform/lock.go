@@ -1,10 +1,15 @@
-package journal
+//go:build darwin || linux
+
+package platform
 
 import (
 	"errors"
 	"os"
 	"syscall"
 )
+
+// The lock functions leave raw descriptor ownership and policy to the caller:
+// they add no implicit retries, mutexes, caching or finalizers.
 
 // OpenLockFile opens path read-write without following a symbolic link. When
 // create is true it creates a missing file with mode 0600; otherwise it opens
@@ -34,6 +39,20 @@ func LockExclusive(fd int, nonblocking bool) error {
 	}
 	return syscall.Flock(fd, flags)
 }
+
+// LockShared takes a shared flock on fd. If nonblocking is true it adds
+// LOCK_NB. It makes one syscall and returns its error unchanged.
+func LockShared(fd int, nonblocking bool) error {
+	flags := syscall.LOCK_SH
+	if nonblocking {
+		flags |= syscall.LOCK_NB
+	}
+	return syscall.Flock(fd, flags)
+}
+
+// LockBusy reports whether err says another holder has the lock, the answer
+// of a nonblocking attempt.
+func LockBusy(err error) bool { return errors.Is(err, syscall.EWOULDBLOCK) }
 
 // Unlock releases fd's flock with one syscall and returns its raw error.
 // It does not close the descriptor.

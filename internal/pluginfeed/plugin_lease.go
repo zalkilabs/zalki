@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 // OpenPluginLease acquires a read-only empty private lease. Close it after child exit.
@@ -22,7 +23,7 @@ func OpenPluginLease(path string) (*os.File, error) {
 		_ = file.Close()
 		return nil, err
 	}
-	if err := journal.LockExclusive(fd, true); err != nil {
+	if err := platform.LockExclusive(fd, true); err != nil {
 		_ = file.Close()
 		return nil, fmt.Errorf("plugin host or child lease unavailable for %q: %w; use lsof on that exact file, confirm the plugin/helper, stop it, retry; never delete or truncate a live lease", path, err)
 	}

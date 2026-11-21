@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
@@ -179,12 +179,12 @@ func TestStateArchiveRefusesHeldLocksWithoutMoving(t *testing.T) {
 			f := newArchiveFixture(t)
 			path := filepath.Join(f.request.source, name)
 			archiveWrite(t, path, []byte{})
-			fd, err := journal.OpenLockFile(path, false)
+			fd, err := platform.OpenLockFile(path, false)
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer journal.CloseLockFile(fd) // Test owns this descriptor.
-			if err := journal.LockExclusive(fd, true); err != nil {
+			defer platform.CloseLockFile(fd) // Test owns this descriptor.
+			if err := platform.LockExclusive(fd, true); err != nil {
 				t.Fatal(err)
 			}
 			f.request.confirm = func() (bool, error) { t.Error("ARCHIVE_PROMPTED_WHILE_ACTIVE"); return true, nil }
@@ -203,12 +203,12 @@ func TestStateArchiveKeepsJournalAndSupervisorLocksThroughMove(t *testing.T) {
 	archiveWrite(t, filepath.Join(f.request.source, "plugins", ".supervisor.lock"), []byte{})
 	f.ops.rename = func(source, target string) error {
 		for _, name := range []string{"lock", "plugins/.supervisor.lock"} {
-			fd, err := journal.OpenLockFile(filepath.Join(source, name), false)
+			fd, err := platform.OpenLockFile(filepath.Join(source, name), false)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = journal.LockExclusive(fd, true)
-			_ = journal.CloseLockFile(fd)
+			err = platform.LockExclusive(fd, true)
+			_ = platform.CloseLockFile(fd)
 			if !errors.Is(err, syscall.EWOULDBLOCK) && !errors.Is(err, syscall.EAGAIN) {
 				t.Fatalf("ARCHIVE_MOVED_WITH_ACTIVE_JOURNAL: %s %v", name, err)
 			}
@@ -225,12 +225,12 @@ func TestStateArchiveRefusesPostConsentActivity(t *testing.T) {
 	f.request.confirm = func() (bool, error) {
 		path := filepath.Join(f.request.source, "plugins", ".supervisor.lock")
 		archiveWrite(t, path, []byte{})
-		fd, err := journal.OpenLockFile(path, false)
+		fd, err := platform.OpenLockFile(path, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Cleanup(func() { _ = journal.CloseLockFile(fd) })
-		if err := journal.LockExclusive(fd, true); err != nil {
+		t.Cleanup(func() { _ = platform.CloseLockFile(fd) })
+		if err := platform.LockExclusive(fd, true); err != nil {
 			t.Fatal(err)
 		}
 		return true, nil

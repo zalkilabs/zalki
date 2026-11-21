@@ -1876,5 +1876,139 @@
       }
     },
     "reason": "Adapter descriptors declare lifecycle behavior with the new Lifecycle type. The new agenttest package (test support) adds one Run function and a small fake host. The hook service gains two helper methods. Internal change; behavior stays the same."
+  },
+  {
+    "base_commit": "c3cc3da451750a6fd241a5f9f28ab5eb3b90db8d",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/platform.CloseLockFile",
+          "internal/platform.Linked",
+          "internal/platform.LockBusy",
+          "internal/platform.LockExclusive",
+          "internal/platform.LockShared",
+          "internal/platform.OpenLockFile",
+          "internal/platform.Unlock"
+        ],
+        "removed": [
+          "internal/journal.CloseLockFile",
+          "internal/journal.Linked",
+          "internal/journal.LockExclusive",
+          "internal/journal.OpenLockFile",
+          "internal/journal.Unlock"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/platform.CloseLockFile": "func(fd int) error",
+          "function:internal/platform.Linked": "func(fd int, path string) (bool, error)",
+          "function:internal/platform.LockBusy": "func(err error) bool",
+          "function:internal/platform.LockExclusive": "func(fd int, nonblocking bool) error",
+          "function:internal/platform.LockShared": "func(fd int, nonblocking bool) error",
+          "function:internal/platform.OpenLockFile": "func(path string, create bool) (int, error)",
+          "function:internal/platform.Unlock": "func(fd int) error"
+        },
+        "removed": {
+          "function:internal/journal.CloseLockFile": "func(fd int) error",
+          "function:internal/journal.Linked": "func(fd int, path string) (bool, error)",
+          "function:internal/journal.LockExclusive": "func(fd int, nonblocking bool) error",
+          "function:internal/journal.OpenLockFile": "func(path string, create bool) (int, error)",
+          "function:internal/journal.Unlock": "func(fd int) error"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/platform",
+          "internal/install -> internal/platform",
+          "internal/logging -> internal/platform",
+          "internal/pluginfeed -> internal/platform"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {
+          "internal/journal/lock.go": [
+            "syscall"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    "reason": "Moves the file lock primitives (OpenLockFile, LockExclusive, Unlock, CloseLockFile, Linked) from journal to platform, adds platform.LockShared and platform.LockBusy, and makes log rotation, the installation lock, the login item lock and the plugin supervisor files call them instead of flock. Behavior is unchanged. Delta measured on base 5817c36, same on both OS."
+  },
+  {
+    "base_commit": "c3cc3da451750a6fd241a5f9f28ab5eb3b90db8d",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/platform.CloseLockFile",
+          "internal/platform.Linked",
+          "internal/platform.LockBusy",
+          "internal/platform.LockExclusive",
+          "internal/platform.LockShared",
+          "internal/platform.OpenLockFile",
+          "internal/platform.Unlock"
+        ],
+        "removed": [
+          "internal/journal.CloseLockFile",
+          "internal/journal.Linked",
+          "internal/journal.LockExclusive",
+          "internal/journal.OpenLockFile",
+          "internal/journal.Unlock"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/platform.CloseLockFile": "func(fd int) error",
+          "function:internal/platform.Linked": "func(fd int, path string) (bool, error)",
+          "function:internal/platform.LockBusy": "func(err error) bool",
+          "function:internal/platform.LockExclusive": "func(fd int, nonblocking bool) error",
+          "function:internal/platform.LockShared": "func(fd int, nonblocking bool) error",
+          "function:internal/platform.OpenLockFile": "func(path string, create bool) (int, error)",
+          "function:internal/platform.Unlock": "func(fd int) error"
+        },
+        "removed": {
+          "function:internal/journal.CloseLockFile": "func(fd int) error",
+          "function:internal/journal.Linked": "func(fd int, path string) (bool, error)",
+          "function:internal/journal.LockExclusive": "func(fd int, nonblocking bool) error",
+          "function:internal/journal.OpenLockFile": "func(path string, create bool) (int, error)",
+          "function:internal/journal.Unlock": "func(fd int) error"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/platform",
+          "internal/install -> internal/platform",
+          "internal/logging -> internal/platform",
+          "internal/pluginfeed -> internal/platform"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {
+          "internal/journal/lock.go": [
+            "syscall"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    "reason": "Moves the file lock primitives (OpenLockFile, LockExclusive, Unlock, CloseLockFile, Linked) from journal to platform, adds platform.LockShared and platform.LockBusy, and makes log rotation, the installation lock, the login item lock and the plugin supervisor files call them instead of flock. Behavior is unchanged. Delta measured on base 5817c36, same on both OS."
   }
 ]

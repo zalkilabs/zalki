@@ -18,8 +18,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
@@ -81,13 +81,13 @@ func TestPluginOwnerBinaryRoundtrip(t *testing.T) {
 
 func assertPluginOwnerLeaseReleased(t *testing.T, state string) {
 	t.Helper()
-	fd, err := journal.OpenLockFile(filepath.Join(state, "plugins", "fake-notifier.lock"), false)
+	fd, err := platform.OpenLockFile(filepath.Join(state, "plugins", "fake-notifier.lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	syscall.CloseOnExec(fd)
-	t.Cleanup(func() { _ = journal.CloseLockFile(fd) })
-	if err := journal.LockExclusive(fd, true); err != nil {
+	t.Cleanup(func() { _ = platform.CloseLockFile(fd) })
+	if err := platform.LockExclusive(fd, true); err != nil {
 		t.Fatal("disabled host left a child holding its execution lease", err)
 	}
 }
@@ -223,7 +223,7 @@ func stopPluginOwnerHost(t *testing.T, cmd *exec.Cmd, done <-chan struct{}, stat
 
 func pluginOwnerLeaseAvailable(t *testing.T, state string) bool {
 	t.Helper()
-	fd, err := journal.OpenLockFile(filepath.Join(state, "plugins", "fake-notifier.lock"), false)
+	fd, err := platform.OpenLockFile(filepath.Join(state, "plugins", "fake-notifier.lock"), false)
 	if errors.Is(err, os.ErrNotExist) {
 		return true // A reaped parent that never created its lease could not spawn a child.
 	}
@@ -231,8 +231,8 @@ func pluginOwnerLeaseAvailable(t *testing.T, state string) bool {
 		t.Fatal("inspect plugin cleanup lease", err)
 	}
 	syscall.CloseOnExec(fd)
-	lockErr := journal.LockExclusive(fd, true)
-	if err := journal.CloseLockFile(fd); err != nil {
+	lockErr := platform.LockExclusive(fd, true)
+	if err := platform.CloseLockFile(fd); err != nil {
 		t.Fatal("close cleanup lease", err)
 	}
 	if lockErr == nil {
@@ -265,19 +265,19 @@ func TestPluginOwnerCleanupLeaseProbeHonorsContention(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(state, "plugins"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	fd, err := journal.OpenLockFile(filepath.Join(state, "plugins", "fake-notifier.lock"), true)
+	fd, err := platform.OpenLockFile(filepath.Join(state, "plugins", "fake-notifier.lock"), true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	syscall.CloseOnExec(fd)
-	defer func() { _ = journal.CloseLockFile(fd) }()
-	if err := journal.LockExclusive(fd, true); err != nil {
+	defer func() { _ = platform.CloseLockFile(fd) }()
+	if err := platform.LockExclusive(fd, true); err != nil {
 		t.Fatal(err)
 	}
 	if pluginOwnerLeaseAvailable(t, state) {
 		t.Fatal("cleanup lease probe accepted a held child lease")
 	}
-	if err := journal.Unlock(fd); err != nil {
+	if err := platform.Unlock(fd); err != nil {
 		t.Fatal(err)
 	}
 	if !pluginOwnerLeaseAvailable(t, state) {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 func TestPromptRegistrationConcurrentProcesses(t *testing.T) {
@@ -37,21 +38,21 @@ func assertPromptRegistrationProcesses(t *testing.T, global bool) {
 	if err := store.locked(func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	fd, err := journal.OpenLockFile(filepath.Join(store.dir, "lock"), false)
+	fd, err := platform.OpenLockFile(filepath.Join(store.dir, "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer journal.CloseLockFile(fd)
-	if err := journal.LockExclusive(fd, false); err != nil {
+	defer platform.CloseLockFile(fd)
+	if err := platform.LockExclusive(fd, false); err != nil {
 		t.Fatal(err)
 	}
 	native := newID()
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
 	children, logs := startPromptChildren(t, ctx, store.dir, native)
-	defer func() { cancel(); _ = journal.Unlock(fd); waitPromptChildren(children) }()
+	defer func() { cancel(); _ = platform.Unlock(fd); waitPromptChildren(children) }()
 	waitPromptProcessReady(t, store.dir, len(children))
-	if err := journal.Unlock(fd); err != nil {
+	if err := platform.Unlock(fd); err != nil {
 		t.Fatal(err)
 	}
 	for index, child := range children {

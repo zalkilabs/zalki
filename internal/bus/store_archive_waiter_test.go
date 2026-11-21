@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 func TestStoreArchiveWaiterProcessHelper(t *testing.T) {
@@ -53,17 +53,17 @@ func TestStoreArchiveWaiterRefusesBeforeFreshRecovery(t *testing.T) {
 	if err := store.locked(func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	oldFD, err := journal.OpenLockFile(filepath.Join(store.dir, "lock"), false)
+	oldFD, err := platform.OpenLockFile(filepath.Join(store.dir, "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	oldOpen := true
 	defer func() {
 		if oldOpen {
-			_ = journal.CloseLockFile(oldFD)
+			_ = platform.CloseLockFile(oldFD)
 		}
 	}()
-	if err := journal.LockExclusive(oldFD, true); err != nil {
+	if err := platform.LockExclusive(oldFD, true); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(store.dir, "retained-sentinel"), []byte("old-tree-opaque-bytes"), 0600); err != nil {
@@ -82,7 +82,7 @@ func TestStoreArchiveWaiterRefusesBeforeFreshRecovery(t *testing.T) {
 	if _, err := waiter.gate.Write([]byte{1}); err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.CloseLockFile(oldFD); err != nil {
+	if err := platform.CloseLockFile(oldFD); err != nil {
 		t.Fatal(err)
 	}
 	oldOpen = false
@@ -150,12 +150,12 @@ func stageFreshArchiveState(t *testing.T, root string) commitFixture {
 			t.Fatal(err)
 		}
 	}
-	newFD, err := journal.OpenLockFile(filepath.Join(root, "lock"), true)
+	newFD, err := platform.OpenLockFile(filepath.Join(root, "lock"), true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = journal.CloseLockFile(newFD) }) // Hold C through B exit, including setup failures.
-	if err := journal.LockExclusive(newFD, true); err != nil {
+	t.Cleanup(func() { _ = platform.CloseLockFile(newFD) }) // Hold C through B exit, including setup failures.
+	if err := platform.LockExclusive(newFD, true); err != nil {
 		t.Fatal(err)
 	}
 	stageCommit(t, fresh, preparedCommit(t, fresh))

@@ -1,4 +1,6 @@
-package journal
+//go:build darwin || linux
+
+package platform
 
 import (
 	"context"
