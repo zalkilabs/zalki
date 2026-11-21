@@ -2,7 +2,6 @@ package codex
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -25,7 +24,7 @@ type uncertainNativeFixture struct {
 	connections *atomic.Int32
 }
 
-func newUncertainNativeFixture(t *testing.T, mode string, allow bool) uncertainNativeFixture {
+func newUncertainNativeFixture(t *testing.T, mode string, allow bool, startDeadline func()) uncertainNativeFixture {
 	t.Helper()
 	root, listener := listenCodexControl(t)
 	t.Setenv("HOME", t.TempDir())
@@ -51,6 +50,9 @@ func newUncertainNativeFixture(t *testing.T, mode string, allow bool) uncertainN
 	calls := make(chan observedCodex, 32)
 	connections := &atomic.Int32{}
 	spec := fakeCodex{Home: root, Thread: to.NativeID, Mode: mode}
+	if mode == "hang" {
+		spec.OnTurnStart = startDeadline
+	}
 	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { connections.Add(1); calls <- handleFakeCodex(w, r, spec) })}
 	go server.Serve(listener)
 	t.Cleanup(func() { _ = server.Close() })
@@ -66,18 +68,10 @@ func TestCodexUncertainDeliveryNeverReplays(t *testing.T) {
 	}
 }
 
-func uncertainNativeTimeout(mode string) time.Duration {
-	if mode == "hang" {
-		return 400 * time.Millisecond
-	}
-	return 3 * time.Second
-}
-
 func checkUncertainNativeDelivery(t *testing.T, mode string, allow bool) {
 	t.Helper()
-	f := newUncertainNativeFixture(t, mode, allow)
-	ctx, cancel := context.WithTimeout(t.Context(), uncertainNativeTimeout(mode))
-	defer cancel()
+	ctx, startDeadline := hangDeadline(t, 400*time.Millisecond)
+	f := newUncertainNativeFixture(t, mode, allow, startDeadline)
 	msg, err := f.service.Send(ctx, f.request)
 	if queueMarked(t, f.queue) {
 		t.Fatal("possibly accepted message was submitted again")
