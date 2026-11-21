@@ -117,6 +117,12 @@ func TestV2HostRoundTripWithRealChild(t *testing.T) {
 }
 
 // runChild runs the host with the v2 test child until the child reports.
+// v2ChildResultWait is how long runChild waits for the child's result after
+// the operations are released. The child makes a real native delivery, which
+// can take seconds on a loaded runner; the wait is generous so that only a
+// lost event fails, and the failure names the child's last phase.
+const v2ChildResultWait = 15 * time.Second
+
 func (x *v2Fixture) runChild(t *testing.T) v2TestOutcome {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
@@ -124,10 +130,12 @@ func (x *v2Fixture) runChild(t *testing.T) v2TestOutcome {
 	go func() { done <- Run(ctx, x.store, "arbiter", &x.output, nil) }()
 	x.primeV2MetadataFeed(t)
 	var out v2TestOutcome
-	eventually(t, func() bool {
+	if !eventuallyWithin(v2ChildResultWait, func() bool {
 		raw, err := os.ReadFile(x.result)
 		return err == nil && json.Unmarshal(raw, &out) == nil
-	})
+	}) {
+		t.Fatalf("v2 child wrote no result within %s; its last phase: %s", v2ChildResultWait, v2LastChildPhase(x.result))
+	}
 	cancel()
 	select {
 	case <-done:
@@ -404,6 +412,33 @@ func (c v2TestPeer) drain() {
 	}
 }
 
+// v2TracePath is set in the child process only: each phase it reaches is
+// appended to this file, so a stalled run can say where the child stopped.
+var v2TracePath string
+
+func v2Trace(format string, args ...any) {
+	if v2TracePath == "" {
+		return
+	}
+	f, err := os.OpenFile(v2TracePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return
+	}
+	_, _ = fmt.Fprintf(f, format+"\n", args...)
+	_ = f.Close()
+}
+
+// v2LastChildPhase is the last phase line the child wrote for resultPath.
+func v2LastChildPhase(resultPath string) string {
+	raw, err := os.ReadFile(resultPath + ".trace")
+	text := strings.TrimSpace(string(raw))
+	if err != nil || text == "" {
+		return "none (the child never reached the operations)"
+	}
+	lines := strings.Split(text, "\n")
+	return lines[len(lines)-1]
+}
+
 func v2TestWrite(value any) error {
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -421,6 +456,7 @@ func (c v2TestPeer) pollInbox() (pluginfeed.PluginInboxMessage, error) {
 		if err := c.call("inbox_next", fmt.Sprintf("n%d", i), "", map[string]string{}, &r); err != nil {
 			return m, err
 		}
+		v2Trace("inbox_next %d answered %s", i, r.Code)
 		if r.Code == "ok" && r.Result.Message != nil {
 			raw, err := json.Marshal(r.Result.Message)
 			if err != nil {
@@ -438,8 +474,9 @@ func (c v2TestPeer) pollInbox() (pluginfeed.PluginInboxMessage, error) {
 
 // waitEvents acks offers until the feed showed the consume and the send.
 func (c v2TestPeer) waitEvents(out *v2TestOutcome) error {
-	for !c.seen(out.Inbox.ID, func(m model.EventMessage) bool { return m.Acknowledged }, &out.Acked) ||
-		!c.seen(fmt.Sprint(out.Send.Result.Message), func(m model.EventMessage) bool { return m.Previous == "" }, &out.Created) {
+	for offers := 1; !c.seen(out.Inbox.ID, func(m model.EventMessage) bool { return m.Acknowledged }, &out.Acked) ||
+		!c.seen(fmt.Sprint(out.Send.Result.Message), func(m model.EventMessage) bool { return m.Previous == "" }, &out.Created); offers++ {
+		v2Trace("feed offer %d acknowledged next", offers)
 		if _, err := c.next(""); err != nil {
 			return fmt.Errorf("waiting for feed events: %w", err)
 		}
@@ -449,9 +486,12 @@ func (c v2TestPeer) waitEvents(out *v2TestOutcome) error {
 
 func v2TestChild(resultPath, to string) error {
 	c := v2TestPeer{newV2PeerInput(), map[string][]model.EventMessage{}}
+	v2TracePath = resultPath + ".trace"
+	v2Trace("waiting for the operations to be released")
 	if err := c.helloAndGateOps(resultPath); err != nil {
 		return err
 	}
+	v2Trace("operations released")
 	var out v2TestOutcome
 	var err error
 	if out.Inbox, err = c.pollInbox(); err != nil {
@@ -462,12 +502,15 @@ func v2TestChild(resultPath, to string) error {
 	}
 	// An answer under the reply rule: it names the inbox message it answers.
 	send := map[string]string{"reply_to": out.Inbox.ID, "to": to, "body": "reply: " + out.Inbox.Body}
+	v2Trace("inbox_consume done; sending s1")
 	if err := c.call("send", "s1", "c1", send, &out.Send); err != nil {
 		return err
 	}
+	v2Trace("send s1 done; sending s2")
 	if err := c.call("send", "s2", "c1", send, &out.Resend); err != nil {
 		return err
 	}
+	v2Trace("send s2 done; waiting for the feed events")
 	if err := c.waitEvents(&out); err != nil {
 		return err
 	}
