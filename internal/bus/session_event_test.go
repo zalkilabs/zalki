@@ -19,7 +19,7 @@ func latestSessionEvent(t *testing.T, store Store) model.Event {
 	t.Helper()
 	meta := eventState(t, store)
 	var record eventRecord
-	if err := decodeEventJSON(readCommitFile(t, filepath.Join(store.Dir, eventRecordPath(meta.Last))), &record); err != nil {
+	if err := decodeEventJSON(readCommitFile(t, filepath.Join(store.dir, eventRecordPath(meta.Last))), &record); err != nil {
 		t.Fatal(err)
 	}
 	return record.Event
@@ -147,7 +147,7 @@ func TestSessionRecoveryRefusesRetiredProjectionMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	batch.Puts[0] = journal.NewPut(batch.Puts[0].Path, prior, data)
-	stageCommit(t, commitFixture{writer: commitWriter{dir: store.Dir}}, batch)
+	stageCommit(t, commitFixture{writer: commitWriter{dir: store.dir}}, batch)
 	before := journalSnapshot(t, store)
 	if _, err := store.List(); err == nil || !strings.Contains(err.Error(), "event does not match resulting session") {
 		t.Fatalf("retirement projection mismatch = %v", err)
@@ -204,7 +204,7 @@ func TestPrivateSessionAtomicSaveAndBypassRefusal(t *testing.T) {
 	if err != nil || saved.Task != "private" || eventState(t, store) != before {
 		t.Fatalf("private atomic save = %+v,%v", saved, err)
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, "commits", "pending.json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(store.dir, "commits", "pending.json")); !os.IsNotExist(err) {
 		t.Fatal("private save left an intent", err)
 	}
 	if err := store.writeRecord(path, session); err == nil || !strings.Contains(err.Error(), "commit path") {
@@ -261,7 +261,7 @@ func assertInitialSessionCut(t *testing.T, applied int) {
 	if err != nil || len(sessions) != 1 || sessions[0].ID != next.ID {
 		t.Fatalf("initial registration recovery = %+v, %v", sessions, err)
 	}
-	if !bytes.Equal(readCommitFile(t, filepath.Join(store.Dir, batch.Puts[1].Path)), batch.Puts[1].Data) {
+	if !bytes.Equal(readCommitFile(t, filepath.Join(store.dir, batch.Puts[1].Path)), batch.Puts[1].Data) {
 		t.Fatal("registration replay changed the event")
 	}
 	if _, err := store.List(); err != nil {
@@ -284,16 +284,16 @@ func stageInitialSessionCut(t *testing.T, store Store, next model.Session, appli
 		if err != nil {
 			return err
 		}
-		batch, err = (commitWriter{dir: store.Dir}).prepare(nil, record.value, event)
+		batch, err = (commitWriter{dir: store.dir}).prepare(nil, record.value, event)
 		if err != nil {
 			return err
 		}
 		if err := ensureEventDirectories(store, orderEventDirectory, false); err != nil {
 			return err
 		}
-		stageCommit(t, commitFixture{writer: commitWriter{dir: store.Dir}}, batch)
+		stageCommit(t, commitFixture{writer: commitWriter{dir: store.dir}}, batch)
 		for _, put := range batch.Puts[:applied] {
-			if err := journal.WriteAtomic(filepath.Join(store.Dir, put.Path), put.Data); err != nil {
+			if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 				return err
 			}
 		}
@@ -315,7 +315,7 @@ func TestOnePutSessionIntentRefusesCallbacks(t *testing.T) {
 		t.Fatal(err)
 	}
 	batch := journal.Batch{ID: newID(), Puts: []journal.Put{journal.NewPut(eventSubjectPath(model.Event{Session: model.EventSession{ID: session.ID}}), previous, data)}}
-	stageCommit(t, commitFixture{writer: commitWriter{dir: store.Dir}}, batch)
+	stageCommit(t, commitFixture{writer: commitWriter{dir: store.dir}}, batch)
 	if _, err := store.List(); err == nil {
 		t.Fatal("one-put session intent accepted")
 	}

@@ -28,7 +28,7 @@ func TestFeedMemberRetirementWitnessComesOnlyFromDirectPublishedWrite(t *testing
 	if work.native != 1 || work.probes != 0 {
 		t.Fatal("F_RETIREMENT_PROJECTION_NO_ADDITIONAL_NATIVE_PROBE", work)
 	}
-	discardPluginRetirement(store.Dir, session.ID)
+	discardPluginRetirement(store.dir, session.ID)
 	lost, err := collectMembers(t, store, []string{session.ID}, &memberWorkCount{})
 	if err != nil || lost.Records[0].Retirement != nil {
 		t.Fatal("F_RETIREMENT_PROOF_LOSS_IS_CONSERVATIVE", err)
@@ -80,7 +80,7 @@ func ownerTrackingMemberFixture(t *testing.T) (Store, model.Session, model.Proce
 		t.Fatal(err)
 	}
 	store := fixtureStore(t)
-	store.Registry = registry
+	store.registry = registry
 	session, _ := register(t, store, "fixture")
 	original := model.ProcessRef{PID: 800001, Start: "owner-a", Role: "client"}
 	if err := store.locked(func() error {

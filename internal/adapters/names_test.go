@@ -356,7 +356,7 @@ func TestHookDoesNotBackfillNativeConfig(t *testing.T) {
 	if err := saveAdapterTestSession(store, session); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(store.Dir, "sessions", strings.ReplaceAll(session.ID, ":", "_")+".json")
+	path := filepath.Join(store.Dir(), "sessions", strings.ReplaceAll(session.ID, ":", "_")+".json")
 	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

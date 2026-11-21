@@ -504,7 +504,7 @@ func TestPluginLoginItemRootInstallReview(t *testing.T) {
 		output := &cappedOutput{limit: 1 << 20}
 		cmd.SetOut(output)
 		cmd.SetIn(strings.NewReader("y"))
-		if err := (&loginItemTarget{binary: "/x", home: "/h", state: store.Dir}).rootSetup(cmd, store); err != nil || len(fake.requests) != 0 || output.Len() != 0 {
+		if err := (&loginItemTarget{binary: "/x", home: "/h", state: store.Dir()}).rootSetup(cmd, store); err != nil || len(fake.requests) != 0 || output.Len() != 0 {
 			t.Fatalf("root setup without enabled plugins: %v %d %s", err, len(fake.requests), output.String())
 		}
 	})
@@ -657,7 +657,7 @@ func TestPluginLoginItemLastPluginLine(t *testing.T) {
 	if line := target.idleLine(t.Context(), store); line != "" {
 		t.Fatalf("idle line with a plugin installed: %q", line)
 	}
-	if output, err := pluginOwnerLocal(t, store.Dir, "remove", "demo"); err != nil {
+	if output, err := pluginOwnerLocal(t, store.Dir(), "remove", "demo"); err != nil {
 		t.Fatal(string(output), err)
 	}
 	if line := target.idleLine(t.Context(), store); line != loginItemIdleLine {

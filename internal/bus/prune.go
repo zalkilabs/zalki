@@ -197,7 +197,7 @@ func (r *pruneRun) deleteExitedRuntimes(runtimes []RuntimeInfo) error {
 		}
 		r.report.Runtimes = append(r.report.Runtimes, v.ID)
 		if !r.dryRun {
-			if err := os.Remove(filepath.Join(r.store.Dir, "runtimes", v.ID+".json")); err != nil {
+			if err := os.Remove(filepath.Join(r.store.dir, "runtimes", v.ID+".json")); err != nil {
 				return err
 			}
 		}
@@ -223,7 +223,7 @@ func (r *pruneRun) deleteRetired(v model.Session) error {
 	if dryRun {
 		return nil
 	}
-	invalidatePluginMember(s.Dir, v.ID)
+	invalidatePluginMember(s.dir, v.ID)
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -232,7 +232,7 @@ func (r *pruneRun) deleteRetired(v model.Session) error {
 
 func (r *pruneRun) deleteOrphanListenerLocks() error {
 	s, dryRun, report := r.store, r.dryRun, &r.report
-	matches, err := filepath.Glob(filepath.Join(s.Dir, "*-listener-*.lock"))
+	matches, err := filepath.Glob(filepath.Join(s.dir, "*-listener-*.lock"))
 	if err != nil {
 		return err
 	}

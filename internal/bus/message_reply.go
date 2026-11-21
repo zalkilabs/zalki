@@ -138,11 +138,11 @@ func (s Store) commitReplyIntent(parent, msg model.Message, fresh bool) error {
 		parent.AcknowledgedAt = model.Timestamp()
 	}
 	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: parent.AcknowledgedAt, Reply: msg}
-	dir := filepath.Join(s.Dir, "transactions")
+	dir := filepath.Join(s.dir, "transactions")
 	if err := privateDir(dir); err != nil {
 		return err
 	}
-	if err := journal.SyncDir(s.Dir); err != nil {
+	if err := journal.SyncDir(s.dir); err != nil {
 		return err
 	}
 	path := filepath.Join(dir, msg.ID+".json")
@@ -165,7 +165,7 @@ func (s Store) commitReplyIntent(parent, msg model.Message, fresh bool) error {
 // intent is the commit point: readers observe both records after recovery, or
 // receive an error. Outgoing records are written before the incoming ACK.
 func (s Store) recoverReplies() error {
-	paths, err := filepath.Glob(filepath.Join(s.Dir, "transactions", "*.json"))
+	paths, err := filepath.Glob(filepath.Join(s.dir, "transactions", "*.json"))
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (s Store) recoverReplies() error {
 // reservation already committed for the reply. Only then does it write the
 // reservation if it is missing, acknowledge the parent and remove the intent.
 func (s Store) applyReplyTransaction(path string, tx replyTransaction) error {
-	if err := validateReplyTransaction(s.Dir, path, tx); err != nil {
+	if err := validateReplyTransaction(s.dir, path, tx); err != nil {
 		return err
 	}
 	parent, err := s.matchingReplyParent(tx)

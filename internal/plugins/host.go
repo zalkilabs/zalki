@@ -30,7 +30,7 @@ func Run(ctx context.Context, store bus.Store, name string, output io.Writer, su
 			_ = sup.send("stopped", sup.stopCode(resultErr))
 		}()
 	}
-	if !filepath.IsAbs(store.Dir) {
+	if !filepath.IsAbs(store.Dir()) {
 		return errors.New("plugin requires an absolute state directory")
 	}
 	feed := pluginfeed.NewPluginFeed(store, name)

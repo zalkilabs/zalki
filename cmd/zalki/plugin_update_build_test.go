@@ -12,20 +12,20 @@ func TestPluginUpdateDropsExtendedGrants(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	manifest := strings.ReplaceAll(strings.ReplaceAll(nativeInstallManifest, `"send":false`, `"send":true`), `"read":false`, `"read":true`)
 	folder := writeInstallFolder(t, manifest, map[string]string{"bin/plugin": "#!/bin/sh\nexit 0\n"})
-	output, err := pluginInstallLocal(t, store.Dir, installPlainLines, "#1\n#1\ny\n", folder)
+	output, err := pluginInstallLocal(t, store.Dir(), installPlainLines, "#1\n#1\ny\n", folder)
 	if err != nil {
 		t.Fatal(output, err)
 	}
-	old := readInstallStatus(t, store.Dir, "demo")
+	old := readInstallStatus(t, store.Dir(), "demo")
 	if len(old.Access.Send) != 1 || len(old.Access.Read) != 1 {
 		t.Fatal("extended fixture not granted")
 	}
 	mustWriteInstallManifest(t, folder, []byte(nativeInstallManifest))
-	output, err = pluginUpdateLocal(t, store.Dir, installPlainLines, "y\n", "demo")
+	output, err = pluginUpdateLocal(t, store.Dir(), installPlainLines, "y\n", "demo")
 	if err != nil {
 		t.Fatal(output, err)
 	}
-	now := readInstallStatus(t, store.Dir, "demo")
+	now := readInstallStatus(t, store.Dir(), "demo")
 	if len(now.Access.Send)+len(now.Access.Read) != 0 || now.Revision == old.Revision || now.Epoch == old.Epoch || strings.Count(output, "(removed)") != 2 {
 		t.Fatal("update kept removed extended grants or hid their removal", output)
 	}

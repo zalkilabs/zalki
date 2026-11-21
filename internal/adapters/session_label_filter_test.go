@@ -38,7 +38,7 @@ func checkUnlabeledPromptState(t *testing.T, state string) {
 	}
 	old := model.Envelope(message)
 	message.FromLabel = ""
-	path := filepath.Join(s.Dir, "messages", message.ID+".json")
+	path := filepath.Join(s.Dir(), "messages", message.ID+".json")
 	if err := writeTestJSON(path, message); err != nil {
 		t.Fatal(err)
 	}

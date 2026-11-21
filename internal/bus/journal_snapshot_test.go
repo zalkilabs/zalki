@@ -11,7 +11,7 @@ import (
 func journalSnapshot(t *testing.T, store Store) map[string]string {
 	t.Helper()
 	snapshot := map[string]string{}
-	if err := filepath.WalkDir(store.Dir, func(path string, entry os.DirEntry, err error) error {
+	if err := filepath.WalkDir(store.dir, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -22,7 +22,7 @@ func journalSnapshot(t *testing.T, store Store) map[string]string {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(store.Dir, path)
+		rel, err := filepath.Rel(store.dir, path)
 		if err != nil {
 			return err
 		}

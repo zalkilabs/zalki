@@ -11,7 +11,7 @@ import (
 
 func fixtureStore(t *testing.T) bus.Store {
 	t.Helper()
-	return bus.Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: testRegistry(), PluginDelivery: CheckPluginDelivery}
+	return bus.StoreAt(filepath.Join(t.TempDir(), "state"), bus.WithRegistry(testRegistry()), bus.WithPluginDelivery(CheckPluginDelivery))
 }
 
 func register(t *testing.T, store bus.Store, kind string) (model.Session, string) {

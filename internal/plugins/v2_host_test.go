@@ -73,7 +73,7 @@ func v2HostFixture(t *testing.T) *v2Fixture {
 
 func (x *v2Fixture) record(t *testing.T, id string) model.Message {
 	t.Helper()
-	raw, err := journal.ReadBytes(filepath.Join(x.store.Dir, "messages", id+".json"), 1<<20)
+	raw, err := journal.ReadBytes(filepath.Join(x.store.Dir(), "messages", id+".json"), 1<<20)
 	var m model.Message
 	if err != nil || json.Unmarshal(raw, &m) != nil {
 		t.Fatal("missing message record", id, err)
@@ -199,7 +199,7 @@ func TestV2HostStopsAStaleChildBeforeItSends(t *testing.T) {
 		t.Fatalf("terminal frame %q, %v", line, err)
 	}
 	id := model.DeriveUUID("zalki/plugin-send/v1", x.status.ID, "c1")
-	if _, err := os.Stat(filepath.Join(x.store.Dir, "messages", id+".json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(x.store.Dir(), "messages", id+".json")); !os.IsNotExist(err) {
 		t.Fatalf("a stale child stored a message to the new target: %v", err)
 	}
 }

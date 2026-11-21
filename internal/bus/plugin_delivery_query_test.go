@@ -12,21 +12,21 @@ func deliveryQueryFixture(t *testing.T, mode string) (Store, model.Session, stri
 	s, to, key, m := pendingPluginFixture(t)
 	m.Status = model.StatusContextEmitted
 	m.Body = "Z6_BLOCKED_ACK_BODY_SENTINEL"
-	s.PluginDelivery = denyPluginDelivery
+	s.pluginDelivery = denyPluginDelivery
 	switch mode {
 	case "missing-binding":
 		m.PluginBinding = ""
 	case "nil-checker":
-		s.PluginDelivery = nil
+		s.pluginDelivery = nil
 	case "allowed":
-		s.PluginDelivery = func(JournalView, string, model.Message) error { return nil }
+		s.pluginDelivery = func(JournalView, string, model.Message) error { return nil }
 	case "native":
 		m.From, m.FromLabel, m.PluginBinding = "cursor:"+newID(), "Cursor", ""
-		s.PluginDelivery = nil
+		s.pluginDelivery = nil
 	}
 	// Model a durable pre-existing record, including a missing binding. Ordinary
 	// rewrites intentionally refuse a binding change on an existing message.
-	if err := s.locked(func() error { return s.writeRecord(filepath.Join(s.Dir, "messages", m.ID+".json"), m) }); err != nil {
+	if err := s.locked(func() error { return s.writeRecord(filepath.Join(s.dir, "messages", m.ID+".json"), m) }); err != nil {
 		t.Fatal(err)
 	}
 	return s, to, key, m

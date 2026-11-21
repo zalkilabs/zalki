@@ -33,7 +33,7 @@ func (s Store) floodPath(target string) (string, error) {
 	if _, err := s.sessionPath(target); err != nil {
 		return "", err
 	}
-	return filepath.Join(s.Dir, "flood", strings.ReplaceAll(target, ":", "_")+".json"), nil
+	return filepath.Join(s.dir, "flood", strings.ReplaceAll(target, ":", "_")+".json"), nil
 }
 
 // consumeFloodQuota is called under the journal lock, after the exact-ID retry

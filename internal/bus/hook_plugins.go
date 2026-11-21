@@ -26,7 +26,7 @@ func currentPluginStartup(view JournalView, s Store, current model.Session, form
 	if format == nil {
 		return pluginStartupUnavailable
 	}
-	text, err := format(view, s.Dir, current, reserve, fits)
+	text, err := format(view, s.dir, current, reserve, fits)
 	if err != nil {
 		s.logEvent(slog.LevelWarn, "plugin.startup_unavailable", eventData{Actor: current.ID})
 	}
@@ -41,7 +41,7 @@ func (s *Service) sessionStartupOutput(hooks agent.HookAdapter, current model.Se
 	if err != nil {
 		return err
 	}
-	startup := agent.StartupContext{Actor: current.ID, Capability: key, StateDir: s.Store.Dir, ConfigFile: s.Store.ConfigFile, Instructions: startupInstructions(current.ID, key), Executable: binary}
+	startup := agent.StartupContext{Actor: current.ID, Capability: key, StateDir: s.Store.dir, ConfigFile: s.Store.configFile, Instructions: startupInstructions(current.ID, key), Executable: binary}
 	base, err := encodeStartupOutput(hooks, startup)
 	if err != nil {
 		return err

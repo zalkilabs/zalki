@@ -37,7 +37,7 @@ func logRows(t *testing.T, output *bytes.Buffer) []map[string]any {
 func TestMessageLogsCorrelateWithoutExposingPrivateContent(t *testing.T) {
 	store := fixtureStore(t)
 	var output bytes.Buffer
-	store.Logger = slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	store.logger = slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	private := "private-content-sentinel"
 	t.Setenv("CODEX_HOME", filepath.Join(t.TempDir(), private))
 	from, key, to, toKey := registerPair(t, store, "codex", "codex")
@@ -117,7 +117,7 @@ func TestMessageLogsCorrelateWithoutExposingPrivateContent(t *testing.T) {
 func TestRecoveryLoggingKeepsUncertainReplyUnsubmitted(t *testing.T) {
 	store := fixtureStore(t)
 	var output bytes.Buffer
-	store.Logger = slog.New(slog.NewJSONHandler(&output, nil))
+	store.logger = slog.New(slog.NewJSONHandler(&output, nil))
 	from, _, to, key := registerPair(t, store, "codex", "cursor")
 	parent := model.Message{ID: newID(), From: from.ID, To: to.ID, Body: "private-recovery-body", Status: model.StatusSubmitted}
 	if err := store.saveMessage(parent); err != nil {
@@ -131,7 +131,7 @@ func TestRecoveryLoggingKeepsUncertainReplyUnsubmitted(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	dir := filepath.Join(store.Dir, "transactions")
+	dir := filepath.Join(store.dir, "transactions")
 	if err := privateDir(dir); err != nil {
 		t.Fatal(err)
 	}

@@ -134,7 +134,7 @@ func TestSessionControlFinalReplyHasNoSecondAdmission(t *testing.T) {
 		t.Fatal(err)
 	}
 	atReplyTime(t, created.Add(replyWindow+time.Hour))
-	if err := bus.WithJournalWrite(x.f.store, func(v bus.JournalView) error { return CheckPluginDelivery(v, x.f.store.Dir, message) }); err != nil {
+	if err := bus.WithJournalWrite(x.f.store, func(v bus.JournalView) error { return CheckPluginDelivery(v, x.f.store.Dir(), message) }); err != nil {
 		t.Fatal("Z6_ADMITTED_REPLY_HAS_NO_SECOND_TTL", err)
 	}
 	ledgerAfter, err := os.ReadFile(x.f.replyLedgerPath())
@@ -204,7 +204,7 @@ func assertFinalSessionBinding(t *testing.T, change string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = bus.WithJournalWrite(x.store, func(v bus.JournalView) error { return CheckPluginDelivery(v, x.store.Dir, m) })
+	err = bus.WithJournalWrite(x.store, func(v bus.JournalView) error { return CheckPluginDelivery(v, x.store.Dir(), m) })
 	if (err == nil) != (change == "unchanged") {
 		t.Fatal("Z6_FINAL_CURRENT_BINDING_AND_POLICY", change, err)
 	}

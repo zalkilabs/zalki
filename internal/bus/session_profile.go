@@ -28,7 +28,7 @@ func registrationConfigRoot(adapter agent.Adapter) (string, error) {
 }
 
 func validateStoredConfigRoot(s Store, v model.Session) error {
-	adapter, err := s.registry().Lookup(v.Kind)
+	adapter, err := s.registry.Lookup(v.Kind)
 	if err != nil {
 		return err
 	}

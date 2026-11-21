@@ -79,7 +79,7 @@ type SessionIssue struct {
 // scanSessions is shared by list, prune, diagnostics and exit observation.
 // Caller holds the journal lock; directory scan errors remain fatal.
 func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
-	files, err := filepath.Glob(filepath.Join(s.Dir, "sessions", "*.json"))
+	files, err := filepath.Glob(filepath.Join(s.dir, "sessions", "*.json"))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -100,7 +100,7 @@ func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
 		if readErr != nil {
 			reason := sessionIssueReason(readErr)
 			kind, _, _ := strings.Cut(id, ":")
-			if _, err := s.registry().Lookup(kind); err != nil {
+			if _, err := s.registry.Lookup(kind); err != nil {
 				reason = "session_adapter_missing"
 			}
 			issues = append(issues, SessionIssue{id, reason})

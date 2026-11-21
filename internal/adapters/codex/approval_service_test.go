@@ -104,7 +104,7 @@ func (f *approvalServiceFixture) exchange(t *testing.T, wantTurn bool) {
 
 func (f *approvalServiceFixture) assertCount(t *testing.T, want int) {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(f.service.Store.Dir, "sessions", "codex_"+f.target.NativeID+".json"))
+	raw, err := os.ReadFile(filepath.Join(f.service.Store.Dir(), "sessions", "codex_"+f.target.NativeID+".json"))
 	var current model.Session
 	if err != nil || json.Unmarshal(raw, &current) != nil || current.ApprovalHeld != want || current.Retired || current.Generation != f.target.Generation {
 		t.Fatalf("native approval count/generation: count=%d want=%d retired=%v errors=%v", current.ApprovalHeld, want, current.Retired, err)
@@ -208,7 +208,7 @@ func TestCodexLateNativeApprovalPreservesDirectFinalRefusal(t *testing.T) {
 	if _, err := f.service.Store.Finish(id, receipt); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(f.service.Store.Dir, "messages", id+".json")
+	path := filepath.Join(f.service.Store.Dir(), "messages", id+".json")
 	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

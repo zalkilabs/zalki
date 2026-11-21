@@ -37,7 +37,7 @@ func (x auditRowsFixture) path() string {
 	if x.native {
 		name = "plugin-read-audit.json"
 	}
-	return filepath.Join(x.f.store.Dir, name)
+	return filepath.Join(x.f.store.Dir(), name)
 }
 func (x auditRowsFixture) owner() ([]byte, error) {
 	if x.native {

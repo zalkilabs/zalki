@@ -59,7 +59,7 @@ func (s *Service) Send(ctx context.Context, request SendRequest) (result model.M
 
 func (s *Service) deliverReserved(ctx context.Context, msg model.Message, target model.Session) (model.Message, error) {
 	id := msg.ID
-	adapter, err := s.Store.registry().Lookup(target.Kind)
+	adapter, err := s.Store.registry.Lookup(target.Kind)
 	if err != nil {
 		return model.Message{}, err
 	}

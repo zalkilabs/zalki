@@ -47,7 +47,7 @@ func assertRealCursorPluginRecovery(t *testing.T, event, env string) {
 	if strings.Contains(out, fixture.message.Body) || current.Status != fixture.message.Status || current.AcknowledgedAt != "" {
 		t.Fatal("Z6_REAL_RECOVERY_DID_NOT_DRAIN_PENDING")
 	}
-	ledgers, err := filepath.Glob(filepath.Join(fixture.service.Store.Dir, "plugins", "*.start-notice.json"))
+	ledgers, err := filepath.Glob(filepath.Join(fixture.service.Store.Dir(), "plugins", "*.start-notice.json"))
 	if err != nil || len(ledgers) != 0 {
 		t.Fatal("Z6_REAL_RECOVERY_NO_NOTICE_SPEND", err)
 	}

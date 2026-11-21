@@ -35,7 +35,7 @@ type pluginFiles struct{ root, name string }
 
 // NewPluginFeed returns the named installation feed; operations reject invalid names.
 func NewPluginFeed(store bus.Store, name string) PluginFeed {
-	return PluginFeed{store: store, stream: newStreamRuntime(), pluginFiles: pluginFiles{root: store.Dir, name: name}}
+	return PluginFeed{store: store, stream: newStreamRuntime(), pluginFiles: pluginFiles{root: store.Dir(), name: name}}
 }
 
 // PluginDelivery contains metadata only. Its private receipt stays with the host;

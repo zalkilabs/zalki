@@ -69,7 +69,7 @@ func ownerStore(t *testing.T, adapter agent.Adapter) Store {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: registry}
+	return Store{dir: filepath.Join(t.TempDir(), "state"), registry: registry}
 }
 
 // ownedSession registers a cursor session and gives it the given record state.

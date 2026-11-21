@@ -46,7 +46,7 @@ func transportCauseKind(t *testing.T, receipt model.Receipt) string {
 	store := newStore(t, nativeAdapter("alpha"), target)
 	from, to := register(t, store, "alpha"), register(t, store, "beta")
 	var logs bytes.Buffer
-	store.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
+	store = store.With(bus.WithLogger(slog.New(slog.NewJSONHandler(&logs, nil))))
 	if _, err := (&bus.Service{Store: store}).Send(t.Context(), bus.SendRequest{Actor: from.ID, Capability: from.Key, To: to.ID, Body: "body"}); err != nil {
 		t.Fatal(err)
 	}

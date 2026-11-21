@@ -18,7 +18,7 @@ func TestSessionPluginStartupPortScopeAndGeneration(t *testing.T) {
 	service := Service{Store: s, PluginStartup: func(v JournalView, root string, session model.Session, reserve bool, fits func(string) (bool, error)) (string, error) {
 		captured = v
 		calls++
-		if root != s.Dir || session.Generation != current.Generation || !reserve {
+		if root != s.dir || session.Generation != current.Generation || !reserve {
 			t.Fatal("Z6_STARTUP_PORT_PHASE_GENERATION")
 		}
 		if err := v.WithWriteScope(root, func() error { return nil }); err != nil {
@@ -33,7 +33,7 @@ func TestSessionPluginStartupPortScopeAndGeneration(t *testing.T) {
 	if calls != 1 || !strings.Contains(out.String(), "Plugins with access to this session: none.") {
 		t.Fatal("Z6_STARTUP_MANDATORY_DISCLOSURE")
 	}
-	if err := captured.WithWriteScope(s.Dir, func() error { return nil }); err == nil {
+	if err := captured.WithWriteScope(s.dir, func() error { return nil }); err == nil {
 		t.Fatal("Z6_STARTUP_ESCAPED_VIEW_EXPIRES")
 	}
 	if _, _, err := s.Register("cursor", current.NativeID, current.CWD, nil); err != nil {
@@ -89,7 +89,7 @@ func TestSessionPluginRecoveryMandatoryDisclosureAndNoNotice(t *testing.T) {
 		if reserve || fits != nil || session.Generation != current.Generation {
 			t.Fatal("Z6_RECOVERY_SUMMARY_ONLY_PHASE")
 		}
-		if err := v.WithWriteScope(s.Dir, func() error { return nil }); err != nil {
+		if err := v.WithWriteScope(s.dir, func() error { return nil }); err != nil {
 			t.Fatal("Z6_RECOVERY_SAME_WRITE_SCOPE", err)
 		}
 		return "Plugins with access to this session: none (ZALKI_PLUGINS=off).", nil
@@ -98,7 +98,7 @@ func TestSessionPluginRecoveryMandatoryDisclosureAndNoNotice(t *testing.T) {
 	if err != nil || !strings.Contains(grant.Instructions, "Plugins with access to this session: none (ZALKI_PLUGINS=off).") {
 		t.Fatal("Z6_RECOVERY_MANDATORY_DISCLOSURE", err)
 	}
-	if err := view.WithWriteScope(s.Dir, func() error { return nil }); err == nil {
+	if err := view.WithWriteScope(s.dir, func() error { return nil }); err == nil {
 		t.Fatal("Z6_RECOVERY_VIEW_EXPIRES")
 	}
 	raw := sessionBytes(t, s, current.ID)
@@ -116,7 +116,7 @@ func (compactPluginCursor) RegisterHook(v agent.HookInput) (agent.HookRegistrati
 func TestSessionPluginCompactionDoesNotReserveNotice(t *testing.T) {
 	s := fixtureStore(t)
 	var err error
-	s.Registry, err = agent.NewRegistry(compactPluginCursor{})
+	s.registry, err = agent.NewRegistry(compactPluginCursor{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,7 +18,7 @@ func TestMessageScanSkipKeepsTheView(t *testing.T) {
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}
-	bad := filepath.Join(store.Dir, "messages", "00000000-0000-4000-8000-000000000002.json")
+	bad := filepath.Join(store.dir, "messages", "00000000-0000-4000-8000-000000000002.json")
 	if err := os.WriteFile(bad, []byte("{"), 0600); err != nil {
 		t.Fatal(err)
 	}

@@ -24,18 +24,18 @@ func pluginReadOwnerFixture(t *testing.T) (string, bus.Store, model.Message) {
 	if err := os.WriteFile(executable, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	capabilityCLIOK(t, binary, store.Dir, "add", "external", "--exec", executable)
-	capabilityCLIOK(t, binary, store.Dir, "configure", "external", "--scope", "all")
+	capabilityCLIOK(t, binary, store.Dir(), "add", "external", "--exec", executable)
+	capabilityCLIOK(t, binary, store.Dir(), "configure", "external", "--scope", "all")
 	m := model.Message{Schema: 1, ID: "10000000-0000-4000-8000-000000000002", From: session.ID, To: session.ID, TargetGeneration: session.Generation, Body: "PRIVATE-B1-CLI-BODY <>&\nsecret", CreatedAt: "2000-01-01T00:00:00Z", AcknowledgedAt: "2000-01-02T00:00:00Z", Status: model.StatusSubmitted}
 	raw, err := journal.EncodeJSON(m, 128<<10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir, "messages", m.ID+".json"), raw); err != nil {
+	if err := journal.WriteAtomic(filepath.Join(store.Dir(), "messages", m.ID+".json"), raw); err != nil {
 		t.Fatal(err)
 	}
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--status", "--read", session.ID)
-	capabilityCLIOK(t, binary, store.Dir, "enable", "external")
+	capabilityCLIOK(t, binary, store.Dir(), "grant", "external", "--status", "--read", session.ID)
+	capabilityCLIOK(t, binary, store.Dir(), "enable", "external")
 	return binary, store, m
 }
 
@@ -43,7 +43,7 @@ func TestPluginReadOwnerCLIOutputPrivacyAndReplay(t *testing.T) {
 	binary, store, m := pluginReadOwnerFixture(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, binary, "--state", store.Dir, "--log-level", "debug", "plugins", "read", "external", "--session", m.To, "--message", m.ID)
+	cmd := exec.CommandContext(ctx, binary, "--state", store.Dir(), "--log-level", "debug", "plugins", "read", "external", "--session", m.To, "--message", m.ID)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -51,11 +51,11 @@ func TestPluginReadOwnerCLIOutputPrivacyAndReplay(t *testing.T) {
 		t.Fatal("owner read failed", stderr.String(), err)
 	}
 	assertPluginReadCLIResult(t, stdout.Bytes(), stderr.Bytes(), &m)
-	if err := filepath.WalkDir(store.Dir, func(path string, entry os.DirEntry, walkErr error) error {
+	if err := filepath.WalkDir(store.Dir(), func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if entry.IsDir() || path == filepath.Join(store.Dir, "messages", m.ID+".json") {
+		if entry.IsDir() || path == filepath.Join(store.Dir(), "messages", m.ID+".json") {
 			return nil
 		}
 		raw, err := os.ReadFile(path)
@@ -68,11 +68,11 @@ func TestPluginReadOwnerCLIOutputPrivacyAndReplay(t *testing.T) {
 	}
 	// Rate state survives an entirely new CLI process. A terminal revoke wins
 	// over this rate window and never replays the previously returned buffer.
-	if raw, err := pluginOwnerCLI(t, binary, store.Dir, "read", "external", "--session", m.To, "--message", m.ID); err == nil || bytes.Contains(raw, []byte("PRIVATE-B1-CLI-BODY")) || !bytes.Contains(raw, []byte("rate_limited")) {
+	if raw, err := pluginOwnerCLI(t, binary, store.Dir(), "read", "external", "--session", m.To, "--message", m.ID); err == nil || bytes.Contains(raw, []byte("PRIVATE-B1-CLI-BODY")) || !bytes.Contains(raw, []byte("rate_limited")) {
 		t.Fatal("CLI retry bypassed rate or replayed body", len(raw), err)
 	}
-	capabilityCLIOK(t, binary, store.Dir, "revoke", "external")
-	if raw, err := pluginOwnerCLI(t, binary, store.Dir, "read", "external", "--session", m.To, "--message", m.ID); err == nil || bytes.Contains(raw, []byte("PRIVATE-B1-CLI-BODY")) {
+	capabilityCLIOK(t, binary, store.Dir(), "revoke", "external")
+	if raw, err := pluginOwnerCLI(t, binary, store.Dir(), "read", "external", "--session", m.To, "--message", m.ID); err == nil || bytes.Contains(raw, []byte("PRIVATE-B1-CLI-BODY")) {
 		t.Fatal("CLI revoke replayed body", len(raw), err)
 	}
 }
@@ -80,19 +80,19 @@ func TestPluginReadOwnerCLIOutputPrivacyAndReplay(t *testing.T) {
 func TestPluginReadOwnerCLIRequiredScopeAndHelp(t *testing.T) {
 	binary, store, m := pluginReadOwnerFixture(t)
 	for _, args := range [][]string{{"read", "external"}, {"read", "external", "--session", m.To}, {"read", "external", "--message", m.ID}, {"read", "external", "--session", "display-name", "--message", m.ID}, {"read", "external", "--session", m.To, "--message", "../message"}, {"read", "external", "--session", m.To, "--message", m.ID, "--history"}} {
-		raw, err := pluginOwnerCLI(t, binary, store.Dir, args...)
+		raw, err := pluginOwnerCLI(t, binary, store.Dir(), args...)
 		if err == nil || bytes.Contains(raw, []byte("PRIVATE-B1-CLI-BODY")) {
 			t.Fatal("CLI accepted invalid read scope", args, len(raw), err)
 		}
 	}
-	raw, err := pluginOwnerCLI(t, binary, store.Dir, "read", "--help")
+	raw, err := pluginOwnerCLI(t, binary, store.Dir(), "read", "--help")
 	if err != nil || !strings.Contains(string(raw), "The plugin executable runs as the owner; grants filter only what Zalki exposes.") || !strings.Contains(string(raw), "does not start a plugin or prove process liveness") {
 		t.Fatal("help hid owner/host limits", string(raw), err)
 	}
-	capabilityCLIOK(t, binary, store.Dir, "disable", "external")
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--status", "--send", m.To, "--receive")
-	capabilityCLIOK(t, binary, store.Dir, "enable", "external")
-	raw, err = pluginOwnerCLI(t, binary, store.Dir, "read", "external", "--session", m.To, "--message", m.ID)
+	capabilityCLIOK(t, binary, store.Dir(), "disable", "external")
+	capabilityCLIOK(t, binary, store.Dir(), "grant", "external", "--status", "--send", m.To, "--receive")
+	capabilityCLIOK(t, binary, store.Dir(), "enable", "external")
+	raw, err = pluginOwnerCLI(t, binary, store.Dir(), "read", "external", "--session", m.To, "--message", m.ID)
 	if err == nil || bytes.Contains(raw, []byte("PRIVATE-B1-CLI-BODY")) {
 		t.Fatal("other permissions implied CLI read", len(raw), err)
 	}

@@ -111,13 +111,13 @@ func (f notifyFake) calls(t *testing.T) [][]string {
 func notifySupervisor(t *testing.T) (*supervisor, notifyFake, *notifyClock) {
 	t.Helper()
 	store, _ := pluginOwnerFixture(t)
-	if raw, err := pluginOwnerLocal(t, store.Dir, "add", "demo", "--exec", feedFixture(t)); err != nil {
+	if raw, err := pluginOwnerLocal(t, store.Dir(), "add", "demo", "--exec", feedFixture(t)); err != nil {
 		t.Fatal(string(raw), err)
 	}
-	s := newNotifySupervisor(t, store.Dir)
+	s := newNotifySupervisor(t, store.Dir())
 	fake := useNotifyFixture(t)
 	clock := &notifyClock{mono: notifyWindow, wall: stateEpoch}
-	s.notify = testNotifier(store.Dir, s.instance, clock)
+	s.notify = testNotifier(store.Dir(), s.instance, clock)
 	return s, fake, clock
 }
 
@@ -578,7 +578,7 @@ func TestPluginNotificationLines(t *testing.T) {
 		t.Fatal("the supervise help does not carry the banner owner copy")
 	}
 	store, _ := pluginOwnerFixture(t)
-	if err := os.MkdirAll(filepath.Join(store.Dir, "plugins"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(store.Dir(), "plugins"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	live := true
@@ -589,18 +589,18 @@ func TestPluginNotificationLines(t *testing.T) {
 		t.Fatalf("doctor notes without a cause: %q", notes)
 	}
 	record := notifyRecord{Schema: 1, Attempts: []time.Time{stateEpoch}, InFlight: &notifyInFlight{Token: model.NewUUID(), Controller: model.NewUUID(), Phase: "reserved"}}
-	writeNotifyRecord(t, store.Dir, record)
+	writeNotifyRecord(t, store.Dir(), record)
 	if notes := notifyNotes(store); len(notes) != 0 {
 		t.Fatalf("a live controller's own dispatch was named unfinished: %q", notes)
 	}
 	live = false
-	if notes := notifyNotes(store); !slices.Equal(notes, []string{"Zalki notifications are paused: an earlier notification did not finish. Plugins are not affected.", fmt.Sprintf(noteNotifyResume, "gui/"+strconv.Itoa(os.Getuid())+"/dev.zalki.plugins", shellQuote(filepath.Join(store.Dir, "plugins", notifyFileName)))}) {
+	if notes := notifyNotes(store); !slices.Equal(notes, []string{"Zalki notifications are paused: an earlier notification did not finish. Plugins are not affected.", fmt.Sprintf(noteNotifyResume, "gui/"+strconv.Itoa(os.Getuid())+"/dev.zalki.plugins", shellQuote(filepath.Join(store.Dir(), "plugins", notifyFileName)))}) {
 		t.Fatalf("doctor unfinished note: %q", notes)
 	}
-	if err := os.WriteFile(notifyPath(store.Dir), []byte("{}"), 0o600); err != nil {
+	if err := os.WriteFile(notifyPath(store.Dir()), []byte("{}"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if notes := notifyNotes(store); !slices.Equal(notes, []string{"Zalki notifications are paused: the notification state file is not valid. Plugins are not affected.", fmt.Sprintf(noteNotifyResume, "gui/"+strconv.Itoa(os.Getuid())+"/dev.zalki.plugins", shellQuote(filepath.Join(store.Dir, "plugins", notifyFileName)))}) {
+	if notes := notifyNotes(store); !slices.Equal(notes, []string{"Zalki notifications are paused: the notification state file is not valid. Plugins are not affected.", fmt.Sprintf(noteNotifyResume, "gui/"+strconv.Itoa(os.Getuid())+"/dev.zalki.plugins", shellQuote(filepath.Join(store.Dir(), "plugins", notifyFileName)))}) {
 		t.Fatalf("doctor invalid note: %q", notes)
 	}
 	checkNotifyRecordKept(t, store)
@@ -609,12 +609,12 @@ func TestPluginNotificationLines(t *testing.T) {
 // An invalid record is kept byte-identical and pauses only notifications.
 func checkNotifyRecordKept(t *testing.T, store bus.Store) {
 	t.Helper()
-	before, _ := os.ReadFile(notifyPath(store.Dir))
-	n := testNotifier(store.Dir, model.NewUUID(), &notifyClock{mono: notifyWindow, wall: stateEpoch})
+	before, _ := os.ReadFile(notifyPath(store.Dir()))
+	n := testNotifier(store.Dir(), model.NewUUID(), &notifyClock{mono: notifyWindow, wall: stateEpoch})
 	if _, res := n.try(notifyIntent{name: "demo", installation: model.NewUUID()}); res == nil || res.reason != notifyReasonBadState {
 		t.Fatal("an invalid notification record did not pause with its reason")
 	}
-	if after, _ := os.ReadFile(notifyPath(store.Dir)); !bytes.Equal(before, after) {
+	if after, _ := os.ReadFile(notifyPath(store.Dir())); !bytes.Equal(before, after) {
 		t.Fatal("an invalid notification record was changed")
 	}
 }

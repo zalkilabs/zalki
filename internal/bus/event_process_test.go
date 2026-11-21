@@ -15,7 +15,7 @@ import (
 
 func runEventChild(t *testing.T, dir, id string) {
 	t.Helper()
-	store := Store{Dir: dir, Registry: testRegistry()}
+	store := Store{dir: dir, registry: testRegistry()}
 	for range 10 {
 		if err := store.Update(id, model.StateReady, false); err != nil {
 			t.Fatal(err)
@@ -34,7 +34,7 @@ func TestEventSequenceTwoProcesses(t *testing.T) {
 	store := fixtureStore(t)
 	one, _ := register(t, store, "codex")
 	two, _ := register(t, store, "codex")
-	fd, err := journal.OpenLockFile(filepath.Join(store.Dir, "lock"), false)
+	fd, err := journal.OpenLockFile(filepath.Join(store.dir, "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestEventSequenceTwoProcesses(t *testing.T) {
 	var logs [2]bytes.Buffer
 	for i, session := range []model.Session{one, two} {
 		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestEventSequenceTwoProcesses$", "-test.count=1")
-		cmd.Env = append(os.Environ(), "ZALKI_EVENT_TEST_STATE="+store.Dir, "ZALKI_EVENT_TEST_ID="+session.ID)
+		cmd.Env = append(os.Environ(), "ZALKI_EVENT_TEST_STATE="+store.dir, "ZALKI_EVENT_TEST_ID="+session.ID)
 		cmd.Stdout, cmd.Stderr, cmd.WaitDelay = &logs[i], &logs[i], time.Second
 		if err := cmd.Start(); err != nil {
 			t.Fatal(err)
@@ -80,7 +80,7 @@ func assertDistinctEventIDs(t *testing.T, store Store, count uint64) {
 	t.Helper()
 	seen := make(map[string]bool)
 	for sequence := uint64(1); sequence <= count; sequence++ {
-		raw := readCommitFile(t, filepath.Join(store.Dir, eventRecordPath(sequence)))
+		raw := readCommitFile(t, filepath.Join(store.dir, eventRecordPath(sequence)))
 		var record eventRecord
 		if err := decodeEventJSON(raw, &record); err != nil || record.Sequence != sequence || seen[record.Event.ID] {
 			t.Fatalf("invalid/duplicate record at %d: %+v, %v", sequence, record, err)

@@ -96,7 +96,7 @@ func TestFloodAdmissionHostErrorsKeepExactTextAndRetryTimes(t *testing.T) {
 			if !bytes.Equal(before, floodBytes(t, store, msg.To)) {
 				t.Fatal("refusal rewrote quota")
 			}
-			if _, err := os.Stat(store.Dir + "/messages/" + msg.ID + ".json"); !os.IsNotExist(err) {
+			if _, err := os.Stat(store.dir + "/messages/" + msg.ID + ".json"); !os.IsNotExist(err) {
 				t.Fatal("refusal reserved a message", err)
 			}
 		})
@@ -130,7 +130,7 @@ func TestFloodHeaderChecksPrecedeRetry(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := privateDir(store.Dir + "/flood"); err != nil {
+			if err := privateDir(store.dir + "/flood"); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(path, data, 0600); err != nil {

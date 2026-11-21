@@ -18,7 +18,7 @@ func TestRuntimeActorUpdateSurvivesSchemaGuard(t *testing.T) {
 		t.Fatal("RUNTIME_ACTOR_UPDATE_MISSING", info.Actors)
 	}
 	var saved RuntimeInfo
-	if err := readJSON(filepath.Join(s.Dir, "runtimes", lease.Info().ID+".json"), &saved); err != nil || len(saved.Actors) != 1 || saved.Actors[0] != actor.ID {
+	if err := readJSON(filepath.Join(s.dir, "runtimes", lease.Info().ID+".json"), &saved); err != nil || len(saved.Actors) != 1 || saved.Actors[0] != actor.ID {
 		t.Fatal("RUNTIME_ACTOR_UPDATE_NOT_PERSISTED", err, saved.Actors)
 	}
 }

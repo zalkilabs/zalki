@@ -48,7 +48,7 @@ func registerPromptAbsent(s Store, kind, actor string, event agent.HookInput, no
 	if v.ID != actor {
 		return v, model.NewError(model.CodeInvalidIdentity, "prompt registration identity mismatch")
 	}
-	if err := debitPromptRegistration(s.Dir, actor, now, write); err != nil {
+	if err := debitPromptRegistration(s.dir, actor, now, write); err != nil {
 		return v, err
 	}
 	if err := saveSessionFor(s, v, model.CauseRegister); err != nil {

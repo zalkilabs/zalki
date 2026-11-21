@@ -17,7 +17,7 @@ import (
 // installedPlugins counts owner records. A record that cannot be read counts
 // as installed and enabled, so no line or question rests on a guess.
 func installedPlugins(store bus.Store) (total, enabled int, err error) {
-	dir := filepath.Join(store.Dir, "plugins")
+	dir := filepath.Join(store.Dir(), "plugins")
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, 0, nil

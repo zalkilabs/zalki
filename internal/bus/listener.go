@@ -32,7 +32,7 @@ type Lease struct {
 }
 
 func (s Store) listenerLockPath(kind, actor string) string {
-	return filepath.Join(s.Dir, kind+"-listener-"+strings.TrimPrefix(actor, kind+":")+".lock")
+	return filepath.Join(s.dir, kind+"-listener-"+strings.TrimPrefix(actor, kind+":")+".lock")
 }
 
 // removeFreeListenerLock reports whether the listener lock file is present and
@@ -110,7 +110,7 @@ func (s Store) AcquireListenerLease(actor, key string) (lease *Lease, err error)
 		if v, err = s.authenticate(actor, key); err != nil {
 			return err
 		}
-		adapter, err := s.registry().Lookup(v.Kind)
+		adapter, err := s.registry.Lookup(v.Kind)
 		if err != nil {
 			return err
 		}

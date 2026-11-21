@@ -26,7 +26,7 @@ func TestStoreArchiveWaiterProcessHelper(t *testing.T) {
 	defer ready.Close() // Test-owned pipe.
 	defer gate.Close()  // Test-owned pipe.
 	store := fixtureStore(t)
-	store.Dir = root
+	store.dir = root
 	opens := 0
 	storeLockOpened = func() {
 		opens++
@@ -53,7 +53,7 @@ func TestStoreArchiveWaiterRefusesBeforeFreshRecovery(t *testing.T) {
 	if err := store.locked(func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	oldFD, err := journal.OpenLockFile(filepath.Join(store.Dir, "lock"), false)
+	oldFD, err := journal.OpenLockFile(filepath.Join(store.dir, "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,19 +66,19 @@ func TestStoreArchiveWaiterRefusesBeforeFreshRecovery(t *testing.T) {
 	if err := journal.LockExclusive(oldFD, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(store.Dir, "retained-sentinel"), []byte("old-tree-opaque-bytes"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(store.dir, "retained-sentinel"), []byte("old-tree-opaque-bytes"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	waiter := startArchiveWaiter(t, store.Dir)
-	archiveBefore := archiveWaiterFiles(t, store.Dir)
-	archive := store.Dir + "-archived"
-	if err := os.Rename(store.Dir, archive); err != nil {
+	waiter := startArchiveWaiter(t, store.dir)
+	archiveBefore := archiveWaiterFiles(t, store.dir)
+	archive := store.dir + "-archived"
+	if err := os.Rename(store.dir, archive); err != nil {
 		t.Fatal(err)
 	}
-	fresh := stageFreshArchiveState(t, store.Dir)
-	pending := filepath.Join(store.Dir, "commits", "pending.json")
+	fresh := stageFreshArchiveState(t, store.dir)
+	pending := filepath.Join(store.dir, "commits", "pending.json")
 	before := readCommitFile(t, pending)
-	priorSubject := readCommitFile(t, filepath.Join(store.Dir, eventSubjectPath(fresh.event)))
+	priorSubject := readCommitFile(t, filepath.Join(store.dir, eventSubjectPath(fresh.event)))
 	if _, err := waiter.gate.Write([]byte{1}); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestStoreArchiveWaiterRefusesBeforeFreshRecovery(t *testing.T) {
 	}
 	oldOpen = false
 	waitErr := <-waiter.done
-	assertArchiveWaiterOutcome(t, waiter, waitErr, store.Dir, archive, fresh, pending, before, priorSubject)
+	assertArchiveWaiterOutcome(t, waiter, waitErr, store.dir, archive, fresh, pending, before, priorSubject)
 	if !reflect.DeepEqual(archiveBefore, archiveWaiterFiles(t, archive)) {
 		t.Fatal("STALE_LOCK_MODIFIED_ARCHIVED_TREE")
 	}

@@ -19,7 +19,7 @@ func watchConsumptionFixture(t *testing.T) (Store, string, string) {
 	t.Helper()
 	store := fixtureStore(t)
 	target := "codex:" + newID()
-	dir := filepath.Join(store.Dir, "watches", strings.ReplaceAll(target, ":", "_"))
+	dir := filepath.Join(store.dir, "watches", strings.ReplaceAll(target, ":", "_"))
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
 	}

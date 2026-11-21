@@ -345,7 +345,7 @@ func (n *notifier) try(it notifyIntent) (time.Duration, *notifyResult) {
 	if wait := n.budget.wait(record.Attempts); wait > 0 {
 		return wait, nil
 	}
-	status, err := pluginfeed.NewPluginFeed(bus.Store{Dir: n.state}, it.name).PluginStatus()
+	status, err := pluginfeed.NewPluginFeed(bus.StoreAt(n.state), it.name).PluginStatus()
 	if err != nil || status.ID != it.installation {
 		return 0, nil // reinstalled or unreadable: never announced under another UUID
 	}
@@ -422,17 +422,17 @@ func notifySuffix(run pluginRunState, ok bool) string {
 // that is not valid, or an in-flight dispatch that no live controller owns
 // or that a plugin's record names as unfinished.
 func notifyNotes(store bus.Store) []string {
-	record, err := loadNotifyRecord(store.Dir)
+	record, err := loadNotifyRecord(store.Dir())
 	// The way out is a manual step (nothing clears an unfinished
 	// dispatch automatically).
 	service := "gui/" + strconv.Itoa(os.Getuid()) + "/" + backgroundLabel
-	resume := fmt.Sprintf(noteNotifyResume, service, shellQuote(filepath.Join(store.Dir, "plugins", notifyFileName)))
+	resume := fmt.Sprintf(noteNotifyResume, service, shellQuote(filepath.Join(store.Dir(), "plugins", notifyFileName)))
 	switch {
 	case err != nil:
 		return []string{noteNotifyInvalid, resume}
 	case record.InFlight == nil:
 		return nil
-	case !controllerLive(store.Dir) || anyNotifyUnknown(store):
+	case !controllerLive(store.Dir()) || anyNotifyUnknown(store):
 		return []string{noteNotifyUnfinished, resume}
 	}
 	return nil
@@ -441,7 +441,7 @@ func notifyNotes(store bus.Store) []string {
 // anyNotifyUnknown: some plugin's run record says its banner is paused
 // because an earlier dispatch did not finish.
 func anyNotifyUnknown(store bus.Store) bool {
-	entries, err := os.ReadDir(filepath.Join(store.Dir, "plugins"))
+	entries, err := os.ReadDir(filepath.Join(store.Dir(), "plugins"))
 	if err != nil {
 		return false
 	}
@@ -454,7 +454,7 @@ func anyNotifyUnknown(store bus.Store) bool {
 		if err != nil {
 			continue
 		}
-		if run, err := loadRunState(store.Dir, match[1], status.ID); err == nil && run.NotificationReason == notifyReasonUnknown {
+		if run, err := loadRunState(store.Dir(), match[1], status.ID); err == nil && run.NotificationReason == notifyReasonUnknown {
 			return true
 		}
 	}

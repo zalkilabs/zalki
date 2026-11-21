@@ -107,7 +107,7 @@ func assertCommittedInstall(t *testing.T, s bus.Store, f PluginFeed) {
 func pluginInboxTargetName(s bus.Store, to string) (string, error) {
 	var name string
 	err := bus.WithJournalRead(s, func(bus.JournalView) error {
-		f, _, err := pluginInboxTarget(s.Dir, to)
+		f, _, err := pluginInboxTarget(s.Dir(), to)
 		name = f.name
 		return err
 	})

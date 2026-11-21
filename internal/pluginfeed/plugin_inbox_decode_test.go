@@ -26,7 +26,7 @@ func checkExistingInboxIndexFields(t *testing.T, kind string) {
 		t.Fatal(err)
 	}
 	indexPath := filepath.Join(x.f.pluginDataPath(), "inbox.json")
-	canonicalPath := filepath.Join(x.f.store.Dir, "messages", seed.MessageID+".json")
+	canonicalPath := filepath.Join(x.f.store.Dir(), "messages", seed.MessageID+".json")
 	canonical, err := os.ReadFile(canonicalPath)
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestPluginReadAuditLoaderRejectsNullAndMissingHeader(t *testing.T) {
 func checkReadAuditMissingHeader(t *testing.T, raw []byte) {
 	t.Helper()
 	x := newPluginReadFixture(t, "cursor")
-	path := filepath.Join(x.f.store.Dir, "plugin-read-audit.json")
+	path := filepath.Join(x.f.store.Dir(), "plugin-read-audit.json")
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}

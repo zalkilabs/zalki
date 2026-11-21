@@ -22,7 +22,7 @@ func TestPromptRegistrationFailureNamesWhereTheCauseIs(t *testing.T) {
 		{"warnings not logged", off, failed + " Logging is off, so the cause was not saved; zalki config show shows the logging settings."},
 		{"warnings logged", on, failed + " The cause is in the zalki log; zalki config show prints its path."},
 	} {
-		got := Store{Logger: tc.logger}.promptRegistrationFailed()
+		got := Store{logger: tc.logger}.promptRegistrationFailed()
 		if got != tc.want || strings.Contains(got, "doctor") {
 			t.Fatalf("%s: %q", tc.name, got)
 		}

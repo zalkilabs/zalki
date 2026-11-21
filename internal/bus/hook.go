@@ -24,7 +24,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 	trace := hookTrace{stage: "adapter"}
 	var prompt bool
 	defer func() { resultErr = finishHookResult(s, kind, trace, started, output, prompt, resultErr) }()
-	adapter, err := s.Store.registry().Lookup(kind)
+	adapter, err := s.Store.registry.Lookup(kind)
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func lifecycleCause(event string) model.EventCause { return lifecycleCauses[even
 // warnings.
 func (s Store) promptRegistrationFailed() string {
 	const failed = "Zalki could not safely register this chat. Your message was not blocked."
-	if s.Logger == nil || !s.Logger.Enabled(context.Background(), slog.LevelWarn) {
+	if s.logger == nil || !s.logger.Enabled(context.Background(), slog.LevelWarn) {
 		return failed + " Logging is off, so the cause was not saved; zalki config show shows the logging settings."
 	}
 	return failed + " The cause is in the zalki log; zalki config show prints its path."

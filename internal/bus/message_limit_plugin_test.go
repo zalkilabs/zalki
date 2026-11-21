@@ -21,14 +21,14 @@ func TestConfiguredBodyPluginAdmissionOrdering(t *testing.T) {
 	}
 	request := x.request()
 	request.Body = "12345678"
-	x.service.Store.MaxBodyBytes = 4
+	x.service.Store = x.service.Store.With(bus.WithMaxBodyBytes(4))
 	before := pluginScopeSnapshot(t, x.store)
 	msg, err := x.service.Send(t.Context(), request)
 	assertInboxFailure(t, msg, err)
 	if model.ErrorCodeOf(err) != model.CodeInvalidInput || calls != 0 || !reflect.DeepEqual(before, pluginScopeSnapshot(t, x.store)) {
 		t.Fatal("plugin oversize admission called the reservation policy or changed quota/markers", err, calls)
 	}
-	x.service.Store.MaxBodyBytes = model.MaxMessageBodyBytes
+	x.service.Store = x.service.Store.With(bus.WithMaxBodyBytes(model.MaxMessageBodyBytes))
 	first, err := x.service.Send(t.Context(), request)
 	if err != nil || calls != 1 {
 		t.Fatal("initial plugin send", err, calls)
@@ -37,11 +37,11 @@ func TestConfiguredBodyPluginAdmissionOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile(filepath.Join(x.store.Dir, "messages", first.ID+".json"))
+	raw, err := os.ReadFile(filepath.Join(x.store.Dir(), "messages", first.ID+".json"))
 	if err != nil || len(raw) != size {
 		t.Fatal("plugin size calculation differs from the writer", err, len(raw), size)
 	}
-	x.service.Store.MaxBodyBytes = 4
+	x.service.Store = x.service.Store.With(bus.WithMaxBodyBytes(4))
 	before = pluginScopeSnapshot(t, x.store)
 	again, err := x.service.Send(t.Context(), request)
 	if err != nil || again.ID != first.ID || calls != 1 {

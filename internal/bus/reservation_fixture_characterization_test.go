@@ -63,16 +63,16 @@ func newReservationOrderFixture(t *testing.T) *reservationOrderFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: registry}
+	store := Store{dir: filepath.Join(t.TempDir(), "state"), registry: registry}
 	sender, key, target, _ := registerPair(t, store, "alpha", "beta")
 	f := &reservationOrderFixture{store: store, sender: sender, target: target, live: &live, calls: &calls}
 	f.request = SendRequest{Actor: sender.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "characterized payload"}
-	f.store.Logger = slog.New(slog.NewJSONHandler(&f.log, &slog.HandlerOptions{
+	f.store.logger = slog.New(slog.NewJSONHandler(&f.log, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 		ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
 			if attr.Key == slog.MessageKey && attr.Value.String() == "message.reserved" {
 				f.logReads++
-				raw, readErr := os.ReadFile(filepath.Join(f.store.Dir, "messages", f.request.MessageID+".json"))
+				raw, readErr := os.ReadFile(filepath.Join(f.store.dir, "messages", f.request.MessageID+".json"))
 				f.logReadErr = readErr
 				if readErr == nil {
 					f.logReadErr = json.Unmarshal(raw, &f.loggedMessage)

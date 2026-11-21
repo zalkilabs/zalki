@@ -199,7 +199,7 @@ func TestPluginReplyCountFailsClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := model.DeriveUUID("zalki/plugin-send/v1", x.status.ID, "blocked")
-	if _, err := os.Stat(x.f.store.Dir + "/messages/" + id + ".json"); !os.IsNotExist(err) {
+	if _, err := os.Stat(x.f.store.Dir() + "/messages/" + id + ".json"); !os.IsNotExist(err) {
 		t.Fatal("the reply was stored without its count", err)
 	}
 	if _, err := x.reply("blocked", x.message.ID, x.from.ID); err != nil {
@@ -228,12 +228,12 @@ func TestOldRecordFixQuotesThePath(t *testing.T) {
 // passes the model check, then the store's smaller body limit refuses it.
 func failedCountedReply(t *testing.T, x replyFixture, clientID string) {
 	t.Helper()
-	limit := x.sender.Store.MaxBodyBytes
-	x.sender.Store.MaxBodyBytes = 1
+	saved := x.sender.Store
+	x.sender.Store = saved.With(bus.WithMaxBodyBytes(1))
 	if _, err := x.reply(clientID, x.message.ID, x.from.ID); err == nil {
 		t.Fatal("the oversized reply was stored")
 	}
-	x.sender.Store.MaxBodyBytes = limit
+	x.sender.Store = saved
 	ledger, err := x.f.loadReplyLedger(x.status.ID, time.Now())
 	id := model.DeriveUUID("zalki/plugin-send/v1", x.status.ID, clientID)
 	if err != nil || len(ledger.Parents[x.message.ID].Replies) != 1 || ledger.Parents[x.message.ID].Replies[0] != id {

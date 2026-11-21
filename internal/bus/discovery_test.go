@@ -108,7 +108,7 @@ func TestDiscoveryDefaultsAndWakeOverrides(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			store.Registry = registry
+			store.registry = registry
 			register(t, store, "codex")
 			items, err := store.Discover()
 			if err != nil || len(items) != 1 {

@@ -98,7 +98,7 @@ func TestPluginFeedNowReplayAndPrivateReceipt(t *testing.T) {
 	}
 	first := streamAttemptAll(t, feed, launch, gap)
 	updateStreamState(t, store, session.ID, model.StateBusy)
-	reopened := NewPluginFeed(bus.Store{Dir: store.Dir, Registry: store.Registry}, "fake-notifier")
+	reopened := NewPluginFeed(bus.StoreAt(store.Dir(), bus.WithRegistry(store.Registry())), "fake-notifier")
 	captured := streamTestLaunch(t, reopened)
 	again := streamInspect(t, reopened, captured)
 	if again.ID != gap.ID {
@@ -529,7 +529,7 @@ func TestPluginFeedEmptyEpochAndSequenceLimit(t *testing.T) {
 	head := eventState(t, store)
 	head.Epoch = model.NewUUID()
 	head.First, head.Last, head.Count = math.MaxUint64, math.MaxUint64, 1
-	if err := writeJSON(filepath.Join(store.Dir, eventMetaPath), head); err != nil {
+	if err := writeJSON(filepath.Join(store.Dir(), eventMetaPath), head); err != nil {
 		t.Fatal(err)
 	}
 	gap := streamInspect(t, feed, launch)
@@ -601,12 +601,12 @@ func checkPluginPendingGapAfterLoss(t *testing.T, reason string) {
 	} else {
 		head := eventState(t, store)
 		head.Epoch = model.NewUUID()
-		if err := writeJSON(filepath.Join(store.Dir, eventMetaPath), head); err != nil {
+		if err := writeJSON(filepath.Join(store.Dir(), eventMetaPath), head); err != nil {
 			t.Fatal(err)
 		}
 	}
 	// Another Store value shares the same continuing host, not a fresh child.
-	reopened := fixtureFeedRun(NewPluginFeed(bus.Store{Dir: store.Dir, Registry: store.Registry}, "fake-notifier"))
+	reopened := fixtureFeedRun(NewPluginFeed(bus.StoreAt(store.Dir(), bus.WithRegistry(store.Registry())), "fake-notifier"))
 	again := streamInspect(t, reopened, launch)
 	againParts := streamAttemptAll(t, reopened, launch, again)
 	if again.ID != pending.ID || again.Gap != pending.Gap || readStreamCheckpoint(t, reopened).Pending.After != watermark || len(parts) != 1 || len(againParts) != 1 || !bytes.Equal(parts[0], againParts[0]) {
@@ -768,7 +768,7 @@ func TestPluginFeedRejectsZeroFirstMetadata(t *testing.T) {
 	prior := readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())
 	head := eventState(t, s)
 	head.First = 0
-	if err := writeJSON(filepath.Join(s.Dir, eventMetaPath), head); err != nil {
+	if err := writeJSON(filepath.Join(s.Dir(), eventMetaPath), head); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); !errors.Is(err, journal.ErrInvalidBatch) {
@@ -876,7 +876,7 @@ func checkPluginEnableRetry(t *testing.T, enabled bool) {
 // its earlier events stay in the journal.
 func forgetSession(t *testing.T, s bus.Store, id string) {
 	t.Helper()
-	if err := os.Remove(filepath.Join(s.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json")); err != nil {
+	if err := os.Remove(filepath.Join(s.Dir(), "sessions", strings.ReplaceAll(id, ":", "_")+".json")); err != nil {
 		t.Fatal(err)
 	}
 }

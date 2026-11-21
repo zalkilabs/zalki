@@ -53,7 +53,7 @@ func checkMCPUncertainFlow(t *testing.T, status model.DeliveryStatus) {
 	if calls != 1 || repeated.ID != receipt.ID {
 		t.Fatal("same-ID lookup retried native delivery")
 	}
-	checkMCPUncertainHistory(t, client, ctx, service.Store.Dir, from.ID, key, to.ID, toKey)
+	checkMCPUncertainHistory(t, client, ctx, service.Store.Dir(), from.ID, key, to.ID, toKey)
 	ack := uncertaintyCall[MessageReceipt](t, client, ctx, "ack_message", map[string]any{"actor": to.ID, "capability": toKey, "message_id": receipt.ID})
 	if !ack.Acknowledged || ack.Status != status || !strings.HasPrefix(ack.Error, "The receiver ACKed message ") {
 		t.Fatal("MCP ACK lost independent uncertain outcome")

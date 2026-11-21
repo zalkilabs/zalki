@@ -27,7 +27,7 @@ func TestStreamIntegrityEpisodeDeduplicatesUntilRecovery(t *testing.T) {
 	store := fixtureStore(t)
 	feed := NewPluginFeed(store, "fake-notifier")
 	var output bytes.Buffer
-	feed.store.Logger = slog.New(slog.NewJSONHandler(&output, nil))
+	feed.store = feed.store.With(bus.WithLogger(slog.New(slog.NewJSONHandler(&output, nil))))
 	cause := errors.New("private body/path must never be formatted")
 	for range 3 {
 		feed.stream.mu.Lock()
@@ -53,7 +53,7 @@ func (h *streamIntegrityHandler) Handle(ctx context.Context, record slog.Record)
 		h.feed.stream.mu.Unlock()
 	}
 	storeFree := false
-	fd, err := journal.OpenLockFile(filepath.Join(h.feed.store.Dir, "lock"), false)
+	fd, err := journal.OpenLockFile(filepath.Join(h.feed.store.Dir(), "lock"), false)
 	if err == nil {
 		if err = journal.LockExclusive(fd, true); err == nil {
 			storeFree = true
@@ -109,8 +109,8 @@ func newStreamIntegrityCase(t *testing.T, mode string) *streamIntegrityCase {
 	}
 	updateStreamState(t, store, session.ID, model.StateBusy)
 	head := eventState(t, store)
-	path := filepath.Join(store.Dir, eventRecordPath(head.Last))
-	c := &streamIntegrityCase{mode: mode, store: store, session: session, feed: feed, launch: launch, before: before, epoch: head.Epoch, sequence: head.Last, eventPath: path, original: readCommitFile(t, path), meta: readCommitFile(t, filepath.Join(store.Dir, eventMetaPath)), wantID: "unknown", wantReason: "invalid_record"}
+	path := filepath.Join(store.Dir(), eventRecordPath(head.Last))
+	c := &streamIntegrityCase{mode: mode, store: store, session: session, feed: feed, launch: launch, before: before, epoch: head.Epoch, sequence: head.Last, eventPath: path, original: readCommitFile(t, path), meta: readCommitFile(t, filepath.Join(store.Dir(), eventMetaPath)), wantID: "unknown", wantReason: "invalid_record"}
 	if err := bus.WithJournalWrite(store, func(view bus.JournalView) error {
 		var err error
 		c.event, err = view.EventAt(head.Epoch, head.Last)
@@ -168,7 +168,7 @@ func checkStreamIntegrityGapCase(t *testing.T, mode string) {
 	}
 	var output bytes.Buffer
 	handler := &streamIntegrityHandler{Handler: slog.NewJSONHandler(&output, nil), feed: c.feed}
-	c.feed.store.Logger = slog.New(handler)
+	c.feed.store = c.feed.store.With(bus.WithLogger(slog.New(handler)))
 	var work *streamBudget
 	factory := c.feed.stream.budget
 	c.feed.stream.budget = func(ctx context.Context) *streamBudget { work = factory(ctx); return work }
@@ -237,10 +237,10 @@ func assertStreamIntegrityDiagnostics(t *testing.T, c *streamIntegrityCase, hand
 		t.Fatal("F_INTEGRITY_ONE_DIAGNOSTIC_PER_EPISODE", output)
 	}
 	assertStreamIntegrityRecord(t, lines[0], c.wantID, c.wantReason)
-	if strings.Contains(output, c.store.Dir) || strings.Contains(output, c.session.ID) {
+	if strings.Contains(output, c.store.Dir()) || strings.Contains(output, c.session.ID) {
 		t.Fatal("F_INTEGRITY_NO_BODY_OR_USER_PATH")
 	}
-	if !bytes.Equal(c.meta, readCommitFile(t, filepath.Join(c.store.Dir, eventMetaPath))) {
+	if !bytes.Equal(c.meta, readCommitFile(t, filepath.Join(c.store.Dir(), eventMetaPath))) {
 		t.Fatal("F_INTEGRITY_SOURCE_METADATA_UNMODIFIED")
 	}
 }

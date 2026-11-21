@@ -171,7 +171,7 @@ func newPluginRestartCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			name, state := args[0], service.Store.Dir
+			name, state := args[0], service.Store.Dir()
 			status, err := pluginfeed.NewPluginFeed(service.Store, name).PluginStatus()
 			if err != nil {
 				return err

@@ -23,7 +23,7 @@ func writeRawMessage(t *testing.T, store Store, id string, record map[string]any
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(store.Dir, "messages", id+".json"), raw, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(store.dir, "messages", id+".json"), raw, 0600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -71,7 +71,7 @@ func TestHookWithAnUnsupportedOwnSessionWarnsAndSucceeds(t *testing.T) {
 	target, _ := register(t, service.Store, "codex")
 	setSessionSchema(t, service.Store, target.ID, 9)
 	var diagnostic, output bytes.Buffer
-	service.Store.Logger = slog.New(slog.NewJSONHandler(&diagnostic, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	service.Store.logger = slog.New(slog.NewJSONHandler(&diagnostic, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	input, _ := json.Marshal(agent.HookInput{SessionID: target.NativeID, CWD: "/workspace", Event: "Stop"})
 	if err := service.Hook(t.Context(), "codex", bytes.NewReader(input), &output); err != nil {
 		t.Fatal("hook broke the agent", err)
@@ -79,7 +79,7 @@ func TestHookWithAnUnsupportedOwnSessionWarnsAndSucceeds(t *testing.T) {
 	if output.Len() != 0 {
 		t.Fatalf("hook wrote output: %q", output.String())
 	}
-	requireOneUnsupportedRecord(t, diagnostic.String(), service.Store.Dir)
+	requireOneUnsupportedRecord(t, diagnostic.String(), service.Store.dir)
 }
 
 // setSessionSchema rewrites the schema field of a session record on disk.

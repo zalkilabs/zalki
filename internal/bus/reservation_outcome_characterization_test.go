@@ -176,9 +176,9 @@ func blockReservationPersistence(t *testing.T, f *reservationOrderFixture, unrea
 	// An event destination directory fails preflight before any intent, while
 	// leaving the hold inventory readable. The original message destination
 	// directory also makes that inventory unreadable, so its count stays safe.
-	path := filepath.Join(f.store.Dir, eventRecordPath(eventState(t, f.store).Last+1))
+	path := filepath.Join(f.store.dir, eventRecordPath(eventState(t, f.store).Last+1))
 	if unreadable {
-		path = filepath.Join(f.store.Dir, "messages", f.request.MessageID+".json")
+		path = filepath.Join(f.store.dir, "messages", f.request.MessageID+".json")
 	}
 	if err := os.Mkdir(path, 0700); err != nil {
 		t.Fatal(err)
@@ -196,7 +196,7 @@ func assertFailedReservationCount(t *testing.T, f *reservationOrderFixture, cons
 	if readErr != nil || current.ApprovalHeld != want || f.logReads != 0 {
 		t.Fatalf("failed reservation count=%d want=%d logged=%d error=%v", current.ApprovalHeld, want, f.logReads, readErr)
 	}
-	if _, err := os.Stat(filepath.Join(f.store.Dir, "commits", "pending.json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(f.store.dir, "commits", "pending.json")); !os.IsNotExist(err) {
 		t.Fatal("preflight refusal left a pending intent", err)
 	}
 }

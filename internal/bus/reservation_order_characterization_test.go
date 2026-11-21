@@ -50,7 +50,7 @@ func checkReservationFailure(t *testing.T, test reservationFailureCase) {
 	t.Helper()
 	f := newReservationOrderFixture(t)
 	test.prepare(t, f)
-	before := reservationSnapshot(t, f.store.Dir)
+	before := reservationSnapshot(t, f.store.dir)
 	started := time.Now()
 	message, target, fresh, err := reserveCharacterizedMessage(f, true)
 	ended := time.Now()
@@ -63,7 +63,7 @@ func checkReservationFailure(t *testing.T, test reservationFailureCase) {
 	if !reflect.DeepEqual(*f.calls, test.calls) {
 		t.Fatalf("callbacks=%v, want %v", *f.calls, test.calls)
 	}
-	if !maps.Equal(before, reservationSnapshot(t, f.store.Dir)) || f.logReads != 0 {
+	if !maps.Equal(before, reservationSnapshot(t, f.store.dir)) || f.logReads != 0 {
 		t.Fatal("refusal changed journal bytes or logged a reservation")
 	}
 	if _, err := f.store.message(f.request.MessageID); !os.IsNotExist(err) {

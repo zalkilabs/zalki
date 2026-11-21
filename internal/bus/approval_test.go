@@ -167,7 +167,7 @@ func TestHookDoesNotReadMessagesWhenNothingIsQueued(t *testing.T) {
 	service := newTestService(t)
 	store := service.Store
 	target, _ := register(t, store, "codex")
-	path := filepath.Join(store.Dir, "messages", "corrupt.json")
+	path := filepath.Join(store.dir, "messages", "corrupt.json")
 	if err := os.WriteFile(path, []byte("{"), 0600); err != nil {
 		t.Fatal(err)
 	}

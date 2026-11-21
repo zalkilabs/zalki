@@ -55,7 +55,7 @@ func latencyFixture(t *testing.T, mode, scenario string) (Store, model.Session, 
 	t.Helper()
 	store := fixtureStore(t)
 	if root := os.Getenv("ZALKI_EVENT_LATENCY_SHARED"); root != "" {
-		store.Dir = root
+		store.dir = root
 		if os.Getenv("ZALKI_EVENT_LATENCY_PREPARE") != "1" {
 			sessions, err := store.List()
 			if err != nil || len(sessions) != 1 {
@@ -116,10 +116,10 @@ func measureUpdateLatency(t *testing.T, store Store, id, key, mode string, count
 
 func seedLatencyRecords(t *testing.T, store Store, session model.Session, count uint64) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(store.Dir, "commits"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(store.dir, "commits"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(store.Dir, "events", "records"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(store.dir, "events", "records"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	epoch := "00000000-0000-4000-8000-000000000099"
@@ -133,7 +133,7 @@ func seedLatencyRecords(t *testing.T, store Store, session model.Session, count 
 		if err != nil {
 			t.Fatal(err)
 		}
-		path := filepath.Join(store.Dir, "events", "records", fmt.Sprintf("%020d.json", sequence))
+		path := filepath.Join(store.dir, "events", "records", fmt.Sprintf("%020d.json", sequence))
 		if err := journal.WriteAtomic(path, raw); err != nil {
 			t.Fatal(err)
 		}
@@ -144,7 +144,7 @@ func seedLatencyRecords(t *testing.T, store Store, session model.Session, count 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir, "events", "meta.json"), raw); err != nil {
+	if err := journal.WriteAtomic(filepath.Join(store.dir, "events", "meta.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 }

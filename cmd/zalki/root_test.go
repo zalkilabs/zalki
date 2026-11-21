@@ -119,7 +119,7 @@ func TestVersionAndFreshCommandFlags(t *testing.T) {
 func TestRepeatablePruneSelectionAndDryRun(t *testing.T) {
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
-	store := bus.Store{Dir: state, Registry: adapters.Builtin()}
+	store := bus.StoreAt(state, bus.WithRegistry(adapters.Builtin()))
 	var ids []string
 	for _, id := range []string{"00000000-0000-4000-8000-000000000021", "00000000-0000-4000-8000-000000000022"} {
 		session, _, err := store.Register("cursor", id, "/fixture", nil)

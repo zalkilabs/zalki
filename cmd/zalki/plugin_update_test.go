@@ -41,10 +41,10 @@ func installedUpdateFolder(t *testing.T, name string) (string, string, installSt
 	if name != "demo" {
 		args = append(args, "--as", name)
 	}
-	if output, err := pluginInstallLocal(t, store.Dir, installPlainLines, "y\n", args...); err != nil {
+	if output, err := pluginInstallLocal(t, store.Dir(), installPlainLines, "y\n", args...); err != nil {
 		t.Fatal(output, err)
 	}
-	return store.Dir, folder, readInstallStatus(t, store.Dir, name)
+	return store.Dir(), folder, readInstallStatus(t, store.Dir(), name)
 }
 
 func changeUpdateFolder(t *testing.T, folder string) {
@@ -373,10 +373,10 @@ func TestPluginUpdateYesRefusesChangedGrantedAccess(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	manifest := strings.ReplaceAll(nativeInstallManifest, `"status":true`, `"status":false`)
 	folder := writeInstallFolder(t, manifest, map[string]string{"bin/plugin": "#!/bin/sh\nexit 0\n"})
-	if output, err := pluginInstallLocal(t, store.Dir, installPlainLines, "y\n", folder); err != nil {
+	if output, err := pluginInstallLocal(t, store.Dir(), installPlainLines, "y\n", folder); err != nil {
 		t.Fatal(output, err)
 	}
-	if _, err := pluginOwnerLocal(t, store.Dir, "grant", "demo", "--status", "--receive"); err != nil {
+	if _, err := pluginOwnerLocal(t, store.Dir(), "grant", "demo", "--status", "--receive"); err != nil {
 		t.Fatal(err)
 	}
 	changeUpdateFolder(t, folder)
@@ -384,7 +384,7 @@ func TestPluginUpdateYesRefusesChangedGrantedAccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = pluginUpdateLocal(t, store.Dir, installNoTerminal, "", "demo", "--yes", "--tree-sha256", snapshot.TreeSHA256, "--allow-unsandboxed")
+	_, err = pluginUpdateLocal(t, store.Dir(), installNoTerminal, "", "demo", "--yes", "--tree-sha256", snapshot.TreeSHA256, "--allow-unsandboxed")
 	if err == nil || !strings.Contains(err.Error(), "unchanged declared and granted standard access") {
 		t.Fatal("--yes accepted changed granted standard access", err)
 	}

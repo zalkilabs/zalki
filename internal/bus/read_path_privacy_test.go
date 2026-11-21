@@ -56,7 +56,7 @@ func newJournalFixture(t *testing.T) journalFixture {
 func (f journalFixture) put(t *testing.T, number int, from, to agent, body string, minute int) string {
 	t.Helper()
 	id := messageID(number)
-	writeJSONFile(t, filepath.Join(f.store.Dir, "messages", id+".json"), map[string]any{
+	writeJSONFile(t, filepath.Join(f.store.Dir(), "messages", id+".json"), map[string]any{
 		"schema": 1, "id": id, "from": from.ID, "to": to.ID, "body": body, "target_generation": to.Generation,
 		"created_at": fmt.Sprintf("2026-11-01T12:%02d:00.000000000Z", minute), "status": "submitted",
 	})
@@ -217,7 +217,7 @@ func TestReadMessagesRefusesAMessageOfAnotherSessionByIDOrByCursor(t *testing.T)
 // malformed writes a message file that cannot be read.
 func (f journalFixture) malformed(t *testing.T, number int) {
 	t.Helper()
-	path := filepath.Join(f.store.Dir, "messages", messageID(number)+".json")
+	path := filepath.Join(f.store.Dir(), "messages", messageID(number)+".json")
 	if err := os.WriteFile(path, []byte("{"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -461,7 +461,7 @@ func TestReadMessagesAcceptsACursorOnAnyMessageOfTheCaller(t *testing.T) {
 // edit rewrites one stored message record.
 func (f journalFixture) edit(t *testing.T, number int, change func(record map[string]any)) {
 	t.Helper()
-	path := filepath.Join(f.store.Dir, "messages", messageID(number)+".json")
+	path := filepath.Join(f.store.Dir(), "messages", messageID(number)+".json")
 	record := readJSONFile(t, path)
 	change(record)
 	writeJSONFile(t, path, record)

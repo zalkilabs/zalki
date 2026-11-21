@@ -55,7 +55,7 @@ func (s *Service) SendFromPlugin(ctx context.Context, request PluginSendRequest)
 	var fresh bool
 	err = WithJournalWrite(s.Store, func(view JournalView) error {
 		id := pluginMessageID(request.Installation, request.ClientMessageID)
-		record, revision, err := admit(view, s.Store.Dir, request.Installation, request.To, request.ReplyTo, id)
+		record, revision, err := admit(view, s.Store.dir, request.Installation, request.To, request.ReplyTo, id)
 		if err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func reservePluginMessage(s Store, request PluginSendRequest, revision string) (
 	if !errors.Is(err, os.ErrNotExist) {
 		return message, target, false, err
 	}
-	if err := checkAdmissionBody(request.Body, s.MaxBodyBytes); err != nil {
+	if err := checkAdmissionBody(request.Body, s.maxBodyBytes); err != nil {
 		return message, target, false, err
 	}
 	if err := model.ValidateSessionAddress(request.To); err != nil {

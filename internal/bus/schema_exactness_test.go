@@ -31,7 +31,7 @@ func priorSchemaFixture(t *testing.T, schema json.RawMessage) (Store, string, mo
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(store.Dir, "messages", message.ID+".json")
+	path := filepath.Join(store.dir, "messages", message.ID+".json")
 	if err := privateDir(filepath.Dir(path)); err != nil {
 		t.Fatal(err)
 	}

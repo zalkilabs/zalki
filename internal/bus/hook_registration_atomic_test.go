@@ -32,7 +32,7 @@ func assertPromptQuotaAtomicFailure(t *testing.T, cut string) {
 	if _, err := store.session(actor); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("C18_NO_SESSION_AFTER_ATOMIC_FAILURE", cut, err)
 	}
-	path := filepath.Join(store.Dir, "hook-registration-quota.json")
+	path := filepath.Join(store.dir, "hook-registration-quota.json")
 	if cut == "directory-sync" {
 		quota, err := readPromptQuota(path)
 		if err != nil || len(quota.Attempts) != 1 || quota.Attempts[0].Actor != actor {

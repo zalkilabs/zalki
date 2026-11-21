@@ -19,7 +19,7 @@ func (crashingCursorWriter) Write([]byte) (int, error) { os.Exit(23); return 0, 
 func TestCursorRecoveryCrashAfterClaimDoesNotRetry(t *testing.T) {
 	if dir := os.Getenv("ZALKI_CURSOR_CLAIM_CRASH_STATE"); dir != "" {
 		store := adapterTestStore(t)
-		store.Dir = dir
+		store = bus.StoreAt(dir, bus.WithRegistry(store.Registry()))
 		service := bus.Service{Store: store}
 		input := `{"conversation_id":"` + os.Getenv("ZALKI_CURSOR_CLAIM_CRASH_NATIVE") + `","hook_event_name":"postToolUse"}`
 		if err := service.Hook(t.Context(), "cursor", strings.NewReader(input), crashingCursorWriter{}); err != nil {
@@ -29,7 +29,7 @@ func TestCursorRecoveryCrashAfterClaimDoesNotRetry(t *testing.T) {
 	}
 	fixture := newResumedCursorFixture(t)
 	child := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestCursorRecoveryCrashAfterClaimDoesNotRetry$", "-test.count=1")
-	child.Env = append(os.Environ(), "ZALKI_CURSOR_CLAIM_CRASH_STATE="+fixture.service.Store.Dir, "ZALKI_CURSOR_CLAIM_CRASH_NATIVE="+fixture.actor.NativeID)
+	child.Env = append(os.Environ(), "ZALKI_CURSOR_CLAIM_CRASH_STATE="+fixture.service.Store.Dir(), "ZALKI_CURSOR_CLAIM_CRASH_NATIVE="+fixture.actor.NativeID)
 	var output bytes.Buffer
 	child.Stdout = &output
 	err := child.Run()

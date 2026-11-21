@@ -315,10 +315,10 @@ func (a observedCodexEnd) HandleHook(host agent.HookHost, event agent.HookInput,
 
 func observeCodexEndHandler(t *testing.T, store *bus.Store, after func()) {
 	t.Helper()
-	kinds := store.Registry.Kinds()
+	kinds := store.Registry().Kinds()
 	items := make([]agent.Adapter, 0, len(kinds))
 	for _, kind := range kinds {
-		adapter, err := store.Registry.Lookup(kind)
+		adapter, err := store.Registry().Lookup(kind)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -335,7 +335,7 @@ func observeCodexEndHandler(t *testing.T, store *bus.Store, after func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store.Registry = registry
+	*store = store.With(bus.WithRegistry(registry))
 }
 
 func TestCodexSessionEndLeavesHeldUntilNormalRelease(t *testing.T) {

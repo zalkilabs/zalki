@@ -27,10 +27,10 @@ func TestPluginInboxActualCLIStoredOnlyAndFailurePrivacy(t *testing.T) {
 	if err = os.WriteFile(executable, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	capabilityCLIOK(t, binary, store.Dir, "add", "inbox-fixture", "--exec", executable)
-	capabilityCLIOK(t, binary, store.Dir, "configure", "inbox-fixture", "--scope", "all")
-	capabilityCLIOK(t, binary, store.Dir, "grant", "inbox-fixture", "--status", "--receive")
-	capabilityCLIOK(t, binary, store.Dir, "enable", "inbox-fixture")
+	capabilityCLIOK(t, binary, store.Dir(), "add", "inbox-fixture", "--exec", executable)
+	capabilityCLIOK(t, binary, store.Dir(), "configure", "inbox-fixture", "--scope", "all")
+	capabilityCLIOK(t, binary, store.Dir(), "grant", "inbox-fixture", "--status", "--receive")
+	capabilityCLIOK(t, binary, store.Dir(), "enable", "inbox-fixture")
 	status, err := pluginfeed.NewPluginFeed(store, "inbox-fixture").PluginStatus()
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +39,7 @@ func TestPluginInboxActualCLIStoredOnlyAndFailurePrivacy(t *testing.T) {
 	input := map[string]string{"actor": author.ID, "to": "plugin:" + status.ID, "message_id": "30000000-0000-4000-8000-000000000072", "body": body}
 	send := func() ([]byte, []byte, error) {
 		raw, _ := json.Marshal(input)
-		cmd := exec.CommandContext(t.Context(), binary, "--state", store.Dir, "--log-level", "debug", "send")
+		cmd := exec.CommandContext(t.Context(), binary, "--state", store.Dir(), "--log-level", "debug", "send")
 		cmd.Env = append(os.Environ(), "ZALKI_CAPABILITY="+key)
 		cmd.Stdin = bytes.NewReader(raw)
 		var out, diagnostic bytes.Buffer
@@ -59,7 +59,7 @@ func TestPluginInboxActualCLIStoredOnlyAndFailurePrivacy(t *testing.T) {
 	if err != nil || !strings.Contains(string(raw), "Stored, not delivered; owner reading is a later command. Not acknowledged.") {
 		t.Fatal("CLI storage help promised delivery", err)
 	}
-	raw, err = os.ReadFile(filepath.Join(store.Dir, "logs", "zalki.jsonl"))
+	raw, err = os.ReadFile(filepath.Join(store.Dir(), "logs", "zalki.jsonl"))
 	if err != nil || bytes.Contains(raw, []byte(body)) || bytes.Contains(raw, []byte(input["body"])) || bytes.Contains(raw, []byte(key)) {
 		t.Fatal("CLI log missing or exposed private data", err)
 	}

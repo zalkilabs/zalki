@@ -17,24 +17,24 @@ func TestPluginListAndOldRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"add", "ext", "--exec", exe}, {"configure", "ext", "--scope", "all"}, {"grant", "ext", "--status", "--receive"}} {
-		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
+		if raw, err := pluginOwnerLocal(t, store.Dir(), args...); err != nil {
 			t.Fatal(args, string(raw), err)
 		}
 	}
-	raw, err := pluginOwnerLocal(t, store.Dir, "list")
+	raw, err := pluginOwnerLocal(t, store.Dir(), "list")
 	if err != nil || !strings.Contains(string(raw), "Manual plugins (no installation receipt)\n  ext  unknown version  disabled; scope all; 0 eligible in the session snapshot; SEND 0; READ 0; installed by unknown (no installation receipt)") {
 		t.Fatalf("list: %q %v", raw, err)
 	}
-	writeOldPluginRecord(t, filepath.Join(store.Dir, "plugins", "ext.json"))
+	writeOldPluginRecord(t, filepath.Join(store.Dir(), "plugins", "ext.json"))
 	fix := "ext: plugin record from an older Zalki. Keep the old record and its data. To install a separate instance, choose an unused name and run: zalki plugins install FOLDER --as NEW_NAME"
-	assertOldRecordRefused(t, store.Dir, fix)
-	if raw, err := pluginOwnerLocal(t, store.Dir, "list"); err != nil || !strings.Contains(string(raw), "Old plugin records\n  ext  "+fix) {
+	assertOldRecordRefused(t, store.Dir(), fix)
+	if raw, err := pluginOwnerLocal(t, store.Dir(), "list"); err != nil || !strings.Contains(string(raw), "Old plugin records\n  ext  "+fix) {
 		t.Fatalf("list of an old record: %q %v", raw, err)
 	}
-	if raw, err := pluginOwnerLocal(t, store.Dir, "remove", "ext"); err != nil {
+	if raw, err := pluginOwnerLocal(t, store.Dir(), "remove", "ext"); err != nil {
 		t.Fatal("remove of an old record", string(raw), err)
 	}
-	if raw, err := pluginOwnerLocal(t, store.Dir, "list"); err != nil || string(raw) != "No plugins are installed.\n" {
+	if raw, err := pluginOwnerLocal(t, store.Dir(), "list"); err != nil || string(raw) != "No plugins are installed.\n" {
 		t.Fatalf("list after remove: %q %v", raw, err)
 	}
 }

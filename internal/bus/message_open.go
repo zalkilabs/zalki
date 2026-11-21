@@ -52,7 +52,7 @@ func markerName(name string) bool {
 }
 
 func (x openIndex) dir() string {
-	return filepath.Join(x.store.Dir, openMessagesDir)
+	return filepath.Join(x.store.dir, openMessagesDir)
 }
 
 func (x openIndex) path(id string) string {
@@ -100,7 +100,7 @@ func (x openIndex) sync() error {
 	if err := syncOpenMarkers(x.dir()); err != nil {
 		return err
 	}
-	return syncOpenMarkers(x.store.Dir)
+	return syncOpenMarkers(x.store.dir)
 }
 
 // drop removes a marker that is no longer needed. A failure is only logged:
@@ -118,7 +118,7 @@ func (x openIndex) dropStale(ids []string) {
 	if len(ids) == 0 {
 		return
 	}
-	if err := syncOpenMarkers(filepath.Join(x.store.Dir, "messages")); err != nil {
+	if err := syncOpenMarkers(filepath.Join(x.store.dir, "messages")); err != nil {
 		x.store.logEvent(slog.LevelWarn, "message.open_marker_failed", eventData{MessageID: ids[0], Err: err})
 		return
 	}

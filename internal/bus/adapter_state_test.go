@@ -42,7 +42,7 @@ func TestStateCodecSeesOnlyTheAdapterState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store.Registry = registry
+	store.registry = registry
 	rewriteRecord(t, store, to.ID, func(record map[string]any) {
 		record["adapter_state"] = map[string]any{"schema": 1, "recovery_attempted": true}
 		record["cursor_recovery_attempted"] = true

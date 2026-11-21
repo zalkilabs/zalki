@@ -48,7 +48,7 @@ func TestCursorOnlyAnActualPromptReactivatesARetiredConversation(t *testing.T) {
 	unknown := "cursor:" + model.NewUUID()
 	cursorHook(t, &service, unknown, "beforeSubmitPrompt", "", 0)
 	// List hides retired and exited records; check the journal directly.
-	if _, err := os.Stat(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(unknown, ":", "_")+".json")); err != nil {
+	if _, err := os.Stat(filepath.Join(store.Dir(), "sessions", strings.ReplaceAll(unknown, ":", "_")+".json")); err != nil {
 		t.Fatal("C01_PROMPT_REGISTERS_RESUMED_UNKNOWN_CHAT", err)
 	}
 }
@@ -145,7 +145,7 @@ func TestCursorPromptAfterAbortReenablesAnAttemptedRecovery(t *testing.T) {
 func TestCursorRecoveryClearsAStaleWake(t *testing.T) {
 	store := adapterTestStore(t)
 	to, _ := registerAdapterSession(t, store, "cursor")
-	path := filepath.Join(store.Dir, "sessions", strings.ReplaceAll(to.ID, ":", "_")+".json")
+	path := filepath.Join(store.Dir(), "sessions", strings.ReplaceAll(to.ID, ":", "_")+".json")
 	var record map[string]any
 	data, err := os.ReadFile(path)
 	if err != nil || json.Unmarshal(data, &record) != nil {
@@ -170,7 +170,7 @@ func TestCursorRecoveryClearsAStaleWake(t *testing.T) {
 func TestPruneReleasesALeaseLeftOnARetiredSession(t *testing.T) {
 	store := adapterTestStore(t)
 	to, _ := registerAdapterSession(t, store, "cursor")
-	path := filepath.Join(store.Dir, "sessions", strings.ReplaceAll(to.ID, ":", "_")+".json")
+	path := filepath.Join(store.Dir(), "sessions", strings.ReplaceAll(to.ID, ":", "_")+".json")
 	var record map[string]any
 	data, err := os.ReadFile(path)
 	if err != nil || json.Unmarshal(data, &record) != nil {
@@ -314,7 +314,7 @@ func waitUntilListening(t *testing.T, endpoint string) {
 
 func markOwnerExited(t *testing.T, store bus.Store, id string) {
 	t.Helper()
-	path := filepath.Join(store.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json")
+	path := filepath.Join(store.Dir(), "sessions", strings.ReplaceAll(id, ":", "_")+".json")
 	var session model.Session
 	data, err := os.ReadFile(path)
 	if err != nil || json.Unmarshal(data, &session) != nil {
@@ -328,7 +328,7 @@ func markOwnerExited(t *testing.T, store bus.Store, id string) {
 
 func sessionFile(t *testing.T, store bus.Store, id string) map[string]any {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json"))
+	data, err := os.ReadFile(filepath.Join(store.Dir(), "sessions", strings.ReplaceAll(id, ":", "_")+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}

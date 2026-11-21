@@ -21,7 +21,7 @@ func TestRuntimeRecordHeaderIsPrivateAndExact(t *testing.T) {
 	if err != nil || bytes.Contains(public, []byte(`"schema"`)) {
 		t.Fatal("RUNTIME_PUBLIC_PROJECTION_GREW_SCHEMA", err)
 	}
-	path := filepath.Join(s.Dir, "runtimes", lease.Info().ID+".json")
+	path := filepath.Join(s.dir, "runtimes", lease.Info().ID+".json")
 	raw := readCommitFile(t, path)
 	var header struct{ Schema int }
 	if err := json.Unmarshal(raw, &header); err != nil || header.Schema != recordSchema {

@@ -222,7 +222,7 @@ func TestLiveClients(t *testing.T) {
 			observation := smokeObservation{Client: current.Kind, Scenario: scenario, Evidence: evidence, Status: "failed"}
 			report.Observations = append(report.Observations, observation)
 			observationIndex := len(report.Observations) - 1
-			if adapter, err := store.Registry.Lookup(current.Kind); err == nil {
+			if adapter, err := store.Registry().Lookup(current.Kind); err == nil {
 				observation.Version = smokeClientVersion(adapter.Descriptor().Executable)
 			}
 			challenge := "ZALKI_SMOKE_" + model.NewUUID()
@@ -340,5 +340,5 @@ func configuredSmokeStore(t *testing.T, state, workspace string) bus.Store {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return bus.Store{Dir: state, Registry: adapters.BuiltinWithCodex(snapshot.Settings.CodexAllowQueueFallback.Value, snapshot.Paths.ConfigFile.Value, bus.Version)}
+	return bus.StoreAt(state, bus.WithRegistry(adapters.BuiltinWithCodex(snapshot.Settings.CodexAllowQueueFallback.Value, snapshot.Paths.ConfigFile.Value, bus.Version)))
 }

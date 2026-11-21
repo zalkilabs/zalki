@@ -266,7 +266,7 @@ func TestValidateDeliveryKeepsRecipientFences(t *testing.T) {
 		t.Fatal(err)
 	}
 	misaddressed.TargetGeneration = to.Generation
-	if err := writeJSON(filepath.Join(store.Dir, "messages", misaddressed.ID+".json"), misaddressed); err != nil {
+	if err := writeJSON(filepath.Join(store.dir, "messages", misaddressed.ID+".json"), misaddressed); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := lease.ValidateDelivery(misaddressed.ID); err == nil {

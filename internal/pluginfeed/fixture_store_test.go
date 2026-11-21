@@ -54,10 +54,10 @@ func sessionTestPath(store bus.Store, id string) (string, error) {
 		return "", err
 	}
 	kind, _, _ := strings.Cut(id, ":")
-	if _, err := store.Registry.Lookup(kind); err != nil {
+	if _, err := store.Registry().Lookup(kind); err != nil {
 		return "", err
 	}
-	return filepath.Join(store.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json"), nil
+	return filepath.Join(store.Dir(), "sessions", strings.ReplaceAll(id, ":", "_")+".json"), nil
 }
 
 func saveTestMessage(store bus.Store, message model.Message) error {
@@ -68,13 +68,13 @@ func saveTestMessage(store bus.Store, message model.Message) error {
 		return err
 	}
 	message.Schema = recordSchema
-	return writeJSON(filepath.Join(store.Dir, "messages", message.ID+".json"), message)
+	return writeJSON(filepath.Join(store.Dir(), "messages", message.ID+".json"), message)
 }
 
 func journalSnapshot(t *testing.T, store bus.Store) map[string]string {
 	t.Helper()
 	snapshot := map[string]string{}
-	if err := filepath.WalkDir(store.Dir, func(path string, entry os.DirEntry, err error) error {
+	if err := filepath.WalkDir(store.Dir(), func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -85,7 +85,7 @@ func journalSnapshot(t *testing.T, store bus.Store) map[string]string {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(store.Dir, path)
+		rel, err := filepath.Rel(store.Dir(), path)
 		if err == nil {
 			snapshot[rel] = string(raw)
 		}
@@ -111,7 +111,7 @@ func eventRecordPath(sequence uint64) string {
 func eventState(t *testing.T, store bus.Store) eventTestMetadata {
 	t.Helper()
 	var head eventTestMetadata
-	if err := journal.ReadJSON(filepath.Join(store.Dir, eventMetaPath), bus.MaxMessageRecordBytes, &head); err != nil {
+	if err := journal.ReadJSON(filepath.Join(store.Dir(), eventMetaPath), bus.MaxMessageRecordBytes, &head); err != nil {
 		t.Fatal(err)
 	}
 	return head
@@ -126,7 +126,7 @@ func setEventTestState(t *testing.T, store bus.Store, id string, state model.Ses
 	}
 	head := eventState(t, store)
 	for head.Count > 2 {
-		path := filepath.Join(store.Dir, eventRecordPath(head.First))
+		path := filepath.Join(store.Dir(), eventRecordPath(head.First))
 		raw := readCommitFile(t, path)
 		if err := os.Remove(path); err != nil {
 			t.Fatal(err)
@@ -135,7 +135,7 @@ func setEventTestState(t *testing.T, store bus.Store, id string, state model.Ses
 		head.Count--
 		head.Bytes -= uint64(len(raw))
 	}
-	if err := writeJSON(filepath.Join(store.Dir, eventMetaPath), head); err != nil {
+	if err := writeJSON(filepath.Join(store.Dir(), eventMetaPath), head); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -163,7 +163,7 @@ func claimCursorRecovery(store bus.Store, actor string) (agent.RecoveryGrant, er
 	if err != nil {
 		return grant, err
 	}
-	store.Registry = registry
+	store = store.With(bus.WithRegistry(registry))
 	_, native, _ := strings.Cut(actor, ":")
 	input, err := json.Marshal(agent.HookInput{SessionID: native, CWD: "/workspace", Event: "postToolUse"})
 	if err != nil {

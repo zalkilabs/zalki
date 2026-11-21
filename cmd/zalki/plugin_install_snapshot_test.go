@@ -28,14 +28,14 @@ func TestPluginCopiedManifestRefusesBeforeBuild(t *testing.T) {
 			}
 			defer func() { installStep = previous }()
 			mustWriteInstallManifest(t, folder, initial)
-			output, err := pluginInstallLocal(t, store.Dir, installNoTerminal, "", folder, "--yes", "--allow-unsandboxed", "--tree-sha256", snapshot.TreeSHA256)
+			output, err := pluginInstallLocal(t, store.Dir(), installNoTerminal, "", folder, "--yes", "--allow-unsandboxed", "--tree-sha256", snapshot.TreeSHA256)
 			if _, statErr := os.Stat(mark); !os.IsNotExist(statErr) {
 				t.Fatal("copied extended access executed BUILD before refusal", statErr)
 			}
 			if err == nil || !strings.Contains(err.Error(), "asks for extended access ("+strings.ToUpper(kind)+")") || strings.Contains(output, "Building...") {
 				t.Fatal("copied extended declaration not refused by early guard", output, err)
 			}
-			assertNothingInstalled(t, store.Dir)
+			assertNothingInstalled(t, store.Dir())
 		})
 	}
 }
@@ -78,11 +78,11 @@ func copiedAccessInstall(t *testing.T) (string, installStatus, plugins.InstallSo
 	}
 	defer func() { installStep = previous }()
 	mustWriteInstallManifest(t, folder, initial)
-	output, err := pluginInstallLocal(t, store.Dir, installPlainLines, "\ny\n", folder)
+	output, err := pluginInstallLocal(t, store.Dir(), installPlainLines, "\ny\n", folder)
 	if err != nil {
 		t.Fatal(output, err)
 	}
-	return output, readInstallStatus(t, store.Dir, "demo"), snapshot
+	return output, readInstallStatus(t, store.Dir(), "demo"), snapshot
 }
 
 func TestPluginReviewBindsCopiedAccess(t *testing.T) {

@@ -60,7 +60,7 @@ func TestSecurityPluginRawOpenersCloseOnExec(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(store.Dir, "plugins"), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join(store.Dir(), "plugins"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	feed := NewPluginFeed(store, "fd-fixture")

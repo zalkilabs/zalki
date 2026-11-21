@@ -22,7 +22,7 @@ import (
 // followed or removed. Names that do not validate are left alone. A watch for a
 // live, unexpired target is kept even when its watcher session is gone.
 func (r *pruneRun) deleteStaleWatches() error {
-	root := filepath.Join(r.store.Dir, "watches")
+	root := filepath.Join(r.store.dir, "watches")
 	targets, err := readPruneDirectory(root)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (r *pruneRun) watchTargetGone(dirName, target string) (bool, error) {
 	if r.deleted[target] {
 		return true, nil
 	}
-	_, err := os.Lstat(filepath.Join(r.store.Dir, "sessions", dirName+".json"))
+	_, err := os.Lstat(filepath.Join(r.store.dir, "sessions", dirName+".json"))
 	if errors.Is(err, os.ErrNotExist) {
 		return true, nil
 	}

@@ -21,7 +21,7 @@ func TestARewriteKeepsNoFieldTheValueOmits(t *testing.T) {
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
+	path := filepath.Join(store.dir, "messages", msg.ID+".json")
 	var record map[string]any
 	if err := readJSON(path, &record); err != nil {
 		t.Fatal(err)
@@ -58,11 +58,11 @@ func TestReplyRecoveryWritesTheTypedReply(t *testing.T) {
 	reply := model.Message{Schema: recordSchema, ID: replyID(sender.ID, parent.ID, "answer"), From: sender.ID,
 		FromName: "sender name", FromLabel: "Codex", To: target.ID, Body: "answer", ReplyTo: parent.ID,
 		TargetGeneration: target.Generation, Status: model.StatusAttempting, CreatedAt: model.Timestamp()}
-	if err := privateDir(filepath.Join(store.Dir, "transactions")); err != nil {
+	if err := privateDir(filepath.Join(store.dir, "transactions")); err != nil {
 		t.Fatal(err)
 	}
 	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: model.Timestamp(), Reply: reply}
-	if err := store.writeRecord(filepath.Join(store.Dir, "transactions", reply.ID+".json"), tx); err != nil {
+	if err := store.writeRecord(filepath.Join(store.dir, "transactions", reply.ID+".json"), tx); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.locked(func() error { return nil }); err != nil {
@@ -87,7 +87,7 @@ func TestEncodedMessageSizeIsTheWrittenSize(t *testing.T) {
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Stat(filepath.Join(store.Dir, "messages", msg.ID+".json"))
+	info, err := os.Stat(filepath.Join(store.dir, "messages", msg.ID+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestAWriterNeverOverwritesAnUntrustedRecord(t *testing.T) {
 			from, _, to, _ := registerPair(t, store, "codex", "cursor")
 			msg := model.Message{Schema: recordSchema, ID: newID(), From: from.ID, To: to.ID, Body: "new",
 				TargetGeneration: to.Generation, CreatedAt: model.Timestamp(), Status: model.StatusSubmitted}
-			path := filepath.Join(store.Dir, "messages", msg.ID+".json")
+			path := filepath.Join(store.dir, "messages", msg.ID+".json")
 			before := []byte(strings.ReplaceAll(content, "ID", msg.ID))
 			if err := os.WriteFile(path, before, 0600); err != nil {
 				t.Fatal(err)
@@ -133,7 +133,7 @@ func TestARewriteIsByteIdenticalToAFirstWrite(t *testing.T) {
 	msg := model.Message{Schema: recordSchema, ID: newID(), From: from.ID, FromLabel: "Codex", To: to.ID, Body: "final",
 		TargetGeneration: to.Generation, CreatedAt: model.Timestamp(), Status: model.StatusSubmitted,
 		Receipt: &model.Receipt{At: model.Timestamp(), Status: model.StatusSubmitted}}
-	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
+	path := filepath.Join(store.dir, "messages", msg.ID+".json")
 	if err := store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}

@@ -43,10 +43,10 @@ func newInboxReadCLIFixture(t *testing.T) inboxReadCLIFixture {
 	if err = os.WriteFile(executable, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
-	capabilityCLIOK(t, binary, store.Dir, "add", "external", "--exec", executable)
-	capabilityCLIOK(t, binary, store.Dir, "configure", "external", "--scope", "all")
-	capabilityCLIOK(t, binary, store.Dir, "grant", "external", "--status", "--receive")
-	capabilityCLIOK(t, binary, store.Dir, "enable", "external")
+	capabilityCLIOK(t, binary, store.Dir(), "add", "external", "--exec", executable)
+	capabilityCLIOK(t, binary, store.Dir(), "configure", "external", "--scope", "all")
+	capabilityCLIOK(t, binary, store.Dir(), "grant", "external", "--status", "--receive")
+	capabilityCLIOK(t, binary, store.Dir(), "enable", "external")
 	status, err := pluginfeed.NewPluginFeed(store, "external").PluginStatus()
 	if err != nil {
 		t.Fatal(err)
@@ -60,7 +60,7 @@ func newInboxReadCLIFixture(t *testing.T) inboxReadCLIFixture {
 }
 func (x inboxReadCLIFixture) run(t *testing.T, args ...string) ([]byte, []byte, error) {
 	t.Helper()
-	cmd := exec.CommandContext(t.Context(), x.binary, append([]string{"--state", x.store.Dir, "--log-level", "debug", "--log-file", "-", "plugins"}, args...)...)
+	cmd := exec.CommandContext(t.Context(), x.binary, append([]string{"--state", x.store.Dir(), "--log-level", "debug", "--log-file", "-", "plugins"}, args...)...)
 	var out, diagnostic bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &diagnostic
@@ -69,7 +69,7 @@ func (x inboxReadCLIFixture) run(t *testing.T, args ...string) ([]byte, []byte, 
 }
 func TestPluginInboxReadActualCLIOutputPrivacyAndNonConsumption(t *testing.T) {
 	x := newInboxReadCLIFixture(t)
-	paths := []string{filepath.Join(x.store.Dir, "messages", x.message.ID+".json"), filepath.Join(x.store.Dir, "plugins", "external.data", "inbox.json"), filepath.Join(x.store.Dir, "plugins", "external.json")}
+	paths := []string{filepath.Join(x.store.Dir(), "messages", x.message.ID+".json"), filepath.Join(x.store.Dir(), "plugins", "external.data", "inbox.json"), filepath.Join(x.store.Dir(), "plugins", "external.json")}
 	before := map[string]string{}
 	for _, path := range paths {
 		raw, err := os.ReadFile(path)
@@ -107,7 +107,7 @@ func TestPluginInboxReadActualCLIOutputPrivacyAndNonConsumption(t *testing.T) {
 	if !bytes.Contains(diagnostic, []byte("rate_limited")) {
 		t.Fatal("new CLI process lost persistent throttle")
 	}
-	capabilityCLIOK(t, x.binary, x.store.Dir, "revoke", "external")
+	capabilityCLIOK(t, x.binary, x.store.Dir(), "revoke", "external")
 	out, diagnostic, err = x.run(t, "inbox-read", "external", "--message", x.message.ID)
 	assertInboxReadCLIFailure(t, x, out, diagnostic, err)
 }
@@ -119,11 +119,11 @@ func assertInboxReadCLIFailure(t *testing.T, x inboxReadCLIFixture, out, diagnos
 }
 func assertInboxReadCLIPrivateState(t *testing.T, x inboxReadCLIFixture) {
 	t.Helper()
-	err := filepath.WalkDir(x.store.Dir, func(path string, entry os.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(x.store.Dir(), func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if entry.IsDir() || path == filepath.Join(x.store.Dir, "messages", x.message.ID+".json") {
+		if entry.IsDir() || path == filepath.Join(x.store.Dir(), "messages", x.message.ID+".json") {
 			return nil
 		}
 		raw, err := os.ReadFile(path)
@@ -164,11 +164,11 @@ func TestPluginInboxReadCLIReportsShortWriteAfterAudit(t *testing.T) {
 	cmd := newRootCommand(t.TempDir())
 	cmd.SetOut(inboxReadShortWriter{})
 	cmd.SetErr(io.Discard)
-	cmd.SetArgs([]string{"--state", x.store.Dir, "plugins", "inbox-read", "external", "--message", x.message.ID})
+	cmd.SetArgs([]string{"--state", x.store.Dir(), "plugins", "inbox-read", "external", "--message", x.message.ID})
 	if err := cmd.Execute(); !errors.Is(err, io.ErrShortWrite) {
 		t.Fatal("partial owner body write reported success", err)
 	}
-	raw, err := os.ReadFile(filepath.Join(x.store.Dir, "plugin-inbox-read-audit.json"))
+	raw, err := os.ReadFile(filepath.Join(x.store.Dir(), "plugin-inbox-read-audit.json"))
 	if err != nil || !bytes.Contains(raw, []byte(`"outcome": "ok"`)) {
 		t.Fatal("body output was attempted before audit", err)
 	}

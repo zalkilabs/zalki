@@ -33,7 +33,7 @@ func TestAckUniformUnknownForeignPluginAndCorrupt(t *testing.T) {
 		if err := store.saveMessage(candidate); err != nil {
 			t.Fatal(err)
 		}
-		path := filepath.Join(store.Dir, "messages", msg.ID+".json")
+		path := filepath.Join(store.dir, "messages", msg.ID+".json")
 		before, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
@@ -50,7 +50,7 @@ func TestAckUniformUnknownForeignPluginAndCorrupt(t *testing.T) {
 		t.Fatal(err)
 	}
 	denied(msg.ID)
-	path := filepath.Join(store.Dir, "messages", msg.ID+".json")
+	path := filepath.Join(store.dir, "messages", msg.ID+".json")
 	if err := os.WriteFile(path, []byte(`{"schema":1,"id":"`+msg.ID+`","body":"PRIVATE PARTIAL","receipt":{"error":"/secret/path"},`), 0600); err != nil {
 		t.Fatal(err)
 	}

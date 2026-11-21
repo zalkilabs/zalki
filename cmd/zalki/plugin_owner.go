@@ -52,7 +52,7 @@ func printPluginStatus(cmd *cobra.Command, store bus.Store, name string, target 
 	if err != nil {
 		return err
 	}
-	run, _, _ := readRunView(store.Dir, name, status, time.Now())
+	run, _, _ := readRunView(store.Dir(), name, status, time.Now())
 	background, _ := backgroundView(cmd.Context(), target)
 	value := struct {
 		pluginfeed.PluginFeedStatus
@@ -91,7 +91,7 @@ func runPluginOwner(cmd *cobra.Command, opts *commandOptions, action string, arg
 		if err := removePluginOwner(cmd, feed, name); err != nil {
 			return err
 		}
-		if target := newLoginItemTarget(opts, service.Store.Dir); target != nil {
+		if target := newLoginItemTarget(opts, service.Store.Dir()); target != nil {
 			if line := target.idleLine(cmd.Context(), service.Store); line != "" {
 				return sayLine(cmd, line)
 			}
@@ -100,11 +100,11 @@ func runPluginOwner(cmd *cobra.Command, opts *commandOptions, action string, arg
 	case "configure":
 		return configurePluginOwner(cmd, feed, name, scope)
 	case "enable":
-		return enablePluginOwner(cmd, feed, service.Store.Dir, args[0], name, newLoginItemTarget(opts, service.Store.Dir))
+		return enablePluginOwner(cmd, feed, service.Store.Dir(), args[0], name, newLoginItemTarget(opts, service.Store.Dir()))
 	case "disable":
 		return pluginDone(cmd, feed.EnablePluginFeed(false), "Disabled %s.", name)
 	default:
-		return printPluginStatus(cmd, service.Store, args[0], newLoginItemTarget(opts, service.Store.Dir))
+		return printPluginStatus(cmd, service.Store, args[0], newLoginItemTarget(opts, service.Store.Dir()))
 	}
 }
 

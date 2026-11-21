@@ -18,7 +18,7 @@ func TestListKeepsHealthySessionsAndWarnsOnceForSkippedRecords(t *testing.T) {
 	}
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
-	store := bus.Store{Dir: state, Registry: adapters.Builtin()}
+	store := bus.StoreAt(state, bus.WithRegistry(adapters.Builtin()))
 	healthy, _, err := store.Register("cursor", "00000000-0000-4000-8000-000000000061", "/fixture", nil)
 	if err != nil {
 		t.Fatal(err)

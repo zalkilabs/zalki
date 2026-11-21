@@ -36,11 +36,11 @@ func TestPruneDeletesStaleWatchesWithMatchingDryRun(t *testing.T) {
 	retained := writeTestWatch(t, store, watcher.ID, old.ID, future)
 
 	// An orphan directory that is already empty, and one with an unrelated file.
-	emptyDir := filepath.Join(store.Dir, "watches", "cursor_"+newID())
+	emptyDir := filepath.Join(store.dir, "watches", "cursor_"+newID())
 	if err := os.Mkdir(emptyDir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	strangerDir := filepath.Join(store.Dir, "watches", "cursor_"+newID())
+	strangerDir := filepath.Join(store.dir, "watches", "cursor_"+newID())
 	if err := os.Mkdir(strangerDir, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -50,10 +50,10 @@ func TestPruneDeletesStaleWatchesWithMatchingDryRun(t *testing.T) {
 	}
 	// A former adapter's watch has a valid canonical name but no session record.
 	formerDir := "removed-client_" + newID()
-	if err := os.Mkdir(filepath.Join(store.Dir, "watches", formerDir), 0700); err != nil {
+	if err := os.Mkdir(filepath.Join(store.dir, "watches", formerDir), 0700); err != nil {
 		t.Fatal(err)
 	}
-	former := filepath.Join(store.Dir, "watches", formerDir, "codex_"+newID()+".json")
+	former := filepath.Join(store.dir, "watches", formerDir, "codex_"+newID()+".json")
 	if err := os.WriteFile(former, []byte("old"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestPruneDeletesStaleWatchesWithMatchingDryRun(t *testing.T) {
 	}
 
 	rel := func(p string) string {
-		r, err := filepath.Rel(filepath.Join(store.Dir, "watches"), p)
+		r, err := filepath.Rel(filepath.Join(store.dir, "watches"), p)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -177,7 +177,7 @@ func TestPruneDoesNotFollowWatchSymlinks(t *testing.T) {
 	// orphan target that is itself a symlink to a directory with a valid-named file.
 	// A symlinked watch under a live target is not read or removed either.
 	liveDir := filepath.Dir(writeTestWatch(t, store, watcher.ID, live.ID, time.Now().Add(time.Hour)))
-	orphanDir := filepath.Join(store.Dir, "watches", "cursor_"+newID())
+	orphanDir := filepath.Join(store.dir, "watches", "cursor_"+newID())
 	if err := os.Mkdir(orphanDir, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestPruneDoesNotFollowWatchSymlinks(t *testing.T) {
 	if err := os.Symlink(victim, link); err != nil {
 		t.Fatal(err)
 	}
-	dirLink := filepath.Join(store.Dir, "watches", "cursor_"+newID())
+	dirLink := filepath.Join(store.dir, "watches", "cursor_"+newID())
 	if err := os.Symlink(victimDir, dirLink); err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestPruneDoesNotFollowWatchSymlinks(t *testing.T) {
 func TestPruneIgnoresWatchNamesThatAreNotCanonical(t *testing.T) {
 	store := fixtureStore(t)
 	for _, name := range []string{"cursor_notauuid", "Cursor_" + newID(), "cursor_" + newID() + ".json"} {
-		dir := filepath.Join(store.Dir, "watches", name)
+		dir := filepath.Join(store.dir, "watches", name)
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			t.Fatal(err)
 		}

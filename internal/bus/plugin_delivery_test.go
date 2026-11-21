@@ -27,7 +27,7 @@ func denyPluginDelivery(view JournalView, root string, _ model.Message) error {
 
 func TestSessionPluginFinalCoreHandoffs(t *testing.T) {
 	s, to, _, m := pendingPluginFixture(t)
-	s.PluginDelivery = denyPluginDelivery
+	s.pluginDelivery = denyPluginDelivery
 	service := Service{Store: s}
 	if _, _, err := service.revalidateTarget(m.ID, to); err == nil {
 		t.Fatal("Z6_FINAL_TRANSPORT_CHECK")
@@ -62,11 +62,11 @@ func TestSessionPluginFinalListenerHandoff(t *testing.T) {
 	s, to, key, m := pendingPluginFixture(t)
 	lease := armedLease(t, s, to.ID, key)
 	defer lease.Close(nil)
-	lease.store.PluginDelivery = denyPluginDelivery
+	lease.store.pluginDelivery = denyPluginDelivery
 	if _, err := lease.ValidateDelivery(m.ID); err == nil {
 		t.Fatal("Z6_FINAL_LISTENER_CHECK")
 	}
-	lease.store.PluginDelivery = func(v JournalView, root string, _ model.Message) error {
+	lease.store.pluginDelivery = func(v JournalView, root string, _ model.Message) error {
 		return v.WithWriteScope(root, func() error { return nil })
 	}
 	if _, err := lease.ValidateDelivery(m.ID); err != nil {
@@ -76,7 +76,7 @@ func TestSessionPluginFinalListenerHandoff(t *testing.T) {
 
 func TestSessionPluginFinalNativeQueries(t *testing.T) {
 	s, to, key, m := pendingPluginFixture(t)
-	s.PluginDelivery = denyPluginDelivery
+	s.pluginDelivery = denyPluginDelivery
 	for _, query := range []MessageQuery{{Actor: to.ID, Capability: key}, {Actor: to.ID, Capability: key, History: true, IncludeBody: true}} {
 		page, err := s.ReadMessages(query)
 		if err != nil || len(page.Messages) != 0 {
@@ -127,7 +127,7 @@ func TestSessionPluginBindingPersistenceAndRedaction(t *testing.T) {
 func TestSessionPluginMissingBindingCannotBecomeNative(t *testing.T) {
 	s, _, _, m := pendingPluginFixture(t)
 	m.PluginBinding = ""
-	s.PluginDelivery = func(JournalView, string, model.Message) error { return nil }
+	s.pluginDelivery = func(JournalView, string, model.Message) error { return nil }
 	if checkPluginMessageDelivery(s, m) == nil {
 		t.Fatal("Z6_MISSING_BINDING_IS_PLUGIN_ORIGIN")
 	}
@@ -140,7 +140,7 @@ func TestSessionPluginMissingBindingCannotBecomeNative(t *testing.T) {
 		t.Fatal("Z6_PLUGIN_LABEL_CANNOT_NATIVE_BYPASS")
 	}
 	m.FromLabel = "Cursor"
-	s.PluginDelivery = nil
+	s.pluginDelivery = nil
 	if err := checkPluginMessageDelivery(s, m); err != nil {
 		t.Fatal("Z6_NATIVE_MESSAGE_NEEDS_NO_PLUGIN_CHECK", err)
 	}
@@ -156,7 +156,7 @@ func TestSessionPluginNilFinalCheckerFailsClosed(t *testing.T) {
 func TestSessionPluginRefusedAndAcknowledgedHistoryCannotBypass(t *testing.T) {
 	for _, status := range []model.DeliveryStatus{model.StatusNotSent, model.StatusCommandFailed, model.StatusContextEmitted, model.StatusSubmitted} {
 		s, to, key, m := pendingPluginFixture(t)
-		s.PluginDelivery = denyPluginDelivery
+		s.pluginDelivery = denyPluginDelivery
 		m.Status = status
 		if status.CanAcknowledge() {
 			m.AcknowledgedAt = model.Timestamp()

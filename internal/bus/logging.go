@@ -32,7 +32,7 @@ type eventData struct {
 // and hook, statuses, error, then duration and reuse. A nil logger, or a level
 // it does not log, does no work.
 func (s Store) logEvent(level slog.Level, event string, data eventData) {
-	if s.Logger == nil || !s.Logger.Enabled(context.Background(), level) {
+	if s.logger == nil || !s.logger.Enabled(context.Background(), level) {
 		return
 	}
 	attrs := make([]slog.Attr, 0, 12)
@@ -42,7 +42,7 @@ func (s Store) logEvent(level slog.Level, event string, data eventData) {
 	attrs = appendStatusAttrs(attrs, data)
 	attrs = appendErrorAttrs(attrs, data)
 	attrs = appendDurationAndReuseAttrs(attrs, data)
-	s.Logger.LogAttrs(context.Background(), level, event, attrs...)
+	s.logger.LogAttrs(context.Background(), level, event, attrs...)
 }
 
 // appendIDAttrs adds message_id, reply_to and generation, each only if it is a
@@ -63,7 +63,7 @@ func appendIDAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 func (s Store) appendActorAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 	for _, field := range []struct{ key, value string }{{"actor", data.Actor}, {"recipient", data.Recipient}} {
 		kind, id, ok := strings.Cut(field.value, ":")
-		if _, err := s.registry().Lookup(kind); ok && err == nil {
+		if _, err := s.registry.Lookup(kind); ok && err == nil {
 			if canonical, err := model.UUID(id); err == nil {
 				attrs = append(attrs, slog.String(field.key, kind+":"+canonical))
 			}
@@ -75,7 +75,7 @@ func (s Store) appendActorAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 // appendAgentAndHookAttrs adds agent (a registered kind), hook_event (a
 // standard event) and hook_stage (one of a fixed list of words).
 func (s Store) appendAgentAndHookAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
-	if _, err := s.registry().Lookup(data.Agent); err == nil {
+	if _, err := s.registry.Lookup(data.Agent); err == nil {
 		attrs = append(attrs, slog.String("agent", data.Agent))
 	}
 	if data.HookEvent == "unknown" || agent.StandardEvents(true)[data.HookEvent] != "" {

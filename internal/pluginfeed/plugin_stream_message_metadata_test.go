@@ -51,7 +51,7 @@ func checkStreamMessageVisibility(t *testing.T, visible string) {
 		return
 	}
 	expectedFrom, expectedTo := streamMetadataAddresses(visible, from.ID, to.ID)
-	want := streamMetadataExpected{messageID: message.ID, from: expectedFrom, to: expectedTo, secrets: []string{body, fromKey, toKey, store.Dir, "plugin_policy", "plugin_binding", "preview", "body_size", "receipt"}}
+	want := streamMetadataExpected{messageID: message.ID, from: expectedFrom, to: expectedTo, secrets: []string{body, fromKey, toKey, store.Dir(), "plugin_policy", "plugin_binding", "preview", "body_size", "receipt"}}
 	assertStreamMessageUpdates(t, feed, launch, want)
 }
 
@@ -129,7 +129,7 @@ func createStreamMetadataFacts(t *testing.T, store bus.Store, from, to, key, bod
 		t.Fatal(err)
 	}
 	// Source metadata is sufficient; a body fetch would fail this production path.
-	if err := os.Remove(filepath.Join(store.Dir, "messages", message.ID+".json")); err != nil {
+	if err := os.Remove(filepath.Join(store.Dir(), "messages", message.ID+".json")); err != nil {
 		t.Fatal(err)
 	}
 	return message

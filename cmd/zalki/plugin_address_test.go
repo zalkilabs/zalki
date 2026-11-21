@@ -11,13 +11,13 @@ import (
 // ("plugin:<installation UUID>"), and show uses the same run phrase as list.
 func TestPluginShowAndListPrintAddress(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
-	if raw, err := pluginOwnerLocal(t, store.Dir, "add", "demo", "--exec", feedFixture(t)); err != nil {
+	if raw, err := pluginOwnerLocal(t, store.Dir(), "add", "demo", "--exec", feedFixture(t)); err != nil {
 		t.Fatal(string(raw), err)
 	}
-	address := "plugin:" + installationID(t, store.Dir, "demo")
+	address := "plugin:" + installationID(t, store.Dir(), "demo")
 	show := func() []string {
 		t.Helper()
-		raw, err := pluginOwnerLocal(t, store.Dir, "show", "demo")
+		raw, err := pluginOwnerLocal(t, store.Dir(), "show", "demo")
 		if err != nil {
 			t.Fatal(string(raw), err)
 		}
@@ -30,7 +30,7 @@ func TestPluginShowAndListPrintAddress(t *testing.T) {
 		t.Fatalf("show lost the disabled plugin's conditional start guidance: %q", got)
 	}
 	for _, args := range [][]string{{"grant", "demo", "--status"}, {"enable", "demo"}} {
-		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
+		if raw, err := pluginOwnerLocal(t, store.Dir(), args...); err != nil {
 			t.Fatal(args, string(raw), err)
 		}
 	}
@@ -40,7 +40,7 @@ func TestPluginShowAndListPrintAddress(t *testing.T) {
 	if got := strings.Join(show(), "\n"); !strings.Contains(got, "If no background supervisor runs, start it with: zalki plugins run demo") {
 		t.Fatalf("show lost the enabled plugin's conditional start guidance: %q", got)
 	}
-	raw, err := pluginOwnerLocal(t, store.Dir, "list")
+	raw, err := pluginOwnerLocal(t, store.Dir(), "list")
 	if err != nil || !strings.Contains(string(raw), "; address "+address+"\n") {
 		t.Fatalf("list does not print the plugin address: %q %v", raw, err)
 	}

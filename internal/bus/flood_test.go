@@ -139,7 +139,7 @@ func TestFloodCrossStoreConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			other := Store{Dir: store.Dir, Registry: testRegistry()}
+			other := Store{dir: store.dir, registry: testRegistry()}
 			attempt := msg
 			attempt.ID = newID()
 			if err := spendFlood(other, attempt, now); err != nil {
@@ -227,7 +227,7 @@ func TestFloodKnownMessageRetrySkipsQuotaAndNewSendAvoidsJournalScan(t *testing.
 	store := fixtureStore(t)
 	actor, key, target, _ := registerPair(t, store, "cursor", "codex")
 	request := SendRequest{Actor: actor.ID, Capability: key, To: target.ID, MessageID: newID(), Body: "work"}
-	if err := os.WriteFile(filepath.Join(store.Dir, "messages", newID()+".json"), []byte("unrelated malformed record"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(store.dir, "messages", newID()+".json"), []byte("unrelated malformed record"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, fresh, err := store.ReserveMessage(request); err != nil || !fresh {

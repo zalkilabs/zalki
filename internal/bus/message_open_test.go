@@ -26,7 +26,7 @@ func markOpen(t *testing.T, store Store, id string) {
 // openMarkers lists the marker names in ID order.
 func openMarkers(t *testing.T, store Store) []string {
 	t.Helper()
-	entries, err := os.ReadDir(filepath.Join(store.Dir, openMessagesDir))
+	entries, err := os.ReadDir(filepath.Join(store.dir, openMessagesDir))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func (f openFixture) closed(t *testing.T) model.Message {
 // loseMarkers removes every marker, as if the directory was lost.
 func loseMarkers(t *testing.T, store Store) {
 	t.Helper()
-	dir := filepath.Join(store.Dir, openMessagesDir)
+	dir := filepath.Join(store.dir, openMessagesDir)
 	if err := os.RemoveAll(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestHookReadsOnlyMarkedMessages(t *testing.T) {
 	f := newOpenFixture(t)
 	for range 50 {
 		msg := f.closed(t)
-		if err := os.WriteFile(filepath.Join(f.store.Dir, "messages", msg.ID+".json"), []byte("not json"), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(f.store.dir, "messages", msg.ID+".json"), []byte("not json"), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -162,7 +162,7 @@ func TestHookRemovesStaleMarkers(t *testing.T) {
 	missing := newID()
 	markOpen(t, f.store, closed.ID)
 	markOpen(t, f.store, missing)
-	before, err := os.ReadFile(filepath.Join(f.store.Dir, "messages", closed.ID+".json"))
+	before, err := os.ReadFile(filepath.Join(f.store.dir, "messages", closed.ID+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,11 +170,11 @@ func TestHookRemovesStaleMarkers(t *testing.T) {
 		t.Fatalf("EmitPending = %q, %v", text, err)
 	}
 	requireMarkers(t, f.store)
-	after, err := os.ReadFile(filepath.Join(f.store.Dir, "messages", closed.ID+".json"))
+	after, err := os.ReadFile(filepath.Join(f.store.dir, "messages", closed.ID+".json"))
 	if err != nil || string(before) != string(after) {
 		t.Fatal("removing a stale marker changed the record", err)
 	}
-	if _, err := os.Lstat(filepath.Join(f.store.Dir, "messages", missing+".json")); !os.IsNotExist(err) {
+	if _, err := os.Lstat(filepath.Join(f.store.dir, "messages", missing+".json")); !os.IsNotExist(err) {
 		t.Fatal("removing a stale marker created a record", err)
 	}
 }
@@ -226,7 +226,7 @@ func TestPruneMarksAnUnreadableFileAndKeepsEveryCount(t *testing.T) {
 // state directories.
 func TestOpenMarkerDirectoryMustBePrivate(t *testing.T) {
 	f := newOpenFixture(t)
-	dir := filepath.Join(f.store.Dir, openMessagesDir)
+	dir := filepath.Join(f.store.dir, openMessagesDir)
 	info, err := os.Lstat(dir)
 	if err != nil || info.Mode().Perm() != 0700 {
 		t.Fatal("marker directory is not 0700", err)
@@ -255,14 +255,14 @@ func TestOpenMarkerDirectoryMustBePrivate(t *testing.T) {
 // marker is written.
 func TestOpenMarkerCreatesAPrivateDirectory(t *testing.T) {
 	store := fixtureStore(t)
-	if err := os.MkdirAll(store.Dir, 0700); err != nil {
+	if err := os.MkdirAll(store.dir, 0700); err != nil {
 		t.Fatal(err)
 	}
 	id := newID()
 	if err := markers(store).add(id, true); err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Lstat(filepath.Join(store.Dir, openMessagesDir))
+	info, err := os.Lstat(filepath.Join(store.dir, openMessagesDir))
 	if err != nil || info.Mode().Perm() != 0700 {
 		t.Fatal("marker directory is not 0700", err)
 	}
@@ -310,12 +310,12 @@ func stubSync(t *testing.T) (synced *[]string, fail *bool) {
 func TestEveryOpenWriteSyncsItsMarker(t *testing.T) {
 	f := newOpenFixture(t)
 	synced, _ := stubSync(t)
-	dir := filepath.Join(f.store.Dir, openMessagesDir)
+	dir := filepath.Join(f.store.dir, openMessagesDir)
 	msg := f.queue(t, "pending", time.Now())
 	*synced = nil
 	f.rewrite(t, msg.ID, func(m *model.Message) { m.Status = model.StatusWakeWritten })
-	if !slices.Equal(*synced, []string{dir, f.store.Dir}) {
-		t.Fatalf("marker syncs = %v, want %s then %s", *synced, dir, f.store.Dir)
+	if !slices.Equal(*synced, []string{dir, f.store.dir}) {
+		t.Fatalf("marker syncs = %v, want %s then %s", *synced, dir, f.store.dir)
 	}
 	*synced = nil
 	f.closed(t)
@@ -328,7 +328,7 @@ func TestEveryOpenWriteSyncsItsMarker(t *testing.T) {
 // next open write still syncs the directory's name before its record.
 func TestOpenWriteSyncsADirectoryAnotherWriterMade(t *testing.T) {
 	f := newOpenFixture(t)
-	dir := filepath.Join(f.store.Dir, openMessagesDir)
+	dir := filepath.Join(f.store.dir, openMessagesDir)
 	if err := os.Remove(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -348,8 +348,8 @@ func TestOpenWriteSyncsADirectoryAnotherWriterMade(t *testing.T) {
 	if err := f.store.locked(func() error { return f.store.saveMessage(msg) }); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(synced, []string{dir, f.store.Dir}) {
-		t.Fatalf("syncs = %v, want %s then %s", synced, dir, f.store.Dir)
+	if !slices.Equal(synced, []string{dir, f.store.dir}) {
+		t.Fatalf("syncs = %v, want %s then %s", synced, dir, f.store.dir)
 	}
 }
 
@@ -363,7 +363,7 @@ func TestASecondWriterDoesNotTrustAStalledSync(t *testing.T) {
 	stateSyncs := 0
 	stalled, release := make(chan struct{}), make(chan struct{})
 	syncOpenMarkers = func(path string) error {
-		if path != f.store.Dir {
+		if path != f.store.dir {
 			return nil
 		}
 		mu.Lock()
@@ -411,7 +411,7 @@ func TestOpenMarkerIsSyncedAgainAfterAFailure(t *testing.T) {
 		t.Fatal("the save ignored a failed marker sync")
 	}
 	requireMarkers(t, f.store)
-	if _, err := os.Lstat(filepath.Join(f.store.Dir, "messages", msg.ID+".json")); !os.IsNotExist(err) {
+	if _, err := os.Lstat(filepath.Join(f.store.dir, "messages", msg.ID+".json")); !os.IsNotExist(err) {
 		t.Fatal("the record was written after the marker sync failed", err)
 	}
 	markOpen(t, f.store, msg.ID)
@@ -419,7 +419,7 @@ func TestOpenMarkerIsSyncedAgainAfterAFailure(t *testing.T) {
 	if err := f.store.saveMessage(msg); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(*synced, []string{filepath.Join(f.store.Dir, openMessagesDir), f.store.Dir}) {
+	if !slices.Equal(*synced, []string{filepath.Join(f.store.dir, openMessagesDir), f.store.dir}) {
 		t.Fatalf("an existing marker was trusted without a sync: syncs %v", *synced)
 	}
 }
@@ -429,7 +429,7 @@ func TestOpenMarkerIsSyncedAgainAfterAFailure(t *testing.T) {
 func TestHookApprovalScanReadsOnlyMarkedMessages(t *testing.T) {
 	service, target, held := heldFixture(t)
 	for range 3 {
-		if err := os.WriteFile(filepath.Join(service.Store.Dir, "messages", newID()+".json"), []byte("not json"), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(service.Store.dir, "messages", newID()+".json"), []byte("not json"), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -455,7 +455,7 @@ func TestALaterWriterSyncsTheStateDirAfterAFailedSync(t *testing.T) {
 	failed := false
 	syncOpenMarkers = func(dir string) error {
 		synced = append(synced, dir)
-		if dir == f.store.Dir && !failed {
+		if dir == f.store.dir && !failed {
 			failed = true
 			return errors.New("state directory sync failed")
 		}
@@ -465,14 +465,14 @@ func TestALaterWriterSyncsTheStateDirAfterAFailedSync(t *testing.T) {
 	if err := f.store.saveMessage(first); err == nil {
 		t.Fatal("the save ignored a failed state directory sync")
 	}
-	if _, err := os.Lstat(filepath.Join(f.store.Dir, openMessagesDir)); err != nil {
+	if _, err := os.Lstat(filepath.Join(f.store.dir, openMessagesDir)); err != nil {
 		t.Fatal(err)
 	}
 	synced = nil
 	if err := f.store.saveMessage(second); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Contains(synced, f.store.Dir) {
+	if !slices.Contains(synced, f.store.dir) {
 		t.Fatalf("the later writer trusted the directory: syncs %v", synced)
 	}
 }
@@ -499,7 +499,7 @@ func TestPruneSettlesAHoldWhoseMarkerWasLost(t *testing.T) {
 // and so stops before the rename.
 func closeWithFailedSync(t *testing.T, f openFixture, msg model.Message) {
 	t.Helper()
-	dir := filepath.Join(f.store.Dir, "messages")
+	dir := filepath.Join(f.store.dir, "messages")
 	if err := os.Chmod(dir, 0300); err != nil {
 		t.Fatal(err)
 	}
@@ -546,7 +546,7 @@ func checkStaleMarkerOrder(t *testing.T, scan string) {
 // exists at each one, and fails them while *fail is true (it starts true).
 func stubMessagesSync(t *testing.T, f openFixture, id string) (synced *int, fail *bool) {
 	t.Helper()
-	messages := filepath.Join(f.store.Dir, "messages")
+	messages := filepath.Join(f.store.dir, "messages")
 	synced, fail = new(int), new(bool)
 	*fail = true
 	syncOpenMarkers = func(dir string) error {

@@ -22,7 +22,7 @@ func (w *pluginViewWork) check(input, reads, native, tokens, probes int) error {
 }
 
 func readScopedPluginBytes(store Store, path string, limit int) ([]byte, error) {
-	if value, ok := pluginMemberViews.Load(store.Dir); ok {
+	if value, ok := pluginMemberViews.Load(store.dir); ok {
 		if work := value.(*pluginMemberCache).work.Load(); work != nil {
 			return work.read(path, limit)
 		}

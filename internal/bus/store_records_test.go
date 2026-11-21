@@ -21,7 +21,7 @@ func TestNativeIdentityIsIndependentOfJournalAddress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store.Registry = registry
+	store.registry = registry
 	native := "workspace/branch:conversation-42"
 	first, key, err := store.Register("fourth", native, "/workspace", nil)
 	if err != nil || first.NativeID != native {
@@ -88,7 +88,7 @@ func TestOpaqueAdapterStateSurvivesCompaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store.Registry = registry
+	store.registry = registry
 	v, oldKey, err := store.Register("fourth", "native-conversation", "/workspace", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -125,7 +125,7 @@ func TestFutureRecordsAreNeverOverwritten(t *testing.T) {
 			path, _ := store.sessionPath(v.ID)
 			msg := model.Message{ID: newID(), From: "codex:" + newID(), To: v.ID, Body: "ping", Status: model.StatusSubmitted}
 			if kind == "message" {
-				path = filepath.Join(store.Dir, "messages", msg.ID+".json")
+				path = filepath.Join(store.dir, "messages", msg.ID+".json")
 				msg.Schema = 99
 				if err := writeJSON(path, msg); err != nil {
 					t.Fatal(err)

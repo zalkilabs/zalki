@@ -37,7 +37,7 @@ func assertPromptRegistrationProcesses(t *testing.T, global bool) {
 	if err := store.locked(func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	fd, err := journal.OpenLockFile(filepath.Join(store.Dir, "lock"), false)
+	fd, err := journal.OpenLockFile(filepath.Join(store.dir, "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,9 +48,9 @@ func assertPromptRegistrationProcesses(t *testing.T, global bool) {
 	native := newID()
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
-	children, logs := startPromptChildren(t, ctx, store.Dir, native)
+	children, logs := startPromptChildren(t, ctx, store.dir, native)
 	defer func() { cancel(); _ = journal.Unlock(fd); waitPromptChildren(children) }()
-	waitPromptProcessReady(t, store.Dir, len(children))
+	waitPromptProcessReady(t, store.dir, len(children))
 	if err := journal.Unlock(fd); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func assertPromptProcessCounts(t *testing.T, store Store, global bool) {
 	if meta := eventState(t, store); meta.Count != expected || eventAt(t, store, 1).Type != model.EventSessionRegistered {
 		t.Fatal("C05_EXACTLY_ONE_REGISTRATION_EVENT", meta)
 	}
-	quota, err := readPromptQuota(filepath.Join(store.Dir, "hook-registration-quota.json"))
+	quota, err := readPromptQuota(filepath.Join(store.dir, "hook-registration-quota.json"))
 	if err != nil || len(quota.Attempts) != int(expected) {
 		t.Fatal("C05_LOSERS_DO_NOT_CHARGE_OR_ROTATE", err, quota)
 	}
@@ -79,7 +79,7 @@ func assertPromptProcessCounts(t *testing.T, store Store, global bool) {
 
 func runPromptProcessChild(t *testing.T, dir string) {
 	t.Helper()
-	store := Store{Dir: dir, Registry: testRegistry()}
+	store := Store{dir: dir, registry: testRegistry()}
 	if err := os.WriteFile(filepath.Join(dir, "ready-"+os.Getenv("ZALKI_PROMPT_TEST_CHILD")), nil, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestPromptRegistrationCrashAfterDurableDebit(t *testing.T) {
 	store := fixtureStore(t)
 	native := newID()
 	child := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestPromptRegistrationCrashAfterDurableDebit$", "-test.count=1")
-	child.Env = append(os.Environ(), "ZALKI_PROMPT_CRASH_STATE="+store.Dir, "ZALKI_PROMPT_CRASH_NATIVE="+native)
+	child.Env = append(os.Environ(), "ZALKI_PROMPT_CRASH_STATE="+store.dir, "ZALKI_PROMPT_CRASH_NATIVE="+native)
 	err := child.Run()
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) || exit.ExitCode() != 23 {
@@ -164,7 +164,7 @@ func TestPromptRegistrationCrashAfterDurableDebit(t *testing.T) {
 
 func crashAfterPromptDebit(t *testing.T, dir, native string) {
 	t.Helper()
-	store := Store{Dir: dir, Registry: testRegistry()}
+	store := Store{dir: dir, registry: testRegistry()}
 	err := store.locked(func() error {
 		_, err := registerPromptAbsent(store, "cursor", "cursor:"+native, trustedPrompt(native), time.Now().UTC(), func(path string, raw []byte) error {
 			if err := journal.WriteAtomic(path, raw); err != nil {

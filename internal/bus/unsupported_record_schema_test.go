@@ -62,7 +62,7 @@ func unversionedReadFixture(t *testing.T, family string) (path string, read func
 		if err := store.saveMessage(message); err != nil {
 			t.Fatal(err)
 		}
-		path = filepath.Join(store.Dir, "messages", message.ID+".json")
+		path = filepath.Join(store.dir, "messages", message.ID+".json")
 		read = func() error { _, err := store.message(message.ID); return err }
 	case "watch":
 		watch := Watch{Watcher: "cursor:" + newID(), Target: target.ID, ExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339Nano)}

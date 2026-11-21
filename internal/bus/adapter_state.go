@@ -13,7 +13,7 @@ const maxAdapterState = 4096
 // decodeAdapterState runs the adapter's codec, if it has one, and returns a
 // bounded copy of its result. Adapters without a codec keep state unchanged.
 func (s Store) decodeAdapterState(kind string, in agent.StateInput) (json.RawMessage, error) {
-	adapter, err := s.registry().Lookup(kind)
+	adapter, err := s.registry.Lookup(kind)
 	if err != nil {
 		return nil, err
 	}

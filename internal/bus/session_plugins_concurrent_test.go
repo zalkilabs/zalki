@@ -29,7 +29,7 @@ func TestSessionPluginReplacementCarriesConcurrentMute(t *testing.T) {
 	adapter := gatedPluginCursor{armed: &armed, entered: make(chan struct{}), resume: make(chan struct{})}
 	s := fixtureStore(t)
 	var err error
-	s.Registry, err = agent.NewRegistry(adapter)
+	s.registry, err = agent.NewRegistry(adapter)
 	if err != nil {
 		t.Fatal(err)
 	}

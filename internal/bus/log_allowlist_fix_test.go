@@ -42,14 +42,14 @@ func loggedService(t *testing.T) (Service, *captureHandler) {
 	t.Helper()
 	service := newTestService(t)
 	handler := newCaptureHandler(slog.LevelDebug)
-	service.Store.Logger = slog.New(handler)
+	service.Store.logger = slog.New(handler)
 	return service, handler
 }
 
 func TestAFailedWatchNotificationIsLoggedWithItsStage(t *testing.T) {
 	service, handler := loggedService(t)
 	_, _, target := watchedTarget(t, service, selfOwner(t))
-	watches, err := filepath.Glob(filepath.Join(service.Store.Dir, "watches", "*", "*.json"))
+	watches, err := filepath.Glob(filepath.Join(service.Store.dir, "watches", "*", "*.json"))
 	if err != nil || len(watches) != 1 {
 		t.Fatalf("setup: watch records %v %v", watches, err)
 	}
@@ -77,7 +77,7 @@ func TestAFailedApprovalReleaseIsLoggedWithItsStage(t *testing.T) {
 	// The release must save the held message. A read-only message directory
 	// makes that save fail. (An unreadable record no longer fails the release;
 	// see message_unreadable_hook_test.go.)
-	messages := filepath.Join(store.Dir, "messages")
+	messages := filepath.Join(store.dir, "messages")
 	if err := os.Chmod(messages, 0500); err != nil {
 		t.Fatal(err)
 	}

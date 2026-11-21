@@ -132,7 +132,7 @@ func TestListPagingIgnoresAnUnreadableFileBeforeInsideOrAfterThePage(t *testing.
 			{"inside", names[2] + "0"},
 			{"after", "ffffffff-ffff-4fff-bfff-ffffffffffff"},
 		} {
-			path := filepath.Join(l.store.Dir, "messages", place.name+".json")
+			path := filepath.Join(l.store.dir, "messages", place.name+".json")
 			if err := os.WriteFile(path, []byte(`{"schema":1,"id":"`), 0600); err != nil {
 				t.Fatal(err)
 			}

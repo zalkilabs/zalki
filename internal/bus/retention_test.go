@@ -108,7 +108,7 @@ func TestPruneDeletesOnlyOldRetiredSessions(t *testing.T) {
 			t.Fatalf("removed %s: %v", id, err)
 		}
 	}
-	messagePath := filepath.Join(store.Dir, "messages", msg.ID+".json")
+	messagePath := filepath.Join(store.dir, "messages", msg.ID+".json")
 	if _, err := os.Stat(messagePath); err != nil {
 		t.Fatal("deleted message history", err)
 	}

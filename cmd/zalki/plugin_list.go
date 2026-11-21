@@ -38,7 +38,7 @@ func newPluginListCommand(opts *commandOptions) *cobra.Command {
 }
 
 func pluginListLines(store bus.Store) ([]string, error) {
-	dir := filepath.Join(store.Dir, "plugins")
+	dir := filepath.Join(store.Dir(), "plugins")
 	info, err := os.Lstat(dir)
 	if errors.Is(err, os.ErrNotExist) {
 		return []string{"No plugins are installed."}, nil
@@ -88,7 +88,7 @@ func pluginListEntry(store bus.Store, name string, regular bool) (string, string
 	}
 	state := "disabled"
 	if status.Enabled {
-		view, run, ok := readRunView(store.Dir, name, status, time.Now())
+		view, run, ok := readRunView(store.Dir(), name, status, time.Now())
 		state = "enabled; " + runPhrase(name, view, run, ok) + notifySuffix(run, ok)
 	}
 	line := fmt.Sprintf("  %s  %s  %s; scope %s; %s; SEND %d; READ %d; installed by %s",

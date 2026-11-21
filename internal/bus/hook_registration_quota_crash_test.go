@@ -26,7 +26,7 @@ func assertPromptQuotaCrashCut(t *testing.T, cut string) {
 	store := fixtureStore(t)
 	native := newID()
 	child := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestPromptQuotaProcessCrashPublicationCuts$", "-test.count=1")
-	child.Env = append(os.Environ(), "ZALKI_QUOTA_CUT_STATE="+store.Dir, "ZALKI_QUOTA_CUT_NATIVE="+native, "ZALKI_QUOTA_CUT_STAGE="+cut)
+	child.Env = append(os.Environ(), "ZALKI_QUOTA_CUT_STATE="+store.dir, "ZALKI_QUOTA_CUT_NATIVE="+native, "ZALKI_QUOTA_CUT_STAGE="+cut)
 	err := child.Run()
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) || exit.ExitCode() != 23 {
@@ -43,7 +43,7 @@ func assertPromptQuotaCrashCut(t *testing.T, cut string) {
 	} else if !errors.Is(err, errPromptQuota) {
 		t.Fatal("C18_PUBLISHED_DEBIT_REMAINS_SPENT_AFTER_PROCESS_EXIT", cut, err)
 	}
-	quota, err := readPromptQuota(filepath.Join(store.Dir, "hook-registration-quota.json"))
+	quota, err := readPromptQuota(filepath.Join(store.dir, "hook-registration-quota.json"))
 	if err != nil || len(quota.Attempts) != 1 {
 		t.Fatal("C18_CRASH_RECOVERY_ACCOUNTING_EXACTLY_ONE", err)
 	}
@@ -51,7 +51,7 @@ func assertPromptQuotaCrashCut(t *testing.T, cut string) {
 
 func runPromptQuotaCrashCut(t *testing.T, dir, native, cut string) {
 	t.Helper()
-	store := Store{Dir: dir, Registry: testRegistry()}
+	store := Store{dir: dir, registry: testRegistry()}
 	err := store.locked(func() error {
 		_, err := registerPromptAbsent(store, "cursor", "cursor:"+native, trustedPrompt(native), time.Now().UTC(), func(path string, raw []byte) error { return crashPromptQuotaPublication(path, raw, cut) })
 		return err

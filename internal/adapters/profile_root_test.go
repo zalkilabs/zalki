@@ -163,7 +163,7 @@ func TestCursorPromptProfileRefusalDoesNotDebitQuota(t *testing.T) {
 	if err := (&bus.Service{Store: s}).Hook(t.Context(), "cursor", bytes.NewReader(raw), &output); err != nil || !strings.Contains(output.String(), `"continue":true`) {
 		t.Fatal("PROFILE_REFUSAL_BLOCKED_PROMPT", err, output.String())
 	}
-	for _, path := range []string{filepath.Join(s.Dir, "sessions", "cursor_"+id+".json"), filepath.Join(s.Dir, "hook-registration-quota.json")} {
+	for _, path := range []string{filepath.Join(s.Dir(), "sessions", "cursor_"+id+".json"), filepath.Join(s.Dir(), "hook-registration-quota.json")} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatal("INVALID_PROMPT_PROFILE_PUBLISHED_OR_DEBITED", path, err)
 		}

@@ -39,7 +39,7 @@ func pluginShowLines(store bus.Store, status pluginfeed.PluginFeedStatus, detail
 	}
 	state := "Disabled"
 	if status.Enabled {
-		view, run, ok := readRunView(store.Dir, status.Name, status, time.Now())
+		view, run, ok := readRunView(store.Dir(), status.Name, status, time.Now())
 		state = "Enabled; " + runPhrase(status.Name, view, run, ok)
 	}
 	lines := []string{title}

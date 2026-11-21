@@ -76,7 +76,7 @@ func newSessionLatencySubject(t *testing.T, mode, scenario string) sessionLatenc
 	session, key := register(t, store, kind)
 	activation := time.Since(start).Nanoseconds()
 	if seed := os.Getenv("ZALKI_SESSION_LATENCY_SEED"); seed != "" {
-		cloneSessionLatencyEvents(t, store.Dir, filepath.Join(seed, scenario))
+		cloneSessionLatencyEvents(t, store.dir, filepath.Join(seed, scenario))
 	}
 	subject := sessionLatencySubject{store: store, session: session, key: key, activation: activation}
 	if mode == "listener" {
@@ -203,11 +203,11 @@ func prepareSessionLatencySeed(t *testing.T, scenario string) {
 	} else if scenario != "nonfull" {
 		t.Fatal("invalid seed case")
 	}
-	store := Store{Dir: filepath.Join(root, scenario)}
+	store := Store{dir: filepath.Join(root, scenario)}
 	session := model.Session{ID: "codex:00000000-0000-4000-8000-000000000003", Generation: "00000000-0000-4000-8000-000000000004"}
 	seedLatencyRecords(t, store, session, count)
 	for _, relative := range []string{"events/records", "events", "commits", "."} {
-		if err := journal.SyncDir(filepath.Join(store.Dir, relative)); err != nil {
+		if err := journal.SyncDir(filepath.Join(store.dir, relative)); err != nil {
 			t.Fatal(err)
 		}
 	}

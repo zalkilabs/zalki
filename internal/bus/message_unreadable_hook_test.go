@@ -19,7 +19,7 @@ import (
 
 func capture(store *Store) *bytes.Buffer {
 	var output bytes.Buffer
-	store.Logger = slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	store.logger = slog.New(slog.NewJSONHandler(&output, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	return &output
 }
 
@@ -81,7 +81,7 @@ func TestEmitPendingSkipsAnUnreadableFileAndStillDelivers(t *testing.T) {
 					t.Fatalf("readable message %s status %q", msg.ID, current.Status)
 				}
 			}
-			if _, err := os.Lstat(filepath.Join(f.store.Dir, "messages", bad+".json")); err != nil {
+			if _, err := os.Lstat(filepath.Join(f.store.dir, "messages", bad+".json")); err != nil {
 				t.Fatal("the bad file was removed or repaired", err)
 			}
 		})
@@ -105,7 +105,7 @@ func emitSkipping(t *testing.T, f emitFixture, output *bytes.Buffer, bad string)
 func TestEmitPendingDiagnosticNeverLogsANonCanonicalName(t *testing.T) {
 	f := newOpenFixture(t)
 	output := capture(&f.store)
-	if err := os.WriteFile(filepath.Join(f.store.Dir, "messages", "secret-name.json"), []byte("x"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(f.store.dir, "messages", "secret-name.json"), []byte("x"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.store.EmitPending(f.target.ID); err != nil {
@@ -148,7 +148,7 @@ func TestEmitPendingReportsAllSkippedFilesInOneDiagnostic(t *testing.T) {
 func TestEmitPendingNeverMarksASkippedMessageEmitted(t *testing.T) {
 	f := newEmitFixture(t)
 	msg := f.queue(t, "addressed to this session", time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC))
-	path := filepath.Join(f.store.Dir, "messages", msg.ID+".json")
+	path := filepath.Join(f.store.dir, "messages", msg.ID+".json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

@@ -81,7 +81,7 @@ func TestPluginReadExactOldInboxIsNonConsumingAndAudited(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := map[string][]byte{}
-	if err := filepath.WalkDir(x.f.store.Dir, func(path string, entry os.DirEntry, walkErr error) error {
+	if err := filepath.WalkDir(x.f.store.Dir(), func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -95,7 +95,7 @@ func TestPluginReadExactOldInboxIsNonConsumingAndAudited(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Exact lookup must not scan unrelated malformed journal records.
-	if err := os.WriteFile(filepath.Join(x.f.store.Dir, "messages", model.NewUUID()+".json"), []byte("bad unrelated JSON"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(x.f.store.Dir(), "messages", model.NewUUID()+".json"), []byte("bad unrelated JSON"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := x.f.ReadPluginMessage(x.target.ID, x.message.ID)
@@ -107,7 +107,7 @@ func TestPluginReadExactOldInboxIsNonConsumingAndAudited(t *testing.T) {
 		}
 	}
 	assertPluginReadSuccessAudit(t, &x, &result, len(raw))
-	auditRaw, err := os.ReadFile(filepath.Join(x.f.store.Dir, "plugin-read-audit.json"))
+	auditRaw, err := os.ReadFile(filepath.Join(x.f.store.Dir(), "plugin-read-audit.json"))
 	if err != nil || bytes.Contains(auditRaw, []byte("private body")) || bytes.Contains(auditRaw, []byte("secret")) {
 		t.Fatal("audit leaked body", err)
 	}
@@ -187,7 +187,7 @@ func TestPluginReadRecipientGenerationAndRecordFences(t *testing.T) {
 	for _, contents := range []string{"{private body secret", `{"schema":99}`, `{"schema":1,"body":"private body secret","unknown":true}`} {
 		t.Run("malformed", func(t *testing.T) {
 			x := newPluginReadFixture(t, "cursor")
-			if err := os.WriteFile(filepath.Join(x.f.store.Dir, "messages", x.message.ID+".json"), []byte(contents), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(x.f.store.Dir(), "messages", x.message.ID+".json"), []byte(contents), 0600); err != nil {
 				t.Fatal(err)
 			}
 			x.assertDenied(t, &x.before, "denied")
@@ -195,7 +195,7 @@ func TestPluginReadRecipientGenerationAndRecordFences(t *testing.T) {
 	}
 	t.Run("missing", func(t *testing.T) {
 		x := newPluginReadFixture(t, "cursor")
-		if err := os.Remove(filepath.Join(x.f.store.Dir, "messages", x.message.ID+".json")); err != nil {
+		if err := os.Remove(filepath.Join(x.f.store.Dir(), "messages", x.message.ID+".json")); err != nil {
 			t.Fatal(err)
 		}
 		x.assertDenied(t, &x.before, "denied")
@@ -300,7 +300,7 @@ func TestPluginReadAuditFailureDeniesBeforeRelease(t *testing.T) {
 	for _, row := range []struct{ name, raw string }{{"malformed", "private body secret"}, {"version", `{"version":2,"rows":[]}`}, {"unknown", `{"version":1,"rows":[],"private":"secret"}`}, {"oversize", strings.Repeat("x", (1<<20)+1)}} {
 		t.Run(row.name, func(t *testing.T) {
 			x := newPluginReadFixture(t, "cursor")
-			if err := os.WriteFile(filepath.Join(x.f.store.Dir, "plugin-read-audit.json"), []byte(row.raw), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(x.f.store.Dir(), "plugin-read-audit.json"), []byte(row.raw), 0600); err != nil {
 				t.Fatal(err)
 			}
 			x.assertDenied(t, &x.before, "audit_unavailable")
@@ -312,7 +312,7 @@ func TestPluginReadAuditFailureDeniesBeforeRelease(t *testing.T) {
 		if err := os.WriteFile(outside, []byte("{}"), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink(outside, filepath.Join(x.f.store.Dir, "plugin-read-audit.json")); err != nil {
+		if err := os.Symlink(outside, filepath.Join(x.f.store.Dir(), "plugin-read-audit.json")); err != nil {
 			t.Fatal(err)
 		}
 		x.assertDenied(t, &x.before, "audit_unavailable")
@@ -365,7 +365,7 @@ func TestPluginReadAuditRetentionAndValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(x.f.store.Dir, "plugin-read-audit.json"), raw); err != nil {
+	if err := journal.WriteAtomic(filepath.Join(x.f.store.Dir(), "plugin-read-audit.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := x.f.loadPluginReadAudit(x.now); err == nil {
@@ -383,11 +383,11 @@ func pluginReadAuditSyncFailure(t *testing.T) {
 	var raw []byte
 	var readErr error
 	if err := x.f.write(func(view bus.JournalView) error {
-		if err := os.Chmod(x.f.store.Dir, 0300); err != nil {
+		if err := os.Chmod(x.f.store.Dir(), 0300); err != nil {
 			return err
 		}
 		defer func() {
-			if err := os.Chmod(x.f.store.Dir, 0700); err != nil {
+			if err := os.Chmod(x.f.store.Dir(), 0700); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -465,7 +465,7 @@ func assertPluginReadInvalidAuditRows(t *testing.T, x *pluginReadFixture, base *
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := journal.WriteAtomic(filepath.Join(x.f.store.Dir, "plugin-read-audit.json"), raw); err != nil {
+		if err := journal.WriteAtomic(filepath.Join(x.f.store.Dir(), "plugin-read-audit.json"), raw); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := x.f.loadPluginReadAudit(x.now); err == nil {
@@ -524,13 +524,13 @@ func pluginReadDenialEquality(t *testing.T) {
 		{"foreign-with-malformed-sender-and-generation", pluginReadForeignRecord(t, &x, true)},
 		{"wrong-schema", []byte(`{"schema":99}`)},
 	}
-	if err := os.Remove(filepath.Join(x.f.store.Dir, "messages", x.message.ID+".json")); err != nil {
+	if err := os.Remove(filepath.Join(x.f.store.Dir(), "messages", x.message.ID+".json")); err != nil {
 		t.Fatal(err)
 	}
 	firstError, first := pluginReadFixedDenial(t, &x, x.now)
 	for i, row := range cases {
 		t.Run(row.name, func(t *testing.T) {
-			path := filepath.Join(x.f.store.Dir, "messages", x.message.ID+".json")
+			path := filepath.Join(x.f.store.Dir(), "messages", x.message.ID+".json")
 			if row.raw == nil {
 				if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 					t.Fatal(err)

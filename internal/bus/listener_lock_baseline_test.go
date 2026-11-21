@@ -25,13 +25,13 @@ func TestLockPathErrorsKeepTheirRawTypeAndText(t *testing.T) {
 			store := fixtureStore(t)
 			v, _ := register(t, store, "cursor")
 			listenerPath := store.listenerLockPath(v.Kind, v.ID)
-			globalPath := filepath.Join(store.Dir, "lock")
+			globalPath := filepath.Join(store.dir, "lock")
 			if err := os.Remove(globalPath); err != nil {
 				t.Fatal(err)
 			}
 			for _, path := range []string{listenerPath, globalPath} {
 				if shape == "symlink" {
-					target := filepath.Join(store.Dir, "target")
+					target := filepath.Join(store.dir, "target")
 					if err := os.WriteFile(target, []byte("unchanged"), 0600); err != nil {
 						t.Fatal(err)
 					}
@@ -63,7 +63,7 @@ func TestLockPathErrorsKeepTheirRawTypeAndText(t *testing.T) {
 				t.Fatal("invalid lock path reported a free or held lifetime lock")
 			}
 			if shape == "symlink" {
-				raw, err := os.ReadFile(filepath.Join(store.Dir, "target"))
+				raw, err := os.ReadFile(filepath.Join(store.dir, "target"))
 				if err != nil || string(raw) != "unchanged" {
 					t.Fatalf("lock open changed symlink target: %q, %v", raw, err)
 				}
@@ -78,28 +78,28 @@ func TestPrivateDirectoryRejectionsKeepTheirTextAndPrecedeLockCreation(t *testin
 			store := fixtureStore(t)
 			switch shape {
 			case "symlink":
-				if err := os.Symlink(t.TempDir(), store.Dir); err != nil {
+				if err := os.Symlink(t.TempDir(), store.dir); err != nil {
 					t.Fatal(err)
 				}
 			case "public permissions":
-				if err := os.Mkdir(store.Dir, 0700); err != nil {
+				if err := os.Mkdir(store.dir, 0700); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.Chmod(store.Dir, 0755); err != nil {
+				if err := os.Chmod(store.dir, 0755); err != nil {
 					t.Fatal(err)
 				}
 			case "regular file":
-				if err := os.WriteFile(store.Dir, nil, 0600); err != nil {
+				if err := os.WriteFile(store.dir, nil, 0600); err != nil {
 					t.Fatal(err)
 				}
 			}
 			called := false
 			err := store.locked(func() error { called = true; return nil })
-			want := "state directory must be a private directory owned by you: " + store.Dir
+			want := "state directory must be a private directory owned by you: " + store.dir
 			if shape == "regular file" {
 				// MkdirAll fails first, before the custom private-directory check.
 				pathError, ok := err.(*os.PathError)                                                                                                                                                                            //nolint:errorlint // Pin the direct PathError produced by MkdirAll, with no additional wrapper.
-				if !ok || pathError.Op != "mkdir" || pathError.Path != store.Dir || pathError.Err != syscall.ENOTDIR || err.Error() != "mkdir "+store.Dir+": not a directory" || model.ErrorCodeOf(err) != model.CodeInternal { //nolint:errorlint // Preserve the direct inner errno, not merely errors.Is compatibility.
+				if !ok || pathError.Op != "mkdir" || pathError.Path != store.dir || pathError.Err != syscall.ENOTDIR || err.Error() != "mkdir "+store.dir+": not a directory" || model.ErrorCodeOf(err) != model.CodeInternal { //nolint:errorlint // Preserve the direct inner errno, not merely errors.Is compatibility.
 					t.Fatalf("regular-file directory error = %T %v", err, err)
 				}
 			} else if err == nil || errors.Unwrap(err) != nil || err.Error() != want || model.ErrorCodeOf(err) != model.CodeInternal {
@@ -109,7 +109,7 @@ func TestPrivateDirectoryRejectionsKeepTheirTextAndPrecedeLockCreation(t *testin
 				t.Fatal("invalid state directory permitted domain work")
 			}
 			if shape != "regular file" {
-				requireAbsentLock(t, filepath.Join(store.Dir, "lock"))
+				requireAbsentLock(t, filepath.Join(store.dir, "lock"))
 			}
 		})
 	}

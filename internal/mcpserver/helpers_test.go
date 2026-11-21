@@ -14,7 +14,7 @@ import (
 
 func newTestStore(t *testing.T) bus.Store {
 	t.Helper()
-	return bus.Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: adapters.Builtin()}
+	return bus.StoreAt(filepath.Join(t.TempDir(), "state"), bus.WithRegistry(adapters.Builtin()))
 }
 
 func newTestService(t *testing.T) *bus.Service {

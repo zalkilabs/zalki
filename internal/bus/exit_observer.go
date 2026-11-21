@@ -46,7 +46,7 @@ func (s *Service) observeExits(ctx context.Context, sweep time.Duration, open fu
 		}
 	}()
 	o := &exitObserver{
-		service: s, root: filepath.Join(s.Store.Dir, "watches"),
+		service: s, root: filepath.Join(s.Store.dir, "watches"),
 		procs: map[procwatch.Identity]struct{}{}, owners: map[procwatch.Identity][]string{},
 	}
 	// Ensure the directory exists so its creation of entries is observable.
@@ -305,7 +305,7 @@ func (s *Service) consumeIfExited(id string) (model.Session, []Watch, error) {
 func (s Store) claimObservation(interval time.Duration, now time.Time) bool {
 	claimed := false
 	err := s.locked(func() error {
-		path := filepath.Join(s.Dir, observerStampName)
+		path := filepath.Join(s.dir, observerStampName)
 		if info, err := os.Lstat(path); err == nil && info.Mode().IsRegular() {
 			if age := now.Sub(info.ModTime()); age >= 0 && age < interval/2 {
 				return nil

@@ -42,7 +42,7 @@ func seedLegacyHeldReply(t *testing.T, store Store, target model.Session) {
 	parent := model.Message{Schema: 1, ID: newID(), From: target.ID, To: sender.ID, Body: "question",
 		TargetGeneration: sender.Generation, Status: model.StatusSubmitted, CreatedAt: model.Timestamp()}
 	// The parent predates the crash; a plain write keeps the staged intent.
-	if err := store.writeRecord(filepath.Join(store.Dir, "messages", parent.ID+".json"), parent); err != nil {
+	if err := store.writeRecord(filepath.Join(store.dir, "messages", parent.ID+".json"), parent); err != nil {
 		t.Fatal(err)
 	}
 	reply := model.Message{Schema: 1, ID: replyID(sender.ID, parent.ID, "answer"), From: sender.ID, To: target.ID,
@@ -51,11 +51,11 @@ func seedLegacyHeldReply(t *testing.T, store Store, target model.Session) {
 	if err := reply.Hold(); err != nil {
 		t.Fatal(err)
 	}
-	if err := privateDir(filepath.Join(store.Dir, "transactions")); err != nil {
+	if err := privateDir(filepath.Join(store.dir, "transactions")); err != nil {
 		t.Fatal(err)
 	}
 	tx := replyTransaction{Schema: 1, ParentID: parent.ID, AcknowledgedAt: model.Timestamp(), Reply: reply}
-	if err := store.writeRecord(filepath.Join(store.Dir, "transactions", reply.ID+".json"), tx); err != nil {
+	if err := store.writeRecord(filepath.Join(store.dir, "transactions", reply.ID+".json"), tx); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -61,7 +61,7 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(store.Dir, "messages", legacy.ID+".json"), encoded, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(store.Dir(), "messages", legacy.ID+".json"), encoded, 0600); err != nil {
 		t.Fatal(err)
 	}
 	refused := send(legacy.ID, legacy.Body)
@@ -86,7 +86,7 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 		id   string
 		held bool
 	}{{held.ID, true}, {legacy.ID, false}} {
-		data, err := os.ReadFile(filepath.Join(store.Dir, "messages", test.id+".json"))
+		data, err := os.ReadFile(filepath.Join(store.Dir(), "messages", test.id+".json"))
 		if err != nil {
 			t.Fatal(err)
 		}

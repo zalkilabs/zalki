@@ -65,7 +65,7 @@ func TestUnlabeledMessageDoesNotUseRegistry(t *testing.T) {
 		t.Fatal(err)
 	}
 	msg.FromLabel = ""
-	if err := writeJSON(filepath.Join(store.Dir, "messages", msg.ID+".json"), msg); err != nil {
+	if err := writeJSON(filepath.Join(store.dir, "messages", msg.ID+".json"), msg); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.deliverReserved(t.Context(), msg, to); err != nil {
@@ -88,7 +88,7 @@ func TestStoreRequiresRegistry(t *testing.T) {
 	if _, err := NewStore(t.TempDir(), empty, nil); err == nil {
 		t.Fatal("store accepted an empty registry")
 	}
-	if _, _, err := (Store{Dir: t.TempDir()}).Register("codex", newID(), "/workspace", nil); err == nil {
+	if _, _, err := (Store{dir: t.TempDir()}).Register("codex", newID(), "/workspace", nil); err == nil {
 		t.Fatal("registration succeeded without a registry")
 	}
 	if _, err := (*agent.Registry)(nil).Configuration("/bin/zalki", []string{"--state", t.TempDir()}); err == nil {

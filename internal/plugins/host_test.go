@@ -315,7 +315,7 @@ func hostStore(t *testing.T) (bus.Store, model.Session) {
 		t.Fatal(err)
 	}
 	store, err := bus.NewStore(directory, adapters.Builtin(), nil)
-	store.PluginDelivery = pluginfeed.CheckPluginDelivery
+	store = store.With(bus.WithPluginDelivery(pluginfeed.CheckPluginDelivery))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,7 @@ func hostStore(t *testing.T) (bus.Store, model.Session) {
 }
 
 func hostData(store bus.Store) string {
-	return filepath.Join(store.Dir, "plugins", "fake-notifier.data")
+	return filepath.Join(store.Dir(), "plugins", "fake-notifier.data")
 }
 
 func startHost(t *testing.T, store bus.Store) (context.CancelFunc, <-chan error) {
@@ -377,7 +377,7 @@ func eventually(t *testing.T, condition func() bool) {
 func TestHostReapsChildOnEOFAndDoesNotInheritSecrets(t *testing.T) {
 	store, _ := hostStore(t)
 	t.Setenv("ZALKI_CAPABILITY", "DO_NOT_INHERIT")
-	lease, err := pluginfeed.OpenPluginLease(filepath.Join(store.Dir, "plugins", "fake-notifier.lock"))
+	lease, err := pluginfeed.OpenPluginLease(filepath.Join(store.Dir(), "plugins", "fake-notifier.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -462,7 +462,7 @@ func TestHostCrashRetainsLeaseUntilChildExits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	worker := exec.CommandContext(t.Context(), binary, "host-test-worker", store.Dir)
+	worker := exec.CommandContext(t.Context(), binary, "host-test-worker", store.Dir())
 	if err := worker.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -476,7 +476,7 @@ func TestHostCrashRetainsLeaseUntilChildExits(t *testing.T) {
 	}
 	_ = worker.Wait()
 	eventually(t, func() bool { _, err := os.Stat(filepath.Join(hostData(store), ".eof-seen")); return err == nil })
-	if lease, err := pluginfeed.OpenPluginLease(filepath.Join(store.Dir, "plugins", "fake-notifier.lock")); err == nil {
+	if lease, err := pluginfeed.OpenPluginLease(filepath.Join(store.Dir(), "plugins", "fake-notifier.lock")); err == nil {
 		_ = lease.Close()
 		t.Fatal("parent death allowed a second child while the first held FD3")
 	}
@@ -484,7 +484,7 @@ func TestHostCrashRetainsLeaseUntilChildExits(t *testing.T) {
 		t.Fatal(err)
 	}
 	eventually(t, func() bool {
-		lease, err := pluginfeed.OpenPluginLease(filepath.Join(store.Dir, "plugins", "fake-notifier.lock"))
+		lease, err := pluginfeed.OpenPluginLease(filepath.Join(store.Dir(), "plugins", "fake-notifier.lock"))
 		if err != nil {
 			return false
 		}
@@ -544,14 +544,14 @@ func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reas
 		Epoch string `json:"epoch"`
 		Last  int    `json:"last_sequence,string"`
 	}
-	if err := journal.ReadJSON(filepath.Join(store.Dir, "events/meta.json"), 128<<10, &metadata); err != nil {
+	if err := journal.ReadJSON(filepath.Join(store.Dir(), "events/meta.json"), 128<<10, &metadata); err != nil {
 		t.Fatal(err)
 	}
 	first := metadata.Last + 100
 	if reason == "epoch" {
 		metadata.Epoch, first = "00000000-0000-4000-8000-000000009999", 1
 	}
-	directory := filepath.Join(store.Dir, "events/records")
+	directory := filepath.Join(store.Dir(), "events/records")
 	names, err := os.ReadDir(directory)
 	if err != nil {
 		t.Fatal(err)
@@ -579,7 +579,7 @@ func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reas
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir, "events/meta.json"), raw); err != nil {
+	if err := journal.WriteAtomic(filepath.Join(store.Dir(), "events/meta.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -763,7 +763,7 @@ func TestHostCancellationReapsCleanly(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("cancelled host did not reap")
 	}
-	lease, err := pluginfeed.OpenPluginLease(filepath.Join(store.Dir, "plugins", "fake-notifier.lock"))
+	lease, err := pluginfeed.OpenPluginLease(filepath.Join(store.Dir(), "plugins", "fake-notifier.lock"))
 	if err != nil {
 		t.Fatal("cancelled host retained its lease", err)
 	}
@@ -901,7 +901,7 @@ func checkDisableNoLateAck(t *testing.T, mode string) {
 		matches, err := filepath.Glob(filepath.Join(hostData(store), ".seen-*"))
 		return err == nil && len(matches) > 0
 	})
-	record := filepath.Join(store.Dir, "plugins", "fake-notifier.json")
+	record := filepath.Join(store.Dir(), "plugins", "fake-notifier.json")
 	if err := feed.EnablePluginFeed(false); err != nil {
 		t.Fatal(err)
 	}

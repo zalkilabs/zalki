@@ -46,14 +46,14 @@ func writeTestJSON(path string, value any) error {
 func adapterTestSession(t *testing.T, store bus.Store, id string) model.Session {
 	t.Helper()
 	var session model.Session
-	data, err := os.ReadFile(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(id, ":", "_")+".json"))
+	data, err := os.ReadFile(filepath.Join(store.Dir(), "sessions", strings.ReplaceAll(id, ":", "_")+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := json.Unmarshal(data, &session); err != nil {
 		t.Fatal(err)
 	}
-	adapter, err := store.Registry.Lookup(session.Kind)
+	adapter, err := store.Registry().Lookup(session.Kind)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func adapterTestSession(t *testing.T, store bus.Store, id string) model.Session 
 func adapterTestMessage(t *testing.T, store bus.Store, id string) model.Message {
 	t.Helper()
 	var message model.Message
-	data, err := os.ReadFile(filepath.Join(store.Dir, "messages", id+".json"))
+	data, err := os.ReadFile(filepath.Join(store.Dir(), "messages", id+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,5 +82,5 @@ func adapterTestMessage(t *testing.T, store bus.Store, id string) model.Message 
 }
 
 func saveAdapterTestSession(store bus.Store, session model.Session) error {
-	return writeTestJSON(filepath.Join(store.Dir, "sessions", strings.ReplaceAll(session.ID, ":", "_")+".json"), session)
+	return writeTestJSON(filepath.Join(store.Dir(), "sessions", strings.ReplaceAll(session.ID, ":", "_")+".json"), session)
 }

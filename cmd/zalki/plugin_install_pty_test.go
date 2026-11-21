@@ -120,7 +120,7 @@ func TestPluginInstallRealTerminalCtrlC(t *testing.T) {
 			if c.goTool {
 				folder = fakeGoFolder(t, `printf built > plugin; chmod 700 plugin`)
 			}
-			session := startPTYInstall(t, binary, store.Dir, folder, c.term)
+			session := startPTYInstall(t, binary, store.Dir(), folder, c.term)
 			deadline := time.After(20 * time.Second)
 			session.answer(t, deadline, c.steps...)
 			session.waitFor(t, c.ctrlCAt, deadline)
@@ -130,7 +130,7 @@ func TestPluginInstallRealTerminalCtrlC(t *testing.T) {
 			if out := session.output(); strings.Contains(out, "Installed. Start it with:") || strings.Contains(out, "Building...") {
 				t.Fatalf("work went on after Ctrl-C:\n%s", out)
 			}
-			assertNothingInstalled(t, store.Dir)
+			assertNothingInstalled(t, store.Dir())
 		})
 	}
 }
@@ -139,7 +139,7 @@ func TestPluginInstallRealTerminalCtrlC(t *testing.T) {
 func TestPluginInstallRealTerminalCtrlCDuringBuild(t *testing.T) {
 	binary := checkRealBinary(t)
 	store, _ := pluginOwnerFixture(t)
-	session := startPTYInstall(t, binary, store.Dir, fakeGoFolder(t, `exec sleep 30`), "dumb")
+	session := startPTYInstall(t, binary, store.Dir(), fakeGoFolder(t, `exec sleep 30`), "dumb")
 	deadline := time.After(20 * time.Second)
 	session.answer(t, deadline, [2]string{"Install it?", "y\n"})
 	session.waitFor(t, "Building...", deadline)
@@ -149,7 +149,7 @@ func TestPluginInstallRealTerminalCtrlCDuringBuild(t *testing.T) {
 	if strings.Contains(session.output(), "build failed") {
 		t.Fatal(session.output())
 	}
-	assertNothingInstalled(t, store.Dir)
+	assertNothingInstalled(t, store.Dir())
 }
 
 // At the point of no return (Commit waits for the Store lock) the first Ctrl-C
@@ -157,14 +157,14 @@ func TestPluginInstallRealTerminalCtrlCDuringBuild(t *testing.T) {
 func TestPluginInstallRealTerminalSecondCtrlCKills(t *testing.T) {
 	binary := checkRealBinary(t)
 	store, _ := pluginOwnerFixture(t)
-	session := startPTYInstall(t, binary, store.Dir, nativeInstallFolder(t), "dumb")
+	session := startPTYInstall(t, binary, store.Dir(), nativeInstallFolder(t), "dumb")
 	deadline := time.After(20 * time.Second)
 	session.waitFor(t, "Install it?", deadline)
-	lock := holdStoreLock(t, store.Dir)
+	lock := holdStoreLock(t, store.Dir())
 	defer lock.Close()
 	session.typeText(t, "y\n")
 	session.waitFor(t, "Enabling...", deadline)
-	waitForPin(t, store.Dir, "demo", deadline)
+	waitForPin(t, store.Dir(), "demo", deadline)
 	session.typeText(t, "\x03")
 	// Give zalki time to handle the first Ctrl-C (it restores the default
 	// action); it must still be waiting for the lock afterwards, as designed.
@@ -181,7 +181,7 @@ func TestPluginInstallRealTerminalSecondCtrlCKills(t *testing.T) {
 	}
 	session.typeText(t, "\x03")
 	session.assertExitThenShellGetsInput(t, "130") // 128 + SIGINT: killed by the default action
-	if _, err := os.Stat(filepath.Join(store.Dir, "plugins", "demo.json")); err == nil {
+	if _, err := os.Stat(filepath.Join(store.Dir(), "plugins", "demo.json")); err == nil {
 		t.Fatal("a record was written although the lock was held")
 	}
 }
@@ -265,11 +265,11 @@ func TestPluginInstallRealTerminalApproves(t *testing.T) {
 	for _, mode := range []struct{ term, answer string }{{"xterm-256color", "y"}, {"dumb", "yes\n"}} {
 		t.Run(mode.term, func(t *testing.T) {
 			store, _ := pluginOwnerFixture(t)
-			session := startPTYInstall(t, binary, store.Dir, nativeInstallFolder(t), mode.term)
+			session := startPTYInstall(t, binary, store.Dir(), nativeInstallFolder(t), mode.term)
 			session.answer(t, time.After(20*time.Second), [2]string{"Install it?", mode.answer})
 			session.waitFor(t, "Installed. Start it with: zalki plugins run demo", time.After(20*time.Second))
 			session.assertExitThenShellGetsInput(t, "0")
-			status := readInstallStatus(t, store.Dir, "demo")
+			status := readInstallStatus(t, store.Dir(), "demo")
 			if status.Install == nil || status.Install.InstalledBy != "terminal" || !status.Enabled {
 				t.Fatal("real confirmation did not record terminal", status)
 			}
@@ -282,11 +282,11 @@ func TestPluginInstallRealTerminalCancelKeys(t *testing.T) {
 	for _, key := range []string{"\r", "n", "q", "\x1b", "\x03"} {
 		t.Run(fmt.Sprintf("key-%x", key), func(t *testing.T) {
 			store, _ := pluginOwnerFixture(t)
-			session := startPTYInstall(t, binary, store.Dir, nativeInstallFolder(t), "xterm-256color")
+			session := startPTYInstall(t, binary, store.Dir(), nativeInstallFolder(t), "xterm-256color")
 			session.answer(t, time.After(20*time.Second), [2]string{"Install it?", key})
 			session.waitFor(t, "Cancelled. Nothing was installed.", time.After(20*time.Second))
 			session.assertExitThenShellGetsInput(t, "0")
-			assertNothingInstalled(t, store.Dir)
+			assertNothingInstalled(t, store.Dir())
 		})
 	}
 }

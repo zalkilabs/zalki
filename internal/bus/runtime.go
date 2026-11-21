@@ -143,10 +143,10 @@ func (s Store) TrackRuntime(role, actor string) (*RuntimeLease, error) {
 		info.Actors = []string{actor}
 	}
 	err := s.locked(func() error {
-		if err := privateDir(filepath.Join(s.Dir, "runtimes")); err != nil {
+		if err := privateDir(filepath.Join(s.dir, "runtimes")); err != nil {
 			return err
 		}
-		return s.writeRecord(filepath.Join(s.Dir, "runtimes", info.ID+".json"), info)
+		return s.writeRecord(filepath.Join(s.dir, "runtimes", info.ID+".json"), info)
 	})
 	return &RuntimeLease{store: s, info: info}, err
 }
@@ -185,7 +185,7 @@ func (r *RuntimeLease) ObserveActor(actor string) {
 	updated.Actors = append(append([]string(nil), r.info.Actors...), actor)
 	sort.Strings(updated.Actors)
 	if err := r.store.locked(func() error {
-		return r.store.writeRecord(filepath.Join(r.store.Dir, "runtimes", r.info.ID+".json"), updated)
+		return r.store.writeRecord(filepath.Join(r.store.dir, "runtimes", r.info.ID+".json"), updated)
 	}); err == nil {
 		r.info = updated
 	}
@@ -196,7 +196,7 @@ func (r *RuntimeLease) Close() error {
 	defer r.mu.Unlock()
 	r.closed = true
 	return r.store.locked(func() error {
-		err := os.Remove(filepath.Join(r.store.Dir, "runtimes", r.info.ID+".json"))
+		err := os.Remove(filepath.Join(r.store.dir, "runtimes", r.info.ID+".json"))
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
@@ -232,7 +232,7 @@ func (s *Service) RuntimeInfo() RuntimeInfo {
 
 // Unsupported headers are counted separately, never decoded for liveness or cleanup.
 func (s Store) rawRuntimes() ([]RuntimeInfo, int, error) {
-	root := filepath.Join(s.Dir, "runtimes")
+	root := filepath.Join(s.dir, "runtimes")
 	files, err := os.ReadDir(root)
 	if errors.Is(err, os.ErrNotExist) {
 		return []RuntimeInfo{}, 0, nil

@@ -63,7 +63,7 @@ func assertCursorPromptFailure(t *testing.T, limited bool) {
 		}
 		message = "Zalki setup is limited right now. Wait 60 seconds, then send another message.\n"
 	}
-	path := filepath.Join(store.Dir, "hook-registration-quota.json")
+	path := filepath.Join(store.Dir(), "hook-registration-quota.json")
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func assertCursorPromptFailure(t *testing.T, limited bool) {
 	if err != nil || !bytes.Equal(raw, after) {
 		t.Fatal("C09_FAILED_STATE_NOT_RESET", err)
 	}
-	if _, err := os.Stat(filepath.Join(store.Dir, "sessions", "cursor_"+native+".json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(store.Dir(), "sessions", "cursor_"+native+".json")); !os.IsNotExist(err) {
 		t.Fatal("C09_FAILURE_DID_NOT_REGISTER", err)
 	}
 }

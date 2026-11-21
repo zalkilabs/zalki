@@ -15,10 +15,10 @@ import (
 func forgetFixture(t *testing.T) (*supervisor, *hostProcess) {
 	t.Helper()
 	store, _ := pluginOwnerFixture(t)
-	addEnabled(t, store.Dir, "keep") // creates the plugins folder first
-	s := newNotifySupervisor(t, store.Dir)
+	addEnabled(t, store.Dir(), "keep") // creates the plugins folder first
+	s := newNotifySupervisor(t, store.Dir())
 	useNotifyFixture(t)
-	s.notify = testNotifier(store.Dir, s.instance, &notifyClock{mono: notifyWindow, wall: stateEpoch})
+	s.notify = testNotifier(store.Dir(), s.instance, &notifyClock{mono: notifyWindow, wall: stateEpoch})
 	scanOnce(t, s)
 	keep := s.plugins["keep"]
 	if keep == nil || keep.host == nil {

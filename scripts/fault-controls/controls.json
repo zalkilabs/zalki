@@ -1184,7 +1184,7 @@
     "mutation": {
       "path": "cmd/zalki/plugin_install_review_controller.go",
       "symbol": "reportBackground",
-      "old": "wakeInstallLine(wakeSupervisor(ctx, p.background, p.store.Dir), p.name)",
+      "old": "wakeInstallLine(wakeSupervisor(ctx, p.background, p.store.Dir()), p.name)",
       "new": "wakeInstallLine(wakeManual, p.name)",
       "required_occurrences": 1
     },
@@ -7911,7 +7911,7 @@
     "mutation": {
       "path": "internal/bus/store.go",
       "symbol": "locked",
-      "old": "\tlinked, err := journal.Linked(fd, filepath.Join(s.Dir, \"lock\"))\n\tif err != nil {\n\t\treturn err\n\t}\n\tif !linked {\n\t\treturn errJournalRootChanged\n\t}\n",
+      "old": "\tlinked, err := journal.Linked(fd, filepath.Join(s.dir, \"lock\"))\n\tif err != nil {\n\t\treturn err\n\t}\n\tif !linked {\n\t\treturn errJournalRootChanged\n\t}\n",
       "new": "",
       "required_occurrences": 1
     },

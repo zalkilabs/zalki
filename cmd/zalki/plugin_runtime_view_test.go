@@ -178,17 +178,17 @@ func TestPluginRuntimeObservedRunningCLI(t *testing.T) {
 func TestPluginRuntimeStatusPrivacy(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	for _, args := range [][]string{{"add", "fake-notifier", "--exec", feedFixture(t)}, {"configure", "fake-notifier", "--scope", "all"}, {"grant", "fake-notifier", "--status"}, {"enable", "fake-notifier"}} {
-		if raw, err := pluginOwnerLocal(t, store.Dir, args...); err != nil {
+		if raw, err := pluginOwnerLocal(t, store.Dir(), args...); err != nil {
 			t.Fatal(string(raw), err)
 		}
 	}
 	const secret = "SECRET-LOG-LINE capability=c0ffee body=hello"
-	if err := os.WriteFile(filepath.Join(store.Dir, "plugins", "fake-notifier.log"), []byte(secret+"\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(store.Dir(), "plugins", "fake-notifier.log"), []byte(secret+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	record := runningRecord()
-	record.Installation = installationID(t, store.Dir, "fake-notifier")
-	if err := saveRunState(store.Dir, "fake-notifier", record); err != nil {
+	record.Installation = installationID(t, store.Dir(), "fake-notifier")
+	if err := saveRunState(store.Dir(), "fake-notifier", record); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
@@ -201,13 +201,13 @@ func TestPluginRuntimeStatusPrivacy(t *testing.T) {
 		{"live host", liveHost{pid: 4242, uid: 501, start: fixtureStart}, `"running"`},
 	} {
 		useHost(t, tc.host)
-		run := statusRun(t, store.Dir, "fake-notifier")
+		run := statusRun(t, store.Dir(), "fake-notifier")
 		if string(run["observed"]) != tc.observed || run["plugin_pid"] != nil || (tc.observed != `"running"` && run["pid"] != nil) || string(run["installed_by"]) != `"unknown"` {
 			t.Fatalf("%s: status run %v", tc.name, run)
 		}
 	}
-	checkReadOnlyPrivate(t, store.Dir, "fake-notifier")
-	checkInvalidRunKept(t, store.Dir, "fake-notifier")
+	checkReadOnlyPrivate(t, store.Dir(), "fake-notifier")
+	checkInvalidRunKept(t, store.Dir(), "fake-notifier")
 }
 
 func statusRun(t *testing.T, state, name string) map[string]json.RawMessage {

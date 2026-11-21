@@ -32,12 +32,12 @@ func checkMixedRuntimeHeaders(t *testing.T) {
 	stale := lease.Info()
 	stale.ID = newID()
 	stale.Process = &model.ProcessRef{PID: os.Getpid(), Start: "exited-runtime-instance", Role: "zalki"}
-	if err := s.locked(func() error { return writeJSON(filepath.Join(s.Dir, "runtimes", stale.ID+".json"), stale) }); err != nil {
+	if err := s.locked(func() error { return writeJSON(filepath.Join(s.dir, "runtimes", stale.ID+".json"), stale) }); err != nil {
 		t.Fatal(err)
 	}
 	old := stale
 	old.ID, old.Role = newID(), "unsupported-runtime-secret"
-	path := filepath.Join(s.Dir, "runtimes", old.ID+".json")
+	path := filepath.Join(s.dir, "runtimes", old.ID+".json")
 	raw, err := json.Marshal(old) // Deliberately no private runtimeRecord header.
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +77,7 @@ func checkMixedRuntimePrune(t *testing.T, s Store, exited, path string, raw []by
 		}
 		checkSkippedRuntimeUnchanged(t, path, raw, at)
 	}
-	if _, err := os.Stat(filepath.Join(s.Dir, "runtimes", exited+".json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(s.dir, "runtimes", exited+".json")); !os.IsNotExist(err) {
 		t.Fatal("MIXED_RUNTIME_VALID_EXIT_WAS_NOT_DELETED", err)
 	}
 }
@@ -101,7 +101,7 @@ func checkRuntimeScanError(t *testing.T, kind string) {
 	if err := lease.Close(); err != nil {
 		t.Fatal(err)
 	}
-	root := filepath.Join(s.Dir, "runtimes")
+	root := filepath.Join(s.dir, "runtimes")
 	path := filepath.Join(root, newID()+".json")
 	switch kind {
 	case "directory":

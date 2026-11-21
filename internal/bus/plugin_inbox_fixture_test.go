@@ -75,7 +75,7 @@ func assertInboxFailure(t *testing.T, message model.Message, err error) {
 func pluginScopeSnapshot(t *testing.T, store bus.Store) map[string]string {
 	t.Helper()
 	snapshot := map[string]string{}
-	if err := filepath.WalkDir(store.Dir, func(path string, entry os.DirEntry, err error) error {
+	if err := filepath.WalkDir(store.Dir(), func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -86,7 +86,7 @@ func pluginScopeSnapshot(t *testing.T, store bus.Store) map[string]string {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(store.Dir, path)
+		rel, err := filepath.Rel(store.Dir(), path)
 		if err == nil {
 			snapshot[rel] = string(raw)
 		}
@@ -99,7 +99,7 @@ func pluginScopeSnapshot(t *testing.T, store bus.Store) map[string]string {
 
 func assertPluginScopeLock(t *testing.T, store bus.Store, held bool) {
 	t.Helper()
-	fd, err := journal.OpenLockFile(filepath.Join(store.Dir, "lock"), false)
+	fd, err := journal.OpenLockFile(filepath.Join(store.Dir(), "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}

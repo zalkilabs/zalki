@@ -82,13 +82,13 @@ func assertCursorGenerationBarrier(t *testing.T, operation, replacement string) 
 	}
 	store := adapterTestStore(t)
 	barrier := pausedCursor{operation: operation, arrived: make(chan struct{}), resume: make(chan struct{}), used: &atomic.Bool{}}
-	codex, _ := store.Registry.Lookup("codex")
-	claude, _ := store.Registry.Lookup("claude")
+	codex, _ := store.Registry().Lookup("codex")
+	claude, _ := store.Registry().Lookup("claude")
 	registry, err := agent.NewRegistry(codex, claude, barrier)
 	if err != nil {
 		t.Fatal(err)
 	}
-	store.Registry = registry
+	store = store.With(bus.WithRegistry(registry))
 	service := bus.Service{Store: store, Deliver: func(_ context.Context, _ model.Message, target model.Session) model.Receipt {
 		if target.Kind == "cursor" {
 			return model.NewReceipt(model.StatusPendingActivity)
@@ -187,7 +187,7 @@ func assertStaleCursorResult(t *testing.T, result <-chan cursorHookResult, befor
 func cursorJournalBytes(t *testing.T, store bus.Store) map[string]string {
 	t.Helper()
 	files := map[string]string{}
-	err := filepath.WalkDir(store.Dir, func(path string, entry os.DirEntry, err error) error {
+	err := filepath.WalkDir(store.Dir(), func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

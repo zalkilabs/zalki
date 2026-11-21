@@ -35,7 +35,7 @@ func restartPending(t *testing.T, state string) (restartRequest, bool) {
 // enable is a one-line partial success with exit 1.
 func TestPluginEnableResetsCrashLimit(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
-	state := store.Dir
+	state := store.Dir()
 	ownerRun(t, state, "add", "demo", "--exec", feedFixture(t))
 	// An enable that fails writes no request.
 	if _, err := pluginOwnerLocal(t, state, "enable", "demo"); err == nil {
@@ -80,7 +80,7 @@ func TestPluginEnableResetsCrashLimit(t *testing.T) {
 // checkResetConsumed: the controller applies the request and clears the limit.
 func checkResetConsumed(t *testing.T, state, id string) {
 	t.Helper()
-	status, err := pluginfeed.NewPluginFeed(bus.Store{Dir: state}, "demo").PluginStatus()
+	status, err := pluginfeed.NewPluginFeed(bus.StoreAt(state), "demo").PluginStatus()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func checkEnablePartial(t *testing.T, state string) {
 	if err.Error() != "Enabled demo. Clearing its crash limit could not be confirmed. Run: zalki plugins restart demo" {
 		t.Fatalf("the partial enable line is not the reviewed text: %v", err)
 	}
-	status, statusErr := pluginfeed.NewPluginFeed(bus.Store{Dir: state}, "demo").PluginStatus()
+	status, statusErr := pluginfeed.NewPluginFeed(bus.StoreAt(state), "demo").PluginStatus()
 	if statusErr != nil || !status.Enabled {
 		t.Fatal("the partial enable did not keep the plugin enabled")
 	}
@@ -142,7 +142,7 @@ func checkEnableLatePublication(t *testing.T, state string) {
 
 func pluginEpoch(t *testing.T, state string) string {
 	t.Helper()
-	status, err := pluginfeed.NewPluginFeed(bus.Store{Dir: state}, "demo").PluginStatus()
+	status, err := pluginfeed.NewPluginFeed(bus.StoreAt(state), "demo").PluginStatus()
 	if err != nil {
 		t.Fatal(err)
 	}

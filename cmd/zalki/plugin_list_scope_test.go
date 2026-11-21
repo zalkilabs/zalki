@@ -27,7 +27,7 @@ func TestPluginListUnknownScopeIsSafe(t *testing.T) {
 // proves the fixture has a valid current revision. Production uses no new parser.
 func rewritePluginScopeFixture(t *testing.T, store bus.Store, scope string) {
 	t.Helper()
-	path := filepath.Join(store.Dir, "plugins", "demo.json")
+	path := filepath.Join(store.Dir(), "plugins", "demo.json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -62,14 +62,14 @@ func rewritePluginScopeFixture(t *testing.T, store bus.Store, scope string) {
 func checkPluginUnknownScope(t *testing.T, scope string) {
 	t.Helper()
 	store, _ := pluginOwnerFixture(t)
-	installReviewInstance(t, store.Dir, "demo", "0.1.0")
+	installReviewInstance(t, store.Dir(), "demo", "0.1.0")
 	rewritePluginScopeFixture(t, store, scope)
 	status, err := pluginfeed.NewPluginFeed(store, "demo").PluginStatus()
 	if err != nil || status.Scope != scope || !status.Enabled {
 		t.Fatal("valid unknown-scope fixture did not load", err)
 	}
 	for _, args := range [][]string{{"list"}, {"show", "demo"}} {
-		raw, err := pluginOwnerLocal(t, store.Dir, args...)
+		raw, err := pluginOwnerLocal(t, store.Dir(), args...)
 		if err != nil {
 			t.Fatal("unknown-scope display refused a valid record", err)
 		}

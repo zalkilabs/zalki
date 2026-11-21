@@ -110,7 +110,7 @@ func TestCursorDoctorSuggestsArmingAnUnarmedListener(t *testing.T) {
 func TestCursorDoctorReportsAPreLeaseListener(t *testing.T) {
 	store := adapterTestStore(t)
 	target, _ := registerAdapterSession(t, store, "cursor")
-	lock := filepath.Join(store.Dir, "cursor-listener-"+strings.TrimPrefix(target.ID, "cursor:")+".lock")
+	lock := filepath.Join(store.Dir(), "cursor-listener-"+strings.TrimPrefix(target.ID, "cursor:")+".lock")
 	fd, err := syscall.Open(lock, syscall.O_CREAT|syscall.O_RDWR, 0600)
 	if err != nil {
 		t.Fatal(err)

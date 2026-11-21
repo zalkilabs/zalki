@@ -36,7 +36,7 @@ func checkUnsafePluginSource(t *testing.T, kind string) {
 		}
 	}
 	var output bytes.Buffer
-	err := executeInstallTest(t, store.Dir, strings.NewReader("y\n"), &output, folder)
+	err := executeInstallTest(t, store.Dir(), strings.NewReader("y\n"), &output, folder)
 	if err == nil {
 		t.Fatal("unsafe source was not refused")
 	}
@@ -50,7 +50,7 @@ func checkUnsafePluginSource(t *testing.T, kind string) {
 	if output.String() != "Preparing...\n" {
 		t.Fatal("unsafe source reached staging/build/review output", strconv.QuoteToASCII(output.String()))
 	}
-	if files := pluginStateFiles(t, store.Dir); len(files) != 0 {
+	if files := pluginStateFiles(t, store.Dir()); len(files) != 0 {
 		t.Fatal("unsafe source created staging or install state", files)
 	}
 }
@@ -58,7 +58,7 @@ func checkUnsafePluginSource(t *testing.T, kind string) {
 func TestPluginInstallSourceErrorClassification(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	var output bytes.Buffer
-	err := executeInstallTest(t, store.Dir, strings.NewReader(""), &output, filepath.Join(t.TempDir(), "missing"))
+	err := executeInstallTest(t, store.Dir(), strings.NewReader(""), &output, filepath.Join(t.TempDir(), "missing"))
 	var pathError *os.PathError
 	if !errors.Is(err, os.ErrNotExist) || !errors.As(err, &pathError) {
 		t.Fatal("safe source error lost filesystem classification", err)

@@ -156,7 +156,7 @@ func TestSessionPluginCorruptRepair(t *testing.T) {
 		t.Fatal("Z6_CORRUPT_REPAIR_REQUIRES_OFF")
 	}
 	var log bytes.Buffer
-	s.Logger = slog.New(slog.NewJSONHandler(&log, nil))
+	s.logger = slog.New(slog.NewJSONHandler(&log, nil))
 	t.Setenv("ZALKI_PLUGINS", "off")
 	repaired, _, err := s.Register("cursor", v.NativeID, "/workspace", nil)
 	if err != nil {

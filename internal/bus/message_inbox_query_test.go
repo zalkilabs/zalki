@@ -17,7 +17,7 @@ func TestExactLookupAvoidsUnrelatedJournalReadsAndPreservesHistory(t *testing.T)
 		t.Fatal(err)
 	}
 	query := MessageQuery{Actor: receiver.ID, Capability: key, MessageID: msg.ID}
-	if err := os.WriteFile(filepath.Join(store.Dir, "messages", newID()+".json"), []byte("malformed unrelated record"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(store.dir, "messages", newID()+".json"), []byte("malformed unrelated record"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	batch, err := store.ReadMessages(query)

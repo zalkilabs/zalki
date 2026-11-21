@@ -144,19 +144,19 @@ func TestJournalLockProcessBaseline(t *testing.T) {
 		store := fixtureStore(t)
 		var child journalLockChild
 		if err := store.locked(func() error {
-			assertRawLockState(t, filepath.Join(store.Dir, "lock"), true)
-			child = startJournalLockChild(t, "journal", store.Dir, -1)
+			assertRawLockState(t, filepath.Join(store.dir, "lock"), true)
+			child = startJournalLockChild(t, "journal", store.dir, -1)
 			expectLockChildLine(t, child, "ready")
 			return nil
 		}); err != nil {
 			t.Fatal(err)
 		}
 		expectLockChildLine(t, child, "acquired")
-		assertRawLockState(t, filepath.Join(store.Dir, "lock"), true)
+		assertRawLockState(t, filepath.Join(store.dir, "lock"), true)
 		releaseLockChild(t, child)
 		expectLockChildLine(t, child, "released")
 		waitLockChild(t, child)
-		assertRawLockState(t, filepath.Join(store.Dir, "lock"), false)
+		assertRawLockState(t, filepath.Join(store.dir, "lock"), false)
 	})
 
 	t.Run("lifetime descriptor closes on exec and releases after parent close", func(t *testing.T) {
@@ -196,7 +196,7 @@ func journalLockProcessHelper(t *testing.T, mode string) {
 	case "journal":
 		assertRawLockState(t, filepath.Join(path, "lock"), true)
 		fmt.Println("ready")
-		store := Store{Dir: path}
+		store := Store{dir: path}
 		if err := store.locked(func() error {
 			assertRawLockState(t, filepath.Join(path, "lock"), true)
 			fmt.Println("acquired")

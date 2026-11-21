@@ -160,7 +160,7 @@ func (s PluginFeed) BeginPluginInstall() (*PluginInstall, error) {
 		if err := pluginDirectory(s.pluginDir(), true); err != nil {
 			return err
 		}
-		return errors.Join(journal.SyncDir(filepath.Dir(s.store.Dir)), journal.SyncDir(s.store.Dir))
+		return errors.Join(journal.SyncDir(filepath.Dir(s.store.Dir())), journal.SyncDir(s.store.Dir()))
 	}); err != nil {
 		return nil, err
 	}

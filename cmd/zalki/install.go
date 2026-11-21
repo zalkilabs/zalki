@@ -45,7 +45,7 @@ func applyConfiguration(cmd *cobra.Command, opts *commandOptions) error {
 		return err
 	}
 	report, err := install.Manage(installDeclarations(opts.registry, opts.snapshot.Paths.ConfigFile.Value), install.Request{
-		Action: "install", Binary: binary, StateDir: service.Store.Dir, HomeDir: opts.home, ConfigFile: opts.snapshot.Paths.ConfigFile.Value, Apply: true,
+		Action: "install", Binary: binary, StateDir: service.Store.Dir(), HomeDir: opts.home, ConfigFile: opts.snapshot.Paths.ConfigFile.Value, Apply: true,
 	})
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func applyConfiguration(cmd *cobra.Command, opts *commandOptions) error {
 	if err := printCodexTrustNotice(cmd); err != nil {
 		return err
 	}
-	if target := newLoginItemTarget(opts, service.Store.Dir); target != nil {
+	if target := newLoginItemTarget(opts, service.Store.Dir()); target != nil {
 		return target.rootSetup(cmd, service.Store)
 	}
 	return nil
@@ -85,7 +85,7 @@ func writeConfigurationDrafts(cmd *cobra.Command, opts *commandOptions, out stri
 	if err != nil {
 		return err
 	}
-	if err := install.WriteSetup(installDeclarations(opts.registry, opts.snapshot.Paths.ConfigFile.Value), binary, service.Store.Dir, out, opts.home, opts.snapshot.Paths.ConfigFile.Value); err != nil {
+	if err := install.WriteSetup(installDeclarations(opts.registry, opts.snapshot.Paths.ConfigFile.Value), binary, service.Store.Dir(), out, opts.home, opts.snapshot.Paths.ConfigFile.Value); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(cmd.OutOrStdout(), "Config file:", opts.snapshot.Paths.ConfigFile.Value); err != nil {

@@ -68,7 +68,7 @@ func TestTransportOutcomesPersistAndControlAcknowledgement(t *testing.T) {
 				sent.Receipt.Code != test.wantCode || sent.Receipt.Error != test.text {
 				t.Fatalf("returned message = %+v receipt %+v, want status %q code %q error %q", sent, sent.Receipt, test.status, test.wantCode, test.text)
 			}
-			stored := readJSONFile(t, filepath.Join(store.Dir, "messages", request.MessageID+".json"))
+			stored := readJSONFile(t, filepath.Join(store.Dir(), "messages", request.MessageID+".json"))
 			receipt, _ := stored["receipt"].(map[string]any)
 			if stored["status"] != test.wireStatus || receipt["status"] != test.wireStatus {
 				t.Fatalf("persisted status = %v / receipt %v, want %q", stored["status"], receipt, test.wireStatus)
@@ -95,7 +95,7 @@ func TestTransportOutcomesPersistAndControlAcknowledgement(t *testing.T) {
 				if _, err := store.Finish(request.MessageID, model.NewReceipt(model.StatusSubmitted)); model.ErrorCodeOf(err) != model.CodeInvalidTransition {
 					t.Fatalf("late receipt over %q: error code %q (%v), want %q", test.status, model.ErrorCodeOf(err), err, model.CodeInvalidTransition)
 				}
-				if after := readJSONFile(t, filepath.Join(store.Dir, "messages", request.MessageID+".json")); after["status"] != string(test.status) {
+				if after := readJSONFile(t, filepath.Join(store.Dir(), "messages", request.MessageID+".json")); after["status"] != string(test.status) {
 					t.Fatalf("a rejected receipt changed the stored status to %v", after["status"])
 				}
 			}

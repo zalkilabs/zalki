@@ -48,7 +48,7 @@ func (v JournalView) acquirePluginMembers() (Store, *pluginMemberCache, func(), 
 		return Store{}, nil, nil, errJournalViewInactive
 	}
 	if v.scope.members == nil {
-		v.scope.members = retainPluginMembers(v.scope.store.Dir)
+		v.scope.members = retainPluginMembers(v.scope.store.dir)
 	}
 	v.scope.active.Add(1)
 	return *v.scope.store, v.scope.members, v.scope.active.Done, nil
@@ -143,7 +143,7 @@ func readSessionEvidence(store Store, id string) (model.Session, []byte, error) 
 		err = model.NewError(model.CodeInvalidIdentity, "session file identity mismatch")
 	}
 	if err == nil {
-		adapter, lookupErr := store.registry().Lookup(record.Kind)
+		adapter, lookupErr := store.registry.Lookup(record.Kind)
 		if lookupErr != nil {
 			return record, nil, lookupErr
 		}

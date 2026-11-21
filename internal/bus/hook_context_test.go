@@ -49,7 +49,7 @@ func newHookContextFixture(t *testing.T, branch string, jobs int) hookContextFix
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := Store{Dir: filepath.Join(t.TempDir(), "state"), Registry: registry}
+	store := Store{dir: filepath.Join(t.TempDir(), "state"), registry: registry}
 	service := &Service{Store: store}
 	subject, _ := register(t, store, "context-hook")
 	sender, key := register(t, store, "codex")
@@ -325,7 +325,7 @@ func TestHookContextCancellationKeepsHandlerError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.service.Store.Registry = registry
+	fixture.service.Store.registry = registry
 	// Owner/build refresh legitimately runs before the handler; preseed it so
 	// the snapshot isolates handler failure from that existing earlier stage.
 	if err := fixture.service.Store.rememberOwner(fixture.subject.ID, fixture.subject.Kind, false); err != nil {

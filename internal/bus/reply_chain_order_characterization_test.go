@@ -57,12 +57,12 @@ func existingReservation(t *testing.T, f replyFixture) {
 	t.Helper()
 	existing := maps.Clone(f.reply)
 	existing["target_generation"] = otherReplyID
-	writeJSONFile(t, filepath.Join(f.store.Dir, "messages", f.reply["id"].(string)+".json"), existing)
+	writeJSONFile(t, filepath.Join(f.store.Dir(), "messages", f.reply["id"].(string)+".json"), existing)
 }
 
 func removeParent(t *testing.T, f replyFixture) {
 	t.Helper()
-	if err := os.Remove(filepath.Join(f.store.Dir, "messages", f.parent.ID+".json")); err != nil {
+	if err := os.Remove(filepath.Join(f.store.Dir(), "messages", f.parent.ID+".json")); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -136,13 +136,13 @@ func TestReplyIntentWithSeveralFaultsReportsTheFirstCheck(t *testing.T) {
 			if test.extra != nil {
 				test.extra(t, f)
 			}
-			before := snapshot(t, f.store.Dir)
+			before := snapshot(t, f.store.Dir())
 			restarted := restart(t, f.store)
 			for attempt := 1; attempt <= 2; attempt++ {
 				_, err := restarted.List()
 				assertRecoveryError(t, attempt, err, test)
 			}
-			if after := snapshot(t, f.store.Dir); !maps.Equal(before, after) {
+			if after := snapshot(t, f.store.Dir()); !maps.Equal(before, after) {
 				t.Fatalf("state changed while rejecting a damaged intent:\nbefore %v\nafter  %v", keys(before), keys(after))
 			}
 		})
@@ -152,7 +152,7 @@ func TestReplyIntentWithSeveralFaultsReportsTheFirstCheck(t *testing.T) {
 // parentOf rewrites the stored parent message of the fixture.
 func parentOf(t *testing.T, f replyFixture, change func(parent map[string]any)) {
 	t.Helper()
-	path := filepath.Join(f.store.Dir, "messages", f.parent.ID+".json")
+	path := filepath.Join(f.store.Dir(), "messages", f.parent.ID+".json")
 	parent := readJSONFile(t, path)
 	change(parent)
 	writeJSONFile(t, path, parent)
@@ -230,10 +230,10 @@ func replyAs(t *testing.T, f replyFixture, test requestCase) error {
 	if test.parentID != "" {
 		id = test.parentID
 	}
-	before := snapshot(t, f.store.Dir)
+	before := snapshot(t, f.store.Dir())
 	restarted := restart(t, f.store)
 	_, err := (&bus.Service{Store: restarted}).Reply(context.Background(), bus.ReplyRequest{Actor: actor, Capability: key, MessageID: id, Body: "pong"})
-	if after := snapshot(t, f.store.Dir); !maps.Equal(before, after) {
+	if after := snapshot(t, f.store.Dir()); !maps.Equal(before, after) {
 		t.Fatalf("a refused reply changed the journal:\nbefore %v\nafter  %v", keys(before), keys(after))
 	}
 	return err

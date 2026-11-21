@@ -29,7 +29,7 @@ func TestMCPAckUniformPrivateRefusal(t *testing.T) {
 	}
 	foreign, pluginMsg := send(other.ID), send(plugin)
 	corrupt := "40000000-0000-4000-8000-000000000099"
-	if err := os.WriteFile(filepath.Join(service.Store.Dir, "messages", corrupt+".json"), []byte(`{"body":"PRIVATE PARTIAL","receipt":{"error":"/secret/path"},`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(service.Store.Dir(), "messages", corrupt+".json"), []byte(`{"body":"PRIVATE PARTIAL","receipt":{"error":"/secret/path"},`), 0600); err != nil {
 		t.Fatal(err)
 	}
 	client, ctx := testClient(t, service)

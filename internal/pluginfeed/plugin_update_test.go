@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -252,13 +253,13 @@ func TestPluginUpdateAuthenticatesCurrentInstaller(t *testing.T) {
 
 func TestPluginUpdateReadOnlyStatusMissingState(t *testing.T) {
 	f := NewPluginFeed(fixtureStore(t), "demo")
-	f.store.Dir = filepath.Join(t.TempDir(), "missing")
-	f.root = f.store.Dir
+	f.store = bus.StoreAt(filepath.Join(t.TempDir(), "missing"), bus.WithRegistry(f.store.Registry()), bus.WithPluginDelivery(CheckPluginDelivery))
+	f.root = f.store.Dir()
 	status, err := f.ReadPluginUpdateStatus()
 	if err != nil || status.ID != "" {
 		t.Fatal(status, err)
 	}
-	if _, err := os.Stat(f.store.Dir); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(f.store.Dir()); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("read-only update status created state", err)
 	}
 }

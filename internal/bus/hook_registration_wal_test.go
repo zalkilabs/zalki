@@ -29,7 +29,7 @@ func assertPromptWALRecovery(t *testing.T, applied int) {
 	native := newID()
 	generation := newID()
 	child := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestPromptRegistrationWALRecoveryDoesNotRecharge$", "-test.count=1")
-	child.Env = append(os.Environ(), "ZALKI_PROMPT_WAL_STATE="+store.Dir, "ZALKI_PROMPT_WAL_NATIVE="+native, "ZALKI_PROMPT_WAL_GENERATION="+generation, "ZALKI_PROMPT_WAL_APPLIED="+strconv.Itoa(applied))
+	child.Env = append(os.Environ(), "ZALKI_PROMPT_WAL_STATE="+store.dir, "ZALKI_PROMPT_WAL_NATIVE="+native, "ZALKI_PROMPT_WAL_GENERATION="+generation, "ZALKI_PROMPT_WAL_APPLIED="+strconv.Itoa(applied))
 	err := child.Run()
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) || exit.ExitCode() != 23 {
@@ -41,7 +41,7 @@ func assertPromptWALRecovery(t *testing.T, applied int) {
 
 func runPromptWALCrash(t *testing.T, dir string) {
 	t.Helper()
-	store := Store{Dir: dir, Registry: testRegistry()}
+	store := Store{dir: dir, registry: testRegistry()}
 	native := os.Getenv("ZALKI_PROMPT_WAL_NATIVE")
 	applied, err := strconv.Atoi(os.Getenv("ZALKI_PROMPT_WAL_APPLIED"))
 	if err != nil {
@@ -53,7 +53,7 @@ func runPromptWALCrash(t *testing.T, dir string) {
 		if err != nil {
 			return err
 		}
-		if err := debitPromptRegistration(store.Dir, registered.ID, time.Now().UTC(), journal.WriteAtomic); err != nil {
+		if err := debitPromptRegistration(store.dir, registered.ID, time.Now().UTC(), journal.WriteAtomic); err != nil {
 			return err
 		}
 		registered.Generation = os.Getenv("ZALKI_PROMPT_WAL_GENERATION")
@@ -62,7 +62,7 @@ func runPromptWALCrash(t *testing.T, dir string) {
 			t.Fatal("C18_EXISTING_THREE_IMAGE_WAL_UNCHANGED")
 		}
 		for _, put := range batch.Puts[:applied] {
-			if err := journal.WriteAtomic(filepath.Join(store.Dir, put.Path), put.Data); err != nil {
+			if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 				return err
 			}
 		}
@@ -75,7 +75,7 @@ func runPromptWALCrash(t *testing.T, dir string) {
 func assertRecoveredPromptWAL(t *testing.T, store Store, registered model.Session, native string) {
 	t.Helper()
 	// An already committed prompt is recovered before even reading the quota.
-	quotaPath := filepath.Join(store.Dir, "hook-registration-quota.json")
+	quotaPath := filepath.Join(store.dir, "hook-registration-quota.json")
 	const corrupt = "{quota became unreadable after the durable intent"
 	if err := os.WriteFile(quotaPath, []byte(corrupt), 0600); err != nil {
 		t.Fatal(err)
@@ -103,7 +103,7 @@ func stagedPromptRegistration(t *testing.T, store Store, next model.Session) jou
 	if err != nil {
 		t.Fatal(err)
 	}
-	writer := commitWriter{dir: store.Dir}
+	writer := commitWriter{dir: store.dir}
 	batch, err := writer.prepare(nil, record.value, event)
 	if err != nil {
 		t.Fatal(err)

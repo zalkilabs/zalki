@@ -26,7 +26,7 @@ func TestStdioRecoveryServerProcess(t *testing.T) {
 	if state == "" {
 		t.Skip("subprocess fixture")
 	}
-	service := &bus.Service{Store: bus.Store{Dir: state, Registry: adapters.Builtin()}}
+	service := &bus.Service{Store: bus.StoreAt(state, bus.WithRegistry(adapters.Builtin()))}
 	if err := Run(context.Background(), service, os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -193,7 +193,7 @@ func TestSTDIORecoversBadFramesWithoutLosingTools(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			store := newTestStore(t)
-			p := startRecoveryProcess(t, store.Dir)
+			p := startRecoveryProcess(t, store.Dir())
 			p.initialize(t)
 			for _, part := range []string{test.bad[:1], test.bad[1:]} {
 				p.write(t, part)
@@ -212,7 +212,7 @@ func TestSTDIORecoversBadFramesWithoutLosingTools(t *testing.T) {
 
 func TestSTDIOTrailingJSONWhitespaceKeepsToolsAvailable(t *testing.T) {
 	store := newTestStore(t)
-	p := startRecoveryProcess(t, store.Dir)
+	p := startRecoveryProcess(t, store.Dir())
 	p.initialize(t)
 	for i, trailing := range []string{" \n", "\t\r\n"} {
 		id := strconv.Itoa(i + 20)
@@ -240,7 +240,7 @@ func TestSTDIOOversizeStringIDsKeepRecoveryFramesValid(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			store := newTestStore(t)
-			p := startRecoveryProcess(t, store.Dir)
+			p := startRecoveryProcess(t, store.Dir())
 			p.initialize(t)
 			p.write(t, fmt.Sprintf(head, test.id)+test.padding+strings.Repeat("x", maxStdioFrameBytes)+"\"}\n")
 			if frame := p.read(t); string(frame.ID) != test.want || frame.Error == nil || frame.Error.Code != -32600 {
@@ -272,7 +272,7 @@ func TestSTDIOSDKClientCorrelatedOversizeAndNullFallback(t *testing.T) {
 	for _, lateID := range []bool{false, true} {
 		t.Run(fmt.Sprintf("late-id=%v", lateID), func(t *testing.T) {
 			store := newTestStore(t)
-			p := startRecoveryPipes(t, store.Dir)
+			p := startRecoveryPipes(t, store.Dir())
 			writer := p.input
 			if lateID {
 				writer = lateIDWriter{p.input}
@@ -310,7 +310,7 @@ func assertSDKRecoveredSend(t *testing.T, session *mcp.ClientSession, store bus.
 }
 
 func TestSTDIORecoveryErrorsDoNotInterleaveConcurrentResponses(t *testing.T) {
-	p := startRecoveryProcess(t, newTestStore(t).Dir)
+	p := startRecoveryProcess(t, newTestStore(t).Dir())
 	p.initialize(t)
 	for i := range 20 {
 		p.write(t, fmt.Sprintf("{\"jsonrpc\":\"2.0\",\"id\":%d,\"method\":\"ping\"}\nbad-json\n", i+100))

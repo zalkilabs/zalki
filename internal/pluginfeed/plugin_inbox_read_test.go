@@ -67,7 +67,7 @@ func (x inboxReadFixture) read(t *testing.T, before *PluginFeedStatus, now time.
 func (x inboxReadFixture) audit(t *testing.T) pluginReadAudit {
 	t.Helper()
 	var log pluginReadAudit
-	raw, err := os.ReadFile(filepath.Join(x.f.store.Dir, "plugin-inbox-read-audit.json"))
+	raw, err := os.ReadFile(filepath.Join(x.f.store.Dir(), "plugin-inbox-read-audit.json"))
 	if err != nil || json.Unmarshal(raw, &log) != nil || log.Version != 1 {
 		t.Fatal("missing valid separate inbox audit", err)
 	}
@@ -97,10 +97,10 @@ func (x inboxReadFixture) checkResult(t *testing.T, raw []byte, err error) plugi
 }
 func TestPluginInboxReadExactIsNonConsumingAndAudited(t *testing.T) {
 	x := newInboxReadFixture(t, "")
-	if err := os.WriteFile(filepath.Join(x.f.store.Dir, "messages", model.NewUUID()+".json"), []byte("unrelated malformed private journal"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(x.f.store.Dir(), "messages", model.NewUUID()+".json"), []byte("unrelated malformed private journal"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(x.f.store.Dir, "plugin-read-audit.json"), []byte(`{"version":1,"rows":[]}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(x.f.store.Dir(), "plugin-read-audit.json"), []byte(`{"version":1,"rows":[]}`), 0600); err != nil {
 		t.Fatal(err)
 	}
 	before := journalSnapshot(t, x.f.store)

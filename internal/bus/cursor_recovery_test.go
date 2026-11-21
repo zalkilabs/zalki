@@ -124,7 +124,7 @@ func TestCursorRecoveryClaimPreservesRegistrationAndPendingMessages(t *testing.T
 		t.Fatal(err)
 	}
 	claim, err := claimCursorRecovery(store, to.ID)
-	if err != nil || claim.Actor != to.ID || claim.StateDir != store.Dir || claim.Capability == "" {
+	if err != nil || claim.Actor != to.ID || claim.StateDir != store.dir || claim.Capability == "" {
 		t.Fatal("missing receiver-owned recovery claim", err)
 	}
 	current, err := store.authenticate(to.ID, claim.Capability)

@@ -47,7 +47,7 @@ func TestInboxOffersOnlyCurrentMembers(t *testing.T) {
 // the message file stays byte for byte.
 func TestInboxEntriesFollowTheSenderIdentity(t *testing.T) {
 	x := newInboxReadFixture(t, "")
-	path := filepath.Join(x.f.store.Dir, "messages", x.message.ID+".json")
+	path := filepath.Join(x.f.store.Dir(), "messages", x.message.ID+".json")
 	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +59,7 @@ func TestInboxEntriesFollowTheSenderIdentity(t *testing.T) {
 	if m := x.next(t); m == nil || m.ID != x.message.ID {
 		t.Fatal("a re-registered sender lost its entry", m)
 	}
-	if err := os.Remove(filepath.Join(x.f.store.Dir, "sessions", strings.ReplaceAll(x.from.ID, ":", "_")+".json")); err != nil {
+	if err := os.Remove(filepath.Join(x.f.store.Dir(), "sessions", strings.ReplaceAll(x.from.ID, ":", "_")+".json")); err != nil {
 		t.Fatal(err)
 	}
 	if m := x.next(t); m != nil {
