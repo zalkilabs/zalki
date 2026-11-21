@@ -43,7 +43,7 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 }
 
 func (Adapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Lifecycle: agent.Lifecycle{PromptMayRegister: true}, Notes: []string{"A running Cursor listener does not establish an unsuppressed native observer or remaining notification budget.", "Check CURSOR_CONFIG_DIR, XDG_CONFIG_HOME and HOME for the native profile. Use absolute UTF-8 paths without control characters; a leading ~ is not expanded."}, Hooks: map[string]string{
+	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Lifecycle: agent.Lifecycle{PromptMayRegister: true}, Native: nativeFields, Notes: []string{"A running Cursor listener does not establish an unsuppressed native observer or remaining notification budget.", "Check CURSOR_CONFIG_DIR, XDG_CONFIG_HOME and HOME for the native profile. Use absolute UTF-8 paths without control characters; a leading ~ is not expanded."}, Hooks: map[string]string{
 		"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop",
 	}}
 }
@@ -86,25 +86,26 @@ func (Adapter) NormalizeHook(event agent.HookInput) (agent.HookInput, error) {
 	// Cursor reports an aborted or errored turn as a stop with a native status.
 	// Core only knows canonical events, so it must see an interruption, not a
 	// completed Stop. A stop with no status is unchanged.
-	if event.Event == "Stop" && event.Status != "" && event.Status != "completed" {
+	native := nativeOf(event)
+	if event.Event == "Stop" && native.Status != "" && native.Status != "completed" {
 		event.Event = "Interrupt"
 	}
 	// Every Cursor hook carries conversation_id. The IDE adds session_id only
 	// on sessionStart and sessionEnd, so conversation_id keeps one actor per chat.
-	if event.ConversationID != "" {
-		event.SessionID = event.ConversationID
+	if native.ConversationID != "" {
+		event.SessionID = native.ConversationID
 	}
-	event.CWD = hookCWD(event)
+	event.CWD = hookCWD(event, native)
 	return event, nil
 }
 
 // hookCWD returns an absolute cwd, else the first local workspace root, else
 // HOME. The IDE may send no root at all. An empty result lets register refuse it.
-func hookCWD(event agent.HookInput) string {
+func hookCWD(event agent.HookInput, native nativeInput) string {
 	if filepath.IsAbs(event.CWD) {
 		return event.CWD
 	}
-	for _, root := range event.WorkspaceRoots {
+	for _, root := range native.WorkspaceRoots {
 		if path, ok := localRoot(root); ok {
 			return path
 		}
@@ -146,7 +147,7 @@ func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string,
 	if event.Event != "PostToolUse" && event.Event != "Stop" && event.Event != "Interrupt" {
 		return false, nil
 	}
-	if event.Event == "Interrupt" || event.Event == "Stop" && (event.Status != "completed" || event.LoopCount >= 5) {
+	if native := nativeOf(event); event.Event == "Interrupt" || event.Event == "Stop" && (native.Status != "completed" || native.LoopCount >= 5) {
 		return true, s.ApplyLifecycle(suppressRecovery)
 	}
 	return cursorActivityOutput(s, event, id, output)

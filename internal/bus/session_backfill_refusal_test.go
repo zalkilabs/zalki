@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -59,7 +58,7 @@ func checkBackfillAuthorityRefusals(t *testing.T, s Store, v model.Session, key 
 			t.Fatal("OLD_SESSION_AUTHORITY_WAS_USED", name, err)
 		}
 	}
-	input, err := json.Marshal(agent.HookInput{ConversationID: v.NativeID, Event: "beforeSubmitPrompt", CWD: v.CWD})
+	input, err := json.Marshal(map[string]string{"conversation_id": v.NativeID, "hook_event_name": "beforeSubmitPrompt", "cwd": v.CWD})
 	if err != nil {
 		t.Fatal(err)
 	}

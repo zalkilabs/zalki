@@ -34,15 +34,10 @@ func captureHookContract(ctx context.Context, adapter agent.Adapter, event agent
 	if event.SessionID != "" {
 		hook["session_id"] = "00000000-0000-4000-8000-000000000001"
 	}
-	if event.ConversationID != "" {
-		hook["conversation_id"] = "00000000-0000-4000-8000-000000000001"
-	}
 	if event.CWD != "" {
 		hook["cwd"] = "/fixture/workspace"
 	}
-	if len(event.WorkspaceRoots) > 0 {
-		hook["workspace_roots"] = []string{"/fixture/workspace"}
-	}
+	captureNative(hook, adapter.Descriptor().Native, event.Native)
 	switch event.Source {
 	case "startup", "resume", "compact":
 		hook["source"] = event.Source
@@ -64,4 +59,23 @@ func captureHookContract(ctx context.Context, adapter agent.Adapter, event agent
 		return nil
 	}
 	return err
+}
+
+// captureNative records each declared native field the event carried, with a
+// placeholder: no native value reaches the fixture.
+func captureNative(hook map[string]any, fields []agent.NativeField, native json.RawMessage) {
+	var values map[string]json.RawMessage
+	if json.Unmarshal(native, &values) != nil {
+		return
+	}
+	for _, field := range fields {
+		value, ok := values[field.Key]
+		switch {
+		case !ok:
+		case field.Capture == agent.CaptureID && string(value) != `""`:
+			hook[field.Key] = "00000000-0000-4000-8000-000000000001"
+		case field.Capture == agent.CapturePaths && string(value) != "[]":
+			hook[field.Key] = []string{"/fixture/workspace"}
+		}
+	}
 }

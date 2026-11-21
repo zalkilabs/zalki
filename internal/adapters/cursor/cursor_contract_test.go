@@ -76,6 +76,7 @@ func TestRecordedCursorHookAndMetadataContract(t *testing.T) {
 		if err := json.Unmarshal(fixture.Hook, &hook); err != nil {
 			t.Fatal(err)
 		}
+		hook.Native = recordedNative(t, fixture.Hook)
 
 		hook, err := adapter.NormalizeHook(hook)
 		if err != nil || hook.SessionID != "00000000-0000-4000-8000-000000000001" || hook.CWD != "/fixture/workspace" || adapter.Descriptor().Hooks[hook.Event] != "SessionStart" {
@@ -107,3 +108,24 @@ func TestRecordedCursorHookAndMetadataContract(t *testing.T) {
 }
 
 var clientVersionPattern = regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?`)
+
+// recordedNative keeps the declared native keys of a recorded hook, as core does
+// before it hands the hook to the adapter.
+func recordedNative(t *testing.T, hook json.RawMessage) json.RawMessage {
+	t.Helper()
+	var all map[string]json.RawMessage
+	if err := json.Unmarshal(hook, &all); err != nil {
+		t.Fatal(err)
+	}
+	kept := map[string]json.RawMessage{}
+	for _, field := range nativeFields {
+		if value, ok := all[field.Key]; ok {
+			kept[field.Key] = value
+		}
+	}
+	native, err := json.Marshal(kept)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return native
+}

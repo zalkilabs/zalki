@@ -52,7 +52,7 @@ func (stubClaudeAdapter) Deliver(context.Context, model.Message, model.Session) 
 type stubCursorAdapter struct{ agent.StandardHooks }
 
 func (stubCursorAdapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Lifecycle: agent.Lifecycle{PromptMayRegister: true}, Hooks: map[string]string{"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop"}}
+	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Lifecycle: agent.Lifecycle{PromptMayRegister: true}, Native: stubNativeFields, Hooks: map[string]string{"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop"}}
 }
 func (stubCursorAdapter) ReceiveCapabilities(v model.Session) model.ReceiveCapabilities {
 	c := model.ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}
@@ -68,23 +68,25 @@ func (stubCursorAdapter) Deliver(_ context.Context, _ model.Message, v model.Ses
 	return model.NewReceipt(model.StatusPendingActivity)
 }
 func (stubCursorAdapter) NormalizeHook(v agent.HookInput) (agent.HookInput, error) {
-	if v.Event == "Stop" && v.Status != "" && v.Status != "completed" {
+	n := stubNativeOf(v)
+	if v.Event == "Stop" && n.Status != "" && n.Status != "completed" {
 		v.Event = "Interrupt"
 	}
 	if v.SessionID == "" {
-		v.SessionID = v.ConversationID
+		v.SessionID = n.ConversationID
 	}
-	if v.CWD == "" && len(v.WorkspaceRoots) > 0 {
-		v.CWD = v.WorkspaceRoots[0]
+	if v.CWD == "" && len(n.WorkspaceRoots) > 0 {
+		v.CWD = n.WorkspaceRoots[0]
 	}
 	return v, nil
 }
 func (stubCursorAdapter) HandleHook(host agent.HookHost, v agent.HookInput, id string, _ io.Writer) (bool, error) {
 	h := host.(agent.LifecycleHost)
+	n := stubNativeOf(v)
 	if v.Event == "UserPromptSubmit" {
 		return true, h.ApplyLifecycle(stubResumeOnPrompt)
 	}
-	if v.Event == "Interrupt" || v.Event == "Stop" && (v.Status != "completed" || v.LoopCount >= 5) {
+	if v.Event == "Interrupt" || v.Event == "Stop" && (n.Status != "completed" || n.LoopCount >= 5) {
 		return true, h.ApplyLifecycle(stubSuppressRecovery)
 	}
 	return false, nil
@@ -173,4 +175,25 @@ func testRegistry() *agent.Registry {
 		panic(err)
 	}
 	return r
+}
+
+// stubNativeFields mirror the real Cursor adapter's declared hook keys.
+var stubNativeFields = []agent.NativeField{
+	{Key: "conversation_id", Kind: agent.NativeString, Capture: agent.CaptureID},
+	{Key: "workspace_roots", Kind: agent.NativeStrings, Capture: agent.CapturePaths},
+	{Key: "status", Kind: agent.NativeString},
+	{Key: "loop_count", Kind: agent.NativeInt},
+}
+
+type stubNativeInput struct {
+	ConversationID string   `json:"conversation_id"`
+	WorkspaceRoots []string `json:"workspace_roots"`
+	Status         string   `json:"status"`
+	LoopCount      int      `json:"loop_count"`
+}
+
+func stubNativeOf(v agent.HookInput) stubNativeInput {
+	var n stubNativeInput
+	_ = json.Unmarshal(v.Native, &n)
+	return n
 }

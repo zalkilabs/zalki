@@ -112,10 +112,15 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 	if payload, ok := adapter.(agent.HookPayloadAdapter); ok {
 		extendedEvent = payload.ExtendedHookEvent()
 	}
+	descriptor := adapter.Descriptor()
+	input, native := nativeCapture(input, descriptor, extendedEvent)
 	if extendedEvent != "" {
 		size, header, err = decodeSelectedHookPayload(ctx, input, &event, extendedEvent)
 	} else {
 		size, header, err = decodeHookPayload(input, &event)
+	}
+	if err == nil {
+		event.Native, err = native()
 	}
 	trace.payloadClass = hookPayloadSizeClass(size)
 	if err != nil {
@@ -125,7 +130,7 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 		if event.Event != "" {
 			nativeEvent = event.Event
 		}
-		trace.lifecycle = adapter.Descriptor().Hooks[nativeEvent]
+		trace.lifecycle = descriptor.Hooks[nativeEvent]
 		if trace.lifecycle == "" {
 			trace.lifecycle = "unknown"
 		}
@@ -139,7 +144,6 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 		return event, "", err
 	}
 	trace.stage = "event"
-	descriptor := adapter.Descriptor()
 	mapped, ok := descriptor.Hooks[event.Event]
 	if !ok {
 		return event, "", errors.New("unsupported agent lifecycle event")

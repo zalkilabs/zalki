@@ -16,9 +16,9 @@ import (
 func TestHookFailuresIdentifyStageWithoutLoggingInput(t *testing.T) {
 	const private = "private-hook-content-sentinel"
 	id := newID()
-	input := func(event string, status any, cwd string) string {
+	input := func(event string, source any, cwd string) string {
 		data, err := json.Marshal(map[string]any{
-			"session_id": id, "hook_event_name": event, "status": status,
+			"session_id": id, "hook_event_name": event, "source": source,
 			"cwd": cwd, "prompt": private, "session_title": private,
 		})
 		if err != nil {
