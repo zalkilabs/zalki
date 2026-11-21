@@ -82,6 +82,9 @@ class BundleInputs(unittest.TestCase):
         controls=json.loads((HERE/'controls.json').read_text())
         run.validate_controls(controls)
         self.assertEqual(len(controls),73)
+        retired=[r['id'] for r in json.loads((HERE/'retired.json').read_text())]
+        self.assertEqual(retired,['ARCHIVE-F%d'%i for i in range(2,9)])
+        self.assertFalse(set(retired)&{c['id'] for c in controls})
         self.assertEqual([c['id'] for c in controls[:70]],["C4-F1-CREATE","C4-F2-STORED","C4-F3-NAME","C4-F4-RPC","C4-F5-QUEUE","C4-F6-COMPACT","C4-F7-ZERO","B-M2-COPY","B-M2-DOCTOR","B-M1-ROOT","B-L2-BUS","B-L2-CODEX","B-L2-CLAUDE","B-L2-CURSOR","Z82-F0","Z82-F2","Z82-F4","H1F1","H1F2","H1F3","H1F4","H1F5","H2F1","H2F2","H2F3","H2F4","M1F1","M1F2","M1F3","M1F4","M3F1","M3F2","M3F3","M2F1","M4F1","M4F2","L2F1","L2F2","L6F1","L6F3","L6F2","L1F1","L1F2","L5F1","Z71F1","Z71F2","Z71F3","Z71F4","Z71F6","Z71F5","Z74H1","Z74H2","Z74H3","Z70F1","Z70F2","Z70F3","Z70F4","Z70F5","Z70F6","Z66G1","Z66G2","Z67K1","Z67K2","Z67K3","Z67K4","Z68G1","Z68G2","Z68G3","Z68G4","Z68G5"])
         self.assertEqual([c['id'] for c in controls[70:71]],["ARCHIVE-F1"])
         self.assertEqual([c['id'] for c in controls[71:]],['D1F1','D1F2'])

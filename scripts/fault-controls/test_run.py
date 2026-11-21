@@ -127,6 +127,31 @@ print(json.dumps(dict(file=r['file'],source_sha256=hashlib.sha256(raw).hexdigest
         self.assertIn('baseline required controls were removed',result.stderr)
         self.assertFalse((self.root/'calls.jsonl').exists())
 
+    def retire(self,*items):
+        (self.layout/'retired.json').write_text(json.dumps([dict(id=i,reason='test') for i in items]))
+
+    def test_listed_retirement_lets_an_inherited_control_leave_the_plan(self):
+        other=json.loads(json.dumps(self.control));other['id']='SYNTHETIC-F2'
+        (self.root/'baseline-plan.json').write_text(json.dumps([self.control,other]))
+        self.retire('SYNTHETIC-F2')
+        result=self.invoke();self.assertEqual(result.returncode,0,result.stderr)
+        proof=json.loads((self.output/'result.json').read_text())
+        self.assertEqual(proof['retired_control_ids'],['SYNTHETIC-F2']);self.assertEqual(proof['executed_controls'],1)
+
+    def test_retirement_list_cannot_hide_a_removal_or_a_live_control(self):
+        other=json.loads(json.dumps(self.control));other['id']='SYNTHETIC-F2'
+        (self.root/'baseline-plan.json').write_text(json.dumps([self.control,other]))
+        for items,message in [(['SYNTHETIC-F9'],'baseline required controls were removed'),(['SYNTHETIC-F1','SYNTHETIC-F2'],'a retired control is still in the plan')]:
+            with self.subTest(items=items):
+                shutil.rmtree(self.output,ignore_errors=True);self.retire(*items)
+                result=self.invoke();self.assertEqual(result.returncode,2,result.stderr);self.assertIn(message,result.stderr)
+        for body in ['{}','[{"id":"SYNTHETIC-F2"}]','[{"id":"SYNTHETIC-F2","reason":""}]',
+                     '[{"id":"SYNTHETIC-F2","reason":"x"},{"id":"SYNTHETIC-F2","reason":"y"}]']:
+            with self.subTest(body=body):
+                shutil.rmtree(self.output,ignore_errors=True);(self.layout/'retired.json').write_text(body)
+                result=self.invoke();self.assertEqual(result.returncode,2,result.stderr)
+                self.assertTrue('retired control' in result.stderr,result.stderr)
+
     def test_docs_only_delta_records_zero_execution_without_optional_job_skip(self):
         (self.root/'docs-only').write_text('yes')
         result=self.invoke();self.assertEqual(result.returncode,0,result.stderr)

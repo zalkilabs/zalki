@@ -274,12 +274,23 @@ def relevant(paths):
         name.startswith(('.github/workflows/','scripts/','cmd/','internal/','packaging/','completions/')) for name in paths)
 
 
+def read_retired(path):
+    """Controls that were retired on purpose; each needs a reviewed line with a reason."""
+    retired=source.read_json(path)
+    require(type(retired) is list and all(type(r) is dict and set(r)=={'id','reason'} and type(r['id']) is str
+            and re.fullmatch('[A-Z0-9-]+',r['id']) and type(r['reason']) is str and r['reason'] for r in retired),'invalid retired controls')
+    require(len({r['id'] for r in retired})==len(retired),'duplicate retired control')
+    return [r['id'] for r in retired]
+
+
 def execute(options):
     repo,output,tools=options.repo.resolve(),options.output.resolve(),options.tools.resolve()
     base,head=source.revisions(repo,options.base,options.head,options.event)
     output.mkdir(mode=0o700);options.owns_output=True
     controls=source.read_json(HERE/'controls.json')
     validate_controls(controls)
+    retired_ids=read_retired(HERE/'retired.json')
+    require(not set(retired_ids)&{c['id'] for c in controls},'a retired control is still in the plan')
     plan_path='scripts/fault-controls/controls.json'
     inherited=source.git(repo,'ls-tree','--name-only',base,'--',plan_path)
     inherited_ids=[]
@@ -289,10 +300,10 @@ def execute(options):
         old_file.write_text(source.git(repo,'show',base+':'+plan_path)+'\n')
         previous=source.read_json(old_file);validate_controls(previous,baseline=True)
         inherited_ids=[c['id'] for c in previous]
-        require(set(inherited_ids)<={c['id'] for c in controls},'baseline required controls were removed')
+        require(set(inherited_ids)-set(retired_ids)<={c['id'] for c in controls},'baseline required controls were removed')
     changed=source.git(repo,'diff','--name-only',base,head).splitlines()
     affected=relevant(changed)
-    proof=dict(base=base,head=head,changed_paths=changed,affected=affected,controls=[],baseline_control_ids=inherited_ids,
+    proof=dict(base=base,head=head,changed_paths=changed,affected=affected,controls=[],baseline_control_ids=inherited_ids,retired_control_ids=[i for i in inherited_ids if i in retired_ids],
                plan_sha256=source.digest(HERE/'controls.json'),scripts_sha256={n:source.digest(HERE/n) for n in ['run.py','oracle.py','checks.py','execution.py','cli.py','bundle_inputs.py']},not_applicable_controls=[])
     if affected:
         go=source.shutil.which('go');require(go is not None,'Go is unavailable')
