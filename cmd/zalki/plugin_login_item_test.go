@@ -644,7 +644,7 @@ func TestPluginLoginItemUpgradeKickstart(t *testing.T) {
 				t.Fatal(output, err)
 			}
 			output, err := runDefault(t, home, installNoTerminal, "", append(selector, "upgrade", "--finish-upgrade")...)
-			if err != nil || output != upgradeSuccess+"\n"+upgradeStateHandoffForTest+"\n" || !slices.Equal(fake.changes, tc.change) {
+			if err != nil || output != upgradeSuccess+"\n" || !slices.Equal(fake.changes, tc.change) {
 				t.Fatalf("upgrade: %v %v %q", err, fake.changes, output)
 			}
 		})

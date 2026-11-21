@@ -464,88 +464,6 @@
     "reason": "Reviewed source-qualified plugin lifecycle changes add four private supervisor methods in existing receiver files and two private child methods in child.go; exact complete native comparison and policy application remain required."
   },
   {
-    "base_commit": "d87e79abb28cc1345ef04e187384205a308a1f7a",
-    "os": "darwin",
-    "delta": {
-      "exports": {
-        "added": [],
-        "removed": []
-      },
-      "shapes": {
-        "added": {},
-        "removed": {},
-        "changed": {}
-      },
-      "receivers": {
-        "added": {
-          "cmd/zalki.archiveLocks": {
-            "Methods": 3,
-            "Files": 1
-          },
-          "cmd/zalki.stateArchivePlan": {
-            "Methods": 6,
-            "Files": 2
-          }
-        },
-        "removed": {},
-        "changed": {}
-      },
-      "imports": {
-        "added": [
-          "cmd/zalki -> internal/fsutil"
-        ],
-        "removed": []
-      },
-      "os_calls": {
-        "added": {},
-        "removed": {},
-        "changed": {}
-      }
-    },
-    "reason": "Source-qualified expected offline archive delta: add private archiveLocks (3 methods in 1 file), stateArchivePlan (6 methods in 2 files), and cmd/zalki -> internal/fsutil; all export/shape/raw-OS identities unchanged. Retained cd866 native facts are source/profile/collector/config-equivalent to the actual bundle parent. This is expected source data, not an archive measurement; complete native actual-base/head comparison and exact policy application remain mandatory."
-  },
-  {
-    "base_commit": "d87e79abb28cc1345ef04e187384205a308a1f7a",
-    "os": "linux",
-    "delta": {
-      "exports": {
-        "added": [],
-        "removed": []
-      },
-      "shapes": {
-        "added": {},
-        "removed": {},
-        "changed": {}
-      },
-      "receivers": {
-        "added": {
-          "cmd/zalki.archiveLocks": {
-            "Methods": 3,
-            "Files": 1
-          },
-          "cmd/zalki.stateArchivePlan": {
-            "Methods": 6,
-            "Files": 2
-          }
-        },
-        "removed": {},
-        "changed": {}
-      },
-      "imports": {
-        "added": [
-          "cmd/zalki -> internal/fsutil"
-        ],
-        "removed": []
-      },
-      "os_calls": {
-        "added": {},
-        "removed": {},
-        "changed": {}
-      }
-    },
-    "reason": "Source-qualified expected offline archive delta: add private archiveLocks (3 methods in 1 file), stateArchivePlan (6 methods in 2 files), and cmd/zalki -> internal/fsutil; all export/shape/raw-OS identities unchanged. Retained cd866 native facts are source/profile/collector/config-equivalent to the actual bundle parent. This is expected source data, not an archive measurement; complete native actual-base/head comparison and exact policy application remain mandatory."
-  },
-  {
     "base_commit": "cd65226f92f248a8d4cb68ed7b20b847332a0ff4",
     "os": "linux",
     "delta": {
@@ -2128,5 +2046,87 @@
       }
     },
     "reason": "Adapter descriptors can declare the extra hook fields they read (new NativeField, NativeKind and NativeCapture types). Internal change; behavior stays the same."
+  },
+  {
+    "base_commit": "9c3c8b638cefd22b60bf407ed89d9a466c9a5210",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {
+          "cmd/zalki.archiveLocks": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "cmd/zalki.stateArchivePlan": {
+            "Methods": 6,
+            "Files": 2
+          }
+        },
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": [
+          "cmd/zalki -> internal/fsutil"
+        ]
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Removes the one-time state archive command and its two private types (archiveLocks, stateArchivePlan); cmd/zalki no longer imports internal/fsutil. No export, shape or OS call changes."
+  },
+  {
+    "base_commit": "9c3c8b638cefd22b60bf407ed89d9a466c9a5210",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {
+          "cmd/zalki.archiveLocks": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "cmd/zalki.stateArchivePlan": {
+            "Methods": 6,
+            "Files": 2
+          }
+        },
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": [
+          "cmd/zalki -> internal/fsutil"
+        ]
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Removes the one-time state archive command and its two private types (archiveLocks, stateArchivePlan); cmd/zalki no longer imports internal/fsutil. No export, shape or OS call changes."
   }
 ]

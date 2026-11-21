@@ -8,7 +8,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-const oldSessionGuidance = "Old records are not migrated. Start a new native session; keep old state until the offline archive and clean install."
+const oldSessionGuidance = "Old records are not migrated. Start a new native session."
 
 var (
 	errSessionUnexpectedOwner = model.NewError(model.CodeUnavailable, "session record is not supported (unexpected process owner). "+oldSessionGuidance)

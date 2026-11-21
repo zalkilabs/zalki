@@ -85,7 +85,7 @@ func checkDoctorSessionReason(t *testing.T, kind, id, output string, err error) 
 	if kind == "owner" {
 		label = "unexpected process owner"
 	}
-	if err != nil || !strings.Contains(output, "Skipped session "+id+": "+label+".") || !strings.Contains(output, "Old records are not migrated. Start a new native session;") || strings.Contains(output, "run zalki doctor") {
+	if err != nil || !strings.Contains(output, "Skipped session "+id+": "+label+".") || !strings.Contains(output, "Old records are not migrated. Start a new native session.") || strings.Contains(output, "run zalki doctor") {
 		t.Fatal("DOCTOR_LOST_FIXED_SESSION_REASON", output, err)
 	}
 }

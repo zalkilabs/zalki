@@ -54,7 +54,7 @@ func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
 		var skipped int
 		runtimes, skipped, err = s.rawRuntimes()
 		if skipped > 0 {
-			report.Notes = append(report.Notes, fmt.Sprintf("Skipped %d unsupported runtime records; stop the old clients and keep old state until the offline archive and clean install.", skipped))
+			report.Notes = append(report.Notes, fmt.Sprintf("Skipped %d unsupported runtime records; stop the old clients.", skipped))
 		}
 		return err
 	})
