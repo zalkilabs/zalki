@@ -24,6 +24,8 @@ func TestWatchCompletionIsDecidedFromCanonicalEventsForEveryAdapter(t *testing.T
 		{"claude session end", "claude", hook{"SessionEnd", ""}, "ended the session"},
 		{"codex stop", "codex", hook{"Stop", ""}, "finished a turn"},
 		{"codex interrupt", "codex", hook{"Interrupt", ""}, ""},
+		// An unloaded Codex thread stays listed and ready, so it has not ended.
+		{"codex unload keeps the session", "codex", hook{"SessionEnd", ""}, ""},
 		{"cursor completed stop", "cursor", hook{"stop", "completed"}, "finished a turn"},
 		{"cursor stop without status", "cursor", hook{"stop", ""}, "finished a turn"},
 		{"cursor aborted stop", "cursor", hook{"stop", "aborted"}, ""},

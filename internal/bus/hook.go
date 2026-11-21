@@ -52,7 +52,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 		return err
 	}
 	trace.stage = "watch"
-	if err := s.notifyWatches(ctx, id, event, started, runtime); err != nil {
+	if err := s.notifyWatches(ctx, id, event, life, started, runtime); err != nil {
 		return err
 	}
 	if handled {
