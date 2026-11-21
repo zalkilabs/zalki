@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -16,19 +17,23 @@ func newListCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sessions, skipped, err := service.Store.ListWithWarnings()
-			if err != nil {
-				return err
-			}
-			if skipped > 0 {
-				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: skipped %d unreadable or unsupported session records; run zalki doctor.\n", skipped)
-			}
-			if err := noticeExitedSessions(cmd, service); err != nil {
-				return err
-			}
-			return encodeOutput(cmd, sessions)
+			return runList(cmd, viewOf(service))
 		},
 	}
+}
+
+func runList(cmd *cobra.Command, port diagnosticsPort) error {
+	sessions, skipped, err := port.ListWithWarnings()
+	if err != nil {
+		return err
+	}
+	if skipped > 0 {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: skipped %d unreadable or unsupported session records; run zalki doctor.\n", skipped)
+	}
+	if err := noticeExitedSessions(cmd, port); err != nil {
+		return err
+	}
+	return encodeOutput(cmd, sessions)
 }
 
 func newDoctorCommand(opts *commandOptions) *cobra.Command {
@@ -39,18 +44,23 @@ func newDoctorCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			report, err := service.Store.Diagnostics(cmd.Context())
-			if err != nil {
-				return err
-			}
-			return encodeOutput(cmd, map[string]any{"state": service.Store.Dir(),
-				"agents":  report.Agents,
-				"runtime": report.Runtime, "runtimes": report.Runtimes, "untracked_processes": report.UntrackedProcesses,
-				"sessions": report.Sessions, "notes": report.Notes,
-				"codex_hooks":        diagnoseCodexHooks(opts, report),
-				"plugins_background": doctorBackground(cmd, opts, service.Store)})
+			return runDoctor(cmd, opts, viewOf(service), service.Store)
 		},
 	}
+}
+
+// The plugin section reads the plugin records, so it takes the store itself.
+func runDoctor(cmd *cobra.Command, opts *commandOptions, port diagnosticsPort, store bus.Store) error {
+	report, err := port.Diagnostics(cmd.Context())
+	if err != nil {
+		return err
+	}
+	return encodeOutput(cmd, map[string]any{"state": port.Dir(),
+		"agents":  report.Agents,
+		"runtime": report.Runtime, "runtimes": report.Runtimes, "untracked_processes": report.UntrackedProcesses,
+		"sessions": report.Sessions, "notes": report.Notes,
+		"codex_hooks":        diagnoseCodexHooks(opts, report),
+		"plugins_background": doctorBackground(cmd, opts, store)})
 }
 
 func newPruneCommand(opts *commandOptions) *cobra.Command {
@@ -71,16 +81,7 @@ func newPruneCommand(opts *commandOptions) *cobra.Command {
 			if cmd.Flags().Changed("retired-older-than") {
 				retention = retiredOlderThan
 			}
-			report, err := service.Store.PruneRetired(dryRun, selected, retention)
-			if err != nil {
-				return err
-			}
-			if !dryRun {
-				if err := noticeExitedSessions(cmd, service); err != nil {
-					return err
-				}
-			}
-			return encodeOutput(cmd, report)
+			return runPrune(cmd, viewOf(service), dryRun, selected, retention)
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview confirmed stale sessions, exited runtimes, and expired retired records without changing them")
@@ -89,9 +90,22 @@ func newPruneCommand(opts *commandOptions) *cobra.Command {
 	return cmd
 }
 
+func runPrune(cmd *cobra.Command, port diagnosticsPort, dryRun bool, selected []string, retention time.Duration) error {
+	report, err := port.PruneRetired(dryRun, selected, retention)
+	if err != nil {
+		return err
+	}
+	if !dryRun {
+		if err := noticeExitedSessions(cmd, port); err != nil {
+			return err
+		}
+	}
+	return encodeOutput(cmd, report)
+}
+
 // Notice delivery is best effort; journal observation failures remain fatal.
-func noticeExitedSessions(cmd *cobra.Command, service *bus.Service) error {
-	err := service.NoticeExitedSessions(cmd.Context())
+func noticeExitedSessions(cmd *cobra.Command, port diagnosticsPort) error {
+	err := port.NoticeExitedSessions(cmd.Context())
 	var delivery *bus.NoticeDeliveryError
 	if !errors.As(err, &delivery) {
 		return err

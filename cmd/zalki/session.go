@@ -72,7 +72,7 @@ func newHookCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return service.Hook(cmd.Context(), kind, cmd.InOrStdin(), cmd.OutOrStdout())
+			return runHook(cmd, service, kind)
 		},
 	}
 	cmd.Flags().StringVar(&kind, "agent", "", "registered native agent (required)")
@@ -83,6 +83,10 @@ func newHookCommand(opts *commandOptions) *cobra.Command {
 		panic(err)
 	}
 	return cmd
+}
+
+func runHook(cmd *cobra.Command, runner hookRunner, kind string) error {
+	return runner.Hook(cmd.Context(), kind, cmd.InOrStdin(), cmd.OutOrStdout())
 }
 
 func newCursorListenCommand(opts *commandOptions) *cobra.Command {
@@ -99,31 +103,35 @@ func newCursorListenCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			lease, err := service.Store.TrackRuntime("cursor_listener", actor)
-			if err != nil {
-				return err
-			}
-			defer lease.Close() //nolint:errcheck // Stale runtime records can be pruned after shutdown.
-			adapter, err := service.Store.Registry().Lookup("cursor")
-			if err != nil {
-				return err
-			}
-			listener, ok := adapter.(agent.Listener)
-			if !ok {
-				return errors.New("the Cursor adapter has no listener")
-			}
-			acquire := func(actor, key string) (agent.ListenerHandle, error) {
-				lease, err := service.Store.AcquireListenerLease(actor, key)
-				if err != nil {
-					return nil, err
-				}
-				return lease, nil
-			}
-			return listener.Listen(cmd.Context(), acquire, actor, key, cmd.OutOrStdout())
+			return runCursorListen(cmd, viewOf(service), actor, key)
 		},
 	}
 	cmd.Flags().StringVar(&actor, "actor", os.Getenv("ZALKI_ACTOR"), "your own Cursor actor ID (defaults to ZALKI_ACTOR)")
 	return cmd
+}
+
+func runCursorListen(cmd *cobra.Command, port sessionPort, actor, key string) error {
+	lease, err := port.TrackRuntime("cursor_listener", actor)
+	if err != nil {
+		return err
+	}
+	defer lease.Close() //nolint:errcheck // Stale runtime records can be pruned after shutdown.
+	adapter, err := port.Registry().Lookup("cursor")
+	if err != nil {
+		return err
+	}
+	listener, ok := adapter.(agent.Listener)
+	if !ok {
+		return errors.New("the Cursor adapter has no listener")
+	}
+	acquire := func(actor, key string) (agent.ListenerHandle, error) {
+		lease, err := port.AcquireListenerLease(actor, key)
+		if err != nil {
+			return nil, err
+		}
+		return lease, nil
+	}
+	return listener.Listen(cmd.Context(), acquire, actor, key, cmd.OutOrStdout())
 }
 
 // sendArgs preserves the diagnostic CLI input contract independently of MCP.
@@ -165,14 +173,18 @@ func newSendCommand(opts *commandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			message, err := service.Send(cmd.Context(), bus.SendRequest{
-				Actor: args.Actor, Capability: key,
-				To: args.To, MessageID: args.MessageID, Body: args.Body,
-			})
-			if err != nil {
-				return err
-			}
-			return encodeOutput(cmd, sendOutput(message))
+			return runSend(cmd, viewOf(service), args, key)
 		},
 	}
+}
+
+func runSend(cmd *cobra.Command, port sessionPort, args sendArgs, key string) error {
+	message, err := port.Send(cmd.Context(), bus.SendRequest{
+		Actor: args.Actor, Capability: key,
+		To: args.To, MessageID: args.MessageID, Body: args.Body,
+	})
+	if err != nil {
+		return err
+	}
+	return encodeOutput(cmd, sendOutput(message))
 }
