@@ -19,7 +19,7 @@ import (
 
 // listenCursorWithStore keeps listener fixtures on the real lease implementation.
 func listenCursorWithStore(ctx context.Context, store bus.Store, actor, key string, output io.Writer) error {
-	acquire := func(actor, key string) (cursor.ListenerHandle, error) {
+	acquire := func(actor, key string) (agent.ListenerHandle, error) {
 		lease, err := store.AcquireListenerLease(actor, key)
 		if err != nil {
 			return nil, err

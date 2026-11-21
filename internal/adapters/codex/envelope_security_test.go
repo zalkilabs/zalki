@@ -58,7 +58,7 @@ func checkAppServerSecurityFrame(t *testing.T, message model.Message) {
 	defer listener.Close()
 	thread := model.NewUUID()
 	calls := serveFakeCodex(t, listener, fakeCodex{Home: root, Thread: thread, Mode: "idle"})
-	receipt, fallback := deliverCodexAppServer(context.Background(), message, model.Session{NativeConfigDir: root}, thread)
+	receipt, fallback := deliverCodexAppServer(context.Background(), message, model.Session{NativeConfigDir: root}, thread, "test")
 	if fallback || receipt.Status != model.StatusSubmitted {
 		t.Fatalf("app-server delivery failed: %+v fallback=%v", receipt, fallback)
 	}

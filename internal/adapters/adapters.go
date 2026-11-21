@@ -9,15 +9,19 @@ import (
 	"github.com/zalkilabs/zalki/internal/agent"
 )
 
-// Builtin returns a registry of every compiled-in adapter.
+// Builtin returns a registry of every compiled-in adapter. It carries no Codex
+// settings and no client version, so it is for listing and configuration; the
+// CLI builds its delivery registry with BuiltinWithCodex.
 func Builtin() *agent.Registry {
-	return BuiltinWithCodex(false, "")
+	return BuiltinWithCodex(false, "", "")
 }
 
 // BuiltinWithCodex copies invocation-local queue policy into the Codex adapter.
 // configFile is the resolved Zalki settings path used in refusal guidance.
-func BuiltinWithCodex(allow bool, configFile string) *agent.Registry {
-	r, err := agent.NewRegistry(codex.New(allow, configFile), claude.New(), cursor.New())
+// clientVersion is the Zalki build version that Codex receives when its
+// app-server is initialized.
+func BuiltinWithCodex(allow bool, configFile, clientVersion string) *agent.Registry {
+	r, err := agent.NewRegistry(codex.New(allow, configFile).WithClientVersion(clientVersion), claude.New(), cursor.New())
 	if err != nil {
 		panic(err)
 	}

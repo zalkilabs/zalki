@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/clientconfig"
 )
 
 func defaultConfigLine(home string) string {
@@ -259,8 +259,8 @@ func TestConfigChildrenCursorStartupAndRecovery(t *testing.T) {
 		if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &value) != nil {
 			t.Fatal("Cursor hook failed", event, err)
 		}
-		selection := install.ShellQuote("--config") + " " + install.ShellQuote(configFile) + " " + install.ShellQuote("--state") + " " + install.ShellQuote(state)
-		if !strings.Contains(value.Context, selection) || strings.Count(value.Context, install.ShellQuote("--config")) != 1 {
+		selection := clientconfig.ShellQuote("--config") + " " + clientconfig.ShellQuote(configFile) + " " + clientconfig.ShellQuote("--state") + " " + clientconfig.ShellQuote(state)
+		if !strings.Contains(value.Context, selection) || strings.Count(value.Context, clientconfig.ShellQuote("--config")) != 1 {
 			t.Fatal("Cursor hook guidance did not pin the selected config/state", event)
 		}
 	}

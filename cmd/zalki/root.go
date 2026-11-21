@@ -36,7 +36,9 @@ type commandOptions struct {
 }
 
 func newCommandOptions(home string) *commandOptions {
-	return &commandOptions{home: home, registry: adapters.Builtin(), registryFactory: adapters.BuiltinWithCodex}
+	return &commandOptions{home: home, registry: adapters.Builtin(), registryFactory: func(allow bool, configFile string) *agent.Registry {
+		return adapters.BuiltinWithCodex(allow, configFile, bus.Version)
+	}}
 }
 
 // A fresh command tree keeps flags and IO local to each invocation.

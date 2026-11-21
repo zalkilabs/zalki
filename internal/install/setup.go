@@ -5,13 +5,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
 )
-
-// ShellQuote single-quotes value for safe use in a POSIX shell command.
-func ShellQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'" }
 
 // WriteSetup writes reviewable configuration drafts for the declared files.
 func WriteSetup(declare Declare, binary, state, out, home, configFile string) error {

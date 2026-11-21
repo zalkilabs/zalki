@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/install"
+	"github.com/zalkilabs/zalki/internal/clientconfig"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -57,7 +57,7 @@ func TestCodexTransportPinsUUIDAndNeverUsesShell(t *testing.T) {
 func TestCodexQueueUsesRecipientProfile(t *testing.T) {
 	bin, recipient := t.TempDir(), t.TempDir()
 	output := filepath.Join(bin, "profile")
-	script := "#!/bin/sh\nprintf '%s' \"$CODEX_HOME\" > " + install.ShellQuote(output) + "\n"
+	script := "#!/bin/sh\nprintf '%s' \"$CODEX_HOME\" > " + clientconfig.ShellQuote(output) + "\n"
 	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}

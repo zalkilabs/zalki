@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/clientconfig"
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
@@ -383,7 +384,7 @@ func TestInstallRefusesADifferentZalkiHookCommandWithInstallWording(t *testing.T
 	clearConfigOverrides(t)
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
-	other := install.HookConfig(map[string]string{"Stop": "Stop"}, install.HookCommand("/old/zalki", []string{"--state", "s"}, "claude"), false)
+	other := clientconfig.HookConfig(map[string]string{"Stop": "Stop"}, clientconfig.HookCommand("/old/zalki", []string{"--state", "s"}, "claude"), false)
 	path := filepath.Join(home, ".claude", "settings.json")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
@@ -456,7 +457,7 @@ func TestUninstallRemovesAnEditedZalkiHookInEveryClient(t *testing.T) {
 }
 
 func hookPatch(flat bool) map[string]any {
-	return install.HookConfig(map[string]string{"Stop": "Stop"}, hkCommandText, flat)
+	return clientconfig.HookConfig(map[string]string{"Stop": "Stop"}, hkCommandText, flat)
 }
 
 func hookDoc(entries ...any) map[string]any {

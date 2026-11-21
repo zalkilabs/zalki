@@ -73,6 +73,26 @@ func TestCodexControlSocketAdvertisesDirectDelivery(t *testing.T) {
 	}
 }
 
+func TestCodexAppServerReportsTheInjectedClientVersion(t *testing.T) {
+	for _, version := range []string{"9.8.7", ""} {
+		root, listener := listenCodexControl(t)
+		thread := model.NewUUID()
+		calls := serveFakeCodex(t, listener, fakeCodex{Home: root, Thread: thread, Mode: "idle"})
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		msg := model.Message{ID: model.NewUUID(), From: "cursor:" + model.NewUUID(), To: "codex:" + thread, Body: "hello", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+		receipt := New(false, "fixture.json").WithClientVersion(version).deliverCodex(ctx, msg, model.Session{Kind: "codex", ID: msg.To, NativeID: thread, NativeConfigDir: root})
+		cancel()
+		listener.Close()
+		if receipt.Status != model.StatusSubmitted {
+			t.Fatalf("status = %s", receipt.Status)
+		}
+		info, _ := receiveCodexSubmission(t, calls).initial["clientInfo"].(map[string]any)
+		if info["name"] != "zalki" || info["version"] != version {
+			t.Fatalf("clientInfo = %v, want zalki %q", info, version)
+		}
+	}
+}
+
 func TestCodexAppServerDeliveryModes(t *testing.T) {
 	for _, mode := range []string{"idle", "busy", "paged", "not-loaded", "identity", "home", "old", "approval", "method-missing", "invalid-params", "internal", "malformed", "approval-rpc", "unsupported", "closed", "hang", "dropped"} {
 		t.Run(mode, func(t *testing.T) {
@@ -204,6 +224,7 @@ type observedCodex struct {
 	methods   []string
 	forbidden []string
 	turn      map[string]any
+	initial   map[string]any
 }
 
 func listenCodexControl(t *testing.T) (string, net.Listener) {
@@ -307,6 +328,8 @@ func handleFakeCodex(w http.ResponseWriter, r *http.Request, spec fakeCodex) obs
 		}
 		seen.methods = append(seen.methods, request.Method)
 		switch request.Method {
+		case "initialize":
+			seen.initial = request.Params
 		case "thread/resume", "thread/start", "thread/fork", "turn/steer", "turn/interrupt":
 			seen.forbidden = append(seen.forbidden, request.Method)
 		}
