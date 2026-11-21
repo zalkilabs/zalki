@@ -167,10 +167,11 @@ func consumeWatchFile(path, target string, asOf, now time.Time) (Watch, bool, er
 	return watch, true, nil
 }
 
-func completionKind(event agent.HookInput) (string, bool) {
+func completionKind(event agent.HookInput, life agent.Lifecycle) (string, bool) {
 	switch event.Event {
 	case "SessionEnd":
-		return "ended", true
+		// A kept session is only unloaded: it stays listed, so it has not ended.
+		return "ended", !life.KeepOnSessionEnd
 	case "Stop":
 		return "idle", true
 	default:
@@ -211,8 +212,8 @@ func completionBody(subject model.Session, event, at, line string) string {
 	return body
 }
 
-func (s *Service) notifyWatches(ctx context.Context, actor string, event agent.HookInput, asOf time.Time, snapshots ...hookRuntime) error {
-	kind, ok := completionKind(event)
+func (s *Service) notifyWatches(ctx context.Context, actor string, event agent.HookInput, life agent.Lifecycle, asOf time.Time, snapshots ...hookRuntime) error {
+	kind, ok := completionKind(event, life)
 	if !ok {
 		return nil
 	}
