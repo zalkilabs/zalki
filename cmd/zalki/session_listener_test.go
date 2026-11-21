@@ -11,7 +11,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/adapters/claude"
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/buildinfo"
 	"github.com/zalkilabs/zalki/internal/config"
 )
 
@@ -22,8 +22,8 @@ func TestDeliveryRegistryCarriesTheBuildVersionToCodex(t *testing.T) {
 		t.Fatal(err)
 	}
 	version := reflect.ValueOf(adapter).FieldByName("clientVersion").String()
-	if version == "" || version != bus.Version {
-		t.Fatalf("Codex client version = %q, want the build version %q", version, bus.Version)
+	if version == "" || version != buildinfo.Version {
+		t.Fatalf("Codex client version = %q, want the build version %q", version, buildinfo.Version)
 	}
 }
 

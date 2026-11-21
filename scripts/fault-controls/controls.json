@@ -476,17 +476,17 @@
     "mutation": {
       "path": ".goreleaser.yaml",
       "symbol": "builds[0].ldflags",
-      "old": "github.com/zalkilabs/zalki/internal/bus.Version={{ .Version }}",
+      "old": "github.com/zalkilabs/zalki/internal/buildinfo.Version={{ .Version }}",
       "new": "github.com/zalkilabs/zalki/internal/bus.Versio={{ .Version }}",
       "required_occurrences": 1
     },
     "selection": {
-      "package": "github.com/zalkilabs/zalki/internal/bus",
-      "directory": "./internal/bus",
+      "package": "github.com/zalkilabs/zalki/internal/buildinfo",
+      "directory": "./internal/buildinfo",
       "test": "TestReleaseLinkerFlagNamesTheVersionVariable"
     },
     "assertion": {
-      "file": "internal/bus/release_flag_test.go",
+      "file": "internal/buildinfo/release_flag_test.go",
       "assertion_function": "TestReleaseLinkerFlagNamesTheVersionVariable",
       "fatal_literal": "release linker flag target = %q, want %q",
       "fatal_call": "t.Fatalf(\"release linker flag target = %q, want %q\", targets[0], want)",
@@ -504,17 +504,17 @@
     "mutation": {
       "path": ".goreleaser.yaml",
       "symbol": "builds[0].ldflags",
-      "old": " -X github.com/zalkilabs/zalki/internal/bus.Version={{ .Version }}",
+      "old": " -X github.com/zalkilabs/zalki/internal/buildinfo.Version={{ .Version }}",
       "new": "",
       "required_occurrences": 1
     },
     "selection": {
-      "package": "github.com/zalkilabs/zalki/internal/bus",
-      "directory": "./internal/bus",
+      "package": "github.com/zalkilabs/zalki/internal/buildinfo",
+      "directory": "./internal/buildinfo",
       "test": "TestReleaseLinkerFlagNamesTheVersionVariable"
     },
     "assertion": {
-      "file": "internal/bus/release_flag_test.go",
+      "file": "internal/buildinfo/release_flag_test.go",
       "assertion_function": "TestReleaseLinkerFlagNamesTheVersionVariable",
       "fatal_literal": "found %d -X flags, want 1",
       "fatal_call": "t.Fatalf(\"found %d -X flags, want 1\", len(targets))",
@@ -532,17 +532,17 @@
     "mutation": {
       "path": ".goreleaser.yaml",
       "symbol": "builds[0].ldflags",
-      "old": " -X github.com/zalkilabs/zalki/internal/bus.Version={{ .Version }}",
-      "new": " -X github.com/zalkilabs/zalki/internal/bus.Version={{ .Version }} -X github.com/zalkilabs/zalki/internal/bus.Version=extra",
+      "old": " -X github.com/zalkilabs/zalki/internal/buildinfo.Version={{ .Version }}",
+      "new": " -X github.com/zalkilabs/zalki/internal/buildinfo.Version={{ .Version }} -X github.com/zalkilabs/zalki/internal/buildinfo.Version=extra",
       "required_occurrences": 1
     },
     "selection": {
-      "package": "github.com/zalkilabs/zalki/internal/bus",
-      "directory": "./internal/bus",
+      "package": "github.com/zalkilabs/zalki/internal/buildinfo",
+      "directory": "./internal/buildinfo",
       "test": "TestReleaseLinkerFlagNamesTheVersionVariable"
     },
     "assertion": {
-      "file": "internal/bus/release_flag_test.go",
+      "file": "internal/buildinfo/release_flag_test.go",
       "assertion_function": "TestReleaseLinkerFlagNamesTheVersionVariable",
       "fatal_literal": "found %d -X flags, want 1",
       "fatal_call": "t.Fatalf(\"found %d -X flags, want 1\", len(targets))",

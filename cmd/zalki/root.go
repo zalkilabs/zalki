@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/buildinfo"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/config"
 	"github.com/zalkilabs/zalki/internal/install"
@@ -37,7 +38,7 @@ type commandOptions struct {
 
 func newCommandOptions(home string) *commandOptions {
 	return &commandOptions{home: home, registry: adapters.Builtin(), registryFactory: func(allow bool, configFile string) *agent.Registry {
-		return adapters.BuiltinWithCodex(allow, configFile, bus.Version)
+		return adapters.BuiltinWithCodex(allow, configFile, buildinfo.Version)
 	}}
 }
 

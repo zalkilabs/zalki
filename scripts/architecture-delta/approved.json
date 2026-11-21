@@ -1648,5 +1648,93 @@
       }
     },
     "reason": "Store fields private: the six Store fields (PluginDelivery, Dir, Registry, Logger, MaxBodyBytes, ConfigFile) become private. Adds StoreOption, StoreAt, With and the options WithRegistry, WithLogger, WithMaxBodyBytes, WithConfigFile and WithPluginDelivery, plus the Store methods Dir, Registry, Logger and With. NewStore takes optional StoreOption arguments. The Store receiver goes from 113 methods in 26 files to 116 in 25 (the unexported registry helper file is removed). Imports and OS calls are unchanged. Delta measured on the base, same on both OS."
+  },
+  {
+    "base_commit": "a6f226dd12f4a79d2a4f6c7fa94be63dedd7f00e",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/buildinfo.Version",
+          "internal/buildinfo.WithBuild"
+        ],
+        "removed": [
+          "internal/bus.Version"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/buildinfo.WithBuild": "func(loadedBuild string) string",
+          "var:internal/buildinfo.Version": "Version = \"0.1.0-experimental\""
+        },
+        "removed": {
+          "var:internal/bus.Version": "Version = \"0.1.0-experimental\""
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/buildinfo",
+          "internal/bus -> internal/buildinfo",
+          "internal/plugins -> internal/buildinfo"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Moves Version out of bus into the new internal/buildinfo package and adds buildinfo.WithBuild, which formats the version with the first 12 characters of the build id. bus, plugins and cmd/zalki import buildinfo; bus keeps BuildVersion, which calls WithBuild with the build id it captured. Behavior is unchanged. Delta measured on base e9c50a3, same on both OS."
+  },
+  {
+    "base_commit": "a6f226dd12f4a79d2a4f6c7fa94be63dedd7f00e",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/buildinfo.Version",
+          "internal/buildinfo.WithBuild"
+        ],
+        "removed": [
+          "internal/bus.Version"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/buildinfo.WithBuild": "func(loadedBuild string) string",
+          "var:internal/buildinfo.Version": "Version = \"0.1.0-experimental\""
+        },
+        "removed": {
+          "var:internal/bus.Version": "Version = \"0.1.0-experimental\""
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/buildinfo",
+          "internal/bus -> internal/buildinfo",
+          "internal/plugins -> internal/buildinfo"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Moves Version out of bus into the new internal/buildinfo package and adds buildinfo.WithBuild, which formats the version with the first 12 characters of the build id. bus, plugins and cmd/zalki import buildinfo; bus keeps BuildVersion, which calls WithBuild with the build id it captured. Behavior is unchanged. Delta measured on base e9c50a3, same on both OS."
   }
 ]

@@ -12,14 +12,12 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/zalkilabs/zalki/internal/buildinfo"
 	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 
 	"github.com/zalkilabs/zalki/internal/model"
 )
-
-// Version is set by release builds with -X.
-var Version = "0.1.0-experimental"
 
 type RuntimeInfo struct {
 	ID              string            `json:"id,omitempty"`
@@ -89,7 +87,7 @@ type executableSnapshot struct {
 }
 
 func captureExecutable() executableSnapshot {
-	info := RuntimeInfo{Role: "cli", Version: Version, PID: os.Getpid(), StartedAt: model.Timestamp()}
+	info := RuntimeInfo{Role: "cli", Version: buildinfo.Version, PID: os.Getpid(), StartedAt: model.Timestamp()}
 	path, err := os.Executable()
 	if err == nil {
 		info.Binary = path
@@ -118,13 +116,7 @@ func runtimeHealth(info RuntimeInfo) RuntimeInfo {
 
 func CurrentRuntimeInfo() RuntimeInfo { return runtimeHealth(currentExecutable.info) }
 
-func BuildVersion() string {
-	build := currentExecutable.loadedBuild
-	if len(build) >= 12 {
-		return Version + "+" + build[:12]
-	}
-	return Version
-}
+func BuildVersion() string { return buildinfo.WithBuild(currentExecutable.loadedBuild) }
 
 type RuntimeLease struct {
 	store  Store
