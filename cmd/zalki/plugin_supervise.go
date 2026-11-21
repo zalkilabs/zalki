@@ -19,6 +19,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/config"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
@@ -212,11 +213,11 @@ func acquireSupervisorLock(state string) (*os.File, bool, error) {
 	// The wait never grows beyond supervisorLockWait.
 	deadline := time.Now().Add(supervisorLockWait)
 	for {
-		err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		err := platform.LockExclusive(int(file.Fd()), true)
 		switch {
 		case err == nil:
 			return file, false, nil
-		case !errors.Is(err, syscall.EWOULDBLOCK):
+		case !platform.LockBusy(err):
 			_ = file.Close()
 			return nil, false, err
 		case !time.Now().Before(deadline):

@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 // All processes take the same persistent sidecar lock before rotating or
@@ -77,10 +79,10 @@ func (w *rotatingWriter) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	defer lock.Close() //nolint:errcheck // Closing also releases the rotation lock.
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+	if err := platform.LockExclusive(int(lock.Fd()), false); err != nil {
 		return 0, err
 	}
-	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) //nolint:errcheck // Descriptor close also releases the lock.
+	defer platform.Unlock(int(lock.Fd())) //nolint:errcheck // Descriptor close also releases the lock.
 	f, err := privateLogFile(w.path)
 	if err != nil {
 		return 0, err

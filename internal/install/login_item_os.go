@@ -4,6 +4,8 @@ import (
 	"errors"
 	"os"
 	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 // The login item's raw OS calls, kept in this one file.
@@ -49,8 +51,8 @@ func openLockFile(path string) (int, error) {
 // tryLock takes the exclusive lock without waiting; held is false when
 // another holder has it.
 func tryLock(fd int) (held bool, err error) {
-	err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB)
-	if errors.Is(err, syscall.EWOULDBLOCK) {
+	err = platform.LockExclusive(fd, true)
+	if platform.LockBusy(err) {
 		return false, nil
 	}
 	return err == nil, err

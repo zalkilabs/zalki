@@ -16,6 +16,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
@@ -51,11 +52,11 @@ func withRestartLock(state, name string, fn func() error) error {
 	}
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		err := platform.LockExclusive(int(file.Fd()), true)
 		if err == nil {
 			return fn()
 		}
-		if !errors.Is(err, syscall.EWOULDBLOCK) || time.Now().After(deadline) {
+		if !platform.LockBusy(err) || time.Now().After(deadline) {
 			return model.NewError(model.CodeUnavailable, "the restart request for %s is busy; try again", name)
 		}
 		time.Sleep(20 * time.Millisecond)
@@ -210,8 +211,8 @@ func supervisorRunning(state string) bool {
 	if info, err := file.Stat(); err != nil || !privateFile(info) {
 		return false
 	}
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_SH|syscall.LOCK_NB); err != nil {
-		return errors.Is(err, syscall.EWOULDBLOCK)
+	if err := platform.LockShared(int(file.Fd()), true); err != nil {
+		return platform.LockBusy(err)
 	}
 	return false
 }

@@ -40,6 +40,20 @@ func LockExclusive(fd int, nonblocking bool) error {
 	return syscall.Flock(fd, flags)
 }
 
+// LockShared takes a shared flock on fd. If nonblocking is true it adds
+// LOCK_NB. It makes one syscall and returns its error unchanged.
+func LockShared(fd int, nonblocking bool) error {
+	flags := syscall.LOCK_SH
+	if nonblocking {
+		flags |= syscall.LOCK_NB
+	}
+	return syscall.Flock(fd, flags)
+}
+
+// LockBusy reports whether err says another holder has the lock, the answer
+// of a nonblocking attempt.
+func LockBusy(err error) bool { return errors.Is(err, syscall.EWOULDBLOCK) }
+
 // Unlock releases fd's flock with one syscall and returns its raw error.
 // It does not close the descriptor.
 func Unlock(fd int) error {

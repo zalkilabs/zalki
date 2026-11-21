@@ -57,6 +57,7 @@ linters:
           allow:
             - $gostd
             - github.com/zalkilabs/zalki/internal/fsutil$
+            - github.com/zalkilabs/zalki/internal/platform$
             - github.com/pelletier/go-toml/v2$
             - github.com/pelletier/go-toml/v2/unstable$
         agent:
@@ -127,6 +128,7 @@ linters:
           list-mode: strict
           allow:
             - $gostd
+            - github.com/zalkilabs/zalki/internal/platform$
         fsutil:
           files: ["**/internal/fsutil/*.go", "!$test"]
           list-mode: strict

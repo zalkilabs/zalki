@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 // The lock is home-wide, not state-wide: two installations can target the same
@@ -20,14 +22,14 @@ func lockInstallation(home string) (func(), error) {
 		err = errors.New("installation lock must be a private regular file owned by this OS user")
 	}
 	if err == nil {
-		err = syscall.Flock(fd, syscall.LOCK_EX)
+		err = platform.LockExclusive(fd, false)
 	}
 	if err != nil {
 		_ = syscall.Close(fd) // Preserve the validation or lock-acquisition error.
 		return nil, err
 	}
 	return func() {
-		_ = syscall.Flock(fd, syscall.LOCK_UN) // Descriptor close also releases the lock.
+		_ = platform.Unlock(fd) // Descriptor close also releases the lock.
 		_ = syscall.Close(fd)
 	}, nil
 }
