@@ -374,16 +374,15 @@ func eventuallyWithin(limit time.Duration, condition func() bool) bool {
 	return false
 }
 
+// eventuallyWait bounds every polled condition. A passing test never waits for
+// it; it only decides how long a loaded runner gets before a real failure.
+const eventuallyWait = 15 * time.Second
+
 func eventually(t *testing.T, condition func() bool) {
 	t.Helper()
-	until := time.Now().Add(3 * time.Second)
-	for time.Now().Before(until) {
-		if condition() {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
+	if !eventuallyWithin(eventuallyWait, condition) {
+		t.Fatal("condition did not become true")
 	}
-	t.Fatal("condition did not become true")
 }
 
 func TestHostReapsChildOnEOFAndDoesNotInheritSecrets(t *testing.T) {

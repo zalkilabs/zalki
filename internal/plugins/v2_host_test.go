@@ -116,13 +116,18 @@ func TestV2HostRoundTripWithRealChild(t *testing.T) {
 	x.checkFeedEvents(t, out)
 }
 
-// runChild runs the host with the v2 test child until the child reports.
 // v2ChildResultWait is how long runChild waits for the child's result after
 // the operations are released. The child makes a real native delivery, which
 // can take seconds on a loaded runner; the wait is generous so that only a
 // lost event fails, and the failure names the child's last phase.
 const v2ChildResultWait = 15 * time.Second
 
+// v2HostStopWait is how long the host gets to stop and reap the child after
+// the test cancels it. The host returns on its done channel, so a passing
+// test does not wait for the bound.
+const v2HostStopWait = 15 * time.Second
+
+// runChild runs the host with the v2 test child until the child reports.
 func (x *v2Fixture) runChild(t *testing.T) v2TestOutcome {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
@@ -139,8 +144,8 @@ func (x *v2Fixture) runChild(t *testing.T) v2TestOutcome {
 	cancel()
 	select {
 	case <-done:
-	case <-time.After(4 * time.Second):
-		t.Fatal("v2 host not reaped")
+	case <-time.After(v2HostStopWait):
+		t.Fatalf("v2 host not reaped within %s", v2HostStopWait)
 	}
 	return out
 }

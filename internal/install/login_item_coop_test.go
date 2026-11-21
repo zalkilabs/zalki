@@ -58,8 +58,12 @@ func runCoopHelper(dir, home string) int {
 const coopWitness = "bootout code=0 err=false loaded=false"
 
 // coopPause writes the phase witness and waits (at most 20 s) for resume.
+// The witness appears whole: the parent reads it as soon as the file exists,
+// so a plain write could be read while it was still empty.
 func coopPause(dir, witness string) {
-	_ = os.WriteFile(filepath.Join(dir, "paused"), []byte(witness), 0o600)
+	pending := filepath.Join(dir, "paused.pending")
+	_ = os.WriteFile(pending, []byte(witness), 0o600)
+	_ = os.Rename(pending, filepath.Join(dir, "paused"))
 	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(filepath.Join(dir, "resume")); err == nil {
