@@ -362,6 +362,18 @@ func startHost(t *testing.T, store bus.Store) (context.CancelFunc, <-chan error)
 	return cancel, done
 }
 
+// eventuallyWithin polls condition for up to limit and reports whether it became true.
+func eventuallyWithin(limit time.Duration, condition func() bool) bool {
+	until := time.Now().Add(limit)
+	for time.Now().Before(until) {
+		if condition() {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return false
+}
+
 func eventually(t *testing.T, condition func() bool) {
 	t.Helper()
 	until := time.Now().Add(3 * time.Second)
