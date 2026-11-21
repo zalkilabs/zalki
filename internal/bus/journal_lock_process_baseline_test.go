@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/platform"
 
 	"golang.org/x/sys/unix"
 )
@@ -161,7 +161,7 @@ func TestJournalLockProcessBaseline(t *testing.T) {
 
 	t.Run("lifetime descriptor closes on exec and releases after parent close", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "listener.lock")
-		fd, err := acquireListenerLock(path, journal.OpenLockFile)
+		fd, err := acquireListenerLock(path, platform.OpenLockFile)
 		if err != nil {
 			t.Fatal(err)
 		}

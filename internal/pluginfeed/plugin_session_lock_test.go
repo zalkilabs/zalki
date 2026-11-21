@@ -6,8 +6,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 type sessionLockCursor struct {
@@ -26,13 +26,13 @@ func sessionLockStore(t *testing.T, s bus.Store, assertion string) (bus.Store, *
 	calls := 0
 	probe := func() {
 		calls++
-		fd, err := journal.OpenLockFile(filepath.Join(s.Dir(), "lock"), false)
+		fd, err := platform.OpenLockFile(filepath.Join(s.Dir(), "lock"), false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer func() { _ = journal.CloseLockFile(fd) }()
-		if err := journal.LockExclusive(fd, true); err == nil {
-			_ = journal.Unlock(fd)
+		defer func() { _ = platform.CloseLockFile(fd) }()
+		if err := platform.LockExclusive(fd, true); err == nil {
+			_ = platform.Unlock(fd)
 			t.Fatal(assertion)
 		}
 	}

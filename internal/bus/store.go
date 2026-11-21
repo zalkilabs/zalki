@@ -10,6 +10,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 var errJournalRootChanged = model.NewError(model.CodeConflict, "Zalki state changed while waiting for its journal lock; no journal recovery or callback was run. Start a fresh command")
@@ -105,17 +106,17 @@ func (s Store) locked(fn func() error) error {
 			return err
 		}
 	}
-	fd, err := journal.OpenLockFile(filepath.Join(s.dir, "lock"), true)
+	fd, err := platform.OpenLockFile(filepath.Join(s.dir, "lock"), true)
 	if err != nil {
 		return err
 	}
-	defer journal.CloseLockFile(fd) //nolint:errcheck // Closing also releases the journal lock.
+	defer platform.CloseLockFile(fd) //nolint:errcheck // Closing also releases the journal lock.
 	storeLockOpened()
-	if err := journal.LockExclusive(fd, false); err != nil {
+	if err := platform.LockExclusive(fd, false); err != nil {
 		return err
 	}
-	defer journal.Unlock(fd) //nolint:errcheck // Descriptor close also releases the lock.
-	linked, err := journal.Linked(fd, filepath.Join(s.dir, "lock"))
+	defer platform.Unlock(fd) //nolint:errcheck // Descriptor close also releases the lock.
+	linked, err := platform.Linked(fd, filepath.Join(s.dir, "lock"))
 	if err != nil {
 		return err
 	}

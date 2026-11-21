@@ -1,4 +1,4 @@
-package journal_test
+package platform_test
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 func changeLinkedPath(t *testing.T, path, shape string) string {
@@ -47,9 +47,9 @@ func TestLinked(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "lock")
 			fd := openTestLock(t, path, true)
-			defer journal.CloseLockFile(fd)
+			defer platform.CloseLockFile(fd)
 			path = changeLinkedPath(t, path, test.name)
-			got, err := journal.Linked(fd, path)
+			got, err := platform.Linked(fd, path)
 			if test.name == "invalid path parent" {
 				requireErrno(t, err, syscall.ENOTDIR)
 			} else if err != nil {
@@ -63,7 +63,7 @@ func TestLinked(t *testing.T) {
 }
 
 func TestLinkedInvalidDescriptor(t *testing.T) {
-	if linked, err := journal.Linked(-1, filepath.Join(t.TempDir(), "lock")); linked {
+	if linked, err := platform.Linked(-1, filepath.Join(t.TempDir(), "lock")); linked {
 		t.Fatal("closed fd reported linked")
 	} else {
 		requireErrno(t, err, syscall.EBADF)

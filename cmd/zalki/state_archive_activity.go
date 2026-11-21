@@ -14,6 +14,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/install"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/procwatch"
 )
 
@@ -45,13 +46,13 @@ type archiveLocks []archiveLock
 // Close only: never unlink, truncate, or explicitly unlock an inherited description.
 func (held archiveLocks) close() {
 	for i := len(held) - 1; i >= 0; i-- {
-		_ = journal.CloseLockFile(held[i].fd)
+		_ = platform.CloseLockFile(held[i].fd)
 	}
 }
 
 func (held archiveLocks) linked() error {
 	for _, lock := range held {
-		linked, err := journal.Linked(lock.fd, lock.path)
+		linked, err := platform.Linked(lock.fd, lock.path)
 		if err != nil || !linked {
 			return archiveRefusal("a lock identity changed")
 		}
@@ -67,16 +68,16 @@ func (held *archiveLocks) take(path string) error {
 	if err != nil || !privateFile(before) {
 		return archiveRefusal("an activity lock is missing or unsafe")
 	}
-	fd, err := journal.OpenLockFile(path, false)
+	fd, err := platform.OpenLockFile(path, false)
 	if err != nil {
 		return archiveRefusal("an activity lock could not be opened without creating it")
 	}
 	// Attach first so the caller's cleanup closes the FD even on a failed flock.
 	*held = append(*held, archiveLock{path: path, fd: fd})
-	if err := journal.LockExclusive(fd, true); err != nil {
+	if err := platform.LockExclusive(fd, true); err != nil {
 		return archiveRefusal("a journal, listener or plugin lock is held or cannot be checked")
 	}
-	linked, err := journal.Linked(fd, path)
+	linked, err := platform.Linked(fd, path)
 	if err != nil || !linked {
 		return archiveRefusal("an activity lock changed while it was checked")
 	}

@@ -1,4 +1,4 @@
-package journal_test
+package platform_test
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/platform"
 	"golang.org/x/sys/unix"
 )
 
@@ -21,7 +21,7 @@ func requireErrno(t *testing.T, err error, want syscall.Errno) {
 
 func openTestLock(t *testing.T, path string, create bool) int {
 	t.Helper()
-	fd, err := journal.OpenLockFile(path, create)
+	fd, err := platform.OpenLockFile(path, create)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestOpenLockFile(t *testing.T) {
 				if test.name == "missing file" && create {
 					want = 0
 				}
-				fd, err := journal.OpenLockFile(path, create)
+				fd, err := platform.OpenLockFile(path, create)
 				if want != 0 {
 					checkFailedLockOpen(t, test.name, path, fd, err, want)
 					return
@@ -133,7 +133,7 @@ func TestOpenLockFile(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer journal.CloseLockFile(fd)
+				defer platform.CloseLockFile(fd)
 				checkOpenedLock(t, test.name, path, fd)
 			})
 		}
@@ -144,7 +144,7 @@ func TestOpenLockFile(t *testing.T) {
 func tryContendedLock(t *testing.T, holder, contender int) error {
 	t.Helper()
 	done := make(chan error, 1)
-	go func() { done <- journal.LockExclusive(contender, true) }()
+	go func() { done <- platform.LockExclusive(contender, true) }()
 	select {
 	case err := <-done:
 		return err
@@ -164,14 +164,14 @@ func tryContendedLock(t *testing.T, holder, contender int) error {
 func releaseTestHolder(t *testing.T, holder *int, closeHolder bool) {
 	t.Helper()
 	if closeHolder {
-		if err := journal.CloseLockFile(*holder); err != nil {
+		if err := platform.CloseLockFile(*holder); err != nil {
 			t.Fatal(err)
 		}
 		*holder = -1
 		return
 	}
 	for range 2 {
-		if err := journal.Unlock(*holder); err != nil {
+		if err := platform.Unlock(*holder); err != nil {
 			t.Fatalf("unlock (including repeat): %v", err)
 		}
 	}
@@ -192,12 +192,12 @@ func TestLockExclusiveAndRelease(t *testing.T) {
 			holder := openTestLock(t, path, true)
 			defer func() {
 				if holder >= 0 {
-					journal.CloseLockFile(holder)
+					platform.CloseLockFile(holder)
 				}
 			}()
 			contender := openTestLock(t, path, false)
-			defer journal.CloseLockFile(contender)
-			if err := journal.LockExclusive(holder, test.nonblocking); err != nil {
+			defer platform.CloseLockFile(contender)
+			if err := platform.LockExclusive(holder, test.nonblocking); err != nil {
 				t.Fatal(err)
 			}
 			requireErrno(t, tryContendedLock(t, holder, contender), syscall.EWOULDBLOCK)
@@ -213,23 +213,23 @@ func TestLockExclusiveAndRelease(t *testing.T) {
 
 func TestLockErrorsAreRaw(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "lock")
-	fd, err := journal.OpenLockFile(path, true)
+	fd, err := platform.OpenLockFile(path, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.CloseLockFile(fd); err != nil {
+	if err := platform.CloseLockFile(fd); err != nil {
 		t.Fatal(err)
 	}
 	// Check double close immediately, before any operation that opens a file.
-	requireErrno(t, journal.CloseLockFile(fd), syscall.EBADF)
+	requireErrno(t, platform.CloseLockFile(fd), syscall.EBADF)
 	for _, test := range []struct {
 		name string
 		call func(int) error
 	}{
-		{"blocking closed fd", func(fd int) error { return journal.LockExclusive(fd, false) }},
-		{"nonblocking closed fd", func(fd int) error { return journal.LockExclusive(fd, true) }},
-		{"unlock closed fd", journal.Unlock},
-		{"close invalid fd", journal.CloseLockFile},
+		{"blocking closed fd", func(fd int) error { return platform.LockExclusive(fd, false) }},
+		{"nonblocking closed fd", func(fd int) error { return platform.LockExclusive(fd, true) }},
+		{"unlock closed fd", platform.Unlock},
+		{"close invalid fd", platform.CloseLockFile},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			requireErrno(t, test.call(-1), syscall.EBADF)

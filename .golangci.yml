@@ -103,6 +103,7 @@ linters:
             - github.com/zalkilabs/zalki/internal/bus$
             - github.com/zalkilabs/zalki/internal/journal$
             - github.com/zalkilabs/zalki/internal/model$
+            - github.com/zalkilabs/zalki/internal/platform$
         mcpserver:
           files: ["**/internal/mcpserver/*.go", "!$test"]
           list-mode: strict
@@ -167,7 +168,6 @@ linters:
             - "!**/internal/install/installation_lock.go"
             - "!**/internal/install/installation_plan.go"
             - "!**/internal/install/login_item_os.go"
-            - "!**/internal/journal/lock.go"
             - "!**/internal/journal/order_darwin.go"
             - "!**/internal/journal/read_bytes.go"
             - "!**/internal/logging/errors.go"

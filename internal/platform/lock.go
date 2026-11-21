@@ -1,10 +1,15 @@
-package journal
+//go:build darwin || linux
+
+package platform
 
 import (
 	"errors"
 	"os"
 	"syscall"
 )
+
+// The lock functions leave raw descriptor ownership and policy to the caller:
+// they add no implicit retries, mutexes, caching or finalizers.
 
 // OpenLockFile opens path read-write without following a symbolic link. When
 // create is true it creates a missing file with mode 0600; otherwise it opens

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 func runEventChild(t *testing.T, dir, id string) {
@@ -34,12 +34,12 @@ func TestEventSequenceTwoProcesses(t *testing.T) {
 	store := fixtureStore(t)
 	one, _ := register(t, store, "codex")
 	two, _ := register(t, store, "codex")
-	fd, err := journal.OpenLockFile(filepath.Join(store.dir, "lock"), false)
+	fd, err := platform.OpenLockFile(filepath.Join(store.dir, "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer journal.CloseLockFile(fd)
-	if err := journal.LockExclusive(fd, false); err != nil {
+	defer platform.CloseLockFile(fd)
+	if err := platform.LockExclusive(fd, false); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -62,7 +62,7 @@ func TestEventSequenceTwoProcesses(t *testing.T) {
 		}
 		children = append(children, cmd)
 	}
-	if err := journal.Unlock(fd); err != nil {
+	if err := platform.Unlock(fd); err != nil {
 		t.Fatal(err)
 	}
 	for i, child := range children {

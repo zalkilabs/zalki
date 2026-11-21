@@ -14,6 +14,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
@@ -99,12 +100,12 @@ func pluginScopeSnapshot(t *testing.T, store bus.Store) map[string]string {
 
 func assertPluginScopeLock(t *testing.T, store bus.Store, held bool) {
 	t.Helper()
-	fd, err := journal.OpenLockFile(filepath.Join(store.Dir(), "lock"), false)
+	fd, err := platform.OpenLockFile(filepath.Join(store.Dir(), "lock"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer journal.CloseLockFile(fd)
-	err = journal.LockExclusive(fd, true)
+	defer platform.CloseLockFile(fd)
+	err = platform.LockExclusive(fd, true)
 	if (held && !errors.Is(err, syscall.EWOULDBLOCK)) || (!held && err != nil) {
 		t.Fatalf("journal lock held=%v: probe returned %v", held, err)
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 type streamIntegrityHandler struct {
@@ -53,13 +54,13 @@ func (h *streamIntegrityHandler) Handle(ctx context.Context, record slog.Record)
 		h.feed.stream.mu.Unlock()
 	}
 	storeFree := false
-	fd, err := journal.OpenLockFile(filepath.Join(h.feed.store.Dir(), "lock"), false)
+	fd, err := platform.OpenLockFile(filepath.Join(h.feed.store.Dir(), "lock"), false)
 	if err == nil {
-		if err = journal.LockExclusive(fd, true); err == nil {
+		if err = platform.LockExclusive(fd, true); err == nil {
 			storeFree = true
-			_ = journal.Unlock(fd)
+			_ = platform.Unlock(fd)
 		}
-		_ = journal.CloseLockFile(fd)
+		_ = platform.CloseLockFile(fd)
 	}
 	if h.calls == 0 {
 		h.lockFree, h.storeFree = lockFree, storeFree

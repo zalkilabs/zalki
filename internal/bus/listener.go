@@ -10,8 +10,8 @@ import (
 	"syscall"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/platform"
 )
 
 // Lease is one process's exclusive ownership of a registration's listener. It
@@ -41,21 +41,21 @@ func (s Store) listenerLockPath(kind, actor string) string {
 // remove unlinks the file only in that case.
 func (s Store) removeFreeListenerLock(kind, actor string, remove bool) (bool, error) {
 	path := s.listenerLockPath(kind, actor)
-	fd, err := journal.OpenLockFile(path, false)
+	fd, err := platform.OpenLockFile(path, false)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-	defer journal.CloseLockFile(fd) //nolint:errcheck // Descriptor cleanup after the nonblocking lock attempt.
-	if err := journal.LockExclusive(fd, true); err != nil {
+	defer platform.CloseLockFile(fd) //nolint:errcheck // Descriptor cleanup after the nonblocking lock attempt.
+	if err := platform.LockExclusive(fd, true); err != nil {
 		if errors.Is(err, syscall.EWOULDBLOCK) {
 			return false, nil
 		}
 		return false, err
 	}
-	defer journal.Unlock(fd) //nolint:errcheck // Closing the descriptor also releases the lock.
+	defer platform.Unlock(fd) //nolint:errcheck // Closing the descriptor also releases the lock.
 	if !remove {
 		return true, nil
 	}
@@ -68,14 +68,14 @@ func (s Store) removeFreeListenerLock(kind, actor string, remove bool) (bool, er
 // lockHeld reports whether some process holds the registration's lifetime lock.
 // A missing or unlocked lock file is not evidence of a live listener.
 func (s Store) lockHeld(v model.Session) bool {
-	fd, err := journal.OpenLockFile(s.listenerLockPath(v.Kind, v.ID), false)
+	fd, err := platform.OpenLockFile(s.listenerLockPath(v.Kind, v.ID), false)
 	if err != nil {
 		return false
 	}
-	defer journal.CloseLockFile(fd) //nolint:errcheck // Descriptor cleanup after the liveness check.
-	err = journal.LockExclusive(fd, true)
+	defer platform.CloseLockFile(fd) //nolint:errcheck // Descriptor cleanup after the liveness check.
+	err = platform.LockExclusive(fd, true)
 	if err == nil {
-		_ = journal.Unlock(fd) // Closing the descriptor also releases the lock.
+		_ = platform.Unlock(fd) // Closing the descriptor also releases the lock.
 		return false
 	}
 	return errors.Is(err, syscall.EWOULDBLOCK)
@@ -122,7 +122,7 @@ func (s Store) AcquireListenerLease(actor, key string) (lease *Lease, err error)
 	if err != nil {
 		return nil, err
 	}
-	fd, err := acquireListenerLock(s.listenerLockPath(v.Kind, actor), journal.OpenLockFile)
+	fd, err := acquireListenerLock(s.listenerLockPath(v.Kind, actor), platform.OpenLockFile)
 	if err != nil {
 		return nil, err
 	}
@@ -140,26 +140,26 @@ func acquireListenerLock(path string, open func(string, bool) (int, error)) (int
 		if err != nil {
 			return -1, err
 		}
-		if err := journal.LockExclusive(fd, true); err != nil {
-			_ = journal.CloseLockFile(fd)
+		if err := platform.LockExclusive(fd, true); err != nil {
+			_ = platform.CloseLockFile(fd)
 			return -1, model.NewError(model.CodeConflict, "this conversation already has a listener; keep its original native task")
 		}
 		linked, err := lockFileStillLinked(fd, path)
 		if err != nil {
-			_ = journal.CloseLockFile(fd)
+			_ = platform.CloseLockFile(fd)
 			return -1, err
 		}
 		if linked {
 			return fd, nil
 		}
-		_ = journal.CloseLockFile(fd)
+		_ = platform.CloseLockFile(fd)
 		last = model.NewError(model.CodeConflict, "listener lock changed while it was being acquired")
 	}
 	return -1, last
 }
 
 func lockFileStillLinked(fd int, path string) (bool, error) {
-	return journal.Linked(fd, path)
+	return platform.Linked(fd, path)
 }
 
 // Generation is the registration generation this lease was acquired for.
@@ -297,8 +297,8 @@ func (l *Lease) Close(cause error) {
 			l.store.logEvent(slog.LevelWarn, "listener.cleanup_failed", eventData{Actor: l.actor, Err: err})
 		}
 	}
-	_ = journal.Unlock(l.fd) // Closing the descriptor also releases the lock.
-	_ = journal.CloseLockFile(l.fd)
+	_ = platform.Unlock(l.fd) // Closing the descriptor also releases the lock.
+	_ = platform.CloseLockFile(l.fd)
 	level, event := slog.LevelInfo, "listener.stopped"
 	if !l.confirmed {
 		event = "listener.start_failed"
