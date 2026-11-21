@@ -372,8 +372,3 @@ func writeNotifyAt(dir *os.File, raw []byte) error {
 	}
 	return dir.Sync()
 }
-
-// archiveConnectionRefused keeps the offline socket probe on the existing CLI OS seam.
-func archiveConnectionRefused(err error) bool {
-	return errors.Is(err, syscall.ECONNREFUSED)
-}

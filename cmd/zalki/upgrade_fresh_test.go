@@ -10,20 +10,6 @@ import (
 	"testing"
 )
 
-// Keep the owner-visible contract independent of the production message value.
-const upgradeStateHandoffForTest = "If your Zalki state is from rc.7: rc.8 needs an offline clean install; this command does not " +
-	"archive or migrate old state.\n" +
-	"Close all agent chats and MCP/listener processes; stop background plugins, the supervisor " +
-	"and automatic restarts, and keep them stopped.\n" +
-	"Before setting up or using rc.8, stage a trusted archive-capable bridge build and run `zalki " +
-	"state archive` with the same state selector. Confirm the MOVE, never deletion. If the move " +
-	"is unconfirmed, inspect both named paths before retrying.\n" +
-	"After a confirmed archive, reinstall rc.8 on fresh state, reinstall plugins and review their " +
-	"access, then start NEW chats with NEW native chat IDs. Do not resume old chats for Zalki " +
-	"messaging.\n" +
-	"Keep the archive and separate backups of the old binary and external configuration. Native " +
-	"chat transcripts are not deleted."
-
 func TestUpgradeFreshDryRun(t *testing.T) {
 	home := configTestHome(t)
 	for _, variable := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR"} {
@@ -79,7 +65,7 @@ func TestUpgradeFreshConfigOnly(t *testing.T) {
 		t.Setenv(variable, "")
 	}
 	out, diagnostic, err := execute(t, home, "", "upgrade", "--config-only")
-	if err != nil || diagnostic != "" || out != configOnlyDone+"\n"+upgradeStateHandoffForTest+"\n" {
+	if err != nil || diagnostic != "" || out != configOnlyDone+"\n" {
 		t.Fatal("fresh config-only", out, diagnostic, err)
 	}
 	raw, err := os.ReadFile(filepath.Join(home, ".local", "state", "zalki", "installation.json"))
@@ -120,7 +106,7 @@ func TestUpgradeWithoutInstallationRecordCLI(t *testing.T) {
 	}
 	path, state := filepath.Join(home, "selected.json"), filepath.Join(home, "state")
 	out, diagnostic, err := runEditCLI(t, stable, "--config", path, "--state", state, "upgrade")
-	if err != nil || diagnostic != "" || out != upgradeSuccess+"\n"+upgradeStateHandoffForTest+"\n" {
+	if err != nil || diagnostic != "" || out != upgradeSuccess+"\n" {
 		t.Fatal("real fresh upgrade", out, diagnostic, err)
 	}
 	brew, _ := os.ReadFile(brewLog)
@@ -138,7 +124,7 @@ func checkUpgradeConfigOnlyHandoff(t *testing.T, stable, path, state, brewLog st
 	t.Helper()
 	// The manual-binary path prints the same handoff without invoking Brew again.
 	out, diagnostic, err := runEditCLI(t, stable, "--config", path, "--state", state, "upgrade", "--config-only")
-	if err != nil || diagnostic != "" || out != configOnlyDone+"\n"+upgradeStateHandoffForTest+"\n" {
+	if err != nil || diagnostic != "" || out != configOnlyDone+"\n" {
 		t.Fatal("real config-only upgrade omitted the fresh-state and NEW-chat handoff", out, diagnostic, err)
 	}
 	if after, err := os.ReadFile(brewLog); err != nil || !bytes.Equal(after, brew) {
