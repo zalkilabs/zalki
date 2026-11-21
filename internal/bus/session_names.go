@@ -62,12 +62,12 @@ func (s Store) resolve(destination string) (model.Session, error) {
 	return model.Session{}, model.NewError(model.CodeUnavailable, "no registered session named %q; use list_agents for names and exact IDs", destination)
 }
 
-func (s Store) hookName(id, name string, snapshots ...hookRuntime) error {
+func (s Store) hookName(id, name string, fences ...sessionFence) error {
 	if name != "" && !model.ValidName(name) {
 		return nil
 	}
 	return s.locked(func() error {
-		v, err := sessionForHook(s, id, snapshots...)
+		v, err := sessionUnderFence(s, id, fences...)
 		if os.IsNotExist(err) {
 			return nil
 		}

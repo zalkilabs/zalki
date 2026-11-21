@@ -68,9 +68,9 @@ func ownerFrom(adapter agent.AdapterDescriptor, pid int, read func(int) (procwat
 // (a missing one is not an error), update the owner if the session is not
 // retired or this is a refresh, always update the hook build, and save only if
 // something changed.
-func (s Store) rememberOwner(id, kind string, refresh bool, snapshots ...hookRuntime) error {
+func (s Store) rememberOwner(id, kind string, refresh bool, fences ...sessionFence) error {
 	return s.locked(func() error {
-		v, err := sessionForHook(s, id, snapshots...)
+		v, err := sessionUnderFence(s, id, fences...)
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}

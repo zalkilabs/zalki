@@ -48,7 +48,7 @@ func (s *Service) sessionStartupOutput(hooks agent.HookAdapter, current model.Se
 	}
 	var selected []byte
 	err = WithJournalWrite(s.Store, func(view JournalView) error {
-		fresh, err := sessionForHook(s.Store, current.ID, hookRuntime{actor: current.ID, kind: current.Kind, generation: current.Generation, generationBound: true})
+		fresh, err := sessionUnderFence(s.Store, current.ID, sessionFence{actor: current.ID, kind: current.Kind, generation: current.Generation, bound: true})
 		if err != nil {
 			return err
 		}

@@ -212,19 +212,19 @@ func completionBody(subject model.Session, event, at, line string) string {
 	return body
 }
 
-func (s *Service) notifyWatches(ctx context.Context, actor string, event agent.HookInput, life agent.Lifecycle, asOf time.Time, snapshots ...hookRuntime) error {
+func (s *Service) notifyWatches(ctx context.Context, actor string, event agent.HookInput, life agent.Lifecycle, asOf time.Time, fences ...sessionFence) error {
 	kind, ok := completionKind(event, life)
 	if !ok {
 		return nil
 	}
-	watches, err := consumeHookWatches(s.Store, actor, asOf, snapshots...)
+	watches, err := consumeHookWatches(s.Store, actor, asOf, fences...)
 	if err != nil || len(watches) == 0 {
 		return err
 	}
 	var subject model.Session
 	err = s.Store.readLocked(func() error {
 		var err error
-		subject, err = sessionForHook(s.Store, actor, snapshots...)
+		subject, err = sessionUnderFence(s.Store, actor, fences...)
 		return err
 	})
 	if err != nil {
@@ -338,13 +338,13 @@ func (s *Service) deliverEnded(ctx context.Context, subject model.Session, watch
 	return first
 }
 
-func consumeHookWatches(s Store, actor string, asOf time.Time, snapshots ...hookRuntime) ([]Watch, error) {
-	if len(snapshots) == 0 {
+func consumeHookWatches(s Store, actor string, asOf time.Time, fences ...sessionFence) ([]Watch, error) {
+	if len(fences) == 0 {
 		return s.consumeWatches(actor, asOf)
 	}
 	var due []Watch
 	err := s.locked(func() error {
-		if _, err := sessionForHook(s, actor, snapshots...); err != nil {
+		if _, err := sessionUnderFence(s, actor, fences...); err != nil {
 			return err
 		}
 		var err error

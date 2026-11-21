@@ -180,12 +180,12 @@ func (s Store) Update(id string, state model.SessionState, retire bool) error {
 	return updateSession(s, id, state, retire, "")
 }
 
-func updateSession(s Store, id string, state model.SessionState, retire bool, cause model.EventCause, snapshots ...hookRuntime) error {
+func updateSession(s Store, id string, state model.SessionState, retire bool, cause model.EventCause, fences ...sessionFence) error {
 	if !state.Valid() || (state == model.StateRetired) != retire {
 		return model.NewError(model.CodeInvalidTransition, "invalid session state/retirement transition")
 	}
 	return s.locked(func() error {
-		current, err := sessionForHook(s, id, snapshots...)
+		current, err := sessionUnderFence(s, id, fences...)
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
