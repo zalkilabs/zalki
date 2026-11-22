@@ -128,7 +128,10 @@ func TestCollaborationCost(t *testing.T) {
 	// receipt output schema and state and to_name to the message view (+408 bytes).
 	// 11816 names the required keys in each description, so Codex, which shows no
 	// argument schema, can build a first call without a repair step (+466 bytes).
-	if metrics.SchemaBytes > 11816 {
+	// 11946 tells a receiver that native delivery owns a deferred body, and to
+	// ack_message a shortened one it saw, then read it by message_id, in the
+	// list_messages description (+130 bytes).
+	if metrics.SchemaBytes > 11946 {
 		t.Fatalf("tool schemas exceeded budget: %d bytes", metrics.SchemaBytes)
 	}
 	encoded, _ := json.Marshal(metrics)

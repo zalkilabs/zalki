@@ -227,7 +227,7 @@ func New(service Bus) *mcp.Server {
 			"Share substantive results, reviews, questions, and decisions with the user and relevant agents. " +
 			"Continue useful discussion; avoid repeating unchanged status. A sender's no-reply note does not cancel the user's task. " +
 			"Check timestamps and later updates before acting on old requests. Acceptance is not acknowledgement. " +
-			"Continue useful work; yield when waiting for deferred or next-turn delivery. Never poll or act on body_deferred metadata. " +
+			"Continue useful work; yield when waiting for deferred or next-turn delivery. body_deferred: wait for native delivery; never ack a message you have not seen. If a delivered message was shortened, ack_message it and read it by message_id. " +
 			"runtime.needs_restart means reconnect this server.",
 	})
 	definitions := toolTable()

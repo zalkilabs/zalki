@@ -53,7 +53,9 @@ func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	// parent_acknowledged, and the list_messages message view gains state and to_name.
 	// Then the descriptions name the required keys (actor, capability, to,
 	// message_id) and the credentials come from the newest SessionStart context.
-	const want = "054e89ffcba9585a6341bc9f9eabad4a573c313656f7189dc4311a93bbbf8a9a"
+	// Last, list_messages says who owns a deferred native body and how to read
+	// a shortened one.
+	const want = "fd0400e172676b19e6e7a77cbcc0c3bd9772d3130d82d5c018f8db766f8f568d"
 	if got := fmt.Sprintf("%x", sha256.Sum256(encoded)); got != want {
 		t.Fatalf("advertised tool contract changed: sha256=%s bytes=%d; compare with the pre-refactor contract before updating", got, len(encoded))
 	}

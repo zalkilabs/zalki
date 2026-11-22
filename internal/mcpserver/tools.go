@@ -162,7 +162,7 @@ func toolTable() []toolSpec {
 			return ackReceipt(service.Ack(args.Actor, args.Capability, args.MessageID))
 		}),
 		defineTool(toolDefinition{
-			name: "list_messages", description: "Unread inbox, sent:true history, or exact message_id. Needs actor, capability. History omits bodies. Page with next_cursor. Fetch body_omitted by ID; await body_deferred delivery.",
+			name: "list_messages", description: "Unread inbox, sent:true history, or exact message_id. Needs actor, capability. History omits bodies. Page with next_cursor. Fetch body_omitted by ID; body_deferred: native delivery owns this body; it is shown in your session when delivered. If you saw it shortened, ack_message it, then read it by message_id.",
 			input: schema(inbox, "actor", "capability"), readOnly: true, validate: checkMessageID,
 		}, func(_ context.Context, service Bus, args toolArgs) (MessagePage, error) {
 			messages, err := service.ReadMessages(bus.MessageQuery{
