@@ -113,7 +113,7 @@ func toolTable() []toolSpec {
 	return []toolSpec{
 		defineToolOutput(toolDefinition{
 			name:        "list_agents",
-			description: "Discover agents; registration does not prove a live terminal. Omitted state=ready, liveness=unknown, experimental=false; kind is ID prefix. delivery is busy timing; idle wake unless next_hook (idle_wake overrides). updated_at is last activity in local time with offset, not a heartbeat. task: self-claimed. Optional actor+capability marks self; both must authenticate.",
+			description: "Discover agents; registration does not prove a live terminal. Omitted state=ready, liveness=unknown, experimental=false; kind is ID prefix. delivery is busy timing; idle wake unless next_hook (idle_wake overrides). updated_at is last activity in local time with offset, not a heartbeat. state approval: a permission prompt is open; approval_since says since when. task: self-claimed. Optional actor+capability marks self; both must authenticate.",
 			input:       schema(identity()), readOnly: true,
 			hint: " Omit credentials or provide actor and capability together to mark self.",
 			validate: func(arguments map[string]json.RawMessage) error {

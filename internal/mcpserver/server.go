@@ -53,7 +53,7 @@ func messageReceipt(message model.Message, err error) (MessageReceipt, error) {
 	}
 	if message.IsQueuedForApproval() {
 		receipt.Status = model.StatusQueuedForApproval
-		receipt.Note = "Queued until the target's permission prompt is answered."
+		receipt.Note = heldNote(message)
 		receipt.Error, receipt.Code = "", ""
 		return receipt, err
 	}
@@ -121,7 +121,7 @@ func messageViews(messages []model.Message, actor string, names map[string]strin
 		}
 		if msg.IsQueuedForApproval() {
 			view.Status = model.StatusQueuedForApproval
-			view.Error, view.Code = "", ""
+			view.Error, view.Code = heldHistoryText(msg), ""
 		}
 		views = append(views, deliveryView(view, msg, actor, names))
 	}

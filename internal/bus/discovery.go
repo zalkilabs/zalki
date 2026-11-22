@@ -21,6 +21,9 @@ type AgentInfo struct {
 	Delivery     model.DeliveryTiming `json:"delivery"`
 	IdleWake     *bool                `json:"idle_wake,omitempty"`
 	Experimental bool                 `json:"experimental,omitempty"`
+	// ApprovalSince is when the oldest message held for this session's permission
+	// prompt started to wait. It is set only while a message is held.
+	ApprovalSince string `json:"approval_since,omitempty"`
 }
 
 func (s Store) Discover() ([]AgentInfo, error) {
@@ -40,6 +43,7 @@ func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error)
 	}
 	var sessions []model.Session
 	var skipped int
+	approvalSince := map[string]string{}
 	err := s.readLocked(func() error {
 		if actor != "" {
 			if _, err := s.authenticate(actor, key); err != nil {
@@ -48,7 +52,11 @@ func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error)
 		}
 		var err error
 		sessions, skipped, err = s.sessionsWithWarnings()
-		return err
+		if err != nil {
+			return err
+		}
+		collectHoldStarts(s, sessions, approvalSince)
+		return nil
 	})
 	if err != nil {
 		return nil, 0, err
@@ -58,6 +66,7 @@ func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error)
 		row := AgentInfo{ID: v.ID, Name: v.Name, Self: v.ID == actor, Task: v.Task, CWD: v.CWD, State: v.State,
 			Liveness: v.Liveness, UpdatedAt: v.UpdatedAt,
 			Delivery: v.Receive.BusyDelivery, Experimental: v.Receive.Experimental}
+		row = withApprovalView(row, v, approvalSince[v.ID])
 		if row.State == model.StateReady {
 			row.State = ""
 		}
@@ -76,4 +85,45 @@ func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error)
 		info = append(info, row)
 	}
 	return info, skipped, nil
+}
+
+// oldestHold is a plain function, so the Store gains no method. It is the time the oldest message held for target's permission prompt
+// started to wait, or "" when no readable held message has one. The caller holds
+// the journal lock. It reads, and changes nothing.
+func oldestHold(s Store, target string) string {
+	queued, _, err := s.queuedApprovals(target)
+	if err != nil {
+		return ""
+	}
+	oldest, oldestAt := "", time.Time{}
+	for _, msg := range queued {
+		if msg.Receipt == nil {
+			continue
+		}
+		// Compare the instants, not the text: ".1Z" is earlier than ".11Z".
+		if at, err := time.Parse(time.RFC3339Nano, msg.Receipt.At); err == nil && (oldest == "" || at.Before(oldestAt)) {
+			oldest, oldestAt = msg.Receipt.At, at
+		}
+	}
+	return oldest
+}
+
+// collectHoldStarts fills since with the oldest hold start of each session that
+// has held messages. Only such a session causes a message scan.
+func collectHoldStarts(s Store, sessions []model.Session, since map[string]string) {
+	for _, v := range sessions {
+		if v.ApprovalHeld > 0 {
+			since[v.ID] = oldestHold(s, v.ID)
+		}
+	}
+}
+
+// withApprovalView shows a session with a held message as waiting for a
+// permission prompt, also for a client whose hook does not say so. It changes
+// the view only: no stored state changes.
+func withApprovalView(row AgentInfo, v model.Session, since string) AgentInfo {
+	if since != "" && !v.Retired {
+		row.State, row.ApprovalSince = model.StateApproval, since
+	}
+	return row
 }

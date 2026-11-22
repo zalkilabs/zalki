@@ -2406,5 +2406,75 @@
       }
     },
     "reason": "Adds one exported error value, pluginfeed.ErrFeedWork: the error an ack returns when its work allowance ran out on every try, so the plugin host can keep that ack and try it again on a later tick. No new type, method, import or OS call."
+  },
+  {
+    "base_commit": "cb94632791943dfb3f97f813643b93d9c222e2b2",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "changed": {
+          "type:internal/bus.AgentInfo": {
+            "after": "AgentInfo struct {\n\tID\t\tstring\t\t\t`json:\"id\"`\n\tName\t\tstring\t\t\t`json:\"name,omitempty\"`\n\tSelf\t\tbool\t\t\t`json:\"self,omitempty\"`\n\tTask\t\tstring\t\t\t`json:\"task,omitempty\"`\n\tCWD\t\tstring\t\t\t`json:\"cwd\"`\n\tState\t\tmodel.SessionState\t`json:\"state,omitempty\"`\n\tLiveness\tmodel.Liveness\t\t`json:\"liveness,omitempty\"`\n\tUpdatedAt\tstring\t\t\t`json:\"updated_at\"`\n\tDelivery\tmodel.DeliveryTiming\t`json:\"delivery\"`\n\tIdleWake\t*bool\t\t\t`json:\"idle_wake,omitempty\"`\n\tExperimental\tbool\t\t\t`json:\"experimental,omitempty\"`\n\tApprovalSince\tstring\t\t\t`json:\"approval_since,omitempty\"`\n}",
+            "before": "AgentInfo struct {\n\tID\t\tstring\t\t\t`json:\"id\"`\n\tName\t\tstring\t\t\t`json:\"name,omitempty\"`\n\tSelf\t\tbool\t\t\t`json:\"self,omitempty\"`\n\tTask\t\tstring\t\t\t`json:\"task,omitempty\"`\n\tCWD\t\tstring\t\t\t`json:\"cwd\"`\n\tState\t\tmodel.SessionState\t`json:\"state,omitempty\"`\n\tLiveness\tmodel.Liveness\t\t`json:\"liveness,omitempty\"`\n\tUpdatedAt\tstring\t\t\t`json:\"updated_at\"`\n\tDelivery\tmodel.DeliveryTiming\t`json:\"delivery\"`\n\tIdleWake\t*bool\t\t\t`json:\"idle_wake,omitempty\"`\n\tExperimental\tbool\t\t\t`json:\"experimental,omitempty\"`\n}"
+          }
+        },
+        "removed": {}
+      },
+      "receivers": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "The list_agents rows can carry approval_since, the start of the oldest wait for a permission prompt (new AgentInfo field). It is computed when the answer is built; nothing stored changes."
+  },
+  {
+    "base_commit": "cb94632791943dfb3f97f813643b93d9c222e2b2",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "changed": {
+          "type:internal/bus.AgentInfo": {
+            "after": "AgentInfo struct {\n\tID\t\tstring\t\t\t`json:\"id\"`\n\tName\t\tstring\t\t\t`json:\"name,omitempty\"`\n\tSelf\t\tbool\t\t\t`json:\"self,omitempty\"`\n\tTask\t\tstring\t\t\t`json:\"task,omitempty\"`\n\tCWD\t\tstring\t\t\t`json:\"cwd\"`\n\tState\t\tmodel.SessionState\t`json:\"state,omitempty\"`\n\tLiveness\tmodel.Liveness\t\t`json:\"liveness,omitempty\"`\n\tUpdatedAt\tstring\t\t\t`json:\"updated_at\"`\n\tDelivery\tmodel.DeliveryTiming\t`json:\"delivery\"`\n\tIdleWake\t*bool\t\t\t`json:\"idle_wake,omitempty\"`\n\tExperimental\tbool\t\t\t`json:\"experimental,omitempty\"`\n\tApprovalSince\tstring\t\t\t`json:\"approval_since,omitempty\"`\n}",
+            "before": "AgentInfo struct {\n\tID\t\tstring\t\t\t`json:\"id\"`\n\tName\t\tstring\t\t\t`json:\"name,omitempty\"`\n\tSelf\t\tbool\t\t\t`json:\"self,omitempty\"`\n\tTask\t\tstring\t\t\t`json:\"task,omitempty\"`\n\tCWD\t\tstring\t\t\t`json:\"cwd\"`\n\tState\t\tmodel.SessionState\t`json:\"state,omitempty\"`\n\tLiveness\tmodel.Liveness\t\t`json:\"liveness,omitempty\"`\n\tUpdatedAt\tstring\t\t\t`json:\"updated_at\"`\n\tDelivery\tmodel.DeliveryTiming\t`json:\"delivery\"`\n\tIdleWake\t*bool\t\t\t`json:\"idle_wake,omitempty\"`\n\tExperimental\tbool\t\t\t`json:\"experimental,omitempty\"`\n}"
+          }
+        },
+        "removed": {}
+      },
+      "receivers": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "The list_agents rows can carry approval_since, the start of the oldest wait for a permission prompt (new AgentInfo field). It is computed when the answer is built; nothing stored changes."
   }
 ]
