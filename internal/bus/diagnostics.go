@@ -80,6 +80,9 @@ func (s Store) diagnoseAgents(ctx context.Context, report *DiagnosticReport) {
 		annotateClientCompatibility(ctx, &diagnostic)
 		report.Agents = append(report.Agents, diagnostic)
 		report.Notes = append(report.Notes, d.Notes...)
+		if diagnostic.Receive.RequiresListener {
+			report.Notes = append(report.Notes, d.Label+": agents[].receive is the value without a listener. A session with an armed listener can wake an idle chat by itself; sessions[].receive shows each session.")
+		}
 	}
 }
 

@@ -240,3 +240,49 @@ func TestHookBuildStatus(t *testing.T) {
 		}
 	}
 }
+
+// agents[].receive is built from an empty session, so for a client whose idle
+// wake needs a listener it shows the value without one. A note says so, and
+// sessions[].receive keeps the per-session value.
+func TestDoctorExplainsReceiveWithoutAListener(t *testing.T) {
+	store := fixtureStore(t)
+	t.Setenv("PATH", t.TempDir())
+	report, err := store.Diagnostics(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var withNote []string
+	for _, note := range report.Notes {
+		if strings.Contains(note, "agents[].receive is the value without a listener") {
+			withNote = append(withNote, note)
+		}
+	}
+	if len(withNote) != 1 || !strings.HasPrefix(withNote[0], "Cursor: ") {
+		t.Fatalf("want one note, for Cursor only: %q", withNote)
+	}
+	for _, agent := range report.Agents {
+		if (agent.Kind == "cursor") != agent.Receive.RequiresListener || (agent.Kind == "cursor" && agent.Receive.IdleWake) {
+			t.Fatalf("%s: requires_listener=%v idle_wake=%v", agent.Kind, agent.Receive.RequiresListener, agent.Receive.IdleWake)
+		}
+	}
+}
+
+func TestDoctorSessionsShowTheArmedListenerValue(t *testing.T) {
+	store := fixtureStore(t)
+	t.Setenv("PATH", t.TempDir())
+	armed, _ := register(t, store, "cursor")
+	armed.Listener = &model.ListenerLease{ID: newID(), Generation: armed.Generation}
+	if err := store.saveSession(armed); err != nil {
+		t.Fatal(err)
+	}
+	idle, _ := register(t, store, "cursor")
+	report, err := store.Diagnostics(t.Context())
+	if err != nil || len(report.Sessions) != 2 {
+		t.Fatal(err, len(report.Sessions))
+	}
+	for _, session := range report.Sessions {
+		if want := session.ID == armed.ID; session.Receive.IdleWake != want {
+			t.Fatalf("session %s: idle_wake=%v, want %v (armed %s, other %s)", session.ID, session.Receive.IdleWake, want, armed.ID, idle.ID)
+		}
+	}
+}
