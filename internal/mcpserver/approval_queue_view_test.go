@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -51,7 +52,8 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 		return output.Data
 	}
 	held := send("", "held receipt fixture")
-	if held.Status != model.StatusQueuedForApproval || held.Note != "Queued until the target's permission prompt is answered." || held.Error != "" {
+	const heldNote = "Queued until the target's permission prompt is answered; waiting since "
+	if held.Status != model.StatusQueuedForApproval || !strings.HasPrefix(held.Note, heldNote) || !strings.HasSuffix(held.Note, ".") || strings.Contains(held.Note, " min)") || held.Error != "" {
 		t.Fatalf("held receipt: status=%s note=%q error=%q", held.Status, held.Note, held.Error)
 	}
 	legacy := model.Message{Schema: 1, ID: "00000000-0000-4000-8000-000000000023", From: from.ID, To: to.ID,
@@ -76,7 +78,7 @@ func TestMCPApprovalReceiptsDistinguishHeldMessagesFromLegacyRefusals(t *testing
 	}
 	var page Output[MessagePage]
 	view, _ := json.Marshal(result.StructuredContent)
-	if err := json.Unmarshal(view, &page); err != nil || len(page.Data.Messages) != 1 || page.Data.Messages[0].Status != model.StatusQueuedForApproval || page.Data.Messages[0].Error != "" {
+	if err := json.Unmarshal(view, &page); err != nil || len(page.Data.Messages) != 1 || page.Data.Messages[0].Status != model.StatusQueuedForApproval || !strings.HasPrefix(page.Data.Messages[0].Error, "Waiting for the target's permission prompt since ") {
 		t.Fatal("held history lost its derived queue view", err)
 	}
 	if calls != 0 {

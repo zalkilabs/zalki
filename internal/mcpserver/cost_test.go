@@ -133,7 +133,9 @@ func TestCollaborationCost(t *testing.T) {
 	// list_messages description (+130 bytes).
 	// 11957 says in the list_agents description that updated_at is local time
 	// with an offset (+11 bytes).
-	if metrics.SchemaBytes > 11957 {
+	// 12069 adds the optional approval_since to the list_agents rows and one
+	// sentence about state approval to its description (+112 bytes).
+	if metrics.SchemaBytes > 12069 {
 		t.Fatalf("tool schemas exceeded budget: %d bytes", metrics.SchemaBytes)
 	}
 	encoded, _ := json.Marshal(metrics)

@@ -56,7 +56,8 @@ func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	// Last, list_messages says who owns a deferred native body and how to read
 	// a shortened one.
 	// Then list_agents says that updated_at is local time with an offset.
-	const want = "026ade750839eb0c6a0c28313dba0589f47c76323cc4883263a9c2f4552fa795"
+	// Then list_agents rows can carry approval_since, and its description says so.
+	const want = "ddd88078d97aab83593e54eae6f418563a6880937b8293fff055a7ed48431979"
 	if got := fmt.Sprintf("%x", sha256.Sum256(encoded)); got != want {
 		t.Fatalf("advertised tool contract changed: sha256=%s bytes=%d; compare with the pre-refactor contract before updating", got, len(encoded))
 	}
