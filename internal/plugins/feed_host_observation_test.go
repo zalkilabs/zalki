@@ -20,6 +20,7 @@ type hostFeedCheckpoint struct {
 	LastGap string           `json:"last_gap"`
 	LastAck string           `json:"last_ack"`
 	NeedCut bool             `json:"need_cut"`
+	Backoff int              `json:"backoff"`
 	Pending *json.RawMessage `json:"pending"`
 	Cursor  hostFeedPosition `json:"cursor"`
 	Rows    map[string]struct {

@@ -84,10 +84,12 @@ func (s PluginFeed) nextStream(ctx context.Context, launch *PluginFeedStatus, ex
 		return PluginDelivery{}, nil
 	}
 	var delivery PluginDelivery
-	err := s.withStreamStep(ctx, launch, false, func(step *streamStep) error {
-		var err error
-		delivery, err = s.nextStreamStep(ctx, step, features, expectedID, part)
-		return err
+	err := retryStreamWork(s.stream, func() error {
+		return s.withStreamStep(ctx, launch, false, func(step *streamStep) error {
+			var err error
+			delivery, err = s.nextStreamStep(ctx, step, features, expectedID, part)
+			return err
+		})
 	})
 	if errors.Is(err, errStreamWork) {
 		s.stream.backoff = min(max(s.stream.backoff*2, 1), 60)
@@ -99,6 +101,26 @@ func (s PluginFeed) nextStream(ctx context.Context, launch *PluginFeedStatus, ex
 		s.stream.controlID = delivery.ID
 	}
 	return delivery, err
+}
+
+// streamWorkAttempts is how often one stream call runs its step while the step
+// only misses the 50 ms work budget. A miss on a busy machine is usually
+// short, and a failed try publishes nothing, so another try is safe. Each try
+// opens and closes its own journal step.
+const streamWorkAttempts = 3
+
+// retryStreamWork runs step until it does not fail with errStreamWork, at most
+// streamWorkAttempts times. Only on the last try may the step reset the stream.
+func retryStreamWork(runtime *streamRuntime, step func() error) error {
+	defer func() { runtime.retryWork = false }()
+	var err error
+	for try := 1; try <= streamWorkAttempts; try++ {
+		runtime.retryWork = try < streamWorkAttempts
+		if err = step(); !errors.Is(err, errStreamWork) {
+			return err
+		}
+	}
+	return err
 }
 
 func validStreamOfferRequest(runtime *streamRuntime, ctx context.Context, id string, part int) bool {
@@ -230,6 +252,9 @@ func (s PluginFeed) attemptStreamPart(ctx context.Context, step *streamStep, par
 func (s PluginFeed) streamResourceFailure(step *streamStep, cause error) error {
 	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {
 		return cause
+	}
+	if errors.Is(cause, errStreamWork) && s.stream.retryWork {
+		return cause // another try follows; nothing is reset or published
 	}
 	s.stream.backoff = min(max(s.stream.backoff*2, 1), 60)
 	s.stream.retryAt = s.stream.now().Add(time.Duration(s.stream.backoff) * time.Second)

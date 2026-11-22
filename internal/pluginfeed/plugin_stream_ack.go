@@ -19,10 +19,12 @@ func (s PluginFeed) ackStream(launch *PluginFeedStatus, id string) (string, erro
 	s.stream.mu.Lock()
 	defer s.stream.mu.Unlock()
 	pendingID := ""
-	err := s.withStreamStep(context.Background(), launch, true, func(step *streamStep) error {
-		var err error
-		pendingID, err = s.ackStreamStep(step, id, streamFeaturesOf(launch))
-		return err
+	err := retryStreamWork(s.stream, func() error {
+		return s.withStreamStep(context.Background(), launch, true, func(step *streamStep) error {
+			var err error
+			pendingID, err = s.ackStreamStep(step, id, streamFeaturesOf(launch))
+			return err
+		})
 	})
 	if err == nil && s.stream.offer == id && pendingID != id {
 		s.stream.offer, s.stream.nextPart = "", 0

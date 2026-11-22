@@ -133,7 +133,7 @@ func (x *v2Fixture) runChild(t *testing.T) v2TestOutcome {
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() { done <- Run(ctx, x.store, "arbiter", &x.output, nil) }()
-	x.primeV2MetadataFeed(t)
+	x.primeV2MetadataFeed(t, done)
 	var out v2TestOutcome
 	if !eventuallyWithin(v2ChildResultWait, func() bool {
 		raw, err := os.ReadFile(x.result)
