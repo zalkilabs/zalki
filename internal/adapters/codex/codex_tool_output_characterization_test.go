@@ -55,13 +55,12 @@ func checkCodexSubmission(t *testing.T, mode string, wantJoined bool, wantErr er
 		t.Fatal(err)
 	}
 	thread, output := model.NewUUID(), "exact tool output"
-	calls := serveFakeCodex(t, listener, fakeCodex{Home: root, Thread: thread, Mode: mode})
-	timeout := 2 * time.Second
+	ctx, startDeadline := hangDeadline(t, 200*time.Millisecond)
+	spec := fakeCodex{Home: root, Thread: thread, Mode: mode}
 	if mode == "hang" {
-		timeout = 200 * time.Millisecond
+		spec.OnTurnStart = startDeadline
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), timeout)
-	defer cancel()
+	calls := serveFakeCodex(t, listener, spec)
 	joined, err := submitCodexToolOutput(ctx, endpoint, root, thread, output, "test")
 	if joined != wantJoined || !errors.Is(err, wantErr) {
 		t.Fatalf("joined=%v error=%v; want joined=%v error=%v", joined, err, wantJoined, wantErr)

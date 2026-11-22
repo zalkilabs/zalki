@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -101,16 +102,14 @@ func TestCodexAppServerDeliveryModes(t *testing.T) {
 			thread := model.NewUUID()
 			body := "deliver this exact body"
 			marker := queueSpy(t)
-			spec := fakeCodex{Home: root, Thread: thread, Mode: mode}
-			calls := serveFakeCodex(t, listener, spec)
 			// Fallback modes spawn the native queue path, which is slow under a
 			// loaded full race; 30 s matches production codex delivery.
-			timeout := 30 * time.Second
+			ctx, startDeadline := hangDeadline(t, 400*time.Millisecond)
+			spec := fakeCodex{Home: root, Thread: thread, Mode: mode}
 			if mode == "hang" {
-				timeout = 400 * time.Millisecond
+				spec.OnTurnStart = startDeadline
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
+			calls := serveFakeCodex(t, listener, spec)
 			msg := model.Message{ID: model.NewUUID(), From: "cursor:" + model.NewUUID(), FromLabel: "Cursor", FromName: "Review", To: "codex:" + thread, Body: body, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 			receipt := New(true, "fixture.json").deliverCodex(ctx, msg, model.Session{Kind: "codex", ID: msg.To, NativeID: thread, NativeConfigDir: root})
 			if strings.Contains(receipt.Output+receipt.Error, body) {
@@ -218,6 +217,40 @@ type fakeCodex struct {
 	Home, Thread, Mode string
 	BeforeResponse     func(string)
 	CurrentMode        func() string
+	// OnTurnStart runs when turn/start arrives, before the fake answers or hangs.
+	OnTurnStart func()
+}
+
+// hangDeadline returns a context for a "hang" exchange and a function that
+// starts its deadline. The context lasts 30 s at most. Once started, it ends
+// after window and reports context.DeadlineExceeded, like a real deadline.
+// Call the function when the fake receives turn/start: a deadline that starts
+// earlier can pass before turn/start is written on a loaded machine, and the
+// delivery is then correctly not_sent, not unknown_after_timeout.
+func hangDeadline(t *testing.T, window time.Duration) (context.Context, func()) {
+	t.Helper()
+	inner, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	t.Cleanup(cancel)
+	fired := &atomic.Bool{}
+	return deadlineContext{Context: inner, fired: fired}, func() {
+		time.AfterFunc(window, func() {
+			fired.Store(true)
+			cancel()
+		})
+	}
+}
+
+type deadlineContext struct {
+	context.Context
+	fired *atomic.Bool
+}
+
+func (c deadlineContext) Err() error {
+	err := c.Context.Err()
+	if err != nil && c.fired.Load() {
+		return context.DeadlineExceeded
+	}
+	return err
 }
 
 type observedCodex struct {
@@ -338,11 +371,7 @@ func handleFakeCodex(w http.ResponseWriter, r *http.Request, spec fakeCodex) obs
 		}
 		if request.Method == "turn/start" {
 			seen.turn = request.Params
-			if spec.Mode == "dropped" {
-				return seen
-			}
-			if spec.Mode == "hang" {
-				time.Sleep(2 * time.Second)
+			if fakeTurnStart(spec) {
 				return seen
 			}
 		}
@@ -356,6 +385,21 @@ func handleFakeCodex(w http.ResponseWriter, r *http.Request, spec fakeCodex) obs
 			return seen
 		}
 	}
+}
+
+// fakeTurnStart reports whether the fake stops answering after turn/start.
+func fakeTurnStart(spec fakeCodex) bool {
+	if spec.OnTurnStart != nil {
+		spec.OnTurnStart()
+	}
+	switch spec.Mode {
+	case "dropped":
+		return true
+	case "hang":
+		time.Sleep(2 * time.Second)
+		return true
+	}
+	return false
 }
 
 type codexFakeReply struct {
