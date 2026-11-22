@@ -140,6 +140,13 @@ func (s codexSocket) unchanged() error {
 	return nil
 }
 
+// The delivery paths a receipt can name for the transport log. The bus log
+// allowlists these two values.
+const (
+	deliveryPathAppServer   = "app_server_tool_output"
+	deliveryPathNativeQueue = "native_queue_next_turn"
+)
+
 func (a Adapter) deliverCodex(ctx context.Context, msg model.Message, target model.Session) model.Receipt {
 	id, err := model.UUID(target.NativeID)
 	if err != nil {
@@ -157,7 +164,7 @@ func (a Adapter) deliverCodex(ctx context.Context, msg model.Message, target mod
 	if !a.allowQueueFallback {
 		return a.queueFallbackRefusal()
 	}
-	return queueCodex(ctx, msg, target)
+	return queueCodex(ctx, msg, target).WithPath(deliveryPathNativeQueue)
 }
 
 func deliverCodexAppServer(ctx context.Context, msg model.Message, target model.Session, threadID, clientVersion string) (model.Receipt, bool) {
@@ -179,17 +186,17 @@ func deliverCodexAppServer(ctx context.Context, msg model.Message, target model.
 		}
 		receipt := model.NewReceipt(model.StatusSubmitted)
 		receipt.Output = output
-		return receipt, false
+		return receipt.WithPath(deliveryPathAppServer), false
 	}
 	if errors.Is(err, errCodexApproval) {
-		return failedReceipt(model.StatusApprovalBlocked, err), false
+		return failedReceipt(model.StatusApprovalBlocked, err).WithPath(deliveryPathAppServer), false
 	}
 	if errors.Is(err, errCodexUncertain) {
 		status := model.StatusUnknownWrite
 		if errors.Is(attempt.Err(), context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			status = model.StatusUnknownTimeout
 		}
-		return failedReceipt(status, err), false
+		return failedReceipt(status, err).WithPath(deliveryPathAppServer), false
 	}
 	return model.Receipt{}, true
 }

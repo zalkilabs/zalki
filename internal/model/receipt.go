@@ -1,9 +1,11 @@
 package model
 
 // Receipt records a transport outcome and its public diagnostic fields.
-// Its live cause is retained only in memory and never serialized or persisted.
+// Its live cause and delivery path are retained only in memory and never
+// serialized or persisted.
 type Receipt struct {
 	cause error
+	path  string
 	// At is the receipt's timestamp.
 	At string `json:"at"`
 	// Status is the transport-reported outcome.
@@ -29,6 +31,17 @@ func (r Receipt) WithCause(cause error) Receipt {
 	r.cause = cause
 	return r
 }
+
+// WithPath returns r tagged with the route the adapter took, such as
+// "app_server_tool_output". The tag is for logs only: it is never serialized,
+// persisted, or shown to agents, and it changes no status or text.
+func (r Receipt) WithPath(path string) Receipt {
+	r.path = path
+	return r
+}
+
+// Path returns the route the adapter took, or empty when it did not say.
+func (r Receipt) Path() string { return r.path }
 
 // Cause returns the live diagnostic cause without changing receipt state.
 // This accessor does not unwrap the receipt or expose the cause in JSON.

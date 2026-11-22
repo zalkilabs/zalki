@@ -2234,5 +2234,109 @@
       }
     },
     "reason": "Adds the delivery state to the send, reply and ack results and to sent history: three exported types (DeliveryReceipt, DeliveryView, DeliveryState) and its five state constants in internal/mcpserver. MessagePage lists DeliveryView instead of MessageView. No new method, import or OS call."
+  },
+  {
+    "base_commit": "c7013cb731e34b7653ffb0dea89021b1e408646d",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/model.Receipt.Path",
+          "internal/model.Receipt.WithPath"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/model.Receipt.Path": "func(Receipt) func() string",
+          "function:internal/model.Receipt.WithPath": "func(Receipt) func(path string) Receipt"
+        },
+        "changed": {
+          "type:internal/model.Receipt": {
+            "after": "Receipt struct {\n\tcause\terror\n\tpath\tstring\n\tAt\tstring\t\t`json:\"at\"`\n\tStatus\tDeliveryStatus\t`json:\"status\"`\n\tCode\tErrorCode\t`json:\"code,omitempty\"`\n\tError\tstring\t\t`json:\"error,omitempty\"`\n\tOutput\tstring\t\t`json:\"output,omitempty\"`\n}",
+            "before": "Receipt struct {\n\tcause\terror\n\tAt\tstring\t\t`json:\"at\"`\n\tStatus\tDeliveryStatus\t`json:\"status\"`\n\tCode\tErrorCode\t`json:\"code,omitempty\"`\n\tError\tstring\t\t`json:\"error,omitempty\"`\n\tOutput\tstring\t\t`json:\"output,omitempty\"`\n}"
+          }
+        },
+        "removed": {}
+      },
+      "receivers": {
+        "added": {},
+        "changed": {
+          "internal/model.Receipt": {
+            "after": {
+              "Files": 1,
+              "Methods": 4
+            },
+            "before": {
+              "Files": 1,
+              "Methods": 2
+            }
+          }
+        },
+        "removed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "A delivery receipt can carry a private delivery-path tag for the transport log (new Receipt.WithPath and Receipt.Path). The tag is not serialized or stored. No behavior change."
+  },
+  {
+    "base_commit": "c7013cb731e34b7653ffb0dea89021b1e408646d",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/model.Receipt.Path",
+          "internal/model.Receipt.WithPath"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/model.Receipt.Path": "func(Receipt) func() string",
+          "function:internal/model.Receipt.WithPath": "func(Receipt) func(path string) Receipt"
+        },
+        "changed": {
+          "type:internal/model.Receipt": {
+            "after": "Receipt struct {\n\tcause\terror\n\tpath\tstring\n\tAt\tstring\t\t`json:\"at\"`\n\tStatus\tDeliveryStatus\t`json:\"status\"`\n\tCode\tErrorCode\t`json:\"code,omitempty\"`\n\tError\tstring\t\t`json:\"error,omitempty\"`\n\tOutput\tstring\t\t`json:\"output,omitempty\"`\n}",
+            "before": "Receipt struct {\n\tcause\terror\n\tAt\tstring\t\t`json:\"at\"`\n\tStatus\tDeliveryStatus\t`json:\"status\"`\n\tCode\tErrorCode\t`json:\"code,omitempty\"`\n\tError\tstring\t\t`json:\"error,omitempty\"`\n\tOutput\tstring\t\t`json:\"output,omitempty\"`\n}"
+          }
+        },
+        "removed": {}
+      },
+      "receivers": {
+        "added": {},
+        "changed": {
+          "internal/model.Receipt": {
+            "after": {
+              "Files": 1,
+              "Methods": 4
+            },
+            "before": {
+              "Files": 1,
+              "Methods": 2
+            }
+          }
+        },
+        "removed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "A delivery receipt can carry a private delivery-path tag for the transport log (new Receipt.WithPath and Receipt.Path). The tag is not serialized or stored. No behavior change."
   }
 ]
