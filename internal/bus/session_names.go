@@ -59,7 +59,30 @@ func (s Store) resolve(destination string) (model.Session, error) {
 	if len(matches) > 1 {
 		return model.Session{}, model.NewError(model.CodeConflict, "ambiguous session name %q; use an exact ID: %s", destination, strings.Join(ids, ", "))
 	}
+	if _, err := model.UUID(destination); err == nil {
+		return model.Session{}, model.NewError(model.CodeUnavailable, "no registered session named %q; to needs a complete kind:UUID from list_agents or a session name, and a message ID is not an address: to answer a message use reply_message with its message_id", destination)
+	}
+	if startsAnID(destination, sessions) {
+		return model.Session{}, model.NewError(model.CodeUnavailable, "no registered session named %q; it looks like the start of an ID, so use the complete kind:UUID from list_agents", destination)
+	}
 	return model.Session{}, model.NewError(model.CodeUnavailable, "no registered session named %q; use list_agents for names and exact IDs", destination)
+}
+
+// startsAnID reports whether text has the form kind:hex and is the start of a
+// registered session ID. A plain name never matches. It only chooses the hint;
+// it never resolves.
+func startsAnID(text string, sessions []model.Session) bool {
+	text = strings.ToLower(text)
+	_, digits, ok := strings.Cut(text, ":")
+	if !ok || len(digits) < 4 || strings.Trim(digits, "0123456789abcdef-") != "" {
+		return false
+	}
+	for _, session := range sessions {
+		if len(text) < len(session.ID) && strings.HasPrefix(session.ID, text) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s Store) hookName(id, name string, fences ...sessionFence) error {

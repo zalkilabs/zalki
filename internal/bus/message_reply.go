@@ -67,10 +67,10 @@ func (s Store) prepareReplyLocked(request ReplyRequest) (msg model.Message, targ
 func (s Store) replyParent(actor, id string) (model.Message, error) {
 	parent, err := s.message(id)
 	if err != nil {
-		return parent, err
+		return parent, publicMessageError(err)
 	}
 	if parent.To != actor {
-		return parent, model.NewError(model.CodeUnauthorized, "only the bound recipient can reply")
+		return parent, model.NewError(model.CodeUnauthorized, "only the bound recipient can reply; this message was not sent to you")
 	}
 	if parent.Kind == model.NoticeKind {
 		return parent, model.NewError(model.CodeInvalidInput, "this is an automatic notice; use send_message to %s", parent.From)

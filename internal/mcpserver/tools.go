@@ -84,8 +84,8 @@ func stringField(description string) map[string]string {
 func toolTable() []toolSpec {
 	identity := func() map[string]any {
 		return map[string]any{
-			"actor":      stringField("SessionStart actor."),
-			"capability": stringField("SessionStart capability."),
+			"actor":      stringField("Newest SessionStart actor."),
+			"capability": stringField("Newest SessionStart capability; older are void."),
 		}
 	}
 	send := identity()
@@ -93,9 +93,9 @@ func toolTable() []toolSpec {
 	send["message_id"] = stringField("Optional UUID; supply before sending for retry safety.")
 	send["body"] = stringField("Message text, 1..16384 UTF-8 bytes.")
 	ack := identity()
-	ack["message_id"] = stringField("Incoming message UUID you received.")
+	ack["message_id"] = stringField("ID in the [zalki message ID] header, not Boundary.")
 	reply := identity()
-	reply["message_id"] = stringField("Incoming message ID; outgoing ID is generated.")
+	reply["message_id"] = stringField("Incoming ID from the [zalki message ID] header, not Boundary; outgoing ID is generated.")
 	reply["body"] = send["body"]
 	inbox := identity()
 	inbox["cursor"] = stringField("Use next_cursor to continue a page with the same filters.")
@@ -134,7 +134,7 @@ func toolTable() []toolSpec {
 			return discoveryResult{agents: rows, skipped: skipped}, err
 		}, discoveryOutput),
 		defineTool(toolDefinition{
-			name: "send_message", description: "Send a new agent message; never auto-resend. message aliases body.",
+			name: "send_message", description: "Send a new agent message; never auto-resend. Needs actor, capability, to, body. message aliases body.",
 			input:   schema(send, "actor", "capability", "to", "body"),
 			aliases: []argumentAlias{{"message", "body"}},
 			hint:    " Use body for message text. message_id is optional; pass it to make retries safe.",
@@ -145,10 +145,10 @@ func toolTable() []toolSpec {
 			}))
 		}),
 		defineTool(toolDefinition{
-			name: "reply_message", description: "Acknowledge and reply to the exact sender. Same ID/body never resends; ACK persists if delivery fails. message aliases body; reply_to aliases message_id.",
+			name: "reply_message", description: "Acknowledge and reply to the exact sender. Needs actor, capability, message_id, body. Same ID/body never resends; ACK persists if delivery fails. message aliases body; reply_to aliases message_id.",
 			input:   schema(reply, "actor", "capability", "message_id", "body"),
-			aliases: []argumentAlias{{"message", "body"}, {"reply_to", "message_id"}},
-			hint:    " message_id is the incoming message you are replying to; body is the reply. The outgoing ID is generated.",
+			aliases: []argumentAlias{{"message", "body"}, {"reply_to", "message_id"}}, validate: checkMessageID,
+			hint: " message_id is the incoming message you are replying to; body is the reply. The outgoing ID is generated.",
 		}, func(ctx context.Context, service Bus, args toolArgs) (DeliveryReceipt, error) {
 			return replyReceipt(service, args)(service.Reply(ctx, bus.ReplyRequest{
 				Actor: args.Actor, Capability: args.Capability,
@@ -156,14 +156,14 @@ func toolTable() []toolSpec {
 			}))
 		}),
 		defineTool(toolDefinition{
-			name: "ack_message", description: "Record receipt locally without sending a message.",
-			input: schema(ack, "actor", "capability", "message_id"),
+			name: "ack_message", description: "Record receipt locally without sending a message. Needs actor, capability, message_id.",
+			input: schema(ack, "actor", "capability", "message_id"), validate: checkMessageID,
 		}, func(_ context.Context, service Bus, args toolArgs) (DeliveryReceipt, error) {
 			return ackReceipt(service.Ack(args.Actor, args.Capability, args.MessageID))
 		}),
 		defineTool(toolDefinition{
-			name: "list_messages", description: "Unread inbox, sent:true history, or exact message_id. History omits bodies. Page with next_cursor. Fetch body_omitted by ID; await body_deferred delivery.",
-			input: schema(inbox, "actor", "capability"), readOnly: true,
+			name: "list_messages", description: "Unread inbox, sent:true history, or exact message_id. Needs actor, capability. History omits bodies. Page with next_cursor. Fetch body_omitted by ID; await body_deferred delivery.",
+			input: schema(inbox, "actor", "capability"), readOnly: true, validate: checkMessageID,
 		}, func(_ context.Context, service Bus, args toolArgs) (MessagePage, error) {
 			messages, err := service.ReadMessages(bus.MessageQuery{
 				Actor: args.Actor, Capability: args.Capability,
@@ -174,13 +174,13 @@ func toolTable() []toolSpec {
 			return messagePage(messages, args.MessageID != "", args.Actor, sentNames(service, args, messages.Messages)), err
 		}),
 		defineTool(toolDefinition{
-			name: "watch_agent", description: "One notice when an agent next finishes or ends; expires in 12h.",
+			name: "watch_agent", description: "One notice when an agent next finishes or ends; expires in 12h. Needs actor, capability, to.",
 			input: schema(watch, "actor", "capability", "to"),
 		}, func(_ context.Context, service Bus, args toolArgs) (bus.WatchResult, error) {
 			return service.Watch(args.Actor, args.Capability, args.To)
 		}),
 		defineTool(toolDefinition{
-			name: "set_task", description: "Set your own one-line task. Empty clears. Unverified, omitted when empty, and not an address.",
+			name: "set_task", description: "Set your own one-line task. Needs actor, capability, task. Empty clears. Unverified, omitted when empty, and not an address.",
 			input: schema(task, "actor", "capability", "task"),
 		}, func(_ context.Context, service Bus, args toolArgs) (bus.TaskResult, error) {
 			return service.SetTask(args.Actor, args.Capability, args.Task)

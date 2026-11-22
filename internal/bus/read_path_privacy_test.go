@@ -247,7 +247,7 @@ func TestReadMessagesChecksTheCallerThenTheCursorBeforeScanning(t *testing.T) {
 		query := as(f.a, bus.MessageQuery{Cursor: messageID(101)})
 		query.Capability = "not the capability"
 		_, err := f.read(query)
-		if err == nil || err.Error() != "unauthorized: wrong session capability; use your own SessionStart context" {
+		if err == nil || err.Error() != "unauthorized: wrong session capability; use the actor and capability from your newest SessionStart Zalki context; older capabilities are void" {
 			t.Fatalf("error = %v, want the capability refusal", err)
 		}
 	})

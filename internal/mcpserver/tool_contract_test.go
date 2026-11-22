@@ -51,7 +51,9 @@ func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	// integer (+32 schema bytes, like skipped_sessions); no description changed.
 	// Later, the send, reply and ack output schema gains state, to, to_name and
 	// parent_acknowledged, and the list_messages message view gains state and to_name.
-	const want = "bdaf73111e5b49dc8bd316fa05cfeb42467fd5fd4148422d3330f918c48e93ce"
+	// Then the descriptions name the required keys (actor, capability, to,
+	// message_id) and the credentials come from the newest SessionStart context.
+	const want = "054e89ffcba9585a6341bc9f9eabad4a573c313656f7189dc4311a93bbbf8a9a"
 	if got := fmt.Sprintf("%x", sha256.Sum256(encoded)); got != want {
 		t.Fatalf("advertised tool contract changed: sha256=%s bytes=%d; compare with the pre-refactor contract before updating", got, len(encoded))
 	}
