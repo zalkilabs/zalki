@@ -131,7 +131,9 @@ func TestCollaborationCost(t *testing.T) {
 	// 11946 tells a receiver that native delivery owns a deferred body, and to
 	// ack_message a shortened one it saw, then read it by message_id, in the
 	// list_messages description (+130 bytes).
-	if metrics.SchemaBytes > 11946 {
+	// 11957 says in the list_agents description that updated_at is local time
+	// with an offset (+11 bytes).
+	if metrics.SchemaBytes > 11957 {
 		t.Fatalf("tool schemas exceeded budget: %d bytes", metrics.SchemaBytes)
 	}
 	encoded, _ := json.Marshal(metrics)

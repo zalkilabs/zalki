@@ -79,7 +79,15 @@ func checkUncertainTime(t *testing.T, status model.DeliveryStatus, at string) {
 		}
 		return
 	}
-	want := fmt.Sprintf("Delivery unconfirmed since %s; message %s may have been delivered, so ask the receiver to ACK it and do not resend it without checking.", at, msg.ID)
+	// The stored UTC time is shown in the test zone (+02:00), with its offset.
+	shown := map[string]string{
+		"2026-11-13T23:00:00.123456789Z": "2026-11-14T01:00:00.123456789+02:00",
+		"2026-11-14T01:00:00+02:00":      "2026-11-14T01:00:00+02:00",
+	}[at]
+	if shown == "" {
+		t.Fatalf("no expected local time for %q", at)
+	}
+	want := fmt.Sprintf("Delivery unconfirmed since %s; message %s may have been delivered, so ask the receiver to ACK it and do not resend it without checking.", shown, msg.ID)
 	if view.Error != want {
 		t.Fatal("validated receipt.at formatting changed", view.Error)
 	}

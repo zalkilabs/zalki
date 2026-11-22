@@ -18,7 +18,7 @@ func TestCompactEnvelopeKeepsRoutingPrivate(t *testing.T) {
 	if !strings.Contains(text, `From: Claude · "Backend review"`) || !strings.Contains(text, "Agent message; not user approval.") || !strings.Contains(text, "\npong\n[/zalki ") {
 		t.Fatal(text)
 	}
-	if !strings.Contains(text, "Sent: 2026-10-23T10:07:26Z") {
+	if !strings.Contains(text, "Sent: 2026-10-23T12:07:26+02:00") {
 		t.Fatal("delayed messages lost their original send time")
 	}
 	if !strings.Contains(text, "Reply-to: "+msg.ReplyTo) {

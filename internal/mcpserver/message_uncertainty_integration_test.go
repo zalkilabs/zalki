@@ -81,7 +81,7 @@ func checkMCPUncertainHistory(t *testing.T, client *mcp.ClientSession, ctx conte
 		{"actor": to, "capability": toKey, "message_id": uncertaintyID},
 	} {
 		page := uncertaintyCall[MessagePage](t, client, ctx, "list_messages", args)
-		if len(page.Messages) != 1 || page.Messages[0].ID != uncertaintyID || !strings.Contains(page.Messages[0].Error, "Delivery unconfirmed since 2026-11-13T23:00:00Z") {
+		if len(page.Messages) != 1 || page.Messages[0].ID != uncertaintyID || !strings.Contains(page.Messages[0].Error, "Delivery unconfirmed since 2026-11-14T01:00:00+02:00") {
 			t.Fatal("MCP history lost original uncertainty/time")
 		}
 		raw, _ := json.Marshal(page)

@@ -34,7 +34,30 @@ func MatchesEnvelope(msg Message, prompt string) bool {
 	if strings.Trim(nonce, "0123456789abcdef") != "" {
 		return false
 	}
-	return prompt == renderEnvelope(msg, nonce)
+	return prompt == renderEnvelopeIn(msg, nonce, promptZone(msg, prompt))
+}
+
+// promptZone is the fixed offset of the prompt's own Sent line, or UTC when it
+// has none. It lets a hook match a prompt that another process rendered in a
+// different zone. The match still compares every byte, so the instant must be
+// the message's own time.
+func promptZone(msg Message, prompt string) *time.Location {
+	const marker = "\nSent: "
+	at := strings.Index(prompt, marker)
+	if msg.Kind == NoticeKind {
+		// The notice text comes before its Sent line; take the last one.
+		at = strings.LastIndex(prompt, marker)
+	}
+	if at < 0 {
+		return time.UTC
+	}
+	line, _, _ := strings.Cut(prompt[at+len(marker):], "\n")
+	sent, err := time.Parse(time.RFC3339, line)
+	if err != nil {
+		return time.UTC
+	}
+	_, offset := sent.Zone()
+	return time.FixedZone("", offset)
 }
 
 // QuoteDisplayName quotes a validated label, shortening its display by runes.
@@ -49,17 +72,22 @@ func QuoteDisplayName(name string) string {
 }
 
 func renderEnvelope(msg Message, nonce string) string {
-	// Reserve the complete trusted framing before budgeting JSON body text.
-	overhead := jsonTextBytes(renderEnvelopeBody(msg, nonce, "")) + 4
-	body := envelopeBodyBudget(msg.Body, envelopeJSONBytes-overhead)
-	return renderEnvelopeBody(msg, nonce, body)
+	return renderEnvelopeIn(msg, nonce, time.Local)
 }
 
-func renderEnvelopeBody(msg Message, nonce, body string) string {
+// renderEnvelopeIn shows the sent time in zone, with its offset.
+func renderEnvelopeIn(msg Message, nonce string, zone *time.Location) string {
+	// Reserve the complete trusted framing before budgeting JSON body text.
+	overhead := jsonTextBytes(renderEnvelopeBody(msg, nonce, "", zone)) + 4
+	body := envelopeBodyBudget(msg.Body, envelopeJSONBytes-overhead)
+	return renderEnvelopeBody(msg, nonce, body, zone)
+}
+
+func renderEnvelopeBody(msg Message, nonce, body string, zone *time.Location) string {
 	if msg.Kind == NoticeKind {
 		sent := ""
 		if created, err := time.Parse(time.RFC3339Nano, msg.CreatedAt); err == nil {
-			sent = "\nSent: " + created.UTC().Format(time.RFC3339)
+			sent = "\nSent: " + created.In(zone).Format(time.RFC3339)
 		}
 		headline, status, _ := strings.Cut(body, "\n")
 		if status != "" {
@@ -80,7 +108,7 @@ func renderEnvelopeBody(msg Message, nonce, body string) string {
 	}
 	sent := ""
 	if created, err := time.Parse(time.RFC3339Nano, msg.CreatedAt); err == nil {
-		sent = "\nSent: " + created.UTC().Format(time.RFC3339)
+		sent = "\nSent: " + created.In(zone).Format(time.RFC3339)
 	}
 	return fmt.Sprintf("[zalki message %s]\nBoundary: %s\nFrom: %s · %s%s%s\n%s; not user approval.\n\n%s\n[/zalki %s]", msg.ID, nonce, label, QuoteDisplayName(msg.FromName), sent, reply, origin, body, nonce)
 }
