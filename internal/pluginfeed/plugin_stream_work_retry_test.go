@@ -2,7 +2,9 @@ package pluginfeed
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -108,5 +110,59 @@ func TestStreamAckWorkMissesAreStillAnErrorAfterTheLastTry(t *testing.T) {
 	}
 	if feed.stream.retryWork {
 		t.Fatal("W_RETRY_FLAG_LEAKED")
+	}
+}
+
+// streamMemory is the part of the in-memory stream runtime an ACK must leave
+// alone when it only ran out of work allowance. The budget and clock functions
+// cannot be compared and are not part of it.
+type streamMemory struct {
+	retryAt          time.Time
+	backoff          int
+	offer            string
+	nextPart         int
+	controlID        string
+	integrityEpisode bool
+	integrityPending *streamIntegrity
+	waitingPending   *streamWaiting
+	retryWork        bool
+}
+
+func memoryOf(runtime *streamRuntime) streamMemory {
+	return streamMemory{runtime.retryAt, runtime.backoff, runtime.offer, runtime.nextPart, runtime.controlID,
+		runtime.integrityEpisode, runtime.integrityPending, runtime.waitingPending, runtime.retryWork}
+}
+
+func TestStreamAckExhaustedWorkKeepsTheOfferForALaterAck(t *testing.T) {
+	store := fixtureStore(t)
+	session, _ := register(t, store, "codex")
+	enableFeed(t, store)
+	feed := NewPluginFeed(store, "fake-notifier")
+	launch := streamTestLaunch(t, feed)
+	streamReady(t, feed, launch)
+	primeStreamSession(t, store, feed, launch, session.ID)
+	updateStreamState(t, store, session.ID, model.StateBusy)
+	offer, _ := streamTake(t, feed, launch)
+	ordinary := feed.stream.budget
+	memory := memoryOf(feed.stream)
+	var made int
+	feed.stream.budget = missingBudget(feed, streamWorkAttempts, &made)
+	if _, err := feed.AckPluginFeed(launch, offer.ID); !errors.Is(err, ErrFeedWork) || made != streamWorkAttempts {
+		t.Fatal("W_ACK_EXHAUSTED_WORK_IS_THE_PUBLIC_SIGNAL", err, made)
+	}
+	if memoryOf(feed.stream) != memory {
+		t.Fatal("W_ACK_EXHAUSTED_WORK_LEAVES_THE_RUNTIME_ALONE", memoryOf(feed.stream), memory)
+	}
+	state := readStreamCheckpoint(t, feed)
+	if state.Pending == nil || state.Pending.ID != offer.ID || state.LastAck == offer.ID || state.Backoff != 0 {
+		t.Fatal("W_ACK_EXHAUSTED_WORK_KEEPS_THE_PENDING_OFFER")
+	}
+	feed.stream.budget = ordinary
+	if _, err := feed.AckPluginFeed(launch, offer.ID); err != nil {
+		t.Fatal("W_ACK_LATER_CALL_COMMITS", err)
+	}
+	state = readStreamCheckpoint(t, feed)
+	if state.Pending != nil || state.LastAck != offer.ID || state.States[session.ID].State != model.StateBusy {
+		t.Fatal("W_ACK_LATER_CALL_COMMITS_THE_EVIDENCE", state.LastAck)
 	}
 }

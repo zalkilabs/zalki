@@ -75,6 +75,10 @@ const v2EmptyPoll = time.Second
 // v2AckTimeout bounds an unanswered feed offer while no operation runs.
 const v2AckTimeout = 5 * time.Second
 
+// v2AckRetryWindow bounds how long the host keeps one received ack while the
+// feed keeps running out of its work allowance. It tries again on each tick.
+const v2AckRetryWindow = 30 * time.Second
+
 // Sender stores a message a plugin sends and delivers it. *bus.Service implements it.
 type Sender interface {
 	SendFromPlugin(ctx context.Context, request bus.PluginSendRequest) (model.Message, error)
@@ -104,6 +108,15 @@ type v2Host struct {
 	// requested: terminal stopped the child because the owner disabled
 	// this installation. Set only there; read by runV2Host after loop.
 	requested bool
+	// ackFeed replaces the feed's ack call. Only tests set it.
+	ackFeed func(*pluginfeed.PluginFeedStatus, string) (string, error)
+	// heldAck is the ack the feed could not take yet for lack of work
+	// allowance; heldSince is when it first failed. Only the loop sets them.
+	heldAck   string
+	heldSince time.Time
+	// ackHeld mirrors "heldAck is set" for the pump, which refuses a second
+	// ack while one is held.
+	ackHeld atomic.Bool
 }
 
 // runV2Host serves one child after its hello, with the enabled names.
@@ -169,6 +182,9 @@ func (h *v2Host) pump() {
 // or a second operation before the first result, is a protocol error.
 func (h *v2Host) queue(f *v2Command) bool {
 	if f.Ack != "" {
+		if h.ackHeld.Load() {
+			return false
+		}
 		select {
 		case h.acks <- f.Ack:
 			return true
@@ -223,7 +239,16 @@ func (h *v2Host) loop(out io.Writer, ready string) error {
 }
 
 func (h *v2Host) ack(id string) error {
-	pending, err := h.feed.AckPluginFeed(h.binding, id)
+	take := h.feed.AckPluginFeed
+	if h.ackFeed != nil {
+		take = h.ackFeed
+	}
+	pending, err := take(h.binding, id)
+	if errors.Is(err, pluginfeed.ErrFeedWork) {
+		return holdAck(h, id)
+	}
+	h.heldAck = ""
+	h.ackHeld.Store(false)
 	if err != nil {
 		code := bindingCode(h.feed, h.binding)
 		if code == "" {
@@ -245,9 +270,27 @@ func (h *v2Host) ack(id string) error {
 	return nil
 }
 
+// holdAck keeps an ack the feed could not take for lack of work allowance.
+// The plugin did send it, so the host does not time it out or ask for it
+// again; tick tries it once more. Only when the feed stays out of allowance
+// for v2AckRetryWindow does the host stop, as it did on the first miss before.
+func holdAck(h *v2Host, id string) error {
+	if h.heldAck == "" {
+		h.heldAck, h.heldSince = id, time.Now()
+		h.ackHeld.Store(true)
+	}
+	if time.Since(h.heldSince) > v2AckRetryWindow {
+		return h.terminal("unavailable")
+	}
+	return nil
+}
+
 func (h *v2Host) tick() error {
 	if !slices.Contains(h.enabled, "feed") {
 		return nil // the plugin did not ask for the feed
+	}
+	if h.heldAck != "" {
+		return h.ack(h.heldAck) // no new offer while an ack is waiting
 	}
 	d, err := h.feed.NextPluginFeed(h.ctx, h.binding, "", 0)
 	if err != nil {
