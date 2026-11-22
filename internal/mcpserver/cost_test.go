@@ -124,7 +124,9 @@ func TestCollaborationCost(t *testing.T) {
 	// 10910 adds one optional discovery skip count (+38 bytes, no healthy payload bytes).
 	// 10942 adds the optional list_messages unreadable count, like skipped_sessions
 	// (+32 bytes, no healthy payload bytes).
-	if metrics.SchemaBytes > 10942 {
+	// 11350 adds state, to, to_name and parent_acknowledged to the message
+	// receipt output schema and state and to_name to the message view (+408 bytes).
+	if metrics.SchemaBytes > 11350 {
 		t.Fatalf("tool schemas exceeded budget: %d bytes", metrics.SchemaBytes)
 	}
 	encoded, _ := json.Marshal(metrics)

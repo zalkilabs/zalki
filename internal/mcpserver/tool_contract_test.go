@@ -49,7 +49,9 @@ func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	}
 	// Only list_messages' output schema gains the optional unreadable
 	// integer (+32 schema bytes, like skipped_sessions); no description changed.
-	const want = "43dcfa767e91a155e985b48fe4b9f731ba4f5a23e04c908f65ea9ae69a6962c8"
+	// Later, the send, reply and ack output schema gains state, to, to_name and
+	// parent_acknowledged, and the list_messages message view gains state and to_name.
+	const want = "bdaf73111e5b49dc8bd316fa05cfeb42467fd5fd4148422d3330f918c48e93ce"
 	if got := fmt.Sprintf("%x", sha256.Sum256(encoded)); got != want {
 		t.Fatalf("advertised tool contract changed: sha256=%s bytes=%d; compare with the pre-refactor contract before updating", got, len(encoded))
 	}
