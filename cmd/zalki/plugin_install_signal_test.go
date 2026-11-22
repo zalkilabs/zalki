@@ -8,6 +8,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/plugins"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -30,6 +31,22 @@ type signalInstall struct {
 	process *os.Process
 	state   *os.ProcessState
 	exited  chan struct{}
+}
+
+// restoreSIGHUPForChild makes zalki start with the default SIGHUP action when
+// the test itself runs with SIGHUP ignored (for example under nohup). A child
+// inherits "ignored", and after the first cancel zalki's signal.Reset puts a
+// signal that was ignored at start back to "ignored", so the second SIGHUP
+// could never kill it. A signal the test process catches is reset to its
+// default action in a child.
+func restoreSIGHUPForChild(t *testing.T) {
+	t.Helper()
+	if !signal.Ignored(syscall.SIGHUP) {
+		return
+	}
+	caught := make(chan os.Signal, 1)
+	signal.Notify(caught, syscall.SIGHUP)
+	t.Cleanup(func() { signal.Stop(caught) })
 }
 
 // startSignalInstall starts the real binary with --yes for one session.
@@ -124,6 +141,7 @@ func TestPluginInstallSignalCancels(t *testing.T) {
 // install; the second one ends the process at once by its default action.
 func TestPluginInstallSecondSignalKills(t *testing.T) {
 	binary := checkRealBinary(t)
+	restoreSIGHUPForChild(t) // before the open-file counts: it opens two descriptors
 	for _, c := range cancelSignalCases {
 		fds := openFDs(t)
 		t.Run(c.name, func(t *testing.T) {
