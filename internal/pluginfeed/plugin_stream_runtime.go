@@ -24,6 +24,9 @@ type streamRuntime struct {
 	integrityEpisode bool
 	integrityPending *streamIntegrity
 	waitingPending   *streamWaiting
+	// retryWork is true while a stream step that only missed its work budget
+	// will be run again; such a miss must not reset the stream.
+	retryWork bool
 }
 
 func newStreamRuntime() *streamRuntime {
