@@ -126,7 +126,9 @@ func TestCollaborationCost(t *testing.T) {
 	// (+32 bytes, no healthy payload bytes).
 	// 11350 adds state, to, to_name and parent_acknowledged to the message
 	// receipt output schema and state and to_name to the message view (+408 bytes).
-	if metrics.SchemaBytes > 11350 {
+	// 11816 names the required keys in each description, so Codex, which shows no
+	// argument schema, can build a first call without a repair step (+466 bytes).
+	if metrics.SchemaBytes > 11816 {
 		t.Fatalf("tool schemas exceeded budget: %d bytes", metrics.SchemaBytes)
 	}
 	encoded, _ := json.Marshal(metrics)

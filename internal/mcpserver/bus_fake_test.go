@@ -29,6 +29,9 @@ type observedTool struct {
 	err             error
 }
 
+// fakeMessageID is a valid UUID: reply, ack and list refuse other message IDs.
+const fakeMessageID = "00000000-0000-4000-8000-0000000000a1"
+
 func (f *fakeBus) Send(_ context.Context, r bus.SendRequest) (model.Message, error) {
 	f.calls, f.send = append(f.calls, "Send"), r
 	return model.Message{ID: "sent-1"}, f.err
@@ -109,8 +112,8 @@ func TestEachToolCallsItsBusMethodAndObservesIt(t *testing.T) {
 	}{
 		{"list_agents", cred, "DiscoverWithWarnings:a:k"},
 		{"send_message", with(map[string]any{"to": "t", "body": "b", "message_id": "m"}), "Send"},
-		{"reply_message", with(map[string]any{"message_id": "m", "body": "b"}), "Reply"},
-		{"ack_message", with(map[string]any{"message_id": "m"}), "Ack:a:k:m"},
+		{"reply_message", with(map[string]any{"message_id": fakeMessageID, "body": "b"}), "Reply"},
+		{"ack_message", with(map[string]any{"message_id": fakeMessageID}), "Ack:a:k:" + fakeMessageID},
 		{"list_messages", cred, "ReadMessages"},
 		{"watch_agent", with(map[string]any{"to": "t"}), "Watch:a:k:t"},
 		{"set_task", with(map[string]any{"task": "x"}), "SetTask:a:k:x"},
@@ -138,7 +141,7 @@ func TestEachToolCallsItsBusMethodAndObservesIt(t *testing.T) {
 	if fake.send != (bus.SendRequest{Actor: "a", Capability: "k", To: "t", MessageID: "m", Body: "b"}) {
 		t.Fatalf("send request %+v", fake.send)
 	}
-	if fake.reply != (bus.ReplyRequest{Actor: "a", Capability: "k", MessageID: "m", Body: "b"}) {
+	if fake.reply != (bus.ReplyRequest{Actor: "a", Capability: "k", MessageID: fakeMessageID, Body: "b"}) {
 		t.Fatalf("reply request %+v", fake.reply)
 	}
 	if fake.query.Actor != "a" || fake.query.Capability != "k" {
@@ -150,7 +153,7 @@ func TestToolErrorReachesObserveToolAndOutput(t *testing.T) {
 	boom := errors.New("boom")
 	fake := &fakeBus{err: boom}
 	client, ctx := fakeClient(t, fake)
-	result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: "ack_message", Arguments: map[string]any{"actor": "a", "capability": "k", "message_id": "m"}})
+	result, err := client.CallTool(ctx, &mcp.CallToolParams{Name: "ack_message", Arguments: map[string]any{"actor": "a", "capability": "k", "message_id": fakeMessageID}})
 	if err != nil {
 		t.Fatal(err)
 	}

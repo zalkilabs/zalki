@@ -156,10 +156,13 @@ func newRegistration(s Store, kind, id, cwd string, endpoint *model.Endpoint, in
 	return session, key, nil
 }
 
+// sessionStartHint tells an agent where its current credentials are.
+const sessionStartHint = "use the actor and capability from your newest SessionStart Zalki context; older capabilities are void"
+
 func (s Store) authenticate(id, key string) (model.Session, error) {
 	current, err := s.session(id)
 	if err != nil {
-		return current, err
+		return current, actorLookupError(id, err)
 	}
 	if current.Retired {
 		return current, model.NewError(model.CodeUnavailable, "session is retired; registration is required")
@@ -169,7 +172,7 @@ func (s Store) authenticate(id, key string) (model.Session, error) {
 	}
 	hash := sha256.Sum256([]byte(key))
 	if subtle.ConstantTimeCompare([]byte(current.KeyHash), []byte(hex.EncodeToString(hash[:]))) != 1 {
-		return current, model.NewError(model.CodeUnauthorized, "wrong session capability; use your own SessionStart context")
+		return current, model.NewError(model.CodeUnauthorized, "wrong session capability; "+sessionStartHint)
 	}
 	return current, nil
 }
@@ -273,4 +276,16 @@ func (s Store) ListWithWarnings() ([]model.Session, int, error) {
 func retireSession(v *model.Session, reason string) {
 	v.Retired, v.State, v.RetiredReason, v.Task, v.UpdatedAt = true, model.StateRetired, reason, "", model.Timestamp()
 	releaseListenerLease(v)
+}
+
+// actorLookupError replaces a raw lookup failure of the calling actor with the
+// fix. It names no file path and keeps the code the caller already saw.
+func actorLookupError(id string, err error) error {
+	if model.ValidateSessionAddress(id) != nil {
+		return model.NewError(model.CodeInvalidIdentity, "actor must be the complete kind:UUID; %s", sessionStartHint)
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return model.NewError(model.CodeNotFound, "unknown actor; %s", sessionStartHint)
+	}
+	return err
 }

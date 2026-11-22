@@ -23,6 +23,15 @@ func (s Store) message(id string) (model.Message, error) {
 	return msg, err
 }
 
+// publicMessageError turns a missing message file into a path-free refusal for
+// the calls that take a message ID from the user. Other errors pass through.
+func publicMessageError(err error) error {
+	if errors.Is(err, os.ErrNotExist) {
+		return model.NewError(model.CodeNotFound, "message not found; use the message ID from the [zalki message ID] header or from list_messages")
+	}
+	return err
+}
+
 // eachMessage visits journal files in the same lexical order as filepath.Glob.
 // The caller holds the journal lock and chooses whether a read error is fatal,
 // ignored, or reported. Exact-ID reads do not use this scan.

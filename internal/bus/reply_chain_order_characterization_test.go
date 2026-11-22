@@ -159,9 +159,9 @@ func parentOf(t *testing.T, f replyFixture, change func(parent map[string]any)) 
 }
 
 const (
-	errWrongKey = "unauthorized: wrong session capability; use your own SessionStart context"
+	errWrongKey = "unauthorized: wrong session capability; use the actor and capability from your newest SessionStart Zalki context; older capabilities are void"
 	errRetired  = "unavailable: session is retired; registration is required"
-	errNotBound = "unauthorized: only the bound recipient can reply"
+	errNotBound = "unauthorized: only the bound recipient can reply; this message was not sent to you"
 	errNotSent  = "invalid_transition: cannot acknowledge a message that was not sent"
 )
 

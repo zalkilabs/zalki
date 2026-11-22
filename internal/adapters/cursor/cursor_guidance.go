@@ -22,7 +22,7 @@ func cursorRecoveryContext(binary string, claim agent.RecoveryGrant) string {
 	}
 	command := cursorListenerCommand(binary, claim.Actor, claim.Capability, claim.StateDir, claim.ConfigFile)
 	return fmt.Sprintf("[Zalki local listener recovery]\nZalki registered this resumed chat. Set up its listener using the private instructions below.\n%s\nYour registered Cursor session has no verified live listener. "+
-		"Your actor remains %s. Your refreshed private capability is %s; use it for future zalki calls. "+
+		"Your actor remains %s. Your refreshed private capability is %s; use it for future zalki calls; it is one 72-character value, so copy all of it, and earlier capabilities are void. "+
 		"This replaces only your own previous capability; never reveal it or borrow another session's. "+
 		"If a listener setup command was already denied, do not retry it: report that and keep deferred hook delivery. "+
 		"Otherwise, under your normal permissions, arm one native Shell background task with block_until_ms=0 and "+

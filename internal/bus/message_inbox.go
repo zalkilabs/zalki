@@ -121,7 +121,7 @@ func (s Store) readExactMessage(r messageRead) (model.Message, error) {
 	actor := r.query.Actor
 	message, err := s.message(r.query.MessageID)
 	if err != nil {
-		return model.Message{}, err
+		return model.Message{}, publicMessageError(err)
 	}
 	if message.From != actor && message.To != actor {
 		return model.Message{}, model.NewError(model.CodeUnauthorized, "message belongs to another session")
