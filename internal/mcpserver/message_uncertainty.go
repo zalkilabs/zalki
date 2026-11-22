@@ -31,7 +31,7 @@ func uncertaintyText(msg model.Message, actor string, history bool) string {
 	if !history || msg.Receipt == nil || !validUncertaintyTime(msg.Receipt.At) {
 		return text
 	}
-	since := fmt.Sprintf(uncertainSinceText, msg.Receipt.At, msg.ID)
+	since := fmt.Sprintf(uncertainSinceText, localTime(msg.Receipt.At), msg.ID)
 	if actor == msg.To {
 		return text + "\n\n" + since
 	}

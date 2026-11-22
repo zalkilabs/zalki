@@ -55,7 +55,8 @@ func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	// message_id) and the credentials come from the newest SessionStart context.
 	// Last, list_messages says who owns a deferred native body and how to read
 	// a shortened one.
-	const want = "fd0400e172676b19e6e7a77cbcc0c3bd9772d3130d82d5c018f8db766f8f568d"
+	// Then list_agents says that updated_at is local time with an offset.
+	const want = "026ade750839eb0c6a0c28313dba0589f47c76323cc4883263a9c2f4552fa795"
 	if got := fmt.Sprintf("%x", sha256.Sum256(encoded)); got != want {
 		t.Fatalf("advertised tool contract changed: sha256=%s bytes=%d; compare with the pre-refactor contract before updating", got, len(encoded))
 	}

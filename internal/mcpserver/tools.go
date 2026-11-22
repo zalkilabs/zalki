@@ -113,7 +113,7 @@ func toolTable() []toolSpec {
 	return []toolSpec{
 		defineToolOutput(toolDefinition{
 			name:        "list_agents",
-			description: "Discover agents; registration does not prove a live terminal. Omitted state=ready, liveness=unknown, experimental=false; kind is ID prefix. delivery is busy timing; idle wake unless next_hook (idle_wake overrides). updated_at is last activity in UTC seconds, not a heartbeat. task: self-claimed. Optional actor+capability marks self; both must authenticate.",
+			description: "Discover agents; registration does not prove a live terminal. Omitted state=ready, liveness=unknown, experimental=false; kind is ID prefix. delivery is busy timing; idle wake unless next_hook (idle_wake overrides). updated_at is last activity in local time with offset, not a heartbeat. task: self-claimed. Optional actor+capability marks self; both must authenticate.",
 			input:       schema(identity()), readOnly: true,
 			hint: " Omit credentials or provide actor and capability together to mark self.",
 			validate: func(arguments map[string]json.RawMessage) error {
@@ -177,7 +177,7 @@ func toolTable() []toolSpec {
 			name: "watch_agent", description: "One notice when an agent next finishes or ends; expires in 12h. Needs actor, capability, to.",
 			input: schema(watch, "actor", "capability", "to"),
 		}, func(_ context.Context, service Bus, args toolArgs) (bus.WatchResult, error) {
-			return service.Watch(args.Actor, args.Capability, args.To)
+			return localWatch(service.Watch(args.Actor, args.Capability, args.To))
 		}),
 		defineTool(toolDefinition{
 			name: "set_task", description: "Set your own one-line task. Needs actor, capability, task. Empty clears. Unverified, omitted when empty, and not an address.",

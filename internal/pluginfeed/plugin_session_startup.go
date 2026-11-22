@@ -182,5 +182,7 @@ func sessionInstallNotice(p pluginRecord) string {
 		}
 		installer = "session " + label
 	}
-	return fmt.Sprintf("New plugin: %s, installed %s UTC by %s. See: zalki plugins list", p.Name, at.UTC().Format("15:04"), installer)
+	// The time is for the agent to read: local time with its offset. The stored
+	// InstalledAt stays UTC.
+	return fmt.Sprintf("New plugin: %s, installed %s by %s. See: zalki plugins list", p.Name, at.Local().Format("15:04 -07:00"), installer)
 }

@@ -112,7 +112,7 @@ func messageViews(messages []model.Message, actor string, names map[string]strin
 	for _, msg := range messages {
 		view := MessageView{ID: msg.ID, From: msg.From, FromName: msg.FromName, FromLabel: msg.FromLabel, Kind: msg.Kind,
 			To: msg.To, Body: msg.Body, Preview: msg.BodyPreview, BodyDeferred: msg.BodyDeferred, BodyOmitted: msg.BodyOmitted, ReplyTo: msg.ReplyTo,
-			CreatedAt: msg.CreatedAt, Status: msg.Status, AcknowledgedAt: msg.AcknowledgedAt}
+			CreatedAt: localTime(msg.CreatedAt), Status: msg.Status, AcknowledgedAt: localTime(msg.AcknowledgedAt)}
 		if msg.Receipt != nil {
 			view.Error, view.Code = msg.Receipt.Error, msg.Receipt.Code
 		}
@@ -182,13 +182,13 @@ type discoveryResult struct {
 func toolOutput[T any](service Bus, value T, err error) Output[T] {
 	output := Output[T]{Data: value, Runtime: runtimeWarning(service)}
 	if err != nil {
-		output.Error = &ToolError{Code: model.ErrorCodeOf(err), Message: err.Error()}
+		output.Error = &ToolError{Code: model.ErrorCodeOf(err), Message: localErrorText(err)}
 	}
 	return output
 }
 
 func discoveryOutput(service Bus, value discoveryResult, err error) DiscoveryOutput {
-	output := toolOutput(service, value.agents, err)
+	output := toolOutput(service, localAgents(value.agents), err)
 	return DiscoveryOutput{Data: output.Data, SkippedSessions: value.skipped, Runtime: output.Runtime, Error: output.Error}
 }
 
