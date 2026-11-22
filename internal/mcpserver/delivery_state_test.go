@@ -267,3 +267,10 @@ func TestInstructionsExplainTheStatesAndAckMessage(t *testing.T) {
 		}
 	}
 }
+
+// isQueuedReplyReceipt reports whether a reply result to a Cursor receiver has
+// exactly the keys of a compact receipt: the stored receipt, the state, the
+// receiver and the parent acknowledgement.
+func isQueuedReplyReceipt(data map[string]any, receiver string) bool {
+	return len(data) == 7 && data["state"] == string(StateQueued) && data["parent_acknowledged"] == true && data["to"] == receiver
+}
