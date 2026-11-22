@@ -18,6 +18,11 @@ import (
 
 var errStreamWork = errors.New("bounded plugin feed work is unavailable")
 
+// ErrFeedWork is what AckPluginFeed returns when its work allowance ran out on
+// every try. The call published nothing, so the same ACK may be sent again
+// later; no other error from it is safe to retry.
+var ErrFeedWork = errStreamWork
+
 type streamBudget struct {
 	mu        sync.Mutex
 	ctx       context.Context

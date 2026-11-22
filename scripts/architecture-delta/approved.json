@@ -2338,5 +2338,73 @@
       }
     },
     "reason": "A delivery receipt can carry a private delivery-path tag for the transport log (new Receipt.WithPath and Receipt.Path). The tag is not serialized or stored. No behavior change."
+  },
+  {
+    "base_commit": "ac339d4a10f61d3fd9cb54548854ccc6879f2df5",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/pluginfeed.ErrFeedWork"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "var:internal/pluginfeed.ErrFeedWork": "ErrFeedWork = errStreamWork"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Adds one exported error value, pluginfeed.ErrFeedWork: the error an ack returns when its work allowance ran out on every try, so the plugin host can keep that ack and try it again on a later tick. No new type, method, import or OS call."
+  },
+  {
+    "base_commit": "ac339d4a10f61d3fd9cb54548854ccc6879f2df5",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/pluginfeed.ErrFeedWork"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "var:internal/pluginfeed.ErrFeedWork": "ErrFeedWork = errStreamWork"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Adds one exported error value, pluginfeed.ErrFeedWork: the error an ack returns when its work allowance ran out on every try, so the plugin host can keep that ack and try it again on a later tick. No new type, method, import or OS call."
   }
 ]
