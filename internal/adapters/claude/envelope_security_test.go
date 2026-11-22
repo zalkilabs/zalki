@@ -56,7 +56,7 @@ func checkClaudeSecurityFrame(t *testing.T, body, kind string) {
 	}
 	text := frame.Message.Content
 	checkCapturedBoundary(t, text)
-	if strings.HasPrefix(body, "<<<") && !strings.Contains(text, "[Display shortened; read the full body by message ID.]") {
+	if strings.HasPrefix(body, "<<<") && !strings.Contains(text, "[Display shortened; call ack_message, then read the full body by message ID.]") {
 		t.Fatal("large HTML body lost read-full guidance")
 	}
 	if strings.Count(text, "[/zalki ") != 1 || strings.Count(text, "[zalki message ")+strings.Count(text, "[zalki notice ") != 1 || strings.ContainsAny(text, "\x1b\u202e\uFE0F\u034F") {

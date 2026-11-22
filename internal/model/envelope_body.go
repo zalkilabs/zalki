@@ -12,7 +12,7 @@ import (
 const (
 	envelopeDisplayBytes = 16 * 1024
 	envelopeJSONBytes    = 32 * 1024
-	displayShortened     = "\n[Display shortened; read the full body by message ID.]"
+	displayShortened     = "\n[Display shortened; call ack_message, then read the full body by message ID.]"
 )
 
 var bodyMarker = regexp.MustCompile(`(?i)\[\s*(?:/\s*zalki|zalki\s+(?:message|notice))`)

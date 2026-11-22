@@ -40,7 +40,8 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 	instructions := session.InitializeResult().Instructions
 	for _, guidance := range []string{
 		"Continue useful work; yield when waiting for deferred or next-turn delivery.",
-		"Never poll or act on body_deferred metadata.",
+		"body_deferred: wait for native delivery; never ack a message you have not seen.",
+		"If a delivered message was shortened, ack_message it and read it by message_id.",
 		"Acceptance is not acknowledgement.",
 		"no ACK-only messages",
 	} {
