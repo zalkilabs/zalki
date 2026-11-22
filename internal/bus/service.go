@@ -138,6 +138,7 @@ func (s *Service) runTransport(ctx context.Context, deliver func(context.Context
 	receipt := deliver(ctx, msg, target)
 	data := messageEvent(msg)
 	data.ReceiptStatus = receipt.Status
+	data.DeliveryPath = receipt.Path()
 	data.Code = receipt.Code
 	data.Err = receipt.Cause()
 	data.Agent = target.Kind

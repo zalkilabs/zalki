@@ -77,3 +77,15 @@ func TestNewReceiptPreservesStatusWithoutValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestReceiptDeliveryPathIsPrivate(t *testing.T) {
+	original := Receipt{At: "at", Status: "submitted"}
+	tagged := original.WithPath("app_server_tool_output")
+	if tagged.Path() != "app_server_tool_output" || original.Path() != "" {
+		t.Fatal("WithPath changed the original or lost the tag")
+	}
+	encoded, err := json.Marshal(tagged)
+	if err != nil || string(encoded) != `{"at":"at","status":"submitted"}` {
+		t.Fatalf("delivery path reached JSON: %s %v", encoded, err)
+	}
+}

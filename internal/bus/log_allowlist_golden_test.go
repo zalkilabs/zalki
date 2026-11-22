@@ -28,7 +28,7 @@ import (
 //  3. agent: kept only if it is a registered adapter kind.
 //  4. hook_event: kept only if it is one of the standard hook events.
 //  5. hook_stage: kept only if it is one of the 15 fixed hook stages.
-//  6. status, receipt_status, state: kept only if they are valid values.
+//  6. status, receipt_status, state, delivery_path: kept only if they are valid values.
 //  7. error_kind: the class of Err (never its text); only if Err is set.
 //  8. error_code: Code, or the code of Err when Code is empty; a code outside
 //     the known allowlist is written as "internal"; rate_limited is preserved
@@ -209,6 +209,9 @@ func TestLogEventKeepsOnlyValidStatusesAndStates(t *testing.T) {
 		{"an invalid status is dropped", eventData{Status: "secret-status"}, nil},
 		{"an invalid receipt status is dropped", eventData{ReceiptStatus: "secret-status"}, nil},
 		{"an invalid state is dropped", eventData{State: "secret-state"}, nil},
+		{"a known delivery path is kept", eventData{DeliveryPath: "app_server_tool_output"}, []string{"delivery_path=app_server_tool_output"}},
+		{"the queue delivery path is kept", eventData{DeliveryPath: "native_queue_next_turn"}, []string{"delivery_path=native_queue_next_turn"}},
+		{"an unknown delivery path is dropped", eventData{DeliveryPath: "secret-path"}, nil},
 		{"the empty values are dropped", eventData{}, nil},
 	})
 }
@@ -261,13 +264,14 @@ func TestLogEventWritesEverythingInOneFixedOrder(t *testing.T) {
 		Actor: "codex:" + goodUUID, Recipient: "claude:" + otherUUID, MessageID: goodUUID, ReplyTo: otherUUID, Generation: thirdUUID,
 		Agent: "cursor", HookEvent: "Stop", HookStage: "decode",
 		Status: model.StatusSubmitted, ReceiptStatus: model.StatusNotSent, State: model.StateReady,
-		Code: model.CodeConflict, Err: errors.New("secret"), Duration: 3 * time.Millisecond, Reused: true,
+		DeliveryPath: "native_queue_next_turn",
+		Code:         model.CodeConflict, Err: errors.New("secret"), Duration: 3 * time.Millisecond, Reused: true,
 	}
 	want := []string{
 		"message_id=" + goodUUID, "reply_to=" + otherUUID, "generation=" + thirdUUID,
 		"actor=codex:" + goodUUID, "recipient=claude:" + otherUUID,
 		"agent=cursor", "hook_event=Stop", "hook_stage=decode",
-		"status=submitted", "receipt_status=not_sent", "state=ready",
+		"status=submitted", "receipt_status=not_sent", "state=ready", "delivery_path=native_queue_next_turn",
 		"error_kind=other", "error_code=conflict", "duration_ms=3", "reused=true",
 	}
 	if got := loggedAttrs(t, all); !slices.Equal(got, want) {
@@ -281,7 +285,7 @@ func TestLogEventWithSecretsInEveryFieldEmitsOnlyTheErrorClass(t *testing.T) {
 		Actor: secret, Recipient: secret, MessageID: secret, ReplyTo: secret, Generation: secret,
 		Agent: secret, HookEvent: secret, HookStage: secret,
 		Status: model.DeliveryStatus(secret), ReceiptStatus: model.DeliveryStatus(secret), State: model.SessionState(secret),
-		Code: model.ErrorCode(secret), Err: errors.New(secret),
+		Code: model.ErrorCode(secret), Err: errors.New(secret), DeliveryPath: secret,
 	})
 	want := []string{"error_kind=other", "error_code=internal"}
 	if !slices.Equal(got, want) {

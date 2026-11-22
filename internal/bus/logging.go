@@ -20,6 +20,7 @@ type eventData struct {
 	Status, ReceiptStatus                            model.DeliveryStatus
 	State                                            model.SessionState
 	Code                                             model.ErrorCode
+	DeliveryPath                                     string
 	Err                                              error
 	Duration                                         time.Duration
 	Reused                                           bool
@@ -92,7 +93,7 @@ func (s Store) appendAgentAndHookAttrs(attrs []slog.Attr, data eventData) []slog
 	return attrs
 }
 
-// appendStatusAttrs adds status, receipt_status and state, each only if valid.
+// appendStatusAttrs adds status, receipt_status, state and delivery_path, each only if valid.
 func appendStatusAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 	if data.Status.Valid() {
 		attrs = append(attrs, slog.String("status", string(data.Status)))
@@ -102,6 +103,10 @@ func appendStatusAttrs(attrs []slog.Attr, data eventData) []slog.Attr {
 	}
 	if data.State.Valid() {
 		attrs = append(attrs, slog.String("state", string(data.State)))
+	}
+	switch data.DeliveryPath {
+	case "app_server_tool_output", "native_queue_next_turn":
+		attrs = append(attrs, slog.String("delivery_path", data.DeliveryPath))
 	}
 	return attrs
 }
