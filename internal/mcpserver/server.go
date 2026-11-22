@@ -107,8 +107,8 @@ type MessageView struct {
 	Code           model.ErrorCode      `json:"code,omitempty"`
 }
 
-func messageViews(messages []model.Message, actor string) []MessageView {
-	views := make([]MessageView, 0, len(messages))
+func messageViews(messages []model.Message, actor string, names map[string]string) []DeliveryView {
+	views := make([]DeliveryView, 0, len(messages))
 	for _, msg := range messages {
 		view := MessageView{ID: msg.ID, From: msg.From, FromName: msg.FromName, FromLabel: msg.FromLabel, Kind: msg.Kind,
 			To: msg.To, Body: msg.Body, Preview: msg.BodyPreview, BodyDeferred: msg.BodyDeferred, BodyOmitted: msg.BodyOmitted, ReplyTo: msg.ReplyTo,
@@ -123,7 +123,7 @@ func messageViews(messages []model.Message, actor string) []MessageView {
 			view.Status = model.StatusQueuedForApproval
 			view.Error, view.Code = "", ""
 		}
-		views = append(views, view)
+		views = append(views, deliveryView(view, msg, actor, names))
 	}
 	return views
 }
@@ -131,20 +131,20 @@ func messageViews(messages []model.Message, actor string) []MessageView {
 const messagePageBytes = 24 * 1024
 
 type MessagePage struct {
-	Messages   []MessageView `json:"messages"`
-	More       bool          `json:"more"`
-	NextCursor string        `json:"next_cursor,omitempty"`
+	Messages   []DeliveryView `json:"messages"`
+	More       bool           `json:"more"`
+	NextCursor string         `json:"next_cursor,omitempty"`
 	// Unreadable counts message files skipped as unreadable or unsupported.
 	Unreadable int `json:"unreadable,omitempty"`
 }
 
-func messagePage(batch bus.MessageBatch, exact bool, actor string) MessagePage {
-	page := MessagePage{Messages: []MessageView{}, More: batch.More, Unreadable: batch.Unreadable}
+func messagePage(batch bus.MessageBatch, exact bool, actor string, names map[string]string) MessagePage {
+	page := MessagePage{Messages: []DeliveryView{}, More: batch.More, Unreadable: batch.Unreadable}
 	used := len(`{"messages":[],"more":false,"next_cursor":"00000000-0000-4000-8000-000000000000"}`)
 	if page.Unreadable > 0 {
 		used += len(`,"unreadable":`) + len(strconv.Itoa(page.Unreadable))
 	}
-	for _, view := range messageViews(batch.Messages, actor) {
+	for _, view := range messageViews(batch.Messages, actor, names) {
 		encoded, _ := json.Marshal(view)
 		if !exact && used+len(encoded)+1 > messagePageBytes {
 			if len(page.Messages) != 0 {
@@ -222,6 +222,8 @@ type Bus interface {
 func New(service Bus) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "zalki", Version: bus.BuildVersion()}, &mcp.ServerOptions{
 		Instructions: "Keep receipt bookkeeping silent; no ACK-only messages or ACK narration unless requested. " +
+			"When a message needs no reply, call ack_message (it sends nothing). reply_message also acknowledges the message you answer. " +
+			"A send or reply result has a state: queued (waiting), delivered (handed to the receiver's client, not confirmed read), read (the receiver called ack_message or reply_message), failed, or unknown (may have arrived). acknowledged:false only means not read yet, not an error. Check later with list_messages sent:true. " +
 			"Share substantive results, reviews, questions, and decisions with the user and relevant agents. " +
 			"Continue useful discussion; avoid repeating unchanged status. A sender's no-reply note does not cancel the user's task. " +
 			"Check timestamps and later updates before acting on old requests. Acceptance is not acknowledgement. " +

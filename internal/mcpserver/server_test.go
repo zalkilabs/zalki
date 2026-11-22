@@ -310,7 +310,7 @@ func TestBinarySTDIOAndCursorHook(t *testing.T) {
 	if err != nil || len(items) != 1 || items[0].Status != "pending_next_activity" || items[0].To != to.ID || items[0].RequestedTo != "cursor:fixture receiver" {
 		t.Fatalf("%+v %v", items, err)
 	}
-	read := func(actor, capability string, history bool) []MessageView {
+	read := func(actor, capability string, history bool) []DeliveryView {
 		t.Helper()
 		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_messages", Arguments: map[string]any{
 			"actor": actor, "capability": capability, "history": history,
@@ -398,7 +398,7 @@ func TestBinarySTDIOAndCursorHook(t *testing.T) {
 		var value struct {
 			Data map[string]any `json:"data"`
 		}
-		if err := json.Unmarshal(encoded, &value); err != nil || len(value.Data) != 4 || value.Data["status"] != "pending_next_activity" || value.Data["acknowledged"] != false || value.Data["note"] != "Deferred until the next delivery hook." {
+		if err := json.Unmarshal(encoded, &value); err != nil || !isQueuedReplyReceipt(value.Data, from.ID) || value.Data["status"] != "pending_next_activity" || value.Data["acknowledged"] != false || value.Data["note"] != "Deferred until the next delivery hook." {
 			t.Fatalf("reply must return a compact outgoing receipt: %s %v", encoded, err)
 		}
 		currentID, ok := value.Data["id"].(string)

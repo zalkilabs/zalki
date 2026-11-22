@@ -138,8 +138,8 @@ func toolTable() []toolSpec {
 			input:   schema(send, "actor", "capability", "to", "body"),
 			aliases: []argumentAlias{{"message", "body"}},
 			hint:    " Use body for message text. message_id is optional; pass it to make retries safe.",
-		}, func(ctx context.Context, service Bus, args toolArgs) (MessageReceipt, error) {
-			return messageReceipt(service.Send(ctx, bus.SendRequest{
+		}, func(ctx context.Context, service Bus, args toolArgs) (DeliveryReceipt, error) {
+			return sentReceipt(service, args)(service.Send(ctx, bus.SendRequest{
 				Actor: args.Actor, Capability: args.Capability,
 				To: args.To, MessageID: args.MessageID, Body: args.Body,
 			}))
@@ -149,8 +149,8 @@ func toolTable() []toolSpec {
 			input:   schema(reply, "actor", "capability", "message_id", "body"),
 			aliases: []argumentAlias{{"message", "body"}, {"reply_to", "message_id"}},
 			hint:    " message_id is the incoming message you are replying to; body is the reply. The outgoing ID is generated.",
-		}, func(ctx context.Context, service Bus, args toolArgs) (MessageReceipt, error) {
-			return messageReceipt(service.Reply(ctx, bus.ReplyRequest{
+		}, func(ctx context.Context, service Bus, args toolArgs) (DeliveryReceipt, error) {
+			return replyReceipt(service, args)(service.Reply(ctx, bus.ReplyRequest{
 				Actor: args.Actor, Capability: args.Capability,
 				MessageID: args.MessageID, Body: args.Body,
 			}))
@@ -158,8 +158,8 @@ func toolTable() []toolSpec {
 		defineTool(toolDefinition{
 			name: "ack_message", description: "Record receipt locally without sending a message.",
 			input: schema(ack, "actor", "capability", "message_id"),
-		}, func(_ context.Context, service Bus, args toolArgs) (MessageReceipt, error) {
-			return messageReceipt(service.Ack(args.Actor, args.Capability, args.MessageID))
+		}, func(_ context.Context, service Bus, args toolArgs) (DeliveryReceipt, error) {
+			return ackReceipt(service.Ack(args.Actor, args.Capability, args.MessageID))
 		}),
 		defineTool(toolDefinition{
 			name: "list_messages", description: "Unread inbox, sent:true history, or exact message_id. History omits bodies. Page with next_cursor. Fetch body_omitted by ID; await body_deferred delivery.",
@@ -171,7 +171,7 @@ func toolTable() []toolSpec {
 				Sent: args.Sent, To: args.To, Preview: args.Preview,
 				MessageID: args.MessageID, IncludeBody: args.IncludeBody, Cursor: args.Cursor,
 			})
-			return messagePage(messages, args.MessageID != "", args.Actor), err
+			return messagePage(messages, args.MessageID != "", args.Actor, sentNames(service, args, messages.Messages)), err
 		}),
 		defineTool(toolDefinition{
 			name: "watch_agent", description: "One notice when an agent next finishes or ends; expires in 12h.",

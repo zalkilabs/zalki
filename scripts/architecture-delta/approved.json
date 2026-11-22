@@ -2128,5 +2128,111 @@
       }
     },
     "reason": "Removes the one-time state archive command and its two private types (archiveLocks, stateArchivePlan); cmd/zalki no longer imports internal/fsutil. No export, shape or OS call changes."
+  },
+  {
+    "base_commit": "668497be1a45f2278722c3f45bbf41604deef406",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/mcpserver.DeliveryReceipt",
+          "internal/mcpserver.DeliveryState",
+          "internal/mcpserver.DeliveryView",
+          "internal/mcpserver.StateDelivered",
+          "internal/mcpserver.StateFailed",
+          "internal/mcpserver.StateQueued",
+          "internal/mcpserver.StateRead",
+          "internal/mcpserver.StateUnknown"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "const:internal/mcpserver.StateDelivered": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateFailed": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateQueued": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateRead": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateUnknown": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "type:internal/mcpserver.DeliveryReceipt": "DeliveryReceipt struct {\n\tMessageReceipt\n\tState\t\t\tDeliveryState\t`json:\"state,omitempty\"`\n\tTo\t\t\tstring\t\t`json:\"to,omitempty\"`\n\tToName\t\t\tstring\t\t`json:\"to_name,omitempty\"`\n\tParentAcknowledged\tbool\t\t`json:\"parent_acknowledged,omitempty\"`\n}",
+          "type:internal/mcpserver.DeliveryState": "DeliveryState string",
+          "type:internal/mcpserver.DeliveryView": "DeliveryView struct {\n\tMessageView\n\tState\tDeliveryState\t`json:\"state,omitempty\"`\n\tToName\tstring\t\t`json:\"to_name,omitempty\"`\n}"
+        },
+        "removed": {},
+        "changed": {
+          "type:internal/mcpserver.MessagePage": {
+            "before": "MessagePage struct {\n\tMessages\t[]MessageView\t`json:\"messages\"`\n\tMore\t\tbool\t\t`json:\"more\"`\n\tNextCursor\tstring\t\t`json:\"next_cursor,omitempty\"`\n\tUnreadable\tint\t\t`json:\"unreadable,omitempty\"`\n}",
+            "after": "MessagePage struct {\n\tMessages\t[]DeliveryView\t`json:\"messages\"`\n\tMore\t\tbool\t\t`json:\"more\"`\n\tNextCursor\tstring\t\t`json:\"next_cursor,omitempty\"`\n\tUnreadable\tint\t\t`json:\"unreadable,omitempty\"`\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Adds the delivery state to the send, reply and ack results and to sent history: three exported types (DeliveryReceipt, DeliveryView, DeliveryState) and its five state constants in internal/mcpserver. MessagePage lists DeliveryView instead of MessageView. No new method, import or OS call."
+  },
+  {
+    "base_commit": "668497be1a45f2278722c3f45bbf41604deef406",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/mcpserver.DeliveryReceipt",
+          "internal/mcpserver.DeliveryState",
+          "internal/mcpserver.DeliveryView",
+          "internal/mcpserver.StateDelivered",
+          "internal/mcpserver.StateFailed",
+          "internal/mcpserver.StateQueued",
+          "internal/mcpserver.StateRead",
+          "internal/mcpserver.StateUnknown"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "const:internal/mcpserver.StateDelivered": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateFailed": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateQueued": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateRead": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateUnknown": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "type:internal/mcpserver.DeliveryReceipt": "DeliveryReceipt struct {\n\tMessageReceipt\n\tState\t\t\tDeliveryState\t`json:\"state,omitempty\"`\n\tTo\t\t\tstring\t\t`json:\"to,omitempty\"`\n\tToName\t\t\tstring\t\t`json:\"to_name,omitempty\"`\n\tParentAcknowledged\tbool\t\t`json:\"parent_acknowledged,omitempty\"`\n}",
+          "type:internal/mcpserver.DeliveryState": "DeliveryState string",
+          "type:internal/mcpserver.DeliveryView": "DeliveryView struct {\n\tMessageView\n\tState\tDeliveryState\t`json:\"state,omitempty\"`\n\tToName\tstring\t\t`json:\"to_name,omitempty\"`\n}"
+        },
+        "removed": {},
+        "changed": {
+          "type:internal/mcpserver.MessagePage": {
+            "before": "MessagePage struct {\n\tMessages\t[]MessageView\t`json:\"messages\"`\n\tMore\t\tbool\t\t`json:\"more\"`\n\tNextCursor\tstring\t\t`json:\"next_cursor,omitempty\"`\n\tUnreadable\tint\t\t`json:\"unreadable,omitempty\"`\n}",
+            "after": "MessagePage struct {\n\tMessages\t[]DeliveryView\t`json:\"messages\"`\n\tMore\t\tbool\t\t`json:\"more\"`\n\tNextCursor\tstring\t\t`json:\"next_cursor,omitempty\"`\n\tUnreadable\tint\t\t`json:\"unreadable,omitempty\"`\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Adds the delivery state to the send, reply and ack results and to sent history: three exported types (DeliveryReceipt, DeliveryView, DeliveryState) and its five state constants in internal/mcpserver. MessagePage lists DeliveryView instead of MessageView. No new method, import or OS call."
   }
 ]
