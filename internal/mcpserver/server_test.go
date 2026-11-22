@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -166,13 +167,59 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 	}
 }
 
+// warmFreshBinary runs a binary the test has just written once, under its own
+// bound. A slow first start of a new executable then fails here as "binary did
+// not start", and not later as a timeout of the MCP initialize.
+func warmFreshBinary(t *testing.T, path string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	started := time.Now()
+	if out, err := exec.CommandContext(ctx, path, "version").CombinedOutput(); err != nil {
+		t.Fatalf("binary did not start within %s: %v %s", time.Since(started).Round(time.Millisecond), err, out)
+	}
+	t.Logf("first start of the fresh binary took %s", time.Since(started).Round(time.Millisecond))
+}
+
+// mcpStageTimeout is the time the MCP stage of the upgrade test has after the
+// binary has started.
+const mcpStageTimeout = 20 * time.Second
+
+// mcpStageContext warms a freshly written binary, and only then starts the clock
+// of the MCP stage. The warm-up has its own 60 s bound. A context created before
+// it would let a slow first start use up the time of the MCP stage.
+func mcpStageContext(t *testing.T, path string) (context.Context, context.CancelFunc) {
+	t.Helper()
+	warmFreshBinary(t, path)
+	return context.WithTimeout(context.Background(), mcpStageTimeout)
+}
+
+// A start that takes 1 s must not shorten the MCP stage: its context is created
+// after the warm-up, so nearly all of the stage time is left.
+func TestMCPStageClockStartsAfterWarmUp(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake binary is a shell script")
+	}
+	slow := filepath.Join(t.TempDir(), "slow-start")
+	if err := os.WriteFile(slow, []byte("#!/bin/sh\nsleep 1\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := mcpStageContext(t, slow)
+	defer cancel()
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		t.Fatal("the MCP stage context has no deadline")
+	}
+	if left := time.Until(deadline); left < mcpStageTimeout-500*time.Millisecond {
+		t.Fatalf("the warm-up used the MCP stage time: %s left of %s", left.Round(time.Millisecond), mcpStageTimeout)
+	}
+}
+
 func TestBinaryLoadedBuildSurvivesOnDiskUpgrade(t *testing.T) {
 	binary := os.Getenv("ZALKI_TEST_BINARY")
 	if binary == "" {
 		t.Skip("set ZALKI_TEST_BINARY for stdio upgrade integration")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
 	dir := t.TempDir()
 	copyPath := filepath.Join(dir, "zalki")
 	bytesOnDisk, err := os.ReadFile(binary)
@@ -182,6 +229,8 @@ func TestBinaryLoadedBuildSurvivesOnDiskUpgrade(t *testing.T) {
 	if err := os.WriteFile(copyPath, bytesOnDisk, 0700); err != nil {
 		t.Fatal(err)
 	}
+	ctx, cancel := mcpStageContext(t, copyPath)
+	defer cancel()
 	state := filepath.Join(dir, "state")
 	store := bus.StoreAt(state, bus.WithRegistry(adapters.Builtin()))
 	actor, key, err := store.Register("cursor", "00000000-0000-4000-8000-000000000011", "/fixture", nil)
@@ -192,7 +241,7 @@ func TestBinaryLoadedBuildSurvivesOnDiskUpgrade(t *testing.T) {
 	serverCommand := exec.CommandContext(ctx, copyPath, "--state", state, "mcp")
 	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: serverCommand}, nil)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("MCP initialize did not finish (the binary had started): %v", err)
 	}
 	defer session.Close()
 	call := func() *bus.RuntimeStatus {
