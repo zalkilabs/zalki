@@ -122,9 +122,9 @@ func (s PluginFeed) RemovePlugin() error {
 	defer lease.Close() //nolint:errcheck // Closing releases the installation lease.
 	if err := s.locked(func() error {
 		p, _, err := s.loadPlugin()
-		if errors.Is(err, ErrOldPluginRecord) {
-			// An old record cannot be disabled first; the lease proves that no
-			// child runs, so it is removed as it is.
+		if errors.Is(err, ErrPluginRecordUnreadable) {
+			// A record that cannot be read cannot be disabled first; the lease
+			// proves that no child runs, so it is removed as it is.
 			p, err = pluginRecord{ID: p.ID}, nil
 		}
 		if err != nil {

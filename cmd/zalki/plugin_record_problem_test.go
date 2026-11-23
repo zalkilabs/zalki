@@ -16,10 +16,10 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-// Doctor has no plugin section, so a plugin record or folder that
-// cannot be read is named with its cause and its file, never "run zalki
-// doctor", and the record's content is not shown.
-func TestPluginUnreadableRecordNamesCause(t *testing.T) {
+// Doctor has no plugin section, so a plugin record whose content cannot be
+// read gets the one plain error that names the fix (remove it), never "run
+// zalki doctor", and the record's content is not shown.
+func TestPluginUnreadableRecordNamesTheFix(t *testing.T) {
 	store, _ := pluginOwnerFixture(t)
 	installReviewInstance(t, store.Dir(), "demo", "0.1.0")
 	record := filepath.Join(store.Dir(), "plugins", "demo.json")
@@ -35,14 +35,14 @@ func TestPluginUnreadableRecordNamesCause(t *testing.T) {
 	if err := os.WriteFile(record, edited, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cause := "its content is not a valid plugin record; the record is "
+	const fix = "plugin record demo cannot be read; remove it with: zalki plugins remove demo"
 	out, err := pluginOwnerLocal(t, store.Dir(), "show", "demo")
-	if err == nil || !strings.HasPrefix(err.Error(), `cannot safely read plugin "demo": `) || !pluginDiagnosticOutputMatches(t, err.Error(), record, `cannot safely read plugin "demo": `+cause, "") {
-		t.Fatalf("show dropped the cause of an unreadable record: %q %v", out, err)
+	if err == nil || err.Error() != fix {
+		t.Fatalf("show did not name the fix for an unreadable record: %q %v", out, err)
 	}
 	out, err = pluginOwnerLocal(t, store.Dir(), "list")
-	if err != nil || !strings.Contains(string(out), "demo  unreadable: its content") || !pluginDiagnosticOutputMatches(t, string(out), record, "Unreadable plugin records\n  demo  unreadable: "+cause, "\n") || strings.Contains(string(out), "doctor") {
-		t.Fatalf("list did not name the cause of an unreadable record: %q %v", out, err)
+	if err != nil || !strings.Contains(string(out), "Unreadable plugin records\n  demo  "+fix) || strings.Contains(string(out), "doctor") {
+		t.Fatalf("list did not name the fix for an unreadable record: %q %v", out, err)
 	}
 	checkPluginsFolderNamed(t)
 	checkRecordContentNotEchoed(t)
@@ -70,7 +70,7 @@ func checkRecordContentNotEchoed(t *testing.T) {
 	show, showErr := pluginOwnerLocal(t, store.Dir(), "show", "demo")
 	list, listErr := pluginOwnerLocal(t, store.Dir(), "list")
 	all := string(show) + string(list) + fmt.Sprint(showErr) + fmt.Sprint(listErr)
-	if showErr == nil || strings.Contains(all, "zz_marker") || strings.Contains(all, "zz_value") || !strings.Contains(all, "its content is not a valid plugin record") {
+	if showErr == nil || strings.Contains(all, "zz_marker") || strings.Contains(all, "zz_value") || !strings.Contains(all, "plugin record demo cannot be read; remove it with: zalki plugins remove demo") {
 		t.Fatalf("record content reached the owner line: %q", all)
 	}
 	listed := sessionListProblem(errors.New(`session "zz_marker_7f3a": bad`), 0).Error()

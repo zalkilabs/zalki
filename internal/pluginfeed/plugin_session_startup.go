@@ -68,7 +68,7 @@ func sessionStartupRecords(root string) ([]pluginRecord, error) {
 			return nil, errPluginStartupRecords
 		}
 		p, _, err := (pluginFiles{root: root, name: name}).loadPlugin()
-		if errors.Is(err, ErrOldPluginRecord) {
+		if errors.Is(err, ErrPluginRecordUnreadable) {
 			continue
 		}
 		if err != nil {

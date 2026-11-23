@@ -110,7 +110,7 @@ func runPluginOwner(cmd *cobra.Command, opts *commandOptions, action string, arg
 
 func removePluginOwner(cmd *cobra.Command, feed pluginfeed.PluginFeed, name string) error {
 	before, err := feed.PluginStatus()
-	if err != nil && !errors.Is(err, pluginfeed.ErrOldPluginRecord) {
+	if err != nil && !errors.Is(err, pluginfeed.ErrPluginRecordUnreadable) {
 		return err
 	}
 	err = feed.RemovePlugin()
