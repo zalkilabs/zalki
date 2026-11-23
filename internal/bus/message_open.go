@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -43,7 +43,7 @@ func markers(s Store) openIndex { return openIndex{s} }
 
 // syncOpenMarkers syncs a directory for the markers. Tests replace it to check
 // that the sync happens.
-var syncOpenMarkers = journal.SyncDir
+var syncOpenMarkers = fsutil.SyncDir
 
 // markerName reports whether name is a canonical message ID.
 func markerName(name string) bool {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -62,7 +63,7 @@ func (x inboxStorageFixture) putIndex(t *testing.T, index pluginInboxIndex) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = journal.WriteAtomic(filepath.Join(x.f.pluginDataPath(), "inbox.json"), raw); err != nil {
+	if err = fsutil.WriteAtomic(filepath.Join(x.f.pluginDataPath(), "inbox.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -418,7 +419,7 @@ func mutateInboxHint(t *testing.T, x inboxStorageFixture, p pluginRecord, name s
 		}
 	case "stale-hint":
 		raw, _ := journal.EncodeJSON("absent-installation", 128)
-		if err = journal.WriteAtomic(filepath.Join(x.f.pluginDir(), "id-"+p.ID+".json"), raw); err != nil {
+		if err = fsutil.WriteAtomic(filepath.Join(x.f.pluginDir(), "id-"+p.ID+".json"), raw); err != nil {
 			t.Fatal(err)
 		}
 	}

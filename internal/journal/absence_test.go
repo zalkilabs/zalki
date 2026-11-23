@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 func TestBatchAbsentRecoveryPreventsStaleIntentResurrection(t *testing.T) {
@@ -19,7 +21,7 @@ func TestBatchAbsentRecoveryPreventsStaleIntentResurrection(t *testing.T) {
 	canResurrect := true
 	ops := f.log.operations()
 	ops.sync = func(path string) error {
-		if err := SyncDir(path); err != nil {
+		if err := fsutil.SyncDir(path); err != nil {
 			return err
 		}
 		if path == filepath.Dir(f.log.intentPath()) {
@@ -33,7 +35,7 @@ func TestBatchAbsentRecoveryPreventsStaleIntentResurrection(t *testing.T) {
 	}
 	// A legacy same-state Update or reply can rewrite the bytes after recovery.
 	legacy := []byte("{\"value\":\"new\",\"updated_at\":\"later\"}\n")
-	if err := WriteAtomic(filepath.Join(f.log.Root, f.batch.Puts[0].Path), legacy); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(f.log.Root, f.batch.Puts[0].Path), legacy); err != nil {
 		t.Fatal(err)
 	}
 	if canResurrect {

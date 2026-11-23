@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -100,7 +101,7 @@ func stageCommit(t *testing.T, f commitFixture, batch journal.Batch) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(f.writer.dir, "commits", "pending.json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(f.writer.dir, "commits", "pending.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -110,7 +111,7 @@ func TestDormantCommitRecoversWithoutChangingEventIDOrBytes(t *testing.T) {
 	batch := preparedCommit(t, f)
 	stageCommit(t, f, batch)
 	// Model a crash after the state file, but before event materialization.
-	if err := journal.WriteAtomic(filepath.Join(f.writer.dir, batch.Puts[0].Path), batch.Puts[0].Data); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(f.writer.dir, batch.Puts[0].Path), batch.Puts[0].Data); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.writer.recover(); err != nil {

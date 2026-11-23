@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
@@ -37,7 +37,7 @@ func checkTestChild(mode, report string) error {
 	if err != nil {
 		return err
 	}
-	if err := journal.WriteAtomic(report, raw); err != nil {
+	if err := fsutil.WriteAtomic(report, raw); err != nil {
 		return err
 	}
 	if mode == "exit" {

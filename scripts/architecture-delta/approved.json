@@ -2578,5 +2578,83 @@
       }
     },
     "reason": "A plugin record that cannot be read now gets one plain error. The exported ErrOldPluginRecord is replaced by ErrPluginRecordUnreadable, and the error type that carries the text has its three error methods. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "68ddc5600648743ae0adfafac2e8b0c91a6e703a",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/journal.SyncDir",
+          "internal/journal.WriteAtomic"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/journal.SyncDir": "func(path string) error",
+          "function:internal/journal.WriteAtomic": "func(path string, data []byte) error"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/fsutil",
+          "internal/pluginfeed -> internal/fsutil"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The two forwards journal.WriteAtomic and journal.SyncDir are removed. Callers now use fsutil directly, so cmd/zalki and pluginfeed import fsutil. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "68ddc5600648743ae0adfafac2e8b0c91a6e703a",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/journal.SyncDir",
+          "internal/journal.WriteAtomic"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/journal.SyncDir": "func(path string) error",
+          "function:internal/journal.WriteAtomic": "func(path string, data []byte) error"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/fsutil",
+          "internal/pluginfeed -> internal/fsutil"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The two forwards journal.WriteAtomic and journal.SyncDir are removed. Callers now use fsutil directly, so cmd/zalki and pluginfeed import fsutil. No stored data or wire format changes."
   }
 ]

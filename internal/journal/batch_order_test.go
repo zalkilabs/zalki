@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 func TestOrderedTargetBarrierPrecedesRename(t *testing.T) {
@@ -53,7 +55,7 @@ func TestBatchOrdersUniqueDirectoriesBeforeUnlink(t *testing.T) {
 		if !removedIntent {
 			t.Fatal("fresh commit redundantly resynced its already durable intent")
 		}
-		return SyncDir(path)
+		return fsutil.SyncDir(path)
 	}
 	f.log.io = &ops
 	if err := f.log.Commit(f.batch); err != nil {

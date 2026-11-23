@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 func checkpointImage(t *testing.T, feed PluginFeed) []byte {
@@ -98,7 +98,7 @@ func TestStreamOwnerCursorFieldsAreRefusedAndNeverMigrated(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := journal.WriteAtomic(feed.pluginPath(), raw); err != nil {
+			if err := fsutil.WriteAtomic(feed.pluginPath(), raw); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := feed.PluginStatus(); !errors.Is(err, ErrPluginRecordUnreadable) {

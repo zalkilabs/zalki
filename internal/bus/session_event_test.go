@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -228,7 +229,7 @@ func TestPrivateSessionAtomicSaveRefusesStalePrior(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(path, data); err != nil {
+	if err := fsutil.WriteAtomic(path, data); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.locked(func() error { return savePrivateSessionRecord(record, prior) }); !errors.Is(err, journal.ErrBatchConflict) {
@@ -293,7 +294,7 @@ func stageInitialSessionCut(t *testing.T, store Store, next model.Session, appli
 		}
 		stageCommit(t, commitFixture{writer: commitWriter{dir: store.dir}}, batch)
 		for _, put := range batch.Puts[:applied] {
-			if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
+			if err := fsutil.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 				return err
 			}
 		}

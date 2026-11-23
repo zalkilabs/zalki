@@ -13,6 +13,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -46,7 +47,7 @@ func writeJSON(path string, value any) error {
 	if err != nil {
 		return err
 	}
-	return journal.WriteAtomic(path, raw)
+	return fsutil.WriteAtomic(path, raw)
 }
 
 func sessionTestPath(store bus.Store, id string) (string, error) {

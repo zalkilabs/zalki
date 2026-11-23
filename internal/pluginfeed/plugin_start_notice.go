@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -91,7 +92,7 @@ func (l startNoticeLedger) valid(installation string) bool {
 // start never spends twice). The caller holds the Store lock and has already
 // checked that the whole output fits; it shows the line only on true.
 func (s pluginFiles) reserveStartNotice(p pluginRecord, actor, generation string, now time.Time) (bool, error) {
-	return s.reserveStartNoticeWith(p, actor, generation, now, journal.WriteAtomic)
+	return s.reserveStartNoticeWith(p, actor, generation, now, fsutil.WriteAtomic)
 }
 
 func (s pluginFiles) reserveStartNoticeWith(p pluginRecord, actor, generation string, now time.Time, write func(string, []byte) error) (bool, error) {

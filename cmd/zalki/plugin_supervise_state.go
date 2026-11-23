@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -224,7 +225,7 @@ func saveRunState(dir, name string, state pluginRunState) error {
 	if len(raw) > runStateLimit {
 		return errors.New("plugin run state exceeds its limit")
 	}
-	return journal.WriteAtomic(runStatePath(dir, name), raw)
+	return fsutil.WriteAtomic(runStatePath(dir, name), raw)
 }
 
 // recentFailures keeps the failures inside the rolling window, including

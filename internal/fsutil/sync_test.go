@@ -1,4 +1,4 @@
-package journal_test
+package fsutil_test
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 func TestSyncDir(t *testing.T) {
@@ -31,7 +31,7 @@ func TestSyncDir(t *testing.T) {
 				}
 				t.Cleanup(func() { os.Chmod(dir, 0700) })
 			}
-			err := journal.SyncDir(path)
+			err := fsutil.SyncDir(path)
 			if test.want == 0 {
 				if err != nil {
 					t.Fatal(err)

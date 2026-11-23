@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -197,5 +198,5 @@ func (s pluginFiles) saveReplyLedger(ledger replyLedger) error {
 	if err != nil {
 		return err
 	}
-	return journal.WriteAtomic(s.replyLedgerPath(), raw)
+	return fsutil.WriteAtomic(s.replyLedgerPath(), raw)
 }

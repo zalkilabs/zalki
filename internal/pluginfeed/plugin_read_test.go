@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -365,7 +366,7 @@ func TestPluginReadAuditRetentionAndValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(x.f.store.Dir(), "plugin-read-audit.json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(x.f.store.Dir(), "plugin-read-audit.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := x.f.loadPluginReadAudit(x.now); err == nil {
@@ -465,7 +466,7 @@ func assertPluginReadInvalidAuditRows(t *testing.T, x *pluginReadFixture, base *
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := journal.WriteAtomic(filepath.Join(x.f.store.Dir(), "plugin-read-audit.json"), raw); err != nil {
+		if err := fsutil.WriteAtomic(filepath.Join(x.f.store.Dir(), "plugin-read-audit.json"), raw); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := x.f.loadPluginReadAudit(x.now); err == nil {

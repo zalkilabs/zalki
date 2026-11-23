@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -173,7 +174,7 @@ func checkUpdatePublicationOutcome(t *testing.T, outcome string) {
 		}
 		switch outcome {
 		case "new":
-			err = journal.WriteAtomic(s.pluginPath(), written)
+			err = fsutil.WriteAtomic(s.pluginPath(), written)
 		case "unknown":
 			err = os.WriteFile(s.pluginPath(), []byte("unknown bytes"), 0600)
 		}

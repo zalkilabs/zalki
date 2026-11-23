@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -228,5 +229,5 @@ func (s pluginFiles) savePluginInboxIndex(index pluginInboxIndex) error {
 	if err != nil {
 		return err
 	}
-	return journal.WriteAtomic(filepath.Join(s.pluginDataPath(), "inbox.json"), encoded)
+	return fsutil.WriteAtomic(filepath.Join(s.pluginDataPath(), "inbox.json"), encoded)
 }

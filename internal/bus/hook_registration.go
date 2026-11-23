@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -19,7 +19,7 @@ func prepareHookRuntime(s Store, kind, actor string, event agent.HookInput) (hoo
 	err := s.locked(func() error {
 		v, err := s.session(actor)
 		if errors.Is(err, os.ErrNotExist) && event.AllowPromptRegistration && event.Event == "UserPromptSubmit" {
-			v, err = registerPromptAbsent(s, kind, actor, event, time.Now().UTC(), journal.WriteAtomic)
+			v, err = registerPromptAbsent(s, kind, actor, event, time.Now().UTC(), fsutil.WriteAtomic)
 		}
 		if errors.Is(err, os.ErrNotExist) {
 			return errStaleHook

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -300,7 +300,7 @@ func stubSync(t *testing.T) (synced *[]string, fail *bool) {
 		}
 		return nil
 	}
-	t.Cleanup(func() { syncOpenMarkers = journal.SyncDir })
+	t.Cleanup(func() { syncOpenMarkers = fsutil.SyncDir })
 	return synced, fail
 }
 
@@ -344,7 +344,7 @@ func TestOpenWriteSyncsADirectoryAnotherWriterMade(t *testing.T) {
 		synced = append(synced, path)
 		return nil
 	}
-	t.Cleanup(func() { syncOpenMarkers = journal.SyncDir })
+	t.Cleanup(func() { syncOpenMarkers = fsutil.SyncDir })
 	if err := f.store.locked(func() error { return f.store.saveMessage(msg) }); err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +376,7 @@ func TestASecondWriterDoesNotTrustAStalledSync(t *testing.T) {
 		}
 		return nil
 	}
-	t.Cleanup(func() { syncOpenMarkers = journal.SyncDir })
+	t.Cleanup(func() { syncOpenMarkers = fsutil.SyncDir })
 	done := make(chan error, 1)
 	go func() { done <- f.store.saveMessage(first) }()
 	select {
@@ -461,7 +461,7 @@ func TestALaterWriterSyncsTheStateDirAfterAFailedSync(t *testing.T) {
 		}
 		return nil
 	}
-	t.Cleanup(func() { syncOpenMarkers = journal.SyncDir })
+	t.Cleanup(func() { syncOpenMarkers = fsutil.SyncDir })
 	if err := f.store.saveMessage(first); err == nil {
 		t.Fatal("the save ignored a failed state directory sync")
 	}
@@ -562,7 +562,7 @@ func stubMessagesSync(t *testing.T, f openFixture, id string) (synced *int, fail
 		}
 		return nil
 	}
-	t.Cleanup(func() { syncOpenMarkers = journal.SyncDir })
+	t.Cleanup(func() { syncOpenMarkers = fsutil.SyncDir })
 	return synced, fail
 }
 

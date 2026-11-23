@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -142,7 +142,7 @@ func (s Store) commitReplyIntent(parent, msg model.Message, fresh bool) error {
 	if err := privateDir(dir); err != nil {
 		return err
 	}
-	if err := journal.SyncDir(s.dir); err != nil {
+	if err := fsutil.SyncDir(s.dir); err != nil {
 		return err
 	}
 	path := filepath.Join(dir, msg.ID+".json")
@@ -281,5 +281,5 @@ func (s Store) finishReplyTransaction(path string, tx replyTransaction, parent m
 	if err := os.Remove(path); err != nil {
 		return err
 	}
-	return journal.SyncDir(filepath.Dir(path))
+	return fsutil.SyncDir(filepath.Dir(path))
 }

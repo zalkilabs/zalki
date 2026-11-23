@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -43,7 +44,7 @@ exit 17
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir(), "messages", id+".json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(store.Dir(), "messages", id+".json"), raw); err != nil {
 		t.Fatal(err)
 	}
 	capabilityCLIOK(t, binary, store.Dir(), "add", "reader", "--exec", executable, "--", result, session.ID, id)

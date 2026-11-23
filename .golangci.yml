@@ -102,6 +102,7 @@ linters:
           allow:
             - $gostd
             - github.com/zalkilabs/zalki/internal/bus$
+            - github.com/zalkilabs/zalki/internal/fsutil$
             - github.com/zalkilabs/zalki/internal/journal$
             - github.com/zalkilabs/zalki/internal/model$
             - github.com/zalkilabs/zalki/internal/platform$

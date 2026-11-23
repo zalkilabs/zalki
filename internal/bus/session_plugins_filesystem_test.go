@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -68,7 +68,7 @@ func TestSessionPluginPrepublicationFailureHasNoRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writer := sessionPluginWriter{sync: journal.SyncDir, save: func(Store, model.Session) error { return errors.New("failed before writing") }}
+	writer := sessionPluginWriter{sync: fsutil.SyncDir, save: func(Store, model.Session) error { return errors.New("failed before writing") }}
 	if err := setSessionPlugin(s, v.ID, key, "external", true, writer); err == nil {
 		t.Fatal("Z6_PREPUBLICATION_FAILURE_REPORTED")
 	}
@@ -80,7 +80,7 @@ func TestSessionPluginPrepublicationFailureHasNoRollback(t *testing.T) {
 
 func filesystemSessionPolicyWriter(t *testing.T, path, cut string) sessionPluginWriter {
 	t.Helper()
-	return sessionPluginWriter{sync: journal.SyncDir, save: func(s Store, next model.Session) error {
+	return sessionPluginWriter{sync: fsutil.SyncDir, save: func(s Store, next model.Session) error {
 		dir := filepath.Dir(path)
 		if cut == "pre-rename" {
 			if err := os.Chmod(dir, 0500); err != nil {
@@ -94,7 +94,7 @@ func filesystemSessionPolicyWriter(t *testing.T, path, cut string) sessionPlugin
 			return err
 		}
 		temp := filepath.Join(dir, ".test-policy-after-image")
-		if err := journal.WriteAtomic(temp, raw); err != nil {
+		if err := fsutil.WriteAtomic(temp, raw); err != nil {
 			return err
 		}
 		if err := os.Rename(temp, path); err != nil {
@@ -104,7 +104,7 @@ func filesystemSessionPolicyWriter(t *testing.T, path, cut string) sessionPlugin
 			return err
 		}
 		defer restorePolicyDirectory(t, dir)
-		return journal.SyncDir(dir)
+		return fsutil.SyncDir(dir)
 	}}
 }
 

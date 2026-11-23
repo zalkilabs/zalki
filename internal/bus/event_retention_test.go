@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -77,7 +78,7 @@ func materializeRetentionCut(t *testing.T, store Store, batch journal.Batch, com
 	t.Helper()
 	puts := min(completed, len(batch.Puts))
 	for _, put := range batch.Puts[:puts] {
-		if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
+		if err := fsutil.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 			t.Fatal(err)
 		}
 	}

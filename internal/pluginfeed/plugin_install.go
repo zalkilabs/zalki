@@ -16,7 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -134,7 +134,7 @@ func (s PluginFeed) sweepPluginInstallFiles() error {
 	case err != nil:
 		return err
 	}
-	return errors.Join(os.RemoveAll(s.stagingPath()), journal.SyncDir(s.stagingRoot()))
+	return errors.Join(os.RemoveAll(s.stagingPath()), fsutil.SyncDir(s.stagingRoot()))
 }
 
 // sweepInstallArtifacts removes this name's leftover pin, reply ledger and
@@ -160,7 +160,7 @@ func (s PluginFeed) BeginPluginInstall() (*PluginInstall, error) {
 		if err := pluginDirectory(s.pluginDir(), true); err != nil {
 			return err
 		}
-		return errors.Join(journal.SyncDir(filepath.Dir(s.store.Dir())), journal.SyncDir(s.store.Dir()))
+		return errors.Join(fsutil.SyncDir(filepath.Dir(s.store.Dir())), fsutil.SyncDir(s.store.Dir()))
 	}); err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func copyPluginArtifactObserved(s PluginFeed, source string, observe func(*os.Fi
 		_ = os.Remove(output.Name())
 		return "", err
 	}
-	return target, journal.SyncDir(s.pluginBinPath())
+	return target, fsutil.SyncDir(s.pluginBinPath())
 }
 
 // savePluginInstallRecord is the commit point; tests replace it to inject a

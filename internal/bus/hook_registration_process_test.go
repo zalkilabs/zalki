@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/platform"
 )
@@ -168,7 +168,7 @@ func crashAfterPromptDebit(t *testing.T, dir, native string) {
 	store := Store{dir: dir, registry: testRegistry()}
 	err := store.locked(func() error {
 		_, err := registerPromptAbsent(store, "cursor", "cursor:"+native, trustedPrompt(native), time.Now().UTC(), func(path string, raw []byte) error {
-			if err := journal.WriteAtomic(path, raw); err != nil {
+			if err := fsutil.WriteAtomic(path, raw); err != nil {
 				return err
 			}
 			os.Exit(23)

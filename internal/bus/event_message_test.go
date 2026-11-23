@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -123,10 +124,10 @@ func TestMessageCommitRecoversWithOneEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.dir, "commits", "pending.json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(store.dir, "commits", "pending.json"), raw); err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.dir, batch.Puts[0].Path), batch.Puts[0].Data); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(store.dir, batch.Puts[0].Path), batch.Puts[0].Data); err != nil {
 		t.Fatal(err)
 	}
 	before := eventState(t, store).Last

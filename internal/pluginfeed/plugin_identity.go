@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -17,7 +18,7 @@ func (s pluginFiles) savePluginIdentity(id string) error {
 	if err != nil {
 		return err
 	}
-	return journal.WriteAtomic(filepath.Join(s.pluginDir(), "id-"+id+".json"), raw)
+	return fsutil.WriteAtomic(filepath.Join(s.pluginDir(), "id-"+id+".json"), raw)
 }
 
 // A bounded hint locates a name; only the current installation is authority.

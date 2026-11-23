@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -62,7 +63,7 @@ func checkPluginJournalBytes(t *testing.T, f commitFixture, redo string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(f.writer.dir, eventRecordPath(1)), entry); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(f.writer.dir, eventRecordPath(1)), entry); err != nil {
 		t.Fatal(err)
 	}
 	meta := eventMetadata{Epoch: byteFixturePlugin, First: 1, Last: 1, Count: 1, Bytes: uint64(len(entry))}

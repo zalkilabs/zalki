@@ -101,7 +101,7 @@ func (l BatchLog) operations() batchIO {
 	if l.io != nil {
 		return *l.io
 	}
-	return batchIO{write: WriteAtomic, remove: os.Remove, sync: SyncDir}
+	return batchIO{write: fsutil.WriteAtomic, remove: os.Remove, sync: fsutil.SyncDir}
 }
 
 // Commit durably publishes an immutable intent before applying its puts.

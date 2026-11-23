@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -13,7 +13,7 @@ func TestStreamPrivateCheckpointPhysicalByteBound(t *testing.T) {
 	image := checkpointImage(t, feed)
 	for _, size := range []int{524288, 524289} {
 		padded := paddedStreamJSON(image, size)
-		if err := journal.WriteAtomic(feed.streamPath(), padded); err != nil {
+		if err := fsutil.WriteAtomic(feed.streamPath(), padded); err != nil {
 			t.Fatal(err)
 		}
 		budget := feed.stream.budget(t.Context())

@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 var errBatchCut = errors.New("injected batch interruption")
@@ -49,7 +51,7 @@ func batchCutIO(log BatchLog, cut string) *batchIO {
 			if path == log.intentPath() && cut == "before-intent" {
 				return errBatchCut
 			}
-			if err := WriteAtomic(path, data); err != nil {
+			if err := fsutil.WriteAtomic(path, data); err != nil {
 				return err
 			}
 			if cut == stage {
@@ -74,7 +76,7 @@ func batchCutIO(log BatchLog, cut string) *batchIO {
 			if removed && cut == "final-sync" {
 				return errBatchCut
 			}
-			return SyncDir(path)
+			return fsutil.SyncDir(path)
 		},
 	}
 }
@@ -150,7 +152,7 @@ func writeBatchIntent(t *testing.T, f batchFixture) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteAtomic(f.log.intentPath(), raw); err != nil {
+	if err := fsutil.WriteAtomic(f.log.intentPath(), raw); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -170,7 +172,7 @@ func TestBatchPublishesIntentThenOrderedTargets(t *testing.T) {
 			t.Fatal(err)
 		}
 		order = append(order, relative)
-		return WriteAtomic(path, raw)
+		return fsutil.WriteAtomic(path, raw)
 	}
 	f.log.io = &ops
 	if err := f.log.Commit(f.batch); err != nil {

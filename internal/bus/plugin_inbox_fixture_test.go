@@ -12,6 +12,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/platform"
@@ -52,7 +53,7 @@ func (x inboxAdmissionFixture) putEmptyIndex(t *testing.T, now time.Time) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(x.status.DataDir, "inbox.json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(x.status.DataDir, "inbox.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 }

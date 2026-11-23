@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -84,7 +85,7 @@ func savePrivateSessionRecord(record sessionRecord, prior []byte) error {
 	if !bytes.Equal(current, prior) {
 		return journal.ErrBatchConflict
 	}
-	return journal.WriteAtomic(record.path, state)
+	return fsutil.WriteAtomic(record.path, state)
 }
 
 func orderEventDirectory(path string) error { return journal.OrderDirectory(path) }

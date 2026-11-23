@@ -20,6 +20,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
@@ -265,7 +266,7 @@ func fakeDeliveries(state, mode string) error {
 			return err
 		}
 		// Atomic, so a test that sees the name never reads a half-written file.
-		if err := journal.WriteAtomic(filepath.Join(state, ".seen-"+value.ID), raw); err != nil {
+		if err := fsutil.WriteAtomic(filepath.Join(state, ".seen-"+value.ID), raw); err != nil {
 			return err
 		}
 		if slices.Contains([]string{"hold", "hold-exit1-on-code"}, mode) {
@@ -582,7 +583,7 @@ func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reas
 			t.Fatal(err)
 		}
 		total += len(raw)
-		if err := journal.WriteAtomic(filepath.Join(directory, fmt.Sprintf("%020d.json", n)), raw); err != nil {
+		if err := fsutil.WriteAtomic(filepath.Join(directory, fmt.Sprintf("%020d.json", n)), raw); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -590,7 +591,7 @@ func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reas
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir(), "events/meta.json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(store.Dir(), "events/meta.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 }

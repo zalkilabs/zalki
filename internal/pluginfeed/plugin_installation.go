@@ -7,7 +7,7 @@ import (
 	"syscall"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -79,7 +79,7 @@ func (s PluginFeed) addPlugin(launch *PluginLaunch) error {
 		if err := pluginDirectory(s.pluginDir(), true); err != nil {
 			return err
 		}
-		return errors.Join(journal.SyncDir(filepath.Dir(s.store.Dir())), journal.SyncDir(s.store.Dir()))
+		return errors.Join(fsutil.SyncDir(filepath.Dir(s.store.Dir())), fsutil.SyncDir(s.store.Dir()))
 	}); err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func (s PluginFeed) RemovePlugin() error {
 		if err := os.Remove(s.pluginPath()); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		return journal.SyncDir(s.pluginDir())
+		return fsutil.SyncDir(s.pluginDir())
 	}); err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func (s PluginFeed) RemovePlugin() error {
 	if err := errors.Join(s.sweepInstallArtifacts(installation), s.sweepPluginInstallFiles()); err != nil {
 		return err
 	}
-	return journal.SyncDir(s.pluginDir())
+	return fsutil.SyncDir(s.pluginDir())
 }
 
 func createPluginInstallation(s PluginFeed, launch *PluginLaunch) error {

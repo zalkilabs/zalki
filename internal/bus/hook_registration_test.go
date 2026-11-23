@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -166,7 +166,7 @@ func assertPromptDebitFailure(t *testing.T, failAfterRename bool) {
 				t.Fatal("C08_DEBIT_BEFORE_SESSION", err)
 			}
 			if failAfterRename {
-				if err := journal.WriteAtomic(path, raw); err != nil {
+				if err := fsutil.WriteAtomic(path, raw); err != nil {
 					return err
 				}
 			}
@@ -181,7 +181,7 @@ func assertPromptDebitFailure(t *testing.T, failAfterRename bool) {
 		t.Fatal("C08_NO_SESSION_AFTER_FAILED_DEBIT", err)
 	}
 	if failAfterRename {
-		if err := debitPromptRegistration(store.dir, actor, now.Add(time.Second), journal.WriteAtomic); !errors.Is(err, errPromptQuota) {
+		if err := debitPromptRegistration(store.dir, actor, now.Add(time.Second), fsutil.WriteAtomic); !errors.Is(err, errPromptQuota) {
 			t.Fatal("C08_PUBLISHED_FAILED_DEBIT_IS_SPENT", err)
 		}
 	}

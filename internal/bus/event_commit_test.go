@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -127,7 +128,7 @@ func assertEventRecoveryCase(t *testing.T, operation string, applied int) {
 	t.Helper()
 	store, session, batch := stagedLiveCommit(t)
 	for _, put := range batch.Puts[:applied] {
-		if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
+		if err := fsutil.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 			t.Fatal(err)
 		}
 	}
