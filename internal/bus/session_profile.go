@@ -33,7 +33,7 @@ func validateStoredConfigRoot(s Store, v model.Session) error {
 		return err
 	}
 	if _, ok := adapter.(agent.NameAdapter); ok && !validNativeConfigRoot(v.NativeConfigDir) {
-		return errSessionMissingRoot
+		return errSessionUnsupported
 	}
 	return nil
 }

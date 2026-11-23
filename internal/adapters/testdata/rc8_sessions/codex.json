@@ -1,0 +1,32 @@
+{
+  "plugin_policy": {
+    "mode": "owner",
+    "last_change": {
+      "id": "5cfaa573-b042-478c-83c5-12b77d9e1351",
+      "actor": "codex:00000000-0000-4000-8000-0000000c0d02",
+      "at": "2026-11-23T07:31:07.585597000Z"
+    }
+  },
+  "schema": 1,
+  "native_id": "00000000-0000-4000-8000-0000000c0d02",
+  "id": "codex:00000000-0000-4000-8000-0000000c0d02",
+  "kind": "codex",
+  "native_config_dir": "/fixture/home/.codex",
+  "cwd": "/workspace",
+  "generation": "04bda4ff-b5da-408c-a338-b065c9ecc699",
+  "state": "ready",
+  "updated_at": "2026-11-23T07:31:07.585594000Z",
+  "retired": false,
+  "key_hash": "b9babff368f4d9b1c0c420fd3394f67d5619a37f14c771fadbf0e11af103077e",
+  "receive": {
+    "idle_wake": false,
+    "delivery": "app_server_queue_off_config",
+    "inbox": "native",
+    "busy_delivery": "next_turn",
+    "lifecycle_hooks": true,
+    "hook_delivery": false,
+    "requires_listener": false,
+    "requires_endpoint": false,
+    "experimental": false
+  }
+}
