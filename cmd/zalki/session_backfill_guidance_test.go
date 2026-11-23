@@ -48,7 +48,7 @@ func checkOldSessionGuidance(t *testing.T, kind string) {
 		t.Fatal("OLD_SESSION_GUIDANCE_NOT_ONE_LINE_ONE_COMMAND", output, warning, err)
 	}
 	output, _, err = execute(t, home, "", "doctor", "--state", store.Dir())
-	checkDoctorSessionReason(t, kind, old.ID, output, err)
+	checkDoctorSessionReason(t, old.ID, output, err)
 	checkOldGuidancePrivacy(t, store, home)
 	if after, err := os.ReadFile(path); err != nil || !bytes.Equal(raw, after) {
 		t.Fatal("OLD_SESSION_GUIDANCE_CHANGED_RECORD", err)
@@ -79,13 +79,9 @@ func checkOldGuidancePrivacy(t *testing.T, store bus.Store, home string) {
 	}
 }
 
-func checkDoctorSessionReason(t *testing.T, kind, id, output string, err error) {
+func checkDoctorSessionReason(t *testing.T, id, output string, err error) {
 	t.Helper()
-	label := "missing plugin policy"
-	if kind == "owner" {
-		label = "unexpected process owner"
-	}
-	if err != nil || !strings.Contains(output, "Skipped session "+id+": "+label+".") || !strings.Contains(output, "Old records are not migrated. Start a new native session.") || strings.Contains(output, "run zalki doctor") {
+	if err != nil || !strings.Contains(output, "Skipped session "+id+": unsupported record.") || strings.Contains(output, "not migrated") || strings.Contains(output, "run zalki doctor") {
 		t.Fatal("DOCTOR_LOST_FIXED_SESSION_REASON", output, err)
 	}
 }

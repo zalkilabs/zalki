@@ -297,7 +297,7 @@
     "mutation": {
       "path": "internal/bus/session_scan_notes.go",
       "symbol": "sessionIssueReason",
-      "old": "return \"session_missing_root\"",
+      "old": "return \"session_unsupported\"",
       "new": "return \"session_unreadable\"",
       "required_occurrences": 1
     },

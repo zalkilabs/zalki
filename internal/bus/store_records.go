@@ -45,7 +45,7 @@ func decodeStoredSession(s Store, raw []byte) (model.Session, error) {
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return v, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")
 	}
-	if err := validateSessionBackfills(s, v); err != nil {
+	if err := validateStoredSession(s, v); err != nil {
 		return v, err
 	}
 	var err error
@@ -117,15 +117,17 @@ func (s Store) rawSessions() ([]model.Session, error) {
 	return sessions, err
 }
 
-// Old session shapes are refused before authority or liveness is used. Present
-// damaged policy remains closed by its existing parser and explicit-off repair.
-func validateSessionBackfills(s Store, v model.Session) error {
+// A session whose shape is not valid is refused before authority or liveness is
+// used: a process owner on a client that has none, a missing plugin policy, or
+// a missing absolute config root. Present damaged policy remains closed by its
+// existing parser and explicit-off repair.
+func validateStoredSession(s Store, v model.Session) error {
 	if !s.tracksOwnProcess(v.Kind) && v.Owner != nil {
-		return errSessionUnexpectedOwner
+		return errSessionUnsupported
 	}
 	policy := bytes.TrimSpace(v.PluginPolicy)
 	if len(policy) == 0 || bytes.Equal(policy, []byte("null")) {
-		return errSessionMissingPolicy
+		return errSessionUnsupported
 	}
 	return validateStoredConfigRoot(s, v)
 }

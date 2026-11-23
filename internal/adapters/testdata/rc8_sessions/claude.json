@@ -1,0 +1,38 @@
+{
+  "plugin_policy": {
+    "mode": "owner",
+    "last_change": {
+      "id": "566a2677-be9e-4fb1-9369-f5c625f469d8",
+      "actor": "claude:00000000-0000-4000-8000-0000000c1a01",
+      "at": "2026-11-23T07:31:07.564230000Z"
+    }
+  },
+  "schema": 1,
+  "native_id": "00000000-0000-4000-8000-0000000c1a01",
+  "id": "claude:00000000-0000-4000-8000-0000000c1a01",
+  "kind": "claude",
+  "native_config_dir": "/fixture/home/.claude",
+  "cwd": "/workspace",
+  "generation": "2ac00a17-6f51-4898-a282-33531bcfaab4",
+  "state": "ready",
+  "updated_at": "2026-11-23T07:31:07.564169000Z",
+  "retired": false,
+  "endpoint": {
+    "path": "/fixture/not-a-real-socket",
+    "device": 0,
+    "inode": 0,
+    "changed_ns": 0
+  },
+  "key_hash": "a180f49be55a89f224243a5d3704de6bdbe05e2b151073d316f7779933a5ceb8",
+  "receive": {
+    "idle_wake": true,
+    "delivery": "local_socket",
+    "inbox": "native",
+    "busy_delivery": "between_tools",
+    "lifecycle_hooks": true,
+    "hook_delivery": false,
+    "requires_listener": false,
+    "requires_endpoint": true,
+    "experimental": false
+  }
+}
