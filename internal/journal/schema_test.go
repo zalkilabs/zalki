@@ -32,21 +32,7 @@ func TestCheckSchema(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := journal.CheckSchema(json.RawMessage(test.raw), test.supported)
-			var schema *journal.SchemaError
-			switch test.wantErr {
-			case "":
-				if err != nil || got != test.want {
-					t.Fatalf("got %d, %v; want %d", got, err, test.want)
-				}
-			case "schema":
-				if !errors.As(err, &schema) || schema.Supported != test.supported || got != 0 {
-					t.Fatalf("noncurrent schema was not refused: got %d, %v; want a SchemaError", got, err)
-				}
-			default:
-				if err == nil || errors.As(err, &schema) {
-					t.Fatalf("got %d, %v; want a JSON error", got, err)
-				}
-			}
+			verifyCheckSchema(t, got, err, test.supported, test.want, test.wantErr)
 		})
 	}
 	t.Run("the error carries the offending version", func(t *testing.T) {
@@ -56,4 +42,25 @@ func TestCheckSchema(t *testing.T) {
 			t.Fatalf("error = %v", err)
 		}
 	})
+}
+
+// verifyCheckSchema checks one CheckSchema result: wantErr is "" (the current
+// version), "schema" (a SchemaError) or "json" (the decoder's error).
+func verifyCheckSchema(t *testing.T, got int, err error, supported, want int, wantErr string) {
+	t.Helper()
+	var schema *journal.SchemaError
+	switch wantErr {
+	case "":
+		if err != nil || got != want {
+			t.Fatalf("got %d, %v; want %d", got, err, want)
+		}
+	case "schema":
+		if !errors.As(err, &schema) || schema.Supported != supported || got != 0 {
+			t.Fatalf("noncurrent schema was not refused: got %d, %v; want a SchemaError", got, err)
+		}
+	default:
+		if err == nil || errors.As(err, &schema) {
+			t.Fatalf("got %d, %v; want a JSON error", got, err)
+		}
+	}
 }
