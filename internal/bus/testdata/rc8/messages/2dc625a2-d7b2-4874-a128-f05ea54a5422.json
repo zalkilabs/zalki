@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "2dc625a2-d7b2-4874-a128-f05ea54a5422",
+  "from": "cursor:00000000-0000-4000-8000-0000000000a1",
+  "from_label": "Cursor",
+  "to": "claude:00000000-0000-4000-8000-0000000000d4",
+  "body": "to claude",
+  "target_generation": "f035b115-726d-4df1-be00-1a069a0d0176",
+  "created_at": "2026-11-23T07:32:19.763820000Z",
+  "status": "pending_next_activity",
+  "receipt": {
+    "at": "2026-11-23T07:32:19.227681000Z",
+    "status": "pending_next_activity"
+  }
+}

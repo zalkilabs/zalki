@@ -1,0 +1,48 @@
+{
+  "id": "0d2e3385-7270-4b7f-bc3a-9843f8a136e7",
+  "name": "demo",
+  "launch": {
+    "exec": "/private/tmp/rvt/rc8plugin/plugins/demo.bin/a8076d3d28d21e02012b20eaf7dbf75409a6277134439025f282e368e3305abf",
+    "args": [],
+    "sha256": "a8076d3d28d21e02012b20eaf7dbf75409a6277134439025f282e368e3305abf",
+    "pin_sha256": "1d39668b1103c731c329e73cde2295cdc10d12792e3a09965610be679d48983b"
+  },
+  "enabled": true,
+  "scope": "all",
+  "access": {
+    "status": true,
+    "receive": true,
+    "send": [
+      "cursor:ddb9d8c8-d01c-40c2-a645-ee50ba342b43"
+    ],
+    "read": [
+      "cursor:ddb9d8c8-d01c-40c2-a645-ee50ba342b43"
+    ]
+  },
+  "install": {
+    "api": "zalki-plugin/1",
+    "id": "local/demo",
+    "version": "0.1.0",
+    "source": "/src/demo",
+    "tree_sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+    "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+    "build": [
+      "go",
+      "build"
+    ],
+    "tool": "/usr/bin/go",
+    "tool_sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+    "artifact": "plugin",
+    "artifact_sha256": "a8076d3d28d21e02012b20eaf7dbf75409a6277134439025f282e368e3305abf",
+    "installed_at": "2026-11-23T07:35:29.268095000Z",
+    "access": {
+      "status": true,
+      "receive": true,
+      "send": true,
+      "read": true
+    },
+    "installed_by": "terminal"
+  },
+  "revision": "7df36501f999b46f582c3618df32f3b8f97702c7415a36a98318677a72f4e33b",
+  "epoch": "1af26a69-67f7-4876-9213-b0a1ea0cccb4"
+}
