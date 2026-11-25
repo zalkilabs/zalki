@@ -22,7 +22,7 @@ func TestCollaborationCost(t *testing.T) {
 	store := newTestStore(t)
 	author, authorKey, reviewer, reviewerKey := registerPair(t, store, "cursor", "00000000-0000-4000-8000-000000000101", "cursor", "00000000-0000-4000-8000-000000000102")
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
-	serverSession, err := New(&bus.Service{Store: store}).Connect(ctx, serverTransport, nil)
+	serverSession, err := newServer(&bus.Service{Store: store}).Connect(ctx, serverTransport, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

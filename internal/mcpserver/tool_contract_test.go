@@ -47,16 +47,7 @@ func TestAdvertisedToolContractUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Only list_messages' output schema gains the optional unreadable
-	// integer (+32 schema bytes, like skipped_sessions); no description changed.
-	// Later, the send, reply and ack output schema gains state, to, to_name and
-	// parent_acknowledged, and the list_messages message view gains state and to_name.
-	// Then the descriptions name the required keys (actor, capability, to,
-	// message_id) and the credentials come from the newest SessionStart context.
-	// Last, list_messages says who owns a deferred native body and how to read
-	// a shortened one.
-	// Then list_agents says that updated_at is local time with an offset.
-	// Then list_agents rows can carry approval_since, and its description says so.
+	// This digest pins the full tool catalog as it is now.
 	const want = "ddd88078d97aab83593e54eae6f418563a6880937b8293fff055a7ed48431979"
 	if got := fmt.Sprintf("%x", sha256.Sum256(encoded)); got != want {
 		t.Fatalf("advertised tool contract changed: sha256=%s bytes=%d; compare with the pre-refactor contract before updating", got, len(encoded))

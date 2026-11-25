@@ -78,7 +78,7 @@ func fakeClient(t *testing.T, fake Bus) (*mcp.ClientSession, context.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
 	ct, st := mcp.NewInMemoryTransports()
-	server, err := New(fake).Connect(ctx, st, nil)
+	server, err := newServer(fake).Connect(ctx, st, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

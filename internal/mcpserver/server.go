@@ -219,7 +219,7 @@ type Bus interface {
 	DiscoverWithWarnings(actor, key string) ([]bus.AgentInfo, int, error)
 }
 
-func New(service Bus) *mcp.Server {
+func newServer(service Bus) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "zalki", Version: bus.BuildVersion()}, &mcp.ServerOptions{
 		Instructions: "Keep receipt bookkeeping silent; no ACK-only messages or ACK narration unless requested. " +
 			"When a message needs no reply, call ack_message (it sends nothing). reply_message also acknowledges the message you answer. " +
@@ -241,5 +241,5 @@ func New(service Bus) *mcp.Server {
 func Run(ctx context.Context, service Bus, input io.ReadCloser, output io.WriteCloser) error {
 	writer := &stdioFrameWriter{output: output}
 	reader := newStdioFrameReader(input, writer)
-	return New(service).Run(ctx, &mcp.IOTransport{Reader: reader, Writer: writer, MaxLineLength: maxStdioFrameBytes})
+	return newServer(service).Run(ctx, &mcp.IOTransport{Reader: reader, Writer: writer, MaxLineLength: maxStdioFrameBytes})
 }
