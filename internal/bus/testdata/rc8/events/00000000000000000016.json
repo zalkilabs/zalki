@@ -1,0 +1,16 @@
+{
+  "epoch": "32f6e2e2-d372-4824-80a4-b136246cb5d4",
+  "sequence": "16",
+  "event": {
+    "id": "4f82cb80-7988-459b-baa9-43a3be34b6e7",
+    "type": "session.state_changed",
+    "occurred_at": "2026-11-23T07:32:20.150973000Z",
+    "transaction_id": "af97de3b-098f-4544-9e68-6b5f08414875",
+    "session": {
+      "id": "cursor:00000000-0000-4000-8000-0000000000b2",
+      "generation": "c3b3354d-89d6-4097-96b8-f628ecfaade5",
+      "previous": "ready",
+      "state": "approval"
+    }
+  }
+}

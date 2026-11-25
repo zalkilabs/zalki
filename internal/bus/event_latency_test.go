@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -134,7 +135,7 @@ func seedLatencyRecords(t *testing.T, store Store, session model.Session, count 
 			t.Fatal(err)
 		}
 		path := filepath.Join(store.dir, "events", "records", fmt.Sprintf("%020d.json", sequence))
-		if err := journal.WriteAtomic(path, raw); err != nil {
+		if err := fsutil.WriteAtomic(path, raw); err != nil {
 			t.Fatal(err)
 		}
 		total += uint64(len(raw))
@@ -144,7 +145,7 @@ func seedLatencyRecords(t *testing.T, store Store, session model.Session, count 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.dir, "events", "meta.json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(store.dir, "events", "meta.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -1,6 +1,7 @@
 // Package journal holds the generic, domain-free primitives beneath zalki's
 // on-disk record store: bounded JSON reads, canonical record encoding, schema
-// headers, atomic replacement, directory sync and durable batch intents.
+// headers and durable batch intents. Atomic replacement and directory sync are
+// in internal/fsutil.
 //
 // The package knows nothing about sessions, messages, record families, error
 // codes or logging. It reports its own conditions through the sentinel

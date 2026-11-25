@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -238,7 +239,7 @@ func rewritePluginLaunchRecord(t *testing.T, f PluginFeed, edit func(*PluginLaun
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(f.pluginPath(), raw); err != nil {
+	if err := fsutil.WriteAtomic(f.pluginPath(), raw); err != nil {
 		t.Fatal(err)
 	}
 }

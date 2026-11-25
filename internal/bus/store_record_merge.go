@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -38,7 +39,7 @@ func (s Store) writeRecord(path string, value any) error {
 	if family == "sessions" {
 		return model.NewError(model.CodeInvalidInput, "session writes require the commit path")
 	}
-	return journal.WriteAtomic(path, encoded)
+	return fsutil.WriteAtomic(path, encoded)
 }
 
 // checkSchema rejects a record whose schema is not recordSchema.

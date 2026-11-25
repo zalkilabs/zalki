@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -137,7 +138,7 @@ func (s pluginFiles) savePlugin(p pluginRecord) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return raw, journal.WriteAtomic(s.pluginPath(), raw)
+	return raw, fsutil.WriteAtomic(s.pluginPath(), raw)
 }
 
 // EnablePluginFeed starts at the current end; it never launches executable code.
@@ -171,7 +172,7 @@ func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [
 			return err
 		}
 		if p.Enabled == enabled {
-			return journal.SyncDir(s.pluginDir())
+			return fsutil.SyncDir(s.pluginDir())
 		}
 		if enabled {
 			if err := p.applyLaunchPin(launch, prior, raw); err != nil {

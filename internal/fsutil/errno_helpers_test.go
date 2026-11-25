@@ -1,4 +1,4 @@
-package journal_test
+package fsutil_test
 
 import (
 	"syscall"

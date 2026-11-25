@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 func retainingFixture(t *testing.T) batchFixture {
@@ -32,7 +34,7 @@ func retentionCutIO(log BatchLog, cut string) *batchIO {
 }
 
 func (f *retentionFault) write(path string, raw []byte) error {
-	if err := WriteAtomic(path, raw); err != nil {
+	if err := fsutil.WriteAtomic(path, raw); err != nil {
 		return err
 	}
 	if f.cut == "after-meta" && filepath.Base(path) == "meta.json" {
@@ -68,7 +70,7 @@ func (f *retentionFault) sync(path string) error {
 	if f.removed && f.cut == "intent-remove-sync" {
 		return errBatchCut
 	}
-	return SyncDir(path)
+	return fsutil.SyncDir(path)
 }
 
 func TestBatchAtomicRetentionCrashCuts(t *testing.T) {

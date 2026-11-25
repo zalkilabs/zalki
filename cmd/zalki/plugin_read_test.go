@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -31,7 +32,7 @@ func pluginReadOwnerFixture(t *testing.T) (string, bus.Store, model.Message) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir(), "messages", m.ID+".json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(store.Dir(), "messages", m.ID+".json"), raw); err != nil {
 		t.Fatal(err)
 	}
 	capabilityCLIOK(t, binary, store.Dir(), "grant", "external", "--status", "--read", session.ID)

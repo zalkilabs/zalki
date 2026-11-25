@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -50,7 +51,7 @@ func TestZeroEventPriorRenameOrdering(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Power loss retains only the namespace submitted before the durable intent.
-	if err := journal.WriteAtomic(path, durable); err != nil {
+	if err := fsutil.WriteAtomic(path, durable); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.List(); err != nil {

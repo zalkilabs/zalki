@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -22,7 +22,7 @@ type sessionPluginWriter struct {
 // SetSessionPlugin changes only the authenticated actor's mute overlay. It
 // cannot widen the environment ceiling or any owner's permission.
 func SetSessionPlugin(s Store, actor, capability, name string, muted bool) error {
-	writer := sessionPluginWriter{save: func(store Store, v model.Session) error { return saveSessionFor(store, v, "") }, sync: journal.SyncDir}
+	writer := sessionPluginWriter{save: func(store Store, v model.Session) error { return saveSessionFor(store, v, "") }, sync: fsutil.SyncDir}
 	return setSessionPlugin(s, actor, capability, name, muted, writer)
 }
 

@@ -1,0 +1,16 @@
+{
+  "epoch": "32f6e2e2-d372-4824-80a4-b136246cb5d4",
+  "sequence": "5",
+  "event": {
+    "id": "cbc9d268-6eb1-4568-97a5-08cbf4ff99f3",
+    "type": "message.status_changed",
+    "occurred_at": "2026-11-23T07:32:19.363686000Z",
+    "transaction_id": "8bc0bfe9-bb6f-494e-81b3-68e6818edf7d",
+    "message": {
+      "id": "56930e71-e286-438c-a542-4932b5db225f",
+      "from": "cursor:00000000-0000-4000-8000-0000000000a1",
+      "to": "cursor:00000000-0000-4000-8000-0000000000b2",
+      "status": "attempting"
+    }
+  }
+}

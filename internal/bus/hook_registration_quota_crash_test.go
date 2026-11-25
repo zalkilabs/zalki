@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 func TestPromptQuotaProcessCrashPublicationCuts(t *testing.T) {
@@ -82,7 +82,7 @@ func crashPromptQuotaPublication(path string, raw []byte, cut string) error {
 		return err
 	}
 	exitPromptQuotaAt(cut, "renamed")
-	if err := journal.SyncDir(filepath.Dir(path)); err != nil {
+	if err := fsutil.SyncDir(filepath.Dir(path)); err != nil {
 		return err
 	}
 	exitPromptQuotaAt(cut, "directory-synced")

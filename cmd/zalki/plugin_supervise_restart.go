@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/platform"
@@ -114,7 +115,7 @@ func requestRestart(state, name string, status pluginfeed.PluginFeedStatus, now 
 
 // writeRestartRequest publishes a request; an error can come after the
 // request is already visible (a late directory sync). Tests replace it.
-var writeRestartRequest = journal.WriteAtomic
+var writeRestartRequest = fsutil.WriteAtomic
 
 // consumeRestart applies a pending request for the current binding. The
 // reset and the new high-water mark are ONE durable run-state write; only
@@ -156,7 +157,7 @@ func (s *supervisor) consumeRestart(name string, p *supervised, key bindingKey) 
 		if err := os.Remove(restartPath(s.state, name)); err != nil {
 			return err
 		}
-		return journal.SyncDir(filepath.Join(s.state, "plugins"))
+		return fsutil.SyncDir(filepath.Join(s.state, "plugins"))
 	})
 	if err != nil {
 		s.logf("%s: restart request not applied: %s", name, model.ErrorCodeOf(err))

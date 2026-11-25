@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "50d11489-eb0d-47e3-8fd2-8e58874c2230",
+  "from": "cursor:00000000-0000-4000-8000-0000000000a1",
+  "from_label": "Cursor",
+  "to": "cursor:00000000-0000-4000-8000-0000000000b2",
+  "body": "held for the permission prompt",
+  "target_generation": "c3b3354d-89d6-4097-96b8-f628ecfaade5",
+  "created_at": "2026-11-23T07:32:20.218733000Z",
+  "status": "not_sent_pending_approval",
+  "held": true,
+  "receipt": {
+    "at": "2026-11-23T07:32:20.238654000Z",
+    "status": "not_sent_pending_approval",
+    "error": "queued until the permission prompt is answered"
+  }
+}

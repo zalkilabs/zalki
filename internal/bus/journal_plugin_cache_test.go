@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -127,7 +127,7 @@ func TestFeedMemberCacheDoesNotShareEvidenceAcrossRoots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(secondPath, raw); err != nil {
+	if err := fsutil.WriteAtomic(secondPath, raw); err != nil {
 		t.Fatal(err)
 	}
 	otherPath, err := second.sessionPath(other.ID)

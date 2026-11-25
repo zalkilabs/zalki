@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -398,7 +398,7 @@ func TestPluginInstallReceiptPoisonIsRefused(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := journal.WriteAtomic(f.pluginPath(), out); err != nil {
+		if err := fsutil.WriteAtomic(f.pluginPath(), out); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := f.PluginStatus(); err == nil {
@@ -462,7 +462,7 @@ func assertReceiptNeedsLaunch(t *testing.T, f PluginFeed, record map[string]json
 	delete(record, "launch")
 	delete(record, "capabilities")
 	out, _ := json.Marshal(record)
-	if err := journal.WriteAtomic(f.pluginPath(), out); err != nil {
+	if err := fsutil.WriteAtomic(f.pluginPath(), out); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.PluginStatus(); err == nil {
@@ -474,7 +474,7 @@ func assertReceiptNeedsLaunch(t *testing.T, f PluginFeed, record map[string]json
 		record["capabilities"] = capabilities
 	}
 	out, _ = json.Marshal(record)
-	if err := journal.WriteAtomic(f.pluginPath(), out); err != nil {
+	if err := fsutil.WriteAtomic(f.pluginPath(), out); err != nil {
 		t.Fatal(err)
 	}
 	if status, err := f.PluginStatus(); err != nil || status.Install != nil {

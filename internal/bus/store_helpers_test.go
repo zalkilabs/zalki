@@ -1,7 +1,7 @@
 package bus
 
 import (
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -10,7 +10,7 @@ func writeJSON(path string, value any) error {
 	if err != nil {
 		return err
 	}
-	return journal.WriteAtomic(path, b)
+	return fsutil.WriteAtomic(path, b)
 }
 
 func (w commitWriter) commit(previous []byte, next model.Session, event model.Event) error {

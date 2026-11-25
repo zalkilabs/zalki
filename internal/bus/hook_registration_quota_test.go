@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 func promptQuotaActor(index int) string {
@@ -22,15 +22,15 @@ func TestPromptQuotaPerActorWindowAndRestart(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC)
 	actor := promptQuotaActor(1)
-	if err := debitPromptRegistration(dir, actor, now, journal.WriteAtomic); err != nil {
+	if err := debitPromptRegistration(dir, actor, now, fsutil.WriteAtomic); err != nil {
 		t.Fatal(err)
 	}
 	for _, elapsed := range []time.Duration{0, time.Second, promptQuotaWindow - time.Nanosecond} {
-		if err := debitPromptRegistration(dir, actor, now.Add(elapsed), journal.WriteAtomic); !errors.Is(err, errPromptQuota) {
+		if err := debitPromptRegistration(dir, actor, now.Add(elapsed), fsutil.WriteAtomic); !errors.Is(err, errPromptQuota) {
 			t.Fatal("C06_PER_ID_PERSISTED_WINDOW", elapsed, err)
 		}
 	}
-	if err := debitPromptRegistration(dir, actor, now.Add(promptQuotaWindow), journal.WriteAtomic); err != nil {
+	if err := debitPromptRegistration(dir, actor, now.Add(promptQuotaWindow), fsutil.WriteAtomic); err != nil {
 		t.Fatal("C06_EXACT_EXPIRY", err)
 	}
 	quota, err := readPromptQuota(filepath.Join(dir, "hook-registration-quota.json"))
@@ -43,7 +43,7 @@ func TestPromptQuotaGlobalWindow(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC)
 	for index := range promptQuotaCount {
-		if err := debitPromptRegistration(dir, promptQuotaActor(index), now, journal.WriteAtomic); err != nil {
+		if err := debitPromptRegistration(dir, promptQuotaActor(index), now, fsutil.WriteAtomic); err != nil {
 			t.Fatal("C07_TWENTY_ATTEMPTS", index, err)
 		}
 	}
@@ -52,14 +52,14 @@ func TestPromptQuotaGlobalWindow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := debitPromptRegistration(dir, promptQuotaActor(21), now.Add(promptQuotaWindow-time.Nanosecond), journal.WriteAtomic); !errors.Is(err, errPromptQuota) {
+	if err := debitPromptRegistration(dir, promptQuotaActor(21), now.Add(promptQuotaWindow-time.Nanosecond), fsutil.WriteAtomic); !errors.Is(err, errPromptQuota) {
 		t.Fatal("C07_GLOBAL_CAP", err)
 	}
 	after, err := os.ReadFile(path)
 	if err != nil || string(after) != string(before) {
 		t.Fatal("C07_DENIAL_DOES_NOT_EXTEND", err)
 	}
-	if err := debitPromptRegistration(dir, promptQuotaActor(21), now.Add(promptQuotaWindow), journal.WriteAtomic); err != nil {
+	if err := debitPromptRegistration(dir, promptQuotaActor(21), now.Add(promptQuotaWindow), fsutil.WriteAtomic); err != nil {
 		t.Fatal("C07_GLOBAL_EXPIRY", err)
 	}
 }
@@ -156,7 +156,7 @@ func TestPromptQuotaRejectsUnsafeFile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := debitPromptRegistration(dir, promptQuotaActor(1), time.Now().UTC(), journal.WriteAtomic); !errors.Is(err, errPromptQuotaState) {
+			if err := debitPromptRegistration(dir, promptQuotaActor(1), time.Now().UTC(), fsutil.WriteAtomic); !errors.Is(err, errPromptQuotaState) {
 				t.Fatal("C09_UNSAFE_FILE_REFUSED", err)
 			}
 		})

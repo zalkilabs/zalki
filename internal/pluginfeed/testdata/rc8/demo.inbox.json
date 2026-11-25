@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "installation": "0d2e3385-7270-4b7f-bc3a-9843f8a136e7",
+  "entries": [
+    {
+      "id": "e35366b1-bc43-4aa7-8e15-d04feb549dc1",
+      "sender": "cursor:4eb405e6-0763-484e-b9c9-c51b28418083",
+      "sender_generation": "7d1b942a-fea6-481c-8476-53e574e05b31",
+      "admission_revision": "7df36501f999b46f582c3618df32f3b8f97702c7415a36a98318677a72f4e33b",
+      "at": "2026-11-23T07:35:29.390421Z",
+      "encoded_message_bytes": 456
+    }
+  ],
+  "quota": {
+    "inbound": {
+      "tokens": 46.02398,
+      "at": "2026-11-23T07:35:29.390421Z"
+    },
+    "senders": {
+      "86e9c73c-5b81-899d-9ab2-ca00d92a5fd0": {
+        "tokens": 10.007194,
+        "at": "2026-11-23T07:35:29.390421Z"
+      }
+    },
+    "recent": [
+      {
+        "id": "8eeb65ee-7af6-4eab-86e0-bc400710b3a1",
+        "sender": "86e9c73c-5b81-899d-9ab2-ca00d92a5fd0",
+        "at": "2026-11-23T07:35:29.354451Z"
+      },
+      {
+        "id": "e35366b1-bc43-4aa7-8e15-d04feb549dc1",
+        "sender": "86e9c73c-5b81-899d-9ab2-ca00d92a5fd0",
+        "at": "2026-11-23T07:35:29.390421Z"
+      }
+    ]
+  }
+}

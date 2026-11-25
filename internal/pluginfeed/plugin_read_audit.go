@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -83,7 +84,7 @@ func (s pluginFiles) savePluginReadAuditFile(name string, rows []pluginReadAudit
 		}
 		raw, err := journal.EncodeJSON(pluginReadAudit{Version: 1, Rows: rows}, 1<<20)
 		if err == nil {
-			return journal.WriteAtomic(filepath.Join(s.root, name), raw)
+			return fsutil.WriteAtomic(filepath.Join(s.root, name), raw)
 		}
 		var size *journal.SizeError
 		if !errors.As(err, &size) || len(rows) < 2 || now.Sub(rows[0].At) < time.Second {

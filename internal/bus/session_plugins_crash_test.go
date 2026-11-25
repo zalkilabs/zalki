@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -80,7 +80,7 @@ func runSessionPluginCrash(t *testing.T, root string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writer := sessionPluginWriter{sync: journal.SyncDir, save: func(s Store, next model.Session) error {
+	writer := sessionPluginWriter{sync: fsutil.SyncDir, save: func(s Store, next model.Session) error {
 		var policy sessionPluginPolicy
 		if err := DecodeStrictRecordJSON(next.PluginPolicy, &policy); err != nil {
 			return err
@@ -97,7 +97,7 @@ func runSessionPluginCrash(t *testing.T, root string) {
 			return err
 		}
 		temp := filepath.Join(filepath.Dir(path), ".z6-policy-crash-image")
-		if err := journal.WriteAtomic(temp, raw); err != nil {
+		if err := fsutil.WriteAtomic(temp, raw); err != nil {
 			return err
 		}
 		if cut == 0 {
@@ -109,7 +109,7 @@ func runSessionPluginCrash(t *testing.T, root string) {
 		if cut == 1 {
 			os.Exit(23)
 		}
-		if err := journal.SyncDir(filepath.Dir(path)); err != nil {
+		if err := fsutil.SyncDir(filepath.Dir(path)); err != nil {
 			return err
 		}
 		os.Exit(23)

@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 // ErrInvalidFile reports a record file that is not a regular file or is larger
@@ -36,7 +34,7 @@ func ReadJSON(path string, limit int, target any) error {
 }
 
 // EncodeJSON returns the record encoding of value: two-space indentation
-// and a final newline. It measures exactly the bytes that [WriteAtomic] will
+// and a final newline. It measures exactly the bytes that [fsutil.WriteAtomic] will
 // publish, so a writer can reject an oversized record before it changes
 // anything. When the encoding is longer than limit bytes the error is a
 // *[SizeError].
@@ -50,20 +48,4 @@ func EncodeJSON(value any, limit int) ([]byte, error) {
 		return nil, &SizeError{Size: len(b), Limit: limit}
 	}
 	return b, nil
-}
-
-// WriteAtomic replaces the file at path with data. The bytes go to a synced
-// temporary file in the same directory, which is renamed over path, and the
-// directory is synced afterwards. A reader sees the old file or the new one,
-// never a partial write. Temporary-file cleanup is attempted on all paths. An
-// error from directory sync can occur after replacement, so an error does not prove
-// that the old file remains in place.
-func WriteAtomic(path string, data []byte) error {
-	return fsutil.WriteAtomic(path, data)
-}
-
-// SyncDir syncs the directory at path and returns the filesystem error unchanged.
-// The caller decides which publication or removal requires this durability step.
-func SyncDir(path string) error {
-	return fsutil.SyncDir(path)
 }

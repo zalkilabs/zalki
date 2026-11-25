@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -38,7 +39,7 @@ func (s PluginFeed) ackStreamStep(step *streamStep, id string, features streamFe
 		return "", streamAckError()
 	}
 	if id == state.LastAck || slices.Contains(state.Canceled, id) {
-		return streamPendingID(state), journal.SyncDir(s.pluginDir())
+		return streamPendingID(state), fsutil.SyncDir(s.pluginDir())
 	}
 	pending := state.Pending
 	if !matchingAttemptedStreamAck(pending, id) {

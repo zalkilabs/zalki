@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -217,7 +218,7 @@ func (s PluginFeed) attemptStreamPart(ctx context.Context, step *streamStep, par
 	}
 	// A previous rename may be visible without confirmed directory durability.
 	// Confirm that namespace before changing the durable attempt evidence.
-	if err := journal.SyncDir(s.pluginDir()); err != nil {
+	if err := fsutil.SyncDir(s.pluginDir()); err != nil {
 		return err
 	}
 	current, err := s.pendingStreamCurrent(ctx, step.view, step.owner, pending, step.budget)

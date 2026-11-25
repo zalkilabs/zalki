@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -138,7 +139,7 @@ func (s pluginFiles) saveStreamState(state *pluginStreamState) error {
 	if err := state.validate(); err != nil {
 		return err
 	}
-	return journal.WriteAtomic(s.streamPath(), raw)
+	return fsutil.WriteAtomic(s.streamPath(), raw)
 }
 
 func encodeStreamState(state *pluginStreamState) ([]byte, error) {

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
 
@@ -105,7 +105,7 @@ func TestExternalPluginOwnerReportsStoredArgvDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(path, raw); err != nil {
+	if err := fsutil.WriteAtomic(path, raw); err != nil {
 		t.Fatal(err)
 	}
 	status := readExternalOwnerStatus(t, store.Dir())

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "81ac70cf-e482-40ed-ba84-b73af96b43a9",
+  "from": "cursor:00000000-0000-4000-8000-0000000000a1",
+  "from_label": "Cursor",
+  "to": "codex:00000000-0000-4000-8000-0000000000c3",
+  "body": "to codex",
+  "target_generation": "fb61e309-849a-41a6-aece-6ed62d1c1869",
+  "created_at": "2026-11-23T07:32:19.636832000Z",
+  "status": "submitted",
+  "receipt": {
+    "at": "2026-11-23T07:32:19.227680000Z",
+    "status": "submitted"
+  }
+}

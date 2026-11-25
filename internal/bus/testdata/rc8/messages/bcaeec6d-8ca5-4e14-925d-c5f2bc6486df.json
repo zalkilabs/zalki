@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "bcaeec6d-8ca5-4e14-925d-c5f2bc6486df",
+  "from": "cursor:00000000-0000-4000-8000-0000000000b2",
+  "from_label": "Cursor",
+  "to": "cursor:00000000-0000-4000-8000-0000000000a1",
+  "body": "reply-ish message b to a",
+  "target_generation": "2d65e779-57b5-4748-ac79-c5b94cabdc26",
+  "created_at": "2026-11-23T07:32:19.497943000Z",
+  "status": "pending_next_activity",
+  "receipt": {
+    "at": "2026-11-23T07:32:19.613589000Z",
+    "status": "pending_next_activity"
+  }
+}

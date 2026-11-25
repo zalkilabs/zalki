@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 )
@@ -346,7 +347,7 @@ func TestPluginFeedGapDirectorySyncFailure(t *testing.T) {
 		t.Fatal("gap watermark was published without a pending notice", visible)
 	}
 	// Retaining the old namespace after a failed directory sync cannot hide loss.
-	if err := journal.WriteAtomic(feed.streamPath(), prior); err != nil {
+	if err := fsutil.WriteAtomic(feed.streamPath(), prior); err != nil {
 		t.Fatal(err)
 	}
 	gap := streamInspect(t, feed, launch)
@@ -382,7 +383,7 @@ func TestPluginFeedAckDirectorySyncFailure(t *testing.T) {
 		t.Fatal("current-disk reconciliation rolled back or changed evidence")
 	}
 	// Independently simulate power loss retaining the OLD checkpoint namespace.
-	if err := journal.WriteAtomic(feed.streamPath(), prior); err != nil {
+	if err := fsutil.WriteAtomic(feed.streamPath(), prior); err != nil {
 		t.Fatal(err)
 	}
 	restarted := NewPluginFeed(store, "fake-notifier")
@@ -408,7 +409,7 @@ func TestPluginFeedInvalidPrivateRecord(t *testing.T) {
 		bytes.Repeat([]byte(" "), 16<<10+1),
 		bytes.Replace(good, []byte(`"epoch": "`), []byte(`"epoch": "invalid-`), 1),
 	} {
-		if err := journal.WriteAtomic(NewPluginFeed(s, "fake-notifier").pluginPath(), raw); err != nil {
+		if err := fsutil.WriteAtomic(NewPluginFeed(s, "fake-notifier").pluginPath(), raw); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := NewPluginFeed(s, "fake-notifier").PluginStatus(); err == nil {
@@ -552,7 +553,7 @@ func TestPluginFeedOwnerSymlinkRemainsClosed(t *testing.T) {
 	feed := NewPluginFeed(store, "fake-notifier")
 	original := readCommitFile(t, feed.pluginPath())
 	target := filepath.Join(t.TempDir(), "owner.json")
-	if err := journal.WriteAtomic(target, original); err != nil {
+	if err := fsutil.WriteAtomic(target, original); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(feed.pluginPath()); err != nil {
@@ -747,7 +748,7 @@ func checkHandEditedRecord(t *testing.T, change func(*pluginRecord), rehash bool
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(f.pluginPath(), raw); err != nil {
+	if err := fsutil.WriteAtomic(f.pluginPath(), raw); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.PluginStatus(); err == nil {

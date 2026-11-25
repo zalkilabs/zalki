@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -207,7 +207,7 @@ func prepareSessionLatencySeed(t *testing.T, scenario string) {
 	session := model.Session{ID: "codex:00000000-0000-4000-8000-000000000003", Generation: "00000000-0000-4000-8000-000000000004"}
 	seedLatencyRecords(t, store, session, count)
 	for _, relative := range []string{"events/records", "events", "commits", "."} {
-		if err := journal.SyncDir(filepath.Join(store.dir, relative)); err != nil {
+		if err := fsutil.SyncDir(filepath.Join(store.dir, relative)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -247,7 +247,7 @@ func cloneSessionLatencyEvents(t *testing.T, target, source string) {
 		t.Fatal(err)
 	}
 	for _, relative := range []string{"events/records", "events", "commits", "."} {
-		if err := journal.SyncDir(filepath.Join(target, relative)); err != nil {
+		if err := fsutil.SyncDir(filepath.Join(target, relative)); err != nil {
 			t.Fatal(err)
 		}
 	}

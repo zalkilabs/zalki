@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -146,7 +146,7 @@ func TestSessionStartupPublishedDebitIsNeverRefunded(t *testing.T) {
 	err := bus.WithJournalWrite(f.store, func(bus.JournalView) error {
 		text, err := appendSessionStartNoticesWith([]pluginRecord{p}, "mandatory summary", func(string) (bool, error) { return true, nil }, func(p pluginRecord, now time.Time) (bool, error) {
 			return f.reserveStartNoticeWith(p, session.ID, session.Generation, now, func(path string, raw []byte) error {
-				if err := journal.WriteAtomic(path, raw); err != nil {
+				if err := fsutil.WriteAtomic(path, raw); err != nil {
 					return err
 				}
 				return errors.New("published debit, output not emitted")

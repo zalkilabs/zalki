@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
@@ -36,7 +36,7 @@ func writeRequest(t *testing.T, state string, request restartRequest) {
 	t.Helper()
 	raw, err := json.Marshal(request)
 	if err == nil {
-		err = journal.WriteAtomic(restartPath(state, "demo"), raw)
+		err = fsutil.WriteAtomic(restartPath(state, "demo"), raw)
 	}
 	if err != nil {
 		t.Fatal(err)
