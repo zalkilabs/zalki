@@ -12,8 +12,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 var errStreamWork = errors.New("bounded plugin feed work is unavailable")
@@ -68,12 +68,12 @@ func (b *streamBudget) read(path string, limit int) ([]byte, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() || info.Size() > int64(limit) {
-		return nil, journal.ErrInvalidFile
+		return nil, statefile.ErrInvalidFile
 	}
 	if err := b.charge(int(info.Size()), 1, 0, 0, 0); err != nil {
 		return nil, err
 	}
-	raw, err := journal.ReadBytes(path, int(info.Size()))
+	raw, err := statefile.ReadBytes(path, int(info.Size()))
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (b *streamBudget) read(path string, limit int) ([]byte, error) {
 
 func (b *streamBudget) tokens(raw []byte) error {
 	if !utf8.Valid(raw) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
@@ -109,7 +109,7 @@ func (b *streamBudget) tokens(raw []byte) error {
 				depth--
 			}
 			if depth < 0 || depth > 64 {
-				return journal.ErrInvalidFile
+				return statefile.ErrInvalidFile
 			}
 		}
 	}

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // The files in testdata/rc8 were written by the rc.8 release. An update must
@@ -90,7 +90,7 @@ func reencodeWatch(t *testing.T, _ Store, path string) []byte {
 
 func reencodeEventMeta(t *testing.T, _ Store, path string) []byte {
 	t.Helper()
-	raw, err := journal.ReadBytes(path, maxStateFileBytes)
+	raw, err := statefile.ReadBytes(path, maxStateFileBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func reencodeEventMeta(t *testing.T, _ Store, path string) []byte {
 
 func reencodeEvent(t *testing.T, _ Store, path string) []byte {
 	t.Helper()
-	raw, err := journal.ReadBytes(path, maxEventBytes)
+	raw, err := statefile.ReadBytes(path, maxEventBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func reencodeEvent(t *testing.T, _ Store, path string) []byte {
 	if err := record.validate(); err != nil {
 		t.Fatalf("event record is not valid: %v", err)
 	}
-	encoded, err := journal.EncodeJSON(record, maxEventBytes)
+	encoded, err := statefile.EncodeJSON(record, maxEventBytes)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,8 +11,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type pluginReadFixture struct {
@@ -362,7 +362,7 @@ func TestPluginReadAuditRetentionAndValidation(t *testing.T) {
 	}
 	assertPluginReadInvalidAuditRows(t, &x, &base)
 	// Reader must reject a valid-but-over-count file, rather than trim corruption.
-	raw, err := journal.EncodeJSON(pluginReadAudit{Version: 1, Rows: full}, 1<<20)
+	raw, err := statefile.EncodeJSON(pluginReadAudit{Version: 1, Rows: full}, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -462,7 +462,7 @@ func assertPluginReadInvalidAuditRows(t *testing.T, x *pluginReadFixture, base *
 	for _, edit := range []func(*pluginReadAuditRow){func(r *pluginReadAuditRow) { r.Bytes = -1 }, func(r *pluginReadAuditRow) { r.Outcome = "private body secret" }, func(r *pluginReadAuditRow) { r.Plugin = "bad" }, func(r *pluginReadAuditRow) { r.Session = "name" }, func(r *pluginReadAuditRow) { r.At = time.Time{} }} {
 		bad := *base
 		edit(&bad)
-		raw, err := journal.EncodeJSON(pluginReadAudit{Version: 1, Rows: []pluginReadAuditRow{bad}}, 1<<20)
+		raw, err := statefile.EncodeJSON(pluginReadAudit{Version: 1, Rows: []pluginReadAuditRow{bad}}, 1<<20)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -559,7 +559,7 @@ func pluginReadForeignRecord(t *testing.T, x *pluginReadFixture, malformed bool)
 		message.From = "malformed sender secret"
 		message.TargetGeneration = "not-a-generation"
 	}
-	raw, err := journal.EncodeJSON(message, maxStateFileBytes)
+	raw, err := statefile.EncodeJSON(message, maxStateFileBytes)
 	if err != nil {
 		t.Fatal(err)
 	}

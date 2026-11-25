@@ -13,8 +13,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func pluginReadOwnerFixture(t *testing.T) (string, bus.Store, model.Message) {
@@ -28,7 +28,7 @@ func pluginReadOwnerFixture(t *testing.T) (string, bus.Store, model.Message) {
 	capabilityCLIOK(t, binary, store.Dir(), "add", "external", "--exec", executable)
 	capabilityCLIOK(t, binary, store.Dir(), "configure", "external", "--scope", "all")
 	m := model.Message{Schema: 1, ID: "10000000-0000-4000-8000-000000000002", From: session.ID, To: session.ID, TargetGeneration: session.Generation, Body: "PRIVATE-B1-CLI-BODY <>&\nsecret", CreatedAt: "2000-01-01T00:00:00Z", AcknowledgedAt: "2000-01-02T00:00:00Z", Status: model.StatusSubmitted}
-	raw, err := journal.EncodeJSON(m, 128<<10)
+	raw, err := statefile.EncodeJSON(m, 128<<10)
 	if err != nil {
 		t.Fatal(err)
 	}

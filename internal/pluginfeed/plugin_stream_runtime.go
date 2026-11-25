@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type streamRuntime struct {
@@ -87,7 +87,7 @@ func (s PluginFeed) pendingStreamCurrent(ctx context.Context, view bus.JournalVi
 		return false, err
 	}
 	if len(collection.Records) != len(ids) {
-		return false, journal.ErrInvalidFile
+		return false, statefile.ErrInvalidFile
 	}
 	for _, row := range collection.Records {
 		original := pending.Guards[row.ID]

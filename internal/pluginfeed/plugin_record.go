@@ -8,8 +8,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const maxPluginGrants = 16
@@ -75,11 +75,11 @@ func (s pluginFiles) checkPluginGrants(ids []string) error {
 
 // decodePluginRecord decodes strictly.
 func decodePluginRecord(raw []byte, p *pluginRecord) error {
-	return bus.DecodeStrictRecordJSON(raw, p)
+	return statefile.DecodeStrictRecordJSON(raw, p)
 }
 
 func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
-	return s.loadPluginUsing(journal.ReadBytes)
+	return s.loadPluginUsing(statefile.ReadBytes)
 }
 
 func (s pluginFiles) loadPluginUsing(read func(string, int) ([]byte, error)) (pluginRecord, []byte, error) {
@@ -104,16 +104,16 @@ func (s pluginFiles) loadPluginUsing(read func(string, int) ([]byte, error)) (pl
 		return unreadableRecord(s.name, reasonDecode, raw, err)
 	}
 	if !p.validIdentityAndLaunch(s.name) {
-		return unreadableRecord(s.name, reasonIdentity, raw, journal.ErrInvalidBatch)
+		return unreadableRecord(s.name, reasonIdentity, raw, statefile.ErrInvalidData)
 	}
 	if err := s.checkAccess(p.Access); err != nil {
 		return unreadableRecord(s.name, reasonAccess, raw, err)
 	}
 	if p.Revision != pluginRevision(p) {
-		return unreadableRecord(s.name, reasonRevision, raw, journal.ErrInvalidBatch) // a hand edit cannot keep an old binding
+		return unreadableRecord(s.name, reasonRevision, raw, statefile.ErrInvalidData) // a hand edit cannot keep an old binding
 	}
 	if (p.Enabled && (!p.mayRun() || !model.IsCanonicalUUID(p.Epoch))) || (p.Epoch != "" && !model.IsCanonicalUUID(p.Epoch)) {
-		return unreadableRecord(s.name, reasonEpoch, raw, journal.ErrInvalidBatch)
+		return unreadableRecord(s.name, reasonEpoch, raw, statefile.ErrInvalidData)
 	}
 	return p, raw, nil
 }
@@ -134,7 +134,7 @@ func (p pluginRecord) mayRun() bool {
 
 func (s pluginFiles) savePlugin(p pluginRecord) ([]byte, error) {
 	p.Revision = pluginRevision(p)
-	raw, err := journal.EncodeJSON(p, 16<<10)
+	raw, err := statefile.EncodeJSON(p, 16<<10)
 	if err != nil {
 		return nil, err
 	}

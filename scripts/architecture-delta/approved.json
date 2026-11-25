@@ -2656,5 +2656,229 @@
       }
     },
     "reason": "The two forwards journal.WriteAtomic and journal.SyncDir are removed. Callers now use fsutil directly, so cmd/zalki and pluginfeed import fsutil. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "487412d40ec617fcee7d039d8c28811be02111c2",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/statefile.CheckSchema",
+          "internal/statefile.DecodeStrictRecordJSON",
+          "internal/statefile.EncodeJSON",
+          "internal/statefile.ErrInvalidData",
+          "internal/statefile.ErrInvalidFile",
+          "internal/statefile.ReadBytes",
+          "internal/statefile.ReadJSON",
+          "internal/statefile.SchemaError",
+          "internal/statefile.SchemaError.Error",
+          "internal/statefile.SizeError",
+          "internal/statefile.SizeError.Error"
+        ],
+        "removed": [
+          "internal/bus.DecodeStrictRecordJSON",
+          "internal/journal.CheckSchema",
+          "internal/journal.EncodeJSON",
+          "internal/journal.ErrInvalidBatch",
+          "internal/journal.ErrInvalidFile",
+          "internal/journal.ReadBytes",
+          "internal/journal.ReadJSON",
+          "internal/journal.SchemaError",
+          "internal/journal.SchemaError.Error",
+          "internal/journal.SizeError",
+          "internal/journal.SizeError.Error"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/statefile.CheckSchema": "func(raw json.RawMessage, supported int) (int, error)",
+          "function:internal/statefile.DecodeStrictRecordJSON": "func(raw []byte, target any) error",
+          "function:internal/statefile.EncodeJSON": "func(value any, limit int) ([]byte, error)",
+          "function:internal/statefile.ReadBytes": "func(path string, limit int) ([]byte, error)",
+          "function:internal/statefile.ReadJSON": "func(path string, limit int, target any) error",
+          "function:internal/statefile.SchemaError.Error": "func(*SchemaError) func() string",
+          "function:internal/statefile.SizeError.Error": "func(*SizeError) func() string",
+          "type:internal/statefile.SchemaError": "SchemaError struct{ Version, Supported int }",
+          "type:internal/statefile.SizeError": "SizeError struct{ Size, Limit int }",
+          "var:internal/statefile.ErrInvalidData": "ErrInvalidData = errors.New(\"invalid journal batch\")",
+          "var:internal/statefile.ErrInvalidFile": "ErrInvalidFile = errors.New(\"invalid state file\")"
+        },
+        "removed": {
+          "function:internal/bus.DecodeStrictRecordJSON": "func(raw []byte, target any) error",
+          "function:internal/journal.CheckSchema": "func(raw json.RawMessage, supported int) (int, error)",
+          "function:internal/journal.EncodeJSON": "func(value any, limit int) ([]byte, error)",
+          "function:internal/journal.ReadBytes": "func(path string, limit int) ([]byte, error)",
+          "function:internal/journal.ReadJSON": "func(path string, limit int, target any) error",
+          "function:internal/journal.SchemaError.Error": "func(*SchemaError) func() string",
+          "function:internal/journal.SizeError.Error": "func(*SizeError) func() string",
+          "type:internal/journal.SchemaError": "SchemaError struct{ Version, Supported int }",
+          "type:internal/journal.SizeError": "SizeError struct{ Size, Limit int }",
+          "var:internal/journal.ErrInvalidBatch": "ErrInvalidBatch = errors.New(\"invalid journal batch\")",
+          "var:internal/journal.ErrInvalidFile": "ErrInvalidFile = errors.New(\"invalid state file\")"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/statefile.SchemaError": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/statefile.SizeError": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "removed": {
+          "internal/journal.SchemaError": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/journal.SizeError": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/statefile",
+          "internal/bus -> internal/statefile",
+          "internal/journal -> internal/statefile",
+          "internal/pluginfeed -> internal/statefile"
+        ],
+        "removed": [
+          "cmd/zalki -> internal/journal",
+          "internal/pluginfeed -> internal/journal"
+        ]
+      },
+      "os_calls": {
+        "added": {
+          "internal/statefile/read_bytes.go": [
+            "syscall"
+          ]
+        },
+        "removed": {
+          "internal/journal/read_bytes.go": [
+            "syscall"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    "reason": "The record reads, record encoding, strict decoder and schema check move from internal/journal and internal/bus to the new internal/statefile package with the same names and signatures. Callers import statefile instead of journal or bus for these. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "487412d40ec617fcee7d039d8c28811be02111c2",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/statefile.CheckSchema",
+          "internal/statefile.DecodeStrictRecordJSON",
+          "internal/statefile.EncodeJSON",
+          "internal/statefile.ErrInvalidData",
+          "internal/statefile.ErrInvalidFile",
+          "internal/statefile.ReadBytes",
+          "internal/statefile.ReadJSON",
+          "internal/statefile.SchemaError",
+          "internal/statefile.SchemaError.Error",
+          "internal/statefile.SizeError",
+          "internal/statefile.SizeError.Error"
+        ],
+        "removed": [
+          "internal/bus.DecodeStrictRecordJSON",
+          "internal/journal.CheckSchema",
+          "internal/journal.EncodeJSON",
+          "internal/journal.ErrInvalidBatch",
+          "internal/journal.ErrInvalidFile",
+          "internal/journal.ReadBytes",
+          "internal/journal.ReadJSON",
+          "internal/journal.SchemaError",
+          "internal/journal.SchemaError.Error",
+          "internal/journal.SizeError",
+          "internal/journal.SizeError.Error"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/statefile.CheckSchema": "func(raw json.RawMessage, supported int) (int, error)",
+          "function:internal/statefile.DecodeStrictRecordJSON": "func(raw []byte, target any) error",
+          "function:internal/statefile.EncodeJSON": "func(value any, limit int) ([]byte, error)",
+          "function:internal/statefile.ReadBytes": "func(path string, limit int) ([]byte, error)",
+          "function:internal/statefile.ReadJSON": "func(path string, limit int, target any) error",
+          "function:internal/statefile.SchemaError.Error": "func(*SchemaError) func() string",
+          "function:internal/statefile.SizeError.Error": "func(*SizeError) func() string",
+          "type:internal/statefile.SchemaError": "SchemaError struct{ Version, Supported int }",
+          "type:internal/statefile.SizeError": "SizeError struct{ Size, Limit int }",
+          "var:internal/statefile.ErrInvalidData": "ErrInvalidData = errors.New(\"invalid journal batch\")",
+          "var:internal/statefile.ErrInvalidFile": "ErrInvalidFile = errors.New(\"invalid state file\")"
+        },
+        "removed": {
+          "function:internal/bus.DecodeStrictRecordJSON": "func(raw []byte, target any) error",
+          "function:internal/journal.CheckSchema": "func(raw json.RawMessage, supported int) (int, error)",
+          "function:internal/journal.EncodeJSON": "func(value any, limit int) ([]byte, error)",
+          "function:internal/journal.ReadBytes": "func(path string, limit int) ([]byte, error)",
+          "function:internal/journal.ReadJSON": "func(path string, limit int, target any) error",
+          "function:internal/journal.SchemaError.Error": "func(*SchemaError) func() string",
+          "function:internal/journal.SizeError.Error": "func(*SizeError) func() string",
+          "type:internal/journal.SchemaError": "SchemaError struct{ Version, Supported int }",
+          "type:internal/journal.SizeError": "SizeError struct{ Size, Limit int }",
+          "var:internal/journal.ErrInvalidBatch": "ErrInvalidBatch = errors.New(\"invalid journal batch\")",
+          "var:internal/journal.ErrInvalidFile": "ErrInvalidFile = errors.New(\"invalid state file\")"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/statefile.SchemaError": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/statefile.SizeError": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "removed": {
+          "internal/journal.SchemaError": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/journal.SizeError": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/statefile",
+          "internal/bus -> internal/statefile",
+          "internal/journal -> internal/statefile",
+          "internal/pluginfeed -> internal/statefile"
+        ],
+        "removed": [
+          "cmd/zalki -> internal/journal",
+          "internal/pluginfeed -> internal/journal"
+        ]
+      },
+      "os_calls": {
+        "added": {
+          "internal/statefile/read_bytes.go": [
+            "syscall"
+          ]
+        },
+        "removed": {
+          "internal/journal/read_bytes.go": [
+            "syscall"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    "reason": "The record reads, record encoding, strict decoder and schema check move from internal/journal and internal/bus to the new internal/statefile package with the same names and signatures. Callers import statefile instead of journal or bus for these. No stored data or wire format changes."
   }
 ]

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // Persistence alone adds this field. model.Message deliberately has json:"-"
@@ -15,7 +16,7 @@ type storedPluginMessage struct {
 
 func decodeStoredMessage(raw []byte, message *model.Message) error {
 	var disk storedPluginMessage
-	if err := DecodeStrictRecordJSON(raw, &disk); err != nil {
+	if err := statefile.DecodeStrictRecordJSON(raw, &disk); err != nil {
 		return err
 	}
 	*message = disk.Message
@@ -25,7 +26,7 @@ func decodeStoredMessage(raw []byte, message *model.Message) error {
 
 func checkStoredPluginBinding(prior []byte, next model.Message) error {
 	if !model.IsPluginInboxAddress(next.From) && next.PluginBinding != "" {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	if prior == nil {
 		return nil

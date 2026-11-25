@@ -11,6 +11,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type commitFixture struct {
@@ -97,7 +98,7 @@ func preparedCommit(t *testing.T, f commitFixture) journal.Batch {
 
 func stageCommit(t *testing.T, f commitFixture, batch journal.Batch) {
 	t.Helper()
-	raw, err := journal.EncodeJSON(batch, 1<<20)
+	raw, err := statefile.EncodeJSON(batch, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +161,7 @@ func TestDormantRecoveryRejectsForeignFamilyBeforeAnyWrite(t *testing.T) {
 	batch := preparedCommit(t, f)
 	batch.Puts[0].Path = "sessions/foreign.json"
 	stageCommit(t, f, batch)
-	if err := f.writer.recover(); !errors.Is(err, journal.ErrInvalidBatch) {
+	if err := f.writer.recover(); !errors.Is(err, statefile.ErrInvalidData) {
 		t.Fatalf("foreign target = %v", err)
 	}
 	got := readCommitFile(t, filepath.Join(f.writer.dir, eventSubjectPath(f.event)))

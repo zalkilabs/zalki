@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // sessionEvent projects only registration, generation and lifecycle facts,
@@ -30,7 +30,7 @@ func sessionProjection(previous []byte, next model.Session) (string, model.Event
 			return "", model.EventSession{}, err
 		}
 		if before.ID != next.ID {
-			return "", model.EventSession{}, journal.ErrInvalidBatch
+			return "", model.EventSession{}, statefile.ErrInvalidData
 		}
 	}
 	kind := model.EventSessionStateChanged

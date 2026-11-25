@@ -13,12 +13,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const restartRequestLimit = 1 << 10
@@ -76,9 +75,9 @@ func loadRestartRequest(state, name string) (restartRequest, bool, error) {
 		return restartRequest{}, false, err
 	}
 	var request restartRequest
-	raw, err := journal.ReadBytes(path, restartRequestLimit)
+	raw, err := statefile.ReadBytes(path, restartRequestLimit)
 	if err == nil && privateFile(info) {
-		err = bus.DecodeStrictRecordJSON(raw, &request)
+		err = statefile.DecodeStrictRecordJSON(raw, &request)
 	} else if err == nil {
 		err = errors.New("not private")
 	}

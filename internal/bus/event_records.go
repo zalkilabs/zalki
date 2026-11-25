@@ -1,8 +1,6 @@
 package bus
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +10,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const (
@@ -43,7 +42,7 @@ func (w commitWriter) eventLimit() uint64 {
 
 func (r eventRecord) validate() error {
 	if !canonicalEventID(r.Epoch) || r.Sequence == 0 {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	return r.Event.Validate()
 }
@@ -54,26 +53,16 @@ func canonicalEventID(id string) bool {
 
 func (m eventMetadata) validate(limit uint64) error {
 	if !canonicalEventID(m.Epoch) || m.First == 0 || m.Last < m.First {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	if m.Count == 0 || m.Count > limit || m.Count != m.Last-m.First+1 || m.Bytes == 0 || m.Bytes > m.Count*maxEventBytes {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	return nil
 }
 
 func decodeEventJSON(raw []byte, target any) error {
-	return DecodeStrictRecordJSON(raw, target)
-}
-
-// DecodeStrictRecordJSON accepts a single value without unknown fields.
-func DecodeStrictRecordJSON(raw []byte, target any) error {
-	if !json.Valid(raw) {
-		return journal.ErrInvalidBatch
-	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	return decoder.Decode(target)
+	return statefile.DecodeStrictRecordJSON(raw, target)
 }
 
 func eventRecordPath(sequence uint64) string {
@@ -112,7 +101,7 @@ func (w commitWriter) checkEmptyRecords() error {
 		return err
 	}
 	if len(names) != 0 {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	return nil
 }
@@ -122,7 +111,7 @@ func (w commitWriter) retireOldest(metadata *eventMetadata) ([]journal.Delete, e
 		return nil, nil
 	}
 	path := eventRecordPath(metadata.First)
-	raw, err := journal.ReadBytes(filepath.Join(w.dir, path), maxEventBytes)
+	raw, err := statefile.ReadBytes(filepath.Join(w.dir, path), maxEventBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +123,7 @@ func (w commitWriter) retireOldest(metadata *eventMetadata) ([]journal.Delete, e
 		return nil, err
 	}
 	if oldest.Sequence != metadata.First || oldest.Epoch != metadata.Epoch || metadata.Bytes < uint64(len(raw)) {
-		return nil, journal.ErrInvalidBatch
+		return nil, statefile.ErrInvalidData
 	}
 	metadata.First++
 	metadata.Count--
@@ -156,7 +145,7 @@ func (w commitWriter) prepareEvents(previous, state []byte, event model.Event) (
 	}
 	metadata.Last++
 	record := eventRecord{Epoch: metadata.Epoch, Sequence: metadata.Last, Event: event}
-	raw, err := journal.EncodeJSON(record, maxEventBytes)
+	raw, err := statefile.EncodeJSON(record, maxEventBytes)
 	if err != nil {
 		return journal.Batch{}, err
 	}
@@ -175,7 +164,7 @@ func (w commitWriter) prepareEvents(previous, state []byte, event model.Event) (
 
 func (w commitWriter) validateMetadata(batch journal.Batch, record eventRecord) error {
 	if batch.Puts[2].Path != eventMetaPath || len(batch.Deletes) > 1 {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	var metadata eventMetadata
 	if err := decodeEventJSON(batch.Puts[2].Data, &metadata); err != nil {
@@ -185,10 +174,10 @@ func (w commitWriter) validateMetadata(batch journal.Batch, record eventRecord) 
 		return err
 	}
 	if metadata.Epoch != record.Epoch || metadata.Last != record.Sequence {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	if len(batch.Deletes) != 0 && (metadata.First <= 1 || batch.Deletes[0].Path != eventRecordPath(metadata.First-1)) {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	return nil
 }

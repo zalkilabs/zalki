@@ -2,6 +2,7 @@ package journal
 
 import (
 	"errors"
+	"github.com/zalkilabs/zalki/internal/statefile"
 	"os"
 	"path/filepath"
 	"testing"
@@ -124,7 +125,7 @@ func TestBatchRejectsInvalidDeletes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			f := retainingFixture(t)
 			test.change(&f.batch)
-			if err := f.log.Commit(f.batch); !errors.Is(err, ErrInvalidBatch) {
+			if err := f.log.Commit(f.batch); !errors.Is(err, statefile.ErrInvalidData) {
 				t.Fatalf("invalid delete: %v", err)
 			}
 			assertBatchTargets(t, f, false)
@@ -137,7 +138,7 @@ func TestBatchCombinedOperationLimit(t *testing.T) {
 	for i := len(f.batch.Puts); i < maxBatchPuts; i++ {
 		f.batch.Puts = append(f.batch.Puts, NewPut(fmtBatchPath(i), nil, nil))
 	}
-	if _, err := f.batch.encode(); !errors.Is(err, ErrInvalidBatch) {
+	if _, err := f.batch.encode(); !errors.Is(err, statefile.ErrInvalidData) {
 		t.Fatalf("combined limit = %v", err)
 	}
 }
@@ -151,7 +152,7 @@ func TestBatchNeverDeletesSymlink(t *testing.T) {
 	if err := os.Symlink(filepath.Join(f.log.Root, "state/one.json"), path); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.log.Commit(f.batch); !errors.Is(err, ErrInvalidFile) {
+	if err := f.log.Commit(f.batch); !errors.Is(err, statefile.ErrInvalidFile) {
 		t.Fatalf("symlink delete: %v", err)
 	}
 	assertBatchTargets(t, f, false)

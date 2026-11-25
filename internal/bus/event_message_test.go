@@ -9,6 +9,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func eventAt(t *testing.T, store Store, sequence uint64) model.Event {
@@ -120,7 +121,7 @@ func TestMessageCommitRecoversWithOneEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := journal.EncodeJSON(batch, 1<<20)
+	raw, err := statefile.EncodeJSON(batch, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}

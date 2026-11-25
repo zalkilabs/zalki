@@ -9,8 +9,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // PluginInboxMessage is one message of a plugin's own inbox as the child sees
@@ -225,7 +225,7 @@ func consumedPluginInboxRecord(m *model.Message, installation string, entry plug
 }
 
 func (s pluginFiles) savePluginInboxIndex(index pluginInboxIndex) error {
-	encoded, err := journal.EncodeJSON(index, 1<<20)
+	encoded, err := statefile.EncodeJSON(index, 1<<20)
 	if err != nil {
 		return err
 	}

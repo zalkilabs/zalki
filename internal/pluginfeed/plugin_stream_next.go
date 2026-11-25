@@ -7,8 +7,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type streamStep struct {
@@ -23,7 +23,7 @@ type streamStep struct {
 
 func (s PluginFeed) withStreamStep(ctx context.Context, launch *PluginFeedStatus, ack bool, fn func(*streamStep) error) error {
 	if ctx == nil || s.stream == nil {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	return s.write(func(view bus.JournalView) error {
 		step := &streamStep{view: view, budget: s.stream.budget(ctx)}
@@ -70,7 +70,7 @@ func streamBindingMatches(state pluginStreamState, owner pluginRecord, features 
 
 func (s PluginFeed) nextStream(ctx context.Context, launch *PluginFeedStatus, expectedID string, part int) (PluginDelivery, error) {
 	if !validStreamOfferRequest(s.stream, ctx, expectedID, part) {
-		return PluginDelivery{}, journal.ErrInvalidFile
+		return PluginDelivery{}, statefile.ErrInvalidFile
 	}
 	s.stream.mu.Lock()
 	defer s.finishStreamStep()

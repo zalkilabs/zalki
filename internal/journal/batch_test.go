@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/zalkilabs/zalki/internal/statefile"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -267,7 +268,7 @@ func TestBatchRejectsInvalidInputBeforePublication(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			f := newBatchFixture(t)
 			test.change(&f.batch)
-			if err := f.log.Commit(f.batch); !errors.Is(err, ErrInvalidBatch) {
+			if err := f.log.Commit(f.batch); !errors.Is(err, statefile.ErrInvalidData) {
 				t.Fatalf("invalid input = %v", err)
 			}
 			if _, err := os.Stat(f.log.intentPath()); !errors.Is(err, os.ErrNotExist) {
@@ -282,7 +283,7 @@ func TestBatchAggregateAndIndividualLimits(t *testing.T) {
 	for i := range 6 {
 		b.Puts = append(b.Puts, NewPut(fmtBatchPath(i), nil, make([]byte, maxPutBytes)))
 	}
-	wide, err := EncodeJSON(b, 2*maxBatchBytes)
+	wide, err := statefile.EncodeJSON(b, 2*maxBatchBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +299,7 @@ func TestBatchAggregateAndIndividualLimits(t *testing.T) {
 		t.Fatalf("exact aggregate limit: %d, %v", len(exact), err)
 	}
 	b.ID += "x"
-	var size *SizeError
+	var size *statefile.SizeError
 	if _, err := b.encode(); !errors.As(err, &size) || size.Size != maxBatchBytes+1 {
 		t.Fatalf("aggregate overflow: %v", err)
 	}
@@ -315,7 +316,7 @@ func TestBatchOperationCountLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	b.Puts = append(b.Puts, NewPut("outbox/one-more.json", nil, nil))
-	if _, err := b.encode(); !errors.Is(err, ErrInvalidBatch) {
+	if _, err := b.encode(); !errors.Is(err, statefile.ErrInvalidData) {
 		t.Fatalf("count overflow = %v", err)
 	}
 }
@@ -362,7 +363,7 @@ func TestBatchRejectsSymlinkParents(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.batch.Puts[1] = NewPut("linked/event.json", nil, []byte("event"))
-	if err := f.log.Commit(f.batch); !errors.Is(err, ErrInvalidBatch) {
+	if err := f.log.Commit(f.batch); !errors.Is(err, statefile.ErrInvalidData) {
 		t.Fatalf("symlink parent = %v", err)
 	}
 }
@@ -377,7 +378,7 @@ func TestBatchRejectsCorruptAfterImageBeforeAnyRedo(t *testing.T) {
 	if err := os.WriteFile(f.log.intentPath(), raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.log.Recover(nil); !errors.Is(err, ErrInvalidBatch) {
+	if err := f.log.Recover(nil); !errors.Is(err, statefile.ErrInvalidData) {
 		t.Fatal(err)
 	}
 	assertBatchTargets(t, f, false)

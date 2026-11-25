@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/zalkilabs/zalki/internal/statefile"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,9 +21,6 @@ const (
 	maxBatchPuts  = 32
 	maxPutBytes   = 128 << 10
 )
-
-// ErrInvalidBatch identifies a malformed, unsupported or unsafe redo intent.
-var ErrInvalidBatch = errors.New("invalid journal batch")
 
 // ErrBatchConflict identifies a pending intent or target with different bytes.
 var ErrBatchConflict = errors.New("journal batch conflict")
@@ -153,7 +151,7 @@ func (l BatchLog) Recover(check func(Batch) error) error {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&batch); err != nil {
-		return fmt.Errorf("%w: malformed intent", ErrInvalidBatch)
+		return fmt.Errorf("%w: malformed intent", statefile.ErrInvalidData)
 	}
 	if _, err := batch.encode(); err != nil {
 		return err
@@ -176,22 +174,22 @@ func (b Batch) encode() ([]byte, error) {
 	seen := make(map[string]bool, len(b.Puts)+len(b.Deletes))
 	for _, put := range b.Puts {
 		if seen[put.Path] || !safeBatchPath(put.Path) || len(put.Data) > maxPutBytes {
-			return nil, ErrInvalidBatch
+			return nil, statefile.ErrInvalidData
 		}
 		if put.SHA256 != batchDigest(put.Data) || (put.PreviousSHA256 != "" && !validDigest(put.PreviousSHA256)) {
-			return nil, ErrInvalidBatch
+			return nil, statefile.ErrInvalidData
 		}
 		seen[put.Path] = true
 	}
 	if err := b.validateDeletes(seen); err != nil {
 		return nil, err
 	}
-	return EncodeJSON(b, maxBatchBytes)
+	return statefile.EncodeJSON(b, maxBatchBytes)
 }
 
 func (b Batch) validateHeader() error {
 	if !validBatchID(b.ID) || len(b.Puts) == 0 || len(b.Puts)+len(b.Deletes) > maxBatchPuts {
-		return ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	return nil
 }
@@ -199,7 +197,7 @@ func (b Batch) validateHeader() error {
 func (b Batch) validateDeletes(seen map[string]bool) error {
 	for _, remove := range b.Deletes {
 		if seen[remove.Path] || !safeBatchPath(remove.Path) || !validDigest(remove.PreviousSHA256) {
-			return ErrInvalidBatch
+			return statefile.ErrInvalidData
 		}
 		seen[remove.Path] = true
 	}
@@ -236,13 +234,13 @@ func (l BatchLog) intentPath() string { return filepath.Join(l.Root, l.Intent) }
 
 func (l BatchLog) read() ([]byte, error) {
 	if !safeBatchPath(l.Intent) {
-		return nil, ErrInvalidBatch
+		return nil, statefile.ErrInvalidData
 	}
 	if err := l.checkParents(l.Intent); err != nil {
 		return nil, err
 	}
 	var raw json.RawMessage
-	if err := ReadJSON(l.intentPath(), maxBatchBytes, &raw); err != nil {
+	if err := statefile.ReadJSON(l.intentPath(), maxBatchBytes, &raw); err != nil {
 		return nil, err
 	}
 	return raw, nil
@@ -250,7 +248,7 @@ func (l BatchLog) read() ([]byte, error) {
 
 func (l BatchLog) validatePaths(batch Batch) error {
 	if !safeBatchPath(l.Intent) {
-		return ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	if err := l.checkParents(l.Intent); err != nil {
 		return err
@@ -264,7 +262,7 @@ func (l BatchLog) validatePaths(batch Batch) error {
 	}
 	for _, path := range paths {
 		if path == l.Intent || strings.HasPrefix(path, l.Intent+"/") || strings.HasPrefix(l.Intent, path+"/") {
-			return ErrInvalidBatch
+			return statefile.ErrInvalidData
 		}
 		if err := l.checkParents(path); err != nil {
 			return err
@@ -283,7 +281,7 @@ func (l BatchLog) checkParents(path string) error {
 			return err
 		}
 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			return ErrInvalidBatch
+			return statefile.ErrInvalidData
 		}
 	}
 	return nil
@@ -292,7 +290,7 @@ func (l BatchLog) checkParents(path string) error {
 func (l BatchLog) preflight(batch Batch) ([]bool, error) {
 	already := make([]bool, len(batch.Puts))
 	for i, put := range batch.Puts {
-		raw, err := ReadBytes(filepath.Join(l.Root, put.Path), maxPutBytes)
+		raw, err := statefile.ReadBytes(filepath.Join(l.Root, put.Path), maxPutBytes)
 		if errors.Is(err, os.ErrNotExist) && put.PreviousSHA256 == "" {
 			continue
 		}
@@ -306,7 +304,7 @@ func (l BatchLog) preflight(batch Batch) ([]bool, error) {
 		}
 	}
 	for _, remove := range batch.Deletes {
-		raw, err := ReadBytes(filepath.Join(l.Root, remove.Path), maxPutBytes)
+		raw, err := statefile.ReadBytes(filepath.Join(l.Root, remove.Path), maxPutBytes)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}

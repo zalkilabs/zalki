@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const (
@@ -59,7 +59,7 @@ func checkPluginJournalBytes(t *testing.T, f commitFixture, redo string) {
 	first := f.event
 	first.ID, first.TransactionID = byteFixtureNative, byteFixtureInbox
 	first.Type, first.Session.Previous, first.Session.State = "session.registered", "", model.StateReady
-	entry, err := journal.EncodeJSON(eventRecord{Epoch: byteFixturePlugin, Sequence: 1, Event: first}, maxEventBytes)
+	entry, err := statefile.EncodeJSON(eventRecord{Epoch: byteFixturePlugin, Sequence: 1, Event: first}, maxEventBytes)
 	if err != nil {
 		t.Fatal(err)
 	}

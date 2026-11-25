@@ -1,11 +1,11 @@
-package journal_test
+package statefile_test
 
 import (
 	"encoding/json"
 	"errors"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func TestCheckSchema(t *testing.T) {
@@ -31,13 +31,13 @@ func TestCheckSchema(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := journal.CheckSchema(json.RawMessage(test.raw), test.supported)
+			got, err := statefile.CheckSchema(json.RawMessage(test.raw), test.supported)
 			verifyCheckSchema(t, got, err, test.supported, test.want, test.wantErr)
 		})
 	}
 	t.Run("the error carries the offending version", func(t *testing.T) {
-		_, err := journal.CheckSchema(json.RawMessage(`{"schema":9}`), 2)
-		var schema *journal.SchemaError
+		_, err := statefile.CheckSchema(json.RawMessage(`{"schema":9}`), 2)
+		var schema *statefile.SchemaError
 		if !errors.As(err, &schema) || schema.Version != 9 {
 			t.Fatalf("error = %v", err)
 		}
@@ -48,7 +48,7 @@ func TestCheckSchema(t *testing.T) {
 // version), "schema" (a SchemaError) or "json" (the decoder's error).
 func verifyCheckSchema(t *testing.T, got int, err error, supported, want int, wantErr string) {
 	t.Helper()
-	var schema *journal.SchemaError
+	var schema *statefile.SchemaError
 	switch wantErr {
 	case "":
 		if err != nil || got != want {

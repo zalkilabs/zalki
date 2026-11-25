@@ -9,6 +9,7 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // commitWriter publishes a prepared session or message record with its event
@@ -70,7 +71,7 @@ func (w commitWriter) recover() error { return w.log().Recover(w.validate) }
 
 func (w commitWriter) validate(batch journal.Batch) error {
 	if len(batch.Puts) != 3 || len(batch.Puts[1].Data) > maxEventBytes || !json.Valid(batch.Puts[1].Data) {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	var record eventRecord
 	decoder := json.NewDecoder(bytes.NewReader(batch.Puts[1].Data))
@@ -86,7 +87,7 @@ func (w commitWriter) validate(batch journal.Batch) error {
 		return err
 	}
 	if batch.ID != event.TransactionID || batch.Puts[0].Path != eventSubjectPath(event) || batch.Puts[1].Path != eventRecordPath(record.Sequence) {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	if event.Message != nil {
 		return validateEventMessage(batch.Puts[0].Data, event)

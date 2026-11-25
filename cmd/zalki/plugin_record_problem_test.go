@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // Doctor has no plugin section, so a plugin record whose content cannot be
@@ -164,7 +164,7 @@ func TestPluginDiagnosticCausesStayBounded(t *testing.T) {
 		name, cause string
 		err         error
 	}{
-		{"unsafe", "it is not a safe regular file", errors.Join(journal.ErrInvalidFile, errors.New(private))},
+		{"unsafe", "it is not a safe regular file", errors.Join(statefile.ErrInvalidFile, errors.New(private))},
 		{"permission", "permission denied", &os.PathError{Op: private, Path: private, Err: os.ErrPermission}},
 		{"read", "it could not be read", &os.PathError{Op: private, Path: private, Err: os.ErrNotExist}},
 		{"type", "its content is not a valid plugin record", &json.UnmarshalTypeError{Value: private, Type: reflect.TypeOf(true), Struct: private, Field: private}},

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const streamFrameLimit = 65536
@@ -60,7 +60,7 @@ func encodeStreamFrame(frame streamFrame) (json.RawMessage, error) {
 
 func validateStreamFrame(raw []byte) error {
 	if len(raw)+1 > streamFrameLimit || !utf8.Valid(raw) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	var frame streamFrame
 	if err := decodeStreamJSON(raw, &frame); err != nil {
@@ -73,10 +73,10 @@ func validateStreamFrame(raw []byte) error {
 		}
 	}
 	if variants != 1 {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if !model.IsCanonicalUUID(frame.ID) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	return validateStreamReceipt(frame)
 }
@@ -84,7 +84,7 @@ func validateStreamFrame(raw []byte) error {
 func validateStreamReceipt(frame streamFrame) error {
 	if frame.Gap != "" {
 		if !streamEnumContains(streamGapEnums, frame.Gap) {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 		return nil
 	}
@@ -94,13 +94,13 @@ func validateStreamReceipt(frame streamFrame) error {
 func validateStreamEventWire(frame streamFrame) error {
 	event := *frame.Event
 	if event.ID != frame.ID {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	// A projected state change may omit unobserved previous state. Validate
 	// its remaining session fields using the same native field checks.
 	if event.Type == model.EventSessionStateChanged && event.Session.Previous == "" {
 		if event.Session.PreviousRetired {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 		event.Type = model.EventSessionRegistered
 	}
@@ -119,7 +119,7 @@ func validateStreamEventWire(frame streamFrame) error {
 
 func validateStreamRow(raw []byte) error {
 	if len(raw) > 4096 {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	var row streamWireRow
 	if err := decodeStreamJSON(raw, &row); err != nil {
@@ -127,7 +127,7 @@ func validateStreamRow(raw []byte) error {
 	}
 	kind, _, _ := strings.Cut(row.ID, ":")
 	if model.ValidateSessionAddress(row.ID) != nil || model.IsPluginInboxAddress(row.ID) || row.Kind != kind {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
@@ -138,20 +138,20 @@ func validateStreamRow(raw []byte) error {
 
 func validateStreamRowFields(row streamWireRow, fields map[string]json.RawMessage) error {
 	if _, present := fields["muted"]; !present {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if row.Muted {
 		if len(fields) != 3 {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 		return nil
 	}
 	if !model.IsCanonicalUUID(row.Generation) || !row.State.Valid() || row.State == model.StateRetired {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	for _, display := range []string{row.Name, row.Task} {
 		if len(display) > 256 || (display != "" && !model.ValidName(display)) {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 	}
 	return nil

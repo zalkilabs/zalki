@@ -11,8 +11,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func updateArtifact(t *testing.T, i *PluginInstall) string {
@@ -168,7 +168,7 @@ func checkUpdatePublicationOutcome(t *testing.T, outcome string) {
 	original := savePluginInstallRecord
 	savePluginInstallRecord = func(s PluginFeed, p pluginRecord) ([]byte, error) {
 		p.Revision = pluginRevision(p)
-		written, err := journal.EncodeJSON(p, 16<<10)
+		written, err := statefile.EncodeJSON(p, 16<<10)
 		if err != nil {
 			return nil, err
 		}

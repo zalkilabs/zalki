@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func TestPluginInboxMaliciousHintIsNeverAPath(t *testing.T) {
@@ -141,7 +141,7 @@ func makeInboxHintTrap(t *testing.T, x inboxStorageFixture, raw string) (string,
 		}
 		p.Name = "../x"
 		var encodeErr error
-		sentinel, encodeErr = journal.EncodeJSON(p, 16<<10)
+		sentinel, encodeErr = statefile.EncodeJSON(p, 16<<10)
 		if encodeErr != nil {
 			t.Fatal(encodeErr)
 		}

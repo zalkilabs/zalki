@@ -5,8 +5,8 @@ import (
 	"slices"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func streamAckError() error {
@@ -98,7 +98,7 @@ func commitStreamReceipt(state *pluginStreamState, pending *streamPending) error
 	case "event":
 		return commitStreamEvidence(state, pending)
 	default:
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	return nil
 }

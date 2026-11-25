@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const codexDiagnosticFileLimit = 1 << 20
@@ -26,7 +26,7 @@ func readCodexDiagnosticFile(path string) ([]byte, string) {
 	if err != nil || parent != filepath.Dir(path) {
 		return nil, "unsafe_file"
 	}
-	raw, err := journal.ReadBytes(path, codexDiagnosticFileLimit)
+	raw, err := statefile.ReadBytes(path, codexDiagnosticFileLimit)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, "missing_file"
 	}

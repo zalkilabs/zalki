@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const v2TestBody = "slot request id=r1 job=build size=heavy"
@@ -73,7 +73,7 @@ func v2HostFixture(t *testing.T) *v2Fixture {
 
 func (x *v2Fixture) record(t *testing.T, id string) model.Message {
 	t.Helper()
-	raw, err := journal.ReadBytes(filepath.Join(x.store.Dir(), "messages", id+".json"), 1<<20)
+	raw, err := statefile.ReadBytes(filepath.Join(x.store.Dir(), "messages", id+".json"), 1<<20)
 	var m model.Message
 	if err != nil || json.Unmarshal(raw, &m) != nil {
 		t.Fatal("missing message record", id, err)

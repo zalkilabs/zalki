@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // writeRecord is called under the journal lock. It writes exactly the typed
@@ -44,8 +44,8 @@ func (s Store) writeRecord(path string, value any) error {
 
 // checkSchema rejects a record whose schema is not recordSchema.
 func checkSchema(raw json.RawMessage) error {
-	_, err := journal.CheckSchema(raw, recordSchema)
-	var schema *journal.SchemaError
+	_, err := statefile.CheckSchema(raw, recordSchema)
+	var schema *statefile.SchemaError
 	if errors.As(err, &schema) {
 		return model.NewError(model.CodeUnsupportedSchema, "unsupported journal schema %d", schema.Version)
 	}

@@ -15,9 +15,9 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type externalEvidence struct {
@@ -59,7 +59,7 @@ func externalTestChild(args []string) error {
 		if err != nil {
 			return err
 		}
-		raw, err := journal.EncodeJSON(value, maxFrame)
+		raw, err := statefile.EncodeJSON(value, maxFrame)
 		if err != nil {
 			return err
 		}
