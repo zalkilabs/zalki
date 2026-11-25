@@ -69,3 +69,6 @@ Agents use these MCP tools:
 ## License
 
 [Apache-2.0](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.txt).
+
+Zalki is an independent project. It is not affiliated with or endorsed by
+Anthropic, OpenAI or Cursor, the makers of the clients it supports.
