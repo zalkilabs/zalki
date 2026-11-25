@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -150,6 +151,10 @@ func observeCommands(root *cobra.Command, opts *commandOptions) {
 			attrs := []any{"duration_ms", time.Since(started).Milliseconds()}
 			if err != nil {
 				attrs = append(attrs, "error_code", model.ErrorCodeOf(err), "error_kind", logging.ErrorKind(err))
+				var reasoned interface{ LogReason() string }
+				if errors.As(err, &reasoned) {
+					attrs = append(attrs, "reason", reasoned.LogReason())
+				}
 				opts.logger.ErrorContext(cmd.Context(), "command.failed", attrs...)
 			} else {
 				level := slog.LevelDebug

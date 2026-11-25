@@ -73,8 +73,8 @@ func pluginListEntry(store bus.Store, name string, regular bool) (string, string
 		return "Unreadable plugin records", "  " + name + "  unreadable: " + pluginRecordDetail(store, name, pluginRecordCause(journal.ErrInvalidFile))
 	}
 	status, err := pluginfeed.NewPluginFeed(store, name).PluginStatus()
-	if errors.Is(err, pluginfeed.ErrOldPluginRecord) {
-		return "Old plugin records", "  " + name + "  " + err.Error()
+	if errors.Is(err, pluginfeed.ErrPluginRecordUnreadable) {
+		return "Unreadable plugin records", "  " + name + "  " + err.Error()
 	}
 	if err != nil {
 		return "Unreadable plugin records", "  " + name + "  unreadable: " + pluginRecordDetail(store, name, pluginRecordCause(err))

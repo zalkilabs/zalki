@@ -2,7 +2,6 @@ package pluginfeed
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"testing"
 	"time"
@@ -248,7 +247,7 @@ func TestTamperedRevisionIsRefused(t *testing.T) {
 	if err := os.WriteFile(feed.pluginPath(), edited, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := feed.PluginStatus(); err == nil || errors.Is(err, ErrOldPluginRecord) {
+	if _, err := feed.PluginStatus(); err == nil {
 		t.Fatalf("tampered record loaded: %v", err)
 	}
 }

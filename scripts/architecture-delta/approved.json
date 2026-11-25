@@ -2476,5 +2476,107 @@
       }
     },
     "reason": "The list_agents rows can carry approval_since, the start of the oldest wait for a permission prompt (new AgentInfo field). It is computed when the answer is built; nothing stored changes."
+  },
+  {
+    "base_commit": "7b748f8a7e730d8170a1dc8d2c92fbec844bec9d",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/pluginfeed.ErrPluginRecordUnreadable",
+          "internal/pluginfeed.unreadablePluginRecordError.Error",
+          "internal/pluginfeed.unreadablePluginRecordError.Is",
+          "internal/pluginfeed.unreadablePluginRecordError.LogReason",
+          "internal/pluginfeed.unreadablePluginRecordError.Unwrap"
+        ],
+        "removed": [
+          "internal/pluginfeed.ErrOldPluginRecord"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/pluginfeed.unreadablePluginRecordError.Error": "func(unreadablePluginRecordError) func() string",
+          "function:internal/pluginfeed.unreadablePluginRecordError.Is": "func(unreadablePluginRecordError) func(target error) bool",
+          "function:internal/pluginfeed.unreadablePluginRecordError.LogReason": "func(unreadablePluginRecordError) func() string",
+          "function:internal/pluginfeed.unreadablePluginRecordError.Unwrap": "func(unreadablePluginRecordError) func() error",
+          "var:internal/pluginfeed.ErrPluginRecordUnreadable": "ErrPluginRecordUnreadable = errors.New(\"plugin record cannot be read\")"
+        },
+        "changed": {},
+        "removed": {
+          "var:internal/pluginfeed.ErrOldPluginRecord": "ErrOldPluginRecord = errors.New(\"plugin record from an older Zalki\")"
+        }
+      },
+      "receivers": {
+        "added": {
+          "internal/pluginfeed.unreadablePluginRecordError": {
+            "Files": 1,
+            "Methods": 4
+          }
+        },
+        "changed": {},
+        "removed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "A plugin record that cannot be read now gets one plain error. The exported ErrOldPluginRecord is replaced by ErrPluginRecordUnreadable, and the error type that carries the text has its three error methods. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "7b748f8a7e730d8170a1dc8d2c92fbec844bec9d",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/pluginfeed.ErrPluginRecordUnreadable",
+          "internal/pluginfeed.unreadablePluginRecordError.Error",
+          "internal/pluginfeed.unreadablePluginRecordError.Is",
+          "internal/pluginfeed.unreadablePluginRecordError.LogReason",
+          "internal/pluginfeed.unreadablePluginRecordError.Unwrap"
+        ],
+        "removed": [
+          "internal/pluginfeed.ErrOldPluginRecord"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/pluginfeed.unreadablePluginRecordError.Error": "func(unreadablePluginRecordError) func() string",
+          "function:internal/pluginfeed.unreadablePluginRecordError.Is": "func(unreadablePluginRecordError) func(target error) bool",
+          "function:internal/pluginfeed.unreadablePluginRecordError.LogReason": "func(unreadablePluginRecordError) func() string",
+          "function:internal/pluginfeed.unreadablePluginRecordError.Unwrap": "func(unreadablePluginRecordError) func() error",
+          "var:internal/pluginfeed.ErrPluginRecordUnreadable": "ErrPluginRecordUnreadable = errors.New(\"plugin record cannot be read\")"
+        },
+        "changed": {},
+        "removed": {
+          "var:internal/pluginfeed.ErrOldPluginRecord": "ErrOldPluginRecord = errors.New(\"plugin record from an older Zalki\")"
+        }
+      },
+      "receivers": {
+        "added": {
+          "internal/pluginfeed.unreadablePluginRecordError": {
+            "Files": 1,
+            "Methods": 4
+          }
+        },
+        "changed": {},
+        "removed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "A plugin record that cannot be read now gets one plain error. The exported ErrOldPluginRecord is replaced by ErrPluginRecordUnreadable, and the error type that carries the text has its three error methods. No stored data or wire format changes."
   }
 ]

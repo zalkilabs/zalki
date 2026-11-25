@@ -84,7 +84,7 @@ func TestStreamOwnerStatusReadsCheckpointWithoutMutation(t *testing.T) {
 	}
 }
 
-func TestStreamOwnerCursorFieldsAreLegacyAndNeverMigrated(t *testing.T) {
+func TestStreamOwnerCursorFieldsAreRefusedAndNeverMigrated(t *testing.T) {
 	for _, field := range []string{"position", "gap_id", "gap_reason"} {
 		t.Run(field, func(t *testing.T) {
 			feed, _, _, _, _ := streamPendingMessageFixture(t)
@@ -101,7 +101,7 @@ func TestStreamOwnerCursorFieldsAreLegacyAndNeverMigrated(t *testing.T) {
 			if err := journal.WriteAtomic(feed.pluginPath(), raw); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := feed.PluginStatus(); !errors.Is(err, ErrOldPluginRecord) {
+			if _, err := feed.PluginStatus(); !errors.Is(err, ErrPluginRecordUnreadable) {
 				t.Fatal("F_OWNER_LEGACY_CURSOR_REINSTALL_REQUIRED", err)
 			}
 			if !bytes.Equal(before, checkpointImage(t, feed)) || !bytes.Equal(raw, readCommitFile(t, feed.pluginPath())) {

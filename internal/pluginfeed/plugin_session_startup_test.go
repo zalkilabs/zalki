@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -169,5 +170,27 @@ func TestSessionStartupPublishedDebitIsNeverRefunded(t *testing.T) {
 		if strings.Contains(text, "New plugin:") != (i < 2) {
 			t.Fatal("Z6_OUTPUT_LOSS_STILL_LIMITS_THREE_NOTICES", i)
 		}
+	}
+}
+
+// A record that cannot be read is skipped by the session start note: an
+// unreadable plugin cannot run, so it needs no notice, and it never makes the
+// note fail for the plugins that can.
+func TestSessionStartupSkipsAnyUnreadableRecord(t *testing.T) {
+	f, _, _ := externalPinFixture(t)
+	if err := f.GrantPluginAccess(PluginAccess{Status: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.EnablePluginFeed(true); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{"broken": `{"not":"a record"}`, "empty": ``, "garbage": `not json`} {
+		if err := os.WriteFile(filepath.Join(f.pluginDir(), name+".json"), []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, _ := register(t, f.store, "cursor")
+	if text := startupText(t, f, s, false, nil); text != "Plugins with access to this session: external." {
+		t.Fatal("an unreadable record changed the start note:", text)
 	}
 }

@@ -97,7 +97,7 @@ func pluginStandardText(access pluginfeed.PluginAccess) string {
 
 func pluginStatusForDisplay(store bus.Store, name string) (pluginfeed.PluginFeedStatus, error) {
 	status, err := pluginfeed.NewPluginFeed(store, name).PluginStatus()
-	if errors.Is(err, pluginfeed.ErrOldPluginRecord) {
+	if errors.Is(err, pluginfeed.ErrPluginRecordUnreadable) {
 		return status, err // backend owns the bounded, shell-quoted recovery route
 	}
 	if err != nil {
