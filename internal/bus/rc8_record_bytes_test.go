@@ -12,7 +12,7 @@ import (
 
 // The files in testdata/rc8 were written by the rc.8 release. An update must
 // read them and must write the same bytes back. These tests pin that for the
-// record IO under internal/journal: if the record encoding or the strict
+// record IO under internal/statefile: if the record encoding or the strict
 // decoding moves to another package, they must pass without any change to the
 // expected bytes.
 

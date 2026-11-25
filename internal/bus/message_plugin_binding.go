@@ -2,9 +2,9 @@ package bus
 
 import (
 	"encoding/json"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/statefile"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 // Persistence alone adds this field. model.Message deliberately has json:"-"
@@ -36,7 +36,7 @@ func checkStoredPluginBinding(prior []byte, next model.Message) error {
 		return err
 	}
 	if before.Binding != next.PluginBinding {
-		return journal.ErrBatchConflict
+		return wal.ErrBatchConflict
 	}
 	return nil
 }

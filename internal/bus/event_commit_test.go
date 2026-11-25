@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 func eventState(t *testing.T, store Store) eventMetadata {
@@ -90,7 +90,7 @@ func TestEventRetentionNeverBlocksHealthyFullLog(t *testing.T) {
 	}
 }
 
-func stagedLiveCommit(t *testing.T) (Store, model.Session, journal.Batch) {
+func stagedLiveCommit(t *testing.T) (Store, model.Session, wal.Batch) {
 	t.Helper()
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")
