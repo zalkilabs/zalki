@@ -8,8 +8,8 @@ import (
 	"slices"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const streamStateLimit = 524288
@@ -107,7 +107,7 @@ func (s pluginFiles) loadStreamState(budget *streamBudget) (pluginStreamState, b
 		return state, false, err
 	}
 	if !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
-		return state, false, journal.ErrInvalidFile
+		return state, false, statefile.ErrInvalidFile
 	}
 	raw, err := budget.read(s.streamPath(), streamStateLimit)
 	if err != nil {
@@ -155,7 +155,7 @@ func encodeStreamStateUsing(state *pluginStreamState, marshal func(any) ([]byte,
 	}
 	remaining := streamStateLimit - len(raw) - 1 // final LF is part of the bound
 	if remaining < 0 {
-		return nil, journal.ErrInvalidFile
+		return nil, statefile.ErrInvalidFile
 	}
 	first, used := len(state.Seen), 0
 	for first > 0 {
@@ -182,14 +182,14 @@ func encodeStreamStateUsing(state *pluginStreamState, marshal func(any) ([]byte,
 		return nil, err
 	}
 	if len(raw)+1 > streamStateLimit {
-		return nil, journal.ErrInvalidFile
+		return nil, statefile.ErrInvalidFile
 	}
 	return append(raw, '\n'), nil
 }
 
 func (s pluginStreamState) validate() error {
 	if !validStreamStateIdentity(s) || !validStreamStateBounds(s) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if err := validateStreamStateHistory(s); err != nil {
 		return err
@@ -219,14 +219,14 @@ func validStreamStateBounds(s pluginStreamState) bool {
 
 func validateStreamStateHistory(s pluginStreamState) error {
 	if s.LastAck != "" && !model.IsCanonicalUUID(s.LastAck) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if s.LastGap != "" && !streamEnumContains(streamGapEnums, s.LastGap) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	for _, id := range s.Canceled {
 		if !model.IsCanonicalUUID(id) {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 	}
 
@@ -237,7 +237,7 @@ func validateStreamRowOrder(rows map[string]streamRow, order []string) error {
 	known := map[string]bool{}
 	for _, id := range order {
 		if _, exists := rows[id]; !exists || known[id] {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 		known[id] = true
 	}
@@ -301,10 +301,10 @@ func validStreamSeenDependency(id string, dependency streamDependency, expected 
 func validateStreamRows(rows map[string]streamRow) error {
 	for id, row := range rows {
 		if !validStreamRowIdentity(id, row) || !validStreamRowGuard(row) {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 		if !matchingStreamRowWire(id, row) {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 		if err := validateStreamRow(row.Row); err != nil {
 			return err
@@ -334,10 +334,10 @@ func matchingStreamRowWire(id string, row streamRow) bool {
 
 func (p streamPending) validate() error {
 	if !validStreamPendingBounds(p) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if p.EndAttempted && !p.Attempted {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	bytes := 0
 	for _, frame := range p.Frames {
@@ -347,7 +347,7 @@ func (p streamPending) validate() error {
 		bytes += len(frame) + 1
 	}
 	if bytes > streamBatchLimit {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	return validateStreamSingleReceipt(p)
 }
@@ -358,14 +358,14 @@ func validStreamPendingBounds(p streamPending) bool {
 
 func validateStreamSingleReceipt(p streamPending) error {
 	if len(p.Frames) != 1 || (p.Kind != "gap" && p.Kind != "event") {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	var frame streamFrame
 	if err := json.Unmarshal(p.Frames[0], &frame); err != nil || frame.ID != p.ID {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if (p.Kind == "gap") != (frame.Gap != "") || (p.Kind == "event") != (frame.Event != nil) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	return nil
 }

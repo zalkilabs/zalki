@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,7 +34,7 @@ type hostFeedCheckpoint struct {
 
 func readHostFeedCheckpoint(t *testing.T, store bus.Store, name string) (hostFeedCheckpoint, bool) {
 	t.Helper()
-	raw, err := journal.ReadBytes(filepath.Join(store.Dir(), "plugins", name+".feed-state.json"), 524288)
+	raw, err := statefile.ReadBytes(filepath.Join(store.Dir(), "plugins", name+".feed-state.json"), 524288)
 	if os.IsNotExist(err) {
 		return hostFeedCheckpoint{}, false
 	}

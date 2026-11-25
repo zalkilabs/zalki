@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // This opt-in harness also compiles on the baseline build. Its disk fixture is
@@ -130,7 +130,7 @@ func seedLatencyRecords(t *testing.T, store Store, session model.Session, count 
 			OccurredAt: "2026-11-07T11:00:00Z", TransactionID: fmt.Sprintf("20000000-0000-4000-8000-%012x", sequence),
 			Session: model.EventSession{ID: session.ID, Generation: session.Generation, Previous: model.StateReady, State: model.StateBusy}}
 		record := map[string]any{"epoch": epoch, "sequence": strconv.FormatUint(sequence, 10), "event": map[string]any{"id": event.ID, "type": event.Type, "occurred_at": event.OccurredAt, "transaction_id": event.TransactionID, "session": event.Session}}
-		raw, err := journal.EncodeJSON(record, 4096)
+		raw, err := statefile.EncodeJSON(record, 4096)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -141,7 +141,7 @@ func seedLatencyRecords(t *testing.T, store Store, session model.Session, count 
 		total += uint64(len(raw))
 	}
 	metadata := map[string]any{"epoch": epoch, "first_sequence": "1", "last_sequence": strconv.FormatUint(count, 10), "count": count, "bytes": total}
-	raw, err := journal.EncodeJSON(metadata, 128<<10)
+	raw, err := statefile.EncodeJSON(metadata, 128<<10)
 	if err != nil {
 		t.Fatal(err)
 	}

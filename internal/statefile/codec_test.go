@@ -1,4 +1,4 @@
-package journal_test
+package statefile_test
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type sample struct {
@@ -45,7 +45,7 @@ func TestReadJSON(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			path := test.setup(t, t.TempDir())
 			var got sample
-			err := journal.ReadJSON(path, test.limit, &got)
+			err := statefile.ReadJSON(path, test.limit, &got)
 			test.check(t, got, err)
 		})
 	}
@@ -115,14 +115,14 @@ func wantSample(want sample) func(t *testing.T, got sample, err error) {
 
 func wantInvalidFile(t *testing.T, _ sample, err error) {
 	t.Helper()
-	if !errors.Is(err, journal.ErrInvalidFile) {
+	if !errors.Is(err, statefile.ErrInvalidFile) {
 		t.Fatalf("error = %v, want ErrInvalidFile", err)
 	}
 }
 
 func wantNotExist(t *testing.T, _ sample, err error) {
 	t.Helper()
-	if !errors.Is(err, os.ErrNotExist) || errors.Is(err, journal.ErrInvalidFile) {
+	if !errors.Is(err, os.ErrNotExist) || errors.Is(err, statefile.ErrInvalidFile) {
 		t.Fatalf("error = %v, want os.ErrNotExist", err)
 	}
 }
@@ -168,7 +168,7 @@ func TestEncodeJSON(t *testing.T) {
 }
 
 func checkEncodeIndent(t *testing.T) {
-	got, err := journal.EncodeJSON(sample{Name: "a", Count: 2}, 1024)
+	got, err := statefile.EncodeJSON(sample{Name: "a", Count: 2}, 1024)
 	want := "{\n  \"name\": \"a\",\n  \"count\": 2\n}\n"
 	if err != nil || string(got) != want {
 		t.Fatalf("got %q, %v; want %q", got, err, want)
@@ -178,27 +178,27 @@ func checkEncodeIndent(t *testing.T) {
 func checkEncodeLimit(t *testing.T, limitFor func(int) int, oversize bool) {
 	t.Helper()
 	value := sample{Name: strings.Repeat("x", 100)}
-	encoded, err := journal.EncodeJSON(value, 1<<20)
+	encoded, err := statefile.EncodeJSON(value, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
 	limit := limitFor(len(encoded))
-	got, err := journal.EncodeJSON(value, limit)
+	got, err := statefile.EncodeJSON(value, limit)
 	if !oversize {
 		if err != nil || string(got) != string(encoded) {
 			t.Fatalf("got %d bytes, %v", len(got), err)
 		}
 		return
 	}
-	var size *journal.SizeError
+	var size *statefile.SizeError
 	if !errors.As(err, &size) || size.Size != len(encoded) || size.Limit != limit || got != nil {
 		t.Fatalf("got %v, %v; want a SizeError with size %d limit %d", got, err, len(encoded), limit)
 	}
 }
 
 func checkEncodeUnencodable(t *testing.T) {
-	_, err := journal.EncodeJSON(make(chan int), 1024)
-	var size *journal.SizeError
+	_, err := statefile.EncodeJSON(make(chan int), 1024)
+	var size *statefile.SizeError
 	if err == nil || errors.As(err, &size) {
 		t.Fatalf("error = %v", err)
 	}
@@ -206,10 +206,10 @@ func checkEncodeUnencodable(t *testing.T) {
 
 // A SizeError and SchemaError describe themselves without leaking a record.
 func TestTypedErrorsDescribeLimits(t *testing.T) {
-	if got := (&journal.SizeError{Size: 7, Limit: 5}).Error(); got != "encoded record is 7 bytes; limit is 5 bytes" {
+	if got := (&statefile.SizeError{Size: 7, Limit: 5}).Error(); got != "encoded record is 7 bytes; limit is 5 bytes" {
 		t.Fatalf("SizeError text %q", got)
 	}
-	if got := (&journal.SchemaError{Version: 3, Supported: 2}).Error(); got != "unsupported record schema 3; expected 2" {
+	if got := (&statefile.SchemaError{Version: 3, Supported: 2}).Error(); got != "unsupported record schema 3; expected 2" {
 		t.Fatalf("SchemaError text %q", got)
 	}
 }

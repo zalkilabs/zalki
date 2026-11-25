@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,7 +27,7 @@ type ownerFeedCheckpoint struct {
 
 func readOwnerFeedCheckpoint(t *testing.T, state string) ownerFeedCheckpoint {
 	t.Helper()
-	raw, err := journal.ReadBytes(filepath.Join(state, "plugins", "fake-notifier.feed-state.json"), 524288)
+	raw, err := statefile.ReadBytes(filepath.Join(state, "plugins", "fake-notifier.feed-state.json"), 524288)
 	if err != nil {
 		t.Fatal("F_CLI_BOUNDED_PRIVATE_CHECKPOINT_READ", err)
 	}

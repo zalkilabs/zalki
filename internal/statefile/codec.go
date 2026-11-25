@@ -1,4 +1,4 @@
-package journal
+package statefile
 
 import (
 	"encoding/json"
@@ -9,6 +9,12 @@ import (
 // ErrInvalidFile reports a record file that is not a regular file or is larger
 // than the read limit. A symbolic link is not a regular file.
 var ErrInvalidFile = errors.New("invalid state file")
+
+// ErrInvalidData identifies stored data that is well-formed JSON but not a
+// valid record, and the input that the strict decoder rejects as a whole. Its
+// text is the one stored state has always reported; it is kept so that error
+// messages do not change. It is a separate identity from [ErrInvalidFile].
+var ErrInvalidData = errors.New("invalid journal batch")
 
 // SizeError reports that an encoded record is larger than the limit. Size and
 // Limit count bytes of the exact encoding, including its final newline.

@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const promptQuotaFileLimit = 64 * 1024
@@ -57,7 +57,7 @@ func debitPromptRegistration(dir, actor string, now time.Time, write func(string
 		return errPromptQuota
 	}
 	live = append(live, promptQuotaAttempt{Actor: actor, At: now.UTC().Format(time.RFC3339Nano)})
-	raw, err := journal.EncodeJSON(promptQuota{Schema: 1, Attempts: live}, promptQuotaFileLimit)
+	raw, err := statefile.EncodeJSON(promptQuota{Schema: 1, Attempts: live}, promptQuotaFileLimit)
 	if err != nil {
 		return errPromptQuotaState
 	}
@@ -68,7 +68,7 @@ func readPromptQuota(path string) (promptQuota, error) {
 	if err := checkPromptQuotaFile(path); err != nil {
 		return promptQuota{}, err
 	}
-	raw, err := journal.ReadBytes(path, promptQuotaFileLimit)
+	raw, err := statefile.ReadBytes(path, promptQuotaFileLimit)
 	if errors.Is(err, os.ErrNotExist) {
 		return promptQuota{Schema: 1, Attempts: []promptQuotaAttempt{}}, nil
 	}

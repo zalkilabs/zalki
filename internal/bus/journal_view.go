@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 var errJournalViewInactive = errors.New("journal view is only available within its lock callback")
@@ -133,14 +133,14 @@ func (v JournalView) EventAt(epoch string, sequence uint64) (event model.Event, 
 			return err
 		}
 		var record eventRecord
-		if err := DecodeStrictRecordJSON(data, &record); err != nil {
+		if err := statefile.DecodeStrictRecordJSON(data, &record); err != nil {
 			return err
 		}
 		if err := record.validate(); err != nil {
 			return err
 		}
 		if record.Epoch != epoch || record.Sequence != sequence {
-			return journal.ErrInvalidBatch
+			return statefile.ErrInvalidData
 		}
 		event = record.Event
 		return nil
@@ -163,9 +163,9 @@ func (v JournalView) CurrentMessage(id string) (message model.Message, size int,
 
 func currentMessage(store Store, id string) (model.Message, int, error) {
 	if !model.IsCanonicalUUID(id) {
-		return model.Message{}, 0, journal.ErrInvalidFile
+		return model.Message{}, 0, statefile.ErrInvalidFile
 	}
-	raw, err := journal.ReadBytes(filepath.Join(store.dir, "messages", id+".json"), maxStateFileBytes)
+	raw, err := statefile.ReadBytes(filepath.Join(store.dir, "messages", id+".json"), maxStateFileBytes)
 	if err != nil {
 		return model.Message{}, 0, err
 	}
@@ -174,7 +174,7 @@ func currentMessage(store Store, id string) (model.Message, int, error) {
 		return model.Message{}, 0, err
 	}
 	if message.Schema != recordSchema || message.ID != id || (message.Kind != "" && message.Kind != model.NoticeKind) {
-		return model.Message{}, 0, journal.ErrInvalidFile
+		return model.Message{}, 0, statefile.ErrInvalidFile
 	}
 	return message, len(raw), nil
 }

@@ -6,8 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // The files in testdata/rc8 were written by the rc.8 release for the plugin
@@ -103,12 +102,12 @@ func TestRC8FeedStateIsReadAndWrittenWithTheSameBytes(t *testing.T) {
 func TestRC8InboxIndexIsReadAndWrittenWithTheSameBytes(t *testing.T) {
 	files := rc8PluginRoot(t)
 	path := filepath.Join(files.pluginDataPath(), "inbox.json")
-	raw, err := journal.ReadBytes(path, 1<<20)
+	raw, err := statefile.ReadBytes(path, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var index pluginInboxIndex
-	if err := bus.DecodeStrictRecordJSON(raw, &index); err != nil {
+	if err := statefile.DecodeStrictRecordJSON(raw, &index); err != nil {
 		t.Fatalf("the strict decoder refuses the rc.8 inbox index: %v", err)
 	}
 	if err := files.savePluginInboxIndex(index); err != nil {

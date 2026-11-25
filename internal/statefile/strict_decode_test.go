@@ -1,4 +1,4 @@
-package bus_test
+package statefile_test
 
 import (
 	"encoding/json"
@@ -6,8 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type strictTarget struct {
@@ -43,10 +42,10 @@ func TestDecodeStrictRecordJSON(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var got strictTarget
-			err := bus.DecodeStrictRecordJSON([]byte(test.raw), &got)
+			err := statefile.DecodeStrictRecordJSON([]byte(test.raw), &got)
 			switch {
 			case test.invalid:
-				if err != journal.ErrInvalidBatch { //nolint:errorlint // The sentinel itself is returned, not a wrapped copy.
+				if err != statefile.ErrInvalidData { //nolint:errorlint // The sentinel itself is returned, not a wrapped copy.
 					t.Fatalf("error = %v, want the invalid-batch sentinel itself", err)
 				}
 			case test.decoder != "":
@@ -60,7 +59,7 @@ func TestDecodeStrictRecordJSON(t *testing.T) {
 
 func requireDecoderRefusal(t *testing.T, err error, kind string) {
 	t.Helper()
-	if err == nil || errors.Is(err, journal.ErrInvalidBatch) || errors.Is(err, journal.ErrInvalidFile) {
+	if err == nil || errors.Is(err, statefile.ErrInvalidData) || errors.Is(err, statefile.ErrInvalidFile) {
 		t.Fatalf("error = %v, want a plain decoder error", err)
 	}
 	var typeErr *json.UnmarshalTypeError

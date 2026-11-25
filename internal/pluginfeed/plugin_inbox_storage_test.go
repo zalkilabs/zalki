@@ -13,8 +13,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type inboxStorageFixture struct {
@@ -50,16 +50,16 @@ func (x inboxStorageFixture) request() bus.SendRequest {
 }
 func (x inboxStorageFixture) index(t *testing.T) pluginInboxIndex {
 	t.Helper()
-	raw, err := journal.ReadBytes(filepath.Join(x.f.pluginDataPath(), "inbox.json"), 1<<20)
+	raw, err := statefile.ReadBytes(filepath.Join(x.f.pluginDataPath(), "inbox.json"), 1<<20)
 	var out pluginInboxIndex
-	if err != nil || bus.DecodeStrictRecordJSON(raw, &out) != nil {
+	if err != nil || statefile.DecodeStrictRecordJSON(raw, &out) != nil {
 		t.Fatal("missing valid index", err)
 	}
 	return out
 }
 func (x inboxStorageFixture) putIndex(t *testing.T, index pluginInboxIndex) {
 	t.Helper()
-	raw, err := journal.EncodeJSON(index, 1<<20)
+	raw, err := statefile.EncodeJSON(index, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -418,7 +418,7 @@ func mutateInboxHint(t *testing.T, x inboxStorageFixture, p pluginRecord, name s
 			t.Fatal(err)
 		}
 	case "stale-hint":
-		raw, _ := journal.EncodeJSON("absent-installation", 128)
+		raw, _ := statefile.EncodeJSON("absent-installation", 128)
 		if err = fsutil.WriteAtomic(filepath.Join(x.f.pluginDir(), "id-"+p.ID+".json"), raw); err != nil {
 			t.Fatal(err)
 		}

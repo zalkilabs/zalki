@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func TestPluginInboxReadAuditFailureReturnsNoBody(t *testing.T) {
@@ -117,7 +117,7 @@ func TestPluginInboxReadAuditRoundTripRetentionAndPersistentRate(t *testing.T) {
 func loadInboxReadAuditForTest(f PluginFeed, now time.Time) ([]pluginReadAuditRow, error) {
 	return f.loadPluginReadAuditFile("plugin-inbox-read-audit.json", now, func(row pluginReadAuditRow) error {
 		if row.Session != "plugin:"+row.Plugin {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 		return nil
 	})

@@ -8,8 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func decodeStreamJSON(raw []byte, target any) error {
@@ -19,17 +18,17 @@ func decodeStreamJSON(raw []byte, target any) error {
 		return err
 	}
 	if _, err := decoder.Token(); err != io.EOF {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if err := exactStreamShape(raw, reflect.TypeOf(target).Elem(), 0); err != nil {
 		return err
 	}
-	return bus.DecodeStrictRecordJSON(raw, target)
+	return statefile.DecodeStrictRecordJSON(raw, target)
 }
 
 func uniqueStreamValue(decoder *json.Decoder, depth int) error {
 	if depth > 64 {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	token, err := decoder.Token()
 	if err != nil {
@@ -40,7 +39,7 @@ func uniqueStreamValue(decoder *json.Decoder, depth int) error {
 		return nil
 	}
 	if delimiter != '{' && delimiter != '[' {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	keys := map[string]bool{}
 	for decoder.More() {
@@ -55,7 +54,7 @@ func uniqueStreamValue(decoder *json.Decoder, depth int) error {
 	}
 	end, err := decoder.Token()
 	if err != nil || (delimiter == '{' && end != json.Delim('}')) || (delimiter == '[' && end != json.Delim(']')) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	return nil
 }
@@ -67,7 +66,7 @@ func uniqueStreamKey(decoder *json.Decoder, keys map[string]bool) error {
 	}
 	key, ok := token.(string)
 	if !ok || keys[key] {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	keys[key] = true
 	return nil
@@ -75,7 +74,7 @@ func uniqueStreamKey(decoder *json.Decoder, keys map[string]bool) error {
 
 func exactStreamShape(raw []byte, kind reflect.Type, depth int) error {
 	if depth > 64 {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if kind == reflect.TypeFor[json.RawMessage]() {
 		return nil
@@ -103,7 +102,7 @@ func nullableStreamShape(kind reflect.Kind) error {
 	if kind == reflect.Pointer || kind == reflect.Map || kind == reflect.Slice {
 		return nil
 	}
-	return journal.ErrInvalidFile
+	return statefile.ErrInvalidFile
 }
 
 func exactStreamArray(raw []byte, element reflect.Type, depth int) error {
@@ -151,16 +150,16 @@ func exactStreamObject(raw []byte, kind reflect.Type, depth int) error {
 	for name, value := range object {
 		field, ok := fields[name]
 		if !ok {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 		if name == "sequence" {
 			var text string
 			if json.Unmarshal(value, &text) != nil {
-				return journal.ErrInvalidFile
+				return statefile.ErrInvalidFile
 			}
 			number, err := strconv.ParseUint(text, 10, 64)
 			if err != nil || strconv.FormatUint(number, 10) != text {
-				return journal.ErrInvalidFile
+				return statefile.ErrInvalidFile
 			}
 			continue
 		}

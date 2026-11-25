@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // logFileLimit caps each log file; with one .1 file a stream keeps at most
@@ -165,7 +165,7 @@ func tailPluginLog(path string) ([]string, error) {
 		if err != nil || !privateFile(info) {
 			return nil, unsafeLog(file, err)
 		}
-		raw, err := journal.ReadBytes(file, logFileLimit)
+		raw, err := statefile.ReadBytes(file, logFileLimit)
 		if err != nil {
 			return nil, unsafeLog(file, err)
 		}

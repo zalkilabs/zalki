@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type memberWorkCount struct{ input, reads, native, tokens, probes, limit int }
@@ -62,7 +62,7 @@ func assertTargetedEmptyAndNil(t *testing.T, store Store) {
 		t.Fatal("B_TARGETED_EMPTY_READS_NO_NATIVE", empty, err)
 	}
 	nilWork := &memberWorkCount{}
-	if _, err := collectMembers(t, store, nil, nilWork); !errors.Is(err, journal.ErrInvalidFile) || nilWork.reads != 0 || nilWork.native != 0 {
+	if _, err := collectMembers(t, store, nil, nilWork); !errors.Is(err, statefile.ErrInvalidFile) || nilWork.reads != 0 || nilWork.native != 0 {
 		t.Fatal("B_TARGETED_NIL_CANNOT_START_CENSUS", nilWork, err)
 	}
 }

@@ -12,8 +12,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type pluginMemberGuard struct {
@@ -42,7 +42,7 @@ type pluginMemberCollection struct {
 // for this entire borrowed write-view step.
 func PluginMembers(ctx context.Context, view JournalView, pluginName, ownerScope string, ownerStatus bool, targets []string, charge func(int, int, int, int, int) error) (json.RawMessage, error) {
 	if ctx == nil || charge == nil || targets == nil || !validSessionPluginName(pluginName) {
-		return nil, journal.ErrInvalidFile
+		return nil, statefile.ErrInvalidFile
 	}
 	store, cache, done, err := view.acquirePluginMembers()
 	if err != nil {
@@ -92,7 +92,7 @@ func collectPluginMemberProjections(view JournalView, store Store, cache *plugin
 
 func targetedPluginMemberIDs(store Store, targets []string) ([]string, error) {
 	if len(targets) > 64 {
-		return nil, journal.ErrInvalidFile
+		return nil, statefile.ErrInvalidFile
 	}
 	ids := slices.Clone(targets)
 	slices.Sort(ids)
@@ -126,7 +126,7 @@ func projectPluginMember(view JournalView, store Store, cache *pluginMemberCache
 		return projection, nil
 	}
 	if !entry.record.State.Valid() || entry.record.State == model.StateRetired || !model.IsCanonicalUUID(entry.record.Generation) {
-		return projection, journal.ErrInvalidFile
+		return projection, statefile.ErrInvalidFile
 	}
 	projection.Class = "muted"
 	if allowed {
@@ -165,7 +165,7 @@ func encodePluginMemberRow(record model.Session, muted bool) (json.RawMessage, e
 	}{ID: record.ID, Kind: record.Kind, Generation: record.Generation, State: record.State, Name: pluginMemberDisplay(record.Name), Task: pluginMemberDisplay(record.Task)}
 	raw, err := json.Marshal(row)
 	if len(raw) > 4096 {
-		return nil, journal.ErrInvalidFile
+		return nil, statefile.ErrInvalidFile
 	}
 	return raw, err
 }

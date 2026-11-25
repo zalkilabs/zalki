@@ -101,10 +101,7 @@ func checkStaleBindingNotQuiet(t *testing.T) {
 func startDisableHost(t *testing.T, mode string, receive bool) (bus.Store, <-chan error) {
 	t.Helper()
 	store, done := launchDisableHost(t, mode, receive)
-	eventually(t, func() bool {
-		s, err := pluginfeed.NewPluginFeed(store, "fake-notifier").PluginStatus()
-		return err == nil && !s.GapPending
-	})
+	waitFirstOffer(t, store, done)
 	return store, done
 }
 

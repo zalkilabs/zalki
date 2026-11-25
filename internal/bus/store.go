@@ -8,9 +8,9 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/platform"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 var errJournalRootChanged = model.NewError(model.CodeConflict, "Zalki state changed while waiting for its journal lock; no journal recovery or callback was run. Start a fresh command")
@@ -139,7 +139,7 @@ const maxStateFileBytes = 128 * 1024
 func readJSON(path string, target any) error {
 	if message, ok := target.(*model.Message); ok {
 		var disk storedPluginMessage
-		err := journal.ReadJSON(path, maxStateFileBytes, &disk)
+		err := statefile.ReadJSON(path, maxStateFileBytes, &disk)
 		*message = disk.Message
 		message.PluginBinding = disk.Binding
 		return err
@@ -147,7 +147,7 @@ func readJSON(path string, target any) error {
 	if runtime, ok := target.(*RuntimeInfo); ok {
 		return readRuntimeRecord(path, runtime)
 	}
-	return journal.ReadJSON(path, maxStateFileBytes, target)
+	return statefile.ReadJSON(path, maxStateFileBytes, target)
 }
 
 // encodeStateJSON validates exactly what will reach disk, not the compact
@@ -167,8 +167,8 @@ func encodeStateJSON(value any) ([]byte, error) {
 			value = storedPluginMessage{Message: *message, Binding: message.PluginBinding}
 		}
 	}
-	b, err := journal.EncodeJSON(value, maxStateFileBytes)
-	if size, ok := err.(*journal.SizeError); ok { //nolint:errorlint // Only the direct limit error is ours; wrapped encoder failures pass through.
+	b, err := statefile.EncodeJSON(value, maxStateFileBytes)
+	if size, ok := err.(*statefile.SizeError); ok { //nolint:errorlint // Only the direct limit error is ours; wrapped encoder failures pass through.
 		return nil, model.NewError(model.CodeInvalidInput, "encoded state record is %d bytes; limit is %d bytes", size.Size, size.Limit)
 	}
 	return b, err

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type auditRowsFixture struct {
@@ -197,7 +197,7 @@ func TestReadAuditRecipientValidatorsRemainSeparate(t *testing.T) {
 }
 func (x auditRowsFixture) poisonRow(t *testing.T, log pluginReadAudit) {
 	t.Helper()
-	raw, err := journal.EncodeJSON(log, 1<<20)
+	raw, err := statefile.EncodeJSON(log, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}

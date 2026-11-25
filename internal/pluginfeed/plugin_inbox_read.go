@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // ReadPluginInboxMessage is an exact-ID nonconsuming owner proxy. It uses no
@@ -43,7 +43,7 @@ func (s pluginFiles) readPluginInboxAt(view bus.JournalView, before *PluginFeedS
 	}
 	rows, err := s.loadPluginReadAuditFile("plugin-inbox-read-audit.json", now, func(row pluginReadAuditRow) error {
 		if row.Session != "plugin:"+row.Plugin {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 		return nil
 	})

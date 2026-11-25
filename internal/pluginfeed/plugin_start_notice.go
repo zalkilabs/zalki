@@ -7,10 +7,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // A new installation is announced at most startNoticeLimit times, globally
@@ -59,7 +58,7 @@ func startNoticeDue(p pluginRecord, now time.Time) bool {
 // that is unsafe or malformed, is an error and is never reset or adopted.
 func (s pluginFiles) loadStartNotice(p pluginRecord) (startNoticeLedger, error) {
 	empty := startNoticeLedger{Installation: p.ID, Starts: []startNoticeToken{}}
-	raw, err := journal.ReadBytes(s.startNoticePath(), startNoticeBytes)
+	raw, err := statefile.ReadBytes(s.startNoticePath(), startNoticeBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		return empty, nil
 	}
@@ -67,7 +66,7 @@ func (s pluginFiles) loadStartNotice(p pluginRecord) (startNoticeLedger, error) 
 		return empty, err
 	}
 	var ledger startNoticeLedger
-	if bus.DecodeStrictRecordJSON(raw, &ledger) != nil || !ledger.valid(p.ID) {
+	if statefile.DecodeStrictRecordJSON(raw, &ledger) != nil || !ledger.valid(p.ID) {
 		return empty, errStartNoticeLedger
 	}
 	return ledger, nil
@@ -111,7 +110,7 @@ func (s pluginFiles) reserveStartNoticeWith(p pluginRecord, actor, generation st
 	if !ledger.valid(p.ID) {
 		return false, errStartNoticeLedger
 	}
-	raw, err := journal.EncodeJSON(ledger, startNoticeBytes)
+	raw, err := statefile.EncodeJSON(ledger, startNoticeBytes)
 	if err != nil {
 		return false, err
 	}

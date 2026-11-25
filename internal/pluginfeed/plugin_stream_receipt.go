@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"maps"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func validStreamDependency(dependency streamDependency) bool {
@@ -39,14 +39,14 @@ func validateStreamReceiptEvidence(state pluginStreamState, pending *streamPendi
 	case "event":
 		return validateStreamEventReceipt(state, pending, *frame.Event)
 	default:
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 }
 
 func validateStreamGuardSet(guards map[string]streamDependency) error {
 	for id, dependency := range guards {
 		if model.ValidateSessionAddress(id) != nil || model.IsPluginInboxAddress(id) || !validStreamDependency(dependency) {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 	}
 	return nil
@@ -54,14 +54,14 @@ func validateStreamGuardSet(guards map[string]streamDependency) error {
 
 func validateStreamGapReceipt(pending *streamPending) error {
 	if pending.Retirement != nil || len(pending.Guards) != 0 || pending.SessionID != "" || pending.SessionSeen != nil || pending.MessageSeen != nil || pending.ResetAfter != "" {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	return nil
 }
 
 func validateStreamEventReceipt(state pluginStreamState, pending *streamPending, event model.Event) error {
 	if (pending.ResetAfter != "" && (pending.Retirement == nil || pending.ResetAfter != "membership")) || !model.IsCanonicalUUID(pending.After.Epoch) || pending.After.Sequence == 0 {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if event.Message == nil {
 		return validateStreamSessionReceipt(state, pending, event)
@@ -78,10 +78,10 @@ func validateStreamSessionReceipt(state pluginStreamState, pending *streamPendin
 		eligible = validStreamRetirement(pending.Retirement, event) && dependency.Guard == pending.Retirement.Before && seen && !prior.Retired && prior.Guard == pending.Retirement.Before
 	}
 	if !matchingStreamSessionReceipt(pending, event.Session, dependency, exists, eligible) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if proof.Guard != dependency.Guard || proof.State != event.Session.State || proof.Retired != event.Session.Retired {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	return validateStreamSessionHistory(state.States, event.Session, dependency.Guard)
 }
@@ -96,14 +96,14 @@ func validateStreamSessionHistory(states map[string]streamSessionSeen, event mod
 	}
 	previous, known := states[event.ID]
 	if !known || previous.Guard != guard || previous.State != event.Previous || previous.Retired != event.PreviousRetired {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	return nil
 }
 
 func validateStreamMessageReceipt(state pluginStreamState, pending *streamPending, wire model.EventMessage) error {
 	if !matchingStreamMessageReceipt(pending, wire) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	proof := pending.MessageSeen
 	primary := map[string]streamDependency{}
@@ -122,7 +122,7 @@ func validateStreamMessageReceipt(state pluginStreamState, pending *streamPendin
 		}
 	}
 	if visible == 0 || !maps.Equal(primary, proof.Guards) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	return validateStreamMessageHistory(state.Seen, pending, wire, primary)
 }
@@ -134,17 +134,17 @@ func matchingStreamMessageReceipt(pending *streamPending, wire model.EventMessag
 
 func validateStreamMessageEndpoint(installation, actual, shown string, guards map[string]streamDependency) (bool, error) {
 	if model.ValidateSessionAddress(actual) != nil || (shown != actual && shown != addressKind(actual)) {
-		return false, journal.ErrInvalidFile
+		return false, statefile.ErrInvalidFile
 	}
 	if model.IsPluginInboxAddress(actual) {
 		if shown == actual && actual != "plugin:"+installation {
-			return false, journal.ErrInvalidFile
+			return false, statefile.ErrInvalidFile
 		}
 		return false, nil
 	}
 	dependency, exists := guards[actual]
 	if !exists || (shown == actual && dependency.Class != "active") {
-		return false, journal.ErrInvalidFile
+		return false, statefile.ErrInvalidFile
 	}
 	return shown == actual, nil
 }
@@ -154,13 +154,13 @@ func validateStreamMessageHistory(seen []streamMessageSeen, pending *streamPendi
 	if wire.Previous != "" {
 		previous := streamSeenMessage(seen, wire.ID)
 		if previous == nil || previous.From != proof.From || previous.To != proof.To || !maps.Equal(previous.Guards, primary) || previous.Status != wire.Previous || previous.Held != wire.PreviousHeld || previous.Acknowledged != wire.PreviousAcknowledged {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 	}
 	if wire.ReplyTo != "" {
 		parent := streamSeenMessage(seen, wire.ReplyTo)
 		if parent == nil || !streamDependenciesMatch(parent.Guards, pending.Guards) {
-			return journal.ErrInvalidFile
+			return statefile.ErrInvalidFile
 		}
 	}
 	return nil

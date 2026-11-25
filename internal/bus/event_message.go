@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // messageStatusEvent projects a message write. It returns an empty event when the
@@ -36,7 +36,7 @@ func messageProjection(previous []byte, next model.Message) (*model.EventMessage
 		return nil, err
 	}
 	if before.ID != next.ID {
-		return nil, journal.ErrInvalidBatch
+		return nil, statefile.ErrInvalidData
 	}
 	projection.Previous, projection.PreviousHeld, projection.PreviousAcknowledged = before.Status, before.Held, before.AcknowledgedAt != ""
 	if projection.Previous == projection.Status && projection.PreviousHeld == projection.Held && projection.PreviousAcknowledged == projection.Acknowledged {
@@ -77,7 +77,7 @@ func validateEventMessage(raw []byte, event model.Event) error {
 // status, hold or acknowledgement is committed with its event in one batch;
 // any other change is a plain record write.
 func (s Store) writeMessage(path string, next model.Message) error {
-	prior, err := journal.ReadBytes(path, maxStateFileBytes)
+	prior, err := statefile.ReadBytes(path, maxStateFileBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		prior, err = nil, nil
 	}

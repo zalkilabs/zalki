@@ -10,6 +10,7 @@ import (
 	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // saveSessionFor saves a session; cause is recorded on the event, if any.
@@ -24,7 +25,7 @@ func saveSessionWith(s Store, next model.Session, cause model.EventCause, writer
 	}
 	invalidatePluginMember(s.dir, record.value.ID)
 	discardPluginRetirement(s.dir, record.value.ID)
-	prior, err := journal.ReadBytes(record.path, maxStateFileBytes)
+	prior, err := statefile.ReadBytes(record.path, maxStateFileBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		prior, err = nil, nil
 	}
@@ -72,13 +73,13 @@ func savePrivateSessionRecord(record sessionRecord, prior []byte) error {
 		return err
 	}
 	if kind != "" {
-		return journal.ErrInvalidBatch
+		return statefile.ErrInvalidData
 	}
 	state, err := encodeStateJSON(record.value)
 	if err != nil {
 		return err
 	}
-	current, err := journal.ReadBytes(record.path, maxStateFileBytes)
+	current, err := statefile.ReadBytes(record.path, maxStateFileBytes)
 	if err != nil {
 		return err
 	}

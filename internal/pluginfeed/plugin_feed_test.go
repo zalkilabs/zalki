@@ -13,8 +13,8 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func installFeed(t *testing.T, s bus.Store) {
@@ -562,7 +562,7 @@ func TestPluginFeedOwnerSymlinkRemainsClosed(t *testing.T) {
 	if err := os.Symlink(target, feed.pluginPath()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := feed.PluginStatus(); !errors.Is(err, journal.ErrInvalidFile) {
+	if _, err := feed.PluginStatus(); !errors.Is(err, statefile.ErrInvalidFile) {
 		t.Fatal("plugin record followed a symlink", err)
 	}
 	if !bytes.Equal(original, readCommitFile(t, target)) {
@@ -744,7 +744,7 @@ func checkHandEditedRecord(t *testing.T, change func(*pluginRecord), rehash bool
 	if rehash {
 		p.Revision = pluginRevision(p)
 	}
-	raw, err := journal.EncodeJSON(p, 16<<10)
+	raw, err := statefile.EncodeJSON(p, 16<<10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -772,7 +772,7 @@ func TestPluginFeedRejectsZeroFirstMetadata(t *testing.T) {
 	if err := writeJSON(filepath.Join(s.Dir(), eventMetaPath), head); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); !errors.Is(err, journal.ErrInvalidBatch) {
+	if _, err := nextFeed(NewPluginFeed(s, "fake-notifier")); !errors.Is(err, statefile.ErrInvalidData) {
 		t.Fatal("nonempty zero-first metadata reached loss arithmetic", err)
 	}
 	if !bytes.Equal(prior, readCommitFile(t, NewPluginFeed(s, "fake-notifier").pluginPath())) {

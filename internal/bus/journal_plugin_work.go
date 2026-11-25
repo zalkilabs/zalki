@@ -8,12 +8,12 @@ import (
 	"os"
 	"unicode/utf8"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func (w *pluginViewWork) check(input, reads, native, tokens, probes int) error {
 	if w == nil || w.charge == nil {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	if err := w.ctx.Err(); err != nil {
 		return err
@@ -27,7 +27,7 @@ func readScopedPluginBytes(store Store, path string, limit int) ([]byte, error) 
 			return work.read(path, limit)
 		}
 	}
-	return journal.ReadBytes(path, limit)
+	return statefile.ReadBytes(path, limit)
 }
 
 func (w *pluginViewWork) read(path string, limit int) ([]byte, error) {
@@ -39,14 +39,14 @@ func (w *pluginViewWork) read(path string, limit int) ([]byte, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() || info.Size() > int64(limit) {
-		return nil, journal.ErrInvalidFile
+		return nil, statefile.ErrInvalidFile
 	}
 	// Reserve size before allocation; using that exact limit also rejects growth
 	// after stat. A shorter read conservatively keeps the reserved debit.
 	if err := w.check(int(info.Size()), 1, 0, 0, 0); err != nil {
 		return nil, err
 	}
-	raw, err := journal.ReadBytes(path, int(info.Size()))
+	raw, err := statefile.ReadBytes(path, int(info.Size()))
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (w *pluginViewWork) read(path string, limit int) ([]byte, error) {
 
 func (w *pluginViewWork) tokens(raw []byte) error {
 	if !utf8.Valid(raw) {
-		return journal.ErrInvalidFile
+		return statefile.ErrInvalidFile
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
@@ -82,7 +82,7 @@ func (w *pluginViewWork) tokens(raw []byte) error {
 				depth--
 			}
 			if depth < 0 || depth > 64 {
-				return journal.ErrInvalidFile
+				return statefile.ErrInvalidFile
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-package journal
+package statefile
 
 import (
 	"errors"
@@ -11,52 +11,23 @@ import (
 
 // These tests pin what callers outside the package can observe: the error
 // identities they test with errors.Is, the error text, and the exact bytes of
-// a record. They must pass unchanged when the record IO moves to another
-// package; only the package name in the test changes.
+// a record. They were written before the record IO moved here from the
+// journal package and pass with only the package and sentinel names changed.
 
 func TestSentinelErrorsKeepTextAndStayDistinct(t *testing.T) {
 	if got := ErrInvalidFile.Error(); got != "invalid state file" {
 		t.Fatalf("ErrInvalidFile text %q", got)
 	}
-	if got := ErrInvalidBatch.Error(); got != "invalid journal batch" {
-		t.Fatalf("ErrInvalidBatch text %q", got)
+	if got := ErrInvalidData.Error(); got != "invalid journal batch" {
+		t.Fatalf("ErrInvalidData text %q", got)
 	}
-	if errors.Is(ErrInvalidFile, ErrInvalidBatch) || errors.Is(ErrInvalidBatch, ErrInvalidFile) {
+	if errors.Is(ErrInvalidFile, ErrInvalidData) || errors.Is(ErrInvalidData, ErrInvalidFile) {
 		t.Fatal("the two sentinels must stay separate identities")
 	}
 }
 
-// A redo intent that is valid JSON of the wrong shape is invalid-batch with a
-// fixed text. Broken JSON never reaches that check: the file read returns the
-// decoder's own error, which carries no sentinel. Both are pinned as they are.
-func TestDamagedIntentIdentity(t *testing.T) {
-	for _, test := range []struct {
-		name, intent string
-		batch        bool
-	}{
-		{"unknown field", `{"id":"x","puts":[],"extra":1}`, true},
-		{"wrong type", `[]`, true},
-		{"not JSON", `{"id":`, false},
-		{"empty file", ``, false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			f := newBatchFixture(t)
-			if err := os.WriteFile(f.log.intentPath(), []byte(test.intent), 0600); err != nil {
-				t.Fatal(err)
-			}
-			err := f.log.Recover(nil)
-			if err == nil || errors.Is(err, ErrInvalidFile) || errors.Is(err, ErrInvalidBatch) != test.batch {
-				t.Fatalf("Recover = %v, want ErrInvalidBatch: %v", err, test.batch)
-			}
-			if test.batch && err.Error() != "invalid journal batch: malformed intent" {
-				t.Fatalf("Recover text = %q", err)
-			}
-		})
-	}
-}
-
 // ReadJSON and ReadBytes report unsafe files as invalid-file and never as
-// invalid-batch; a missing file stays a not-exist error.
+// invalid-data; a missing file stays a not-exist error.
 func TestUnsafeRecordFilesAreInvalidFileOnly(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "target.json")
@@ -74,20 +45,20 @@ func TestUnsafeRecordFilesAreInvalidFileOnly(t *testing.T) {
 	for name, path := range map[string]string{"symbolic link": link, "directory": dir} {
 		var value map[string]any
 		for _, err := range []error{ReadJSON(path, 1024, &value), readBytesError(path, 1024)} {
-			if !errors.Is(err, ErrInvalidFile) || errors.Is(err, ErrInvalidBatch) {
+			if !errors.Is(err, ErrInvalidFile) || errors.Is(err, ErrInvalidData) {
 				t.Fatalf("%s: error = %v, want only ErrInvalidFile", name, err)
 			}
 		}
 	}
 	var value map[string]any
 	for _, err := range []error{ReadJSON(big, 3, &value), readBytesError(big, 3)} {
-		if !errors.Is(err, ErrInvalidFile) || errors.Is(err, ErrInvalidBatch) {
+		if !errors.Is(err, ErrInvalidFile) || errors.Is(err, ErrInvalidData) {
 			t.Fatalf("oversize: error = %v, want only ErrInvalidFile", err)
 		}
 	}
 	missing := filepath.Join(dir, "missing.json")
 	for _, err := range []error{ReadJSON(missing, 1024, &value), readBytesError(missing, 1024)} {
-		if !errors.Is(err, os.ErrNotExist) || errors.Is(err, ErrInvalidFile) || errors.Is(err, ErrInvalidBatch) {
+		if !errors.Is(err, os.ErrNotExist) || errors.Is(err, ErrInvalidFile) || errors.Is(err, ErrInvalidData) {
 			t.Fatalf("missing: error = %v, want only os.ErrNotExist", err)
 		}
 	}

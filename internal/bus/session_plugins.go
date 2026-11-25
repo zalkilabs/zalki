@@ -2,6 +2,7 @@ package bus
 
 import (
 	"encoding/json"
+	"github.com/zalkilabs/zalki/internal/statefile"
 	"os"
 	"slices"
 	"strings"
@@ -85,7 +86,7 @@ func parseSessionPluginEnvironment(value string) sessionPluginPolicy {
 func decodeSessionPluginPolicy(session model.Session) (sessionPluginPolicy, bool) {
 	var p sessionPluginPolicy
 	raw := session.PluginPolicy
-	if len(raw) == 0 || len(raw) > sessionPluginBytes || !sessionPluginUniqueJSON(raw) || DecodeStrictRecordJSON(raw, &p) != nil {
+	if len(raw) == 0 || len(raw) > sessionPluginBytes || !sessionPluginUniqueJSON(raw) || statefile.DecodeStrictRecordJSON(raw, &p) != nil {
 		return p, false
 	}
 	return p, validSessionPluginPolicy(p, session.ID)
