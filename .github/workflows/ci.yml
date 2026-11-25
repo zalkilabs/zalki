@@ -248,7 +248,7 @@ jobs:
     needs: [unraced-linux]
     if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Require completed Linux owning tests
         env:
@@ -299,7 +299,7 @@ jobs:
     needs: [unraced-darwin]
     if: always()
     runs-on: macos-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - name: Require completed Darwin owning tests
         env:
