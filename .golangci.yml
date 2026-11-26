@@ -31,6 +31,7 @@ linters:
           list-mode: strict
           allow:
             - $gostd
+            - github.com/zalkilabs/zalki/internal/fsutil$
             - github.com/zalkilabs/zalki/internal/model$
         core:
           files: ["**/internal/bus/*.go", "!$test"]
