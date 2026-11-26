@@ -396,8 +396,8 @@
     "id": "B-L2-CLAUDE",
     "kind": "production",
     "mutation": {
-      "path": "internal/adapters/claude/claude.go",
-      "symbol": "absoluteConfigDir",
+      "path": "internal/clientconfig/profile.go",
+      "symbol": "AbsoluteConfigDir",
       "old": "strings.ContainsFunc(root, unicode.IsControl)",
       "new": "strings.ContainsFunc(root, func(r rune) bool { return !unicode.IsGraphic(r) })",
       "required_occurrences": 1
