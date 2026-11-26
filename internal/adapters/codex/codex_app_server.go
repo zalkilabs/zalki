@@ -18,6 +18,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/zalkilabs/zalki/internal/clientconfig"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -62,7 +63,7 @@ type codexSocket struct {
 }
 
 func codexConfigRoot(target model.Session) string {
-	return absoluteConfigDir(target.NativeConfigDir)
+	return clientconfig.AbsoluteConfigDir(target.NativeConfigDir)
 }
 
 // Only the existing zero-identity registry/registration/doctor probes use the
