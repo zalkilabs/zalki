@@ -3172,5 +3172,77 @@
       }
     },
     "reason": "Three names that only their own package uses become private: bus.CurrentRuntimeInfo, bus.SessionIssue and mcpserver.New. No stored data, wire format or tool contract changes."
+  },
+  {
+    "base_commit": "f5036828f71e24cae38cc7e822f872f178d1319e",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/clientconfig.AbsoluteConfigDir",
+          "internal/clientconfig.ConfigDir"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/clientconfig.AbsoluteConfigDir": "func(root string) string",
+          "function:internal/clientconfig.ConfigDir": "func(variable, fallback string) string"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The native profile folder selection of the clients moves into internal/clientconfig as ConfigDir and AbsoluteConfigDir. The Claude adapter uses it. No stored data, wire format or client setting changes."
+  },
+  {
+    "base_commit": "f5036828f71e24cae38cc7e822f872f178d1319e",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/clientconfig.AbsoluteConfigDir",
+          "internal/clientconfig.ConfigDir"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/clientconfig.AbsoluteConfigDir": "func(root string) string",
+          "function:internal/clientconfig.ConfigDir": "func(variable, fallback string) string"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The native profile folder selection of the clients moves into internal/clientconfig as ConfigDir and AbsoluteConfigDir. The Claude adapter uses it. No stored data, wire format or client setting changes."
   }
 ]
