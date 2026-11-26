@@ -46,7 +46,7 @@ func TestPruneDeletesOnlyOldRetiredSessions(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	freeLock := store.listenerLockPath(from.Kind, from.ID)
+	freeLock := listeners(store).listenerLockPath(from.Kind, from.ID)
 	if err := os.WriteFile(freeLock, nil, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestPruneDeletesOnlyOldRetiredSessions(t *testing.T) {
 	if err := store.locked(func() error { return store.saveSession(heldSession) }); err != nil {
 		t.Fatal(err)
 	}
-	heldLock := store.listenerLockPath(heldSession.Kind, heldSession.ID)
+	heldLock := listeners(store).listenerLockPath(heldSession.Kind, heldSession.ID)
 	fd, err := syscall.Open(heldLock, syscall.O_CREAT|syscall.O_RDWR, 0600)
 	if err != nil {
 		t.Fatal(err)
@@ -128,8 +128,8 @@ func TestPruneDeletesOnlyOldRetiredSessions(t *testing.T) {
 func TestPruneRemovesAnUnlockedOrphanListenerLock(t *testing.T) {
 	store := fixtureStore(t)
 	live, _ := register(t, store, "cursor")
-	orphan := store.listenerLockPath("cursor", "cursor:"+newID())
-	liveLock := store.listenerLockPath(live.Kind, live.ID)
+	orphan := listeners(store).listenerLockPath("cursor", "cursor:"+newID())
+	liveLock := listeners(store).listenerLockPath(live.Kind, live.ID)
 	for _, path := range []string{orphan, liveLock} {
 		if err := os.WriteFile(path, nil, 0600); err != nil {
 			t.Fatal(err)

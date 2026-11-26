@@ -24,7 +24,7 @@ func TestLockPathErrorsKeepTheirRawTypeAndText(t *testing.T) {
 		t.Run(shape, func(t *testing.T) {
 			store := fixtureStore(t)
 			v, _ := register(t, store, "cursor")
-			listenerPath := store.listenerLockPath(v.Kind, v.ID)
+			listenerPath := listeners(store).listenerLockPath(v.Kind, v.ID)
 			globalPath := filepath.Join(store.dir, "lock")
 			if err := os.Remove(globalPath); err != nil {
 				t.Fatal(err)
@@ -57,9 +57,9 @@ func TestLockPathErrorsKeepTheirRawTypeAndText(t *testing.T) {
 				t.Fatalf("invalid lifetime path returned fd %d", fd)
 			}
 			requireRawLockError(t, err, want, text)
-			found, err := store.removeFreeListenerLock(v.Kind, v.ID, false)
+			found, err := listeners(store).removeFreeListenerLock(v.Kind, v.ID, false)
 			requireRawLockError(t, err, want, text)
-			if found || store.lockHeld(v) {
+			if found || listeners(store).lockHeld(v) {
 				t.Fatal("invalid lock path reported a free or held lifetime lock")
 			}
 			if shape == "symlink" {

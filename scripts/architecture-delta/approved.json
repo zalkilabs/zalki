@@ -3584,5 +3584,97 @@
       }
     },
     "reason": "The 7 private inbox read and hook context methods of Store move to a new private type, inboxReader, in the same file. Store keeps every exported method. The new private type adds 7 methods in one file, and Store loses those 7 methods. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "a26459b2d086dab700cb2c8a17dbb7a0625e9aaa",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.listenerLeases": {
+            "Methods": 4,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 80,
+              "Files": 23
+            },
+            "after": {
+              "Methods": 76,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 4 private listener lock methods of Store move to a new private type, listenerLeases, in the same file. Store keeps every exported method. The new private type adds 4 methods in one file, and Store loses those 4 methods. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "a26459b2d086dab700cb2c8a17dbb7a0625e9aaa",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.listenerLeases": {
+            "Methods": 4,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 80,
+              "Files": 23
+            },
+            "after": {
+              "Methods": 76,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 4 private listener lock methods of Store move to a new private type, listenerLeases, in the same file. Store keeps every exported method. The new private type adds 4 methods in one file, and Store loses those 4 methods. No export, shape, import or OS call changes."
   }
 ]

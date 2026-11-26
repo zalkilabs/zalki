@@ -21,20 +21,20 @@ func TestMissingListenerProbesDoNotCreateLockFiles(t *testing.T) {
 		t.Run(operation, func(t *testing.T) {
 			store := fixtureStore(t)
 			v, _ := register(t, store, "cursor")
-			path := store.listenerLockPath(v.Kind, v.ID)
+			path := listeners(store).listenerLockPath(v.Kind, v.ID)
 			requireAbsentLock(t, path)
 			switch operation {
 			case "liveness":
-				if store.lockHeld(v) {
+				if listeners(store).lockHeld(v) {
 					t.Fatal("missing lock reported a live listener")
 				}
 			case "status":
-				if got := store.listenerStatus(v); got != model.ListenerNone {
+				if got := listeners(store).listenerStatus(v); got != model.ListenerNone {
 					t.Fatalf("missing lock status = %q, want none", got)
 				}
 			case "preview", "remove":
 				if err := store.locked(func() error {
-					found, err := store.removeFreeListenerLock(v.Kind, v.ID, operation == "remove")
+					found, err := listeners(store).removeFreeListenerLock(v.Kind, v.ID, operation == "remove")
 					if found {
 						t.Error("missing lock was reported as a cleanup candidate")
 					}

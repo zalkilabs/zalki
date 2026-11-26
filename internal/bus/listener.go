@@ -31,16 +31,24 @@ type Lease struct {
 	confirmed, closed         bool
 }
 
-func (s Store) listenerLockPath(kind, actor string) string {
-	return filepath.Join(s.dir, kind+"-listener-"+strings.TrimPrefix(actor, kind+":")+".lock")
+// listenerLeases is the lifetime lock work of a Store: where a registration's
+// listener lock file is, whether it is held, and what that says about the
+// listener. It is a separate type so this work adds no methods to Store.
+type listenerLeases struct{ store Store }
+
+// listeners returns the listener lock work for s.
+func listeners(s Store) listenerLeases { return listenerLeases{s} }
+
+func (q listenerLeases) listenerLockPath(kind, actor string) string {
+	return filepath.Join(q.store.dir, kind+"-listener-"+strings.TrimPrefix(actor, kind+":")+".lock")
 }
 
 // removeFreeListenerLock reports whether the listener lock file is present and
 // unlocked. The journal lock is already held, so the flock is nonblocking and
 // cannot deadlock a listener that takes the locks in the opposite order.
 // remove unlinks the file only in that case.
-func (s Store) removeFreeListenerLock(kind, actor string, remove bool) (bool, error) {
-	path := s.listenerLockPath(kind, actor)
+func (q listenerLeases) removeFreeListenerLock(kind, actor string, remove bool) (bool, error) {
+	path := q.listenerLockPath(kind, actor)
 	fd, err := platform.OpenLockFile(path, false)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -67,8 +75,8 @@ func (s Store) removeFreeListenerLock(kind, actor string, remove bool) (bool, er
 
 // lockHeld reports whether some process holds the registration's lifetime lock.
 // A missing or unlocked lock file is not evidence of a live listener.
-func (s Store) lockHeld(v model.Session) bool {
-	fd, err := platform.OpenLockFile(s.listenerLockPath(v.Kind, v.ID), false)
+func (q listenerLeases) lockHeld(v model.Session) bool {
+	fd, err := platform.OpenLockFile(q.listenerLockPath(v.Kind, v.ID), false)
 	if err != nil {
 		return false
 	}
@@ -83,8 +91,8 @@ func (s Store) lockHeld(v model.Session) bool {
 
 // listenerStatus checks the lease against its bound endpoint and the lifetime
 // lock. A socket left behind by a crash is insufficient evidence of a listener.
-func (s Store) listenerStatus(v model.Session) model.ListenerStatus {
-	held := s.lockHeld(v)
+func (q listenerLeases) listenerStatus(v model.Session) model.ListenerStatus {
+	held := q.lockHeld(v)
 	switch {
 	case v.Listener != nil && held && v.Listener.Generation == v.Generation && agent.CheckEndpoint(&v.Listener.Endpoint) == nil:
 		return model.ListenerRunning
@@ -122,7 +130,7 @@ func (s Store) AcquireListenerLease(actor, key string) (lease *Lease, err error)
 	if err != nil {
 		return nil, err
 	}
-	fd, err := acquireListenerLock(s.listenerLockPath(v.Kind, actor), platform.OpenLockFile)
+	fd, err := acquireListenerLock(listeners(s).listenerLockPath(v.Kind, actor), platform.OpenLockFile)
 	if err != nil {
 		return nil, err
 	}

@@ -73,7 +73,7 @@ func retiredWithLease(t *testing.T, store Store, ago time.Duration) model.Sessio
 
 func lockFile(t *testing.T, store Store, v model.Session) string {
 	t.Helper()
-	path := store.listenerLockPath(v.Kind, v.ID)
+	path := listeners(store).listenerLockPath(v.Kind, v.ID)
 	if err := os.WriteFile(path, nil, 0600); err != nil {
 		t.Fatal(err)
 	}

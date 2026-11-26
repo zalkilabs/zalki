@@ -127,7 +127,7 @@ func TestAcquireDropsALockUnlinkedBeforeFlock(t *testing.T) {
 		}
 		return fd, nil
 	}
-	fd, err := acquireListenerLock(store.listenerLockPath(to.Kind, to.ID), open)
+	fd, err := acquireListenerLock(listeners(store).listenerLockPath(to.Kind, to.ID), open)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestListenerLeaseLifecycleWritesLeaseOnlyUnderItsSchema(t *testing.T) {
 	}
 	lease := armedLease(t, store, to.ID, key)
 	current, err := store.session(to.ID)
-	if err != nil || current.Listener == nil || current.Listener.Generation != to.Generation || !current.Receive.IdleWake || store.listenerStatus(current) != model.ListenerRunning {
+	if err != nil || current.Listener == nil || current.Listener.Generation != to.Generation || !current.Receive.IdleWake || listeners(store).listenerStatus(current) != model.ListenerRunning {
 		t.Fatalf("armed lease was not recorded as the running listener: %+v %v", current, err)
 	}
 	if recordSchemaOf(t, store, to.ID) != recordSchema {
@@ -171,7 +171,7 @@ func TestListenerLeaseLifecycleWritesLeaseOnlyUnderItsSchema(t *testing.T) {
 	}
 	lease.Close(nil)
 	current, err = store.session(to.ID)
-	if err != nil || current.Listener != nil || current.Receive.IdleWake || store.listenerStatus(current) != model.ListenerNone || recordSchemaOf(t, store, to.ID) != recordSchema {
+	if err != nil || current.Listener != nil || current.Receive.IdleWake || listeners(store).listenerStatus(current) != model.ListenerNone || recordSchemaOf(t, store, to.ID) != recordSchema {
 		t.Fatalf("closing the lease left listener state or the lease schema: %+v %v", current, err)
 	}
 }
@@ -292,32 +292,32 @@ func TestValidateDeliveryKeepsRecipientFences(t *testing.T) {
 func TestListenerStatusRequiresEndpointAndLifetimeLock(t *testing.T) {
 	store := fixtureStore(t)
 	to, _ := register(t, store, "cursor")
-	if store.listenerStatus(to) != model.ListenerNone {
+	if listeners(store).listenerStatus(to) != model.ListenerNone {
 		t.Fatal("a fresh registration reported a listener")
 	}
-	fd, err := syscall.Open(store.listenerLockPath(to.Kind, to.ID), syscall.O_CREAT|syscall.O_RDWR, 0600)
+	fd, err := syscall.Open(listeners(store).listenerLockPath(to.Kind, to.ID), syscall.O_CREAT|syscall.O_RDWR, 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer syscall.Close(fd)
-	if store.listenerStatus(to) != model.ListenerNone {
+	if listeners(store).listenerStatus(to) != model.ListenerNone {
 		t.Fatal("an unlocked lock file was treated as a listener")
 	}
 	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		t.Fatal(err)
 	}
-	if store.listenerStatus(to) != model.ListenerUnleased {
+	if listeners(store).listenerStatus(to) != model.ListenerUnleased {
 		t.Fatal("a lock holder without a lease was not reported as unleased")
 	}
 	to.Listener = &model.ListenerLease{ID: newID(), Generation: to.Generation, Endpoint: model.Endpoint{Path: "/tmp/zalki-missing/inbox.sock"}}
-	if store.listenerStatus(to) != model.ListenerStale {
+	if listeners(store).listenerStatus(to) != model.ListenerStale {
 		t.Fatal("a lease without its bound endpoint was reported as running")
 	}
 	if err := syscall.Flock(fd, syscall.LOCK_UN); err != nil {
 		t.Fatal(err)
 	}
 	to.Listener.Endpoint = *listenSocket(t)
-	if store.listenerStatus(to) != model.ListenerStale {
+	if listeners(store).listenerStatus(to) != model.ListenerStale {
 		t.Fatal("a bound socket without the lifetime lock was reported as running")
 	}
 }

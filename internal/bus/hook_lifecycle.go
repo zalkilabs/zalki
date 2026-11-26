@@ -115,7 +115,7 @@ func (h hookRuntime) ClaimRecovery(policy func(model.SessionView) (agent.Recover
 		if !ok || err != nil {
 			return err
 		}
-		if v.Retired || h.store.sessionLiveness(v) == model.LivenessExited || v.State == model.StateApproval || h.store.listenerStatus(v) == model.ListenerRunning {
+		if v.Retired || h.store.sessionLiveness(v) == model.LivenessExited || v.State == model.StateApproval || listeners(h.store).listenerStatus(v) == model.ListenerRunning {
 			return nil
 		}
 		decision, err := policy(viewOf(v))
