@@ -26,7 +26,7 @@ func TestOfficialSDKDiscoveryAndToolValidation(t *testing.T) {
 	defer cancel()
 	service := newTestService(t)
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
-	serverSession, err := New(service).Connect(ctx, serverTransport, nil)
+	serverSession, err := newServer(service).Connect(ctx, serverTransport, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

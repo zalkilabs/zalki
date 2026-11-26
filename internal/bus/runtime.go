@@ -114,7 +114,7 @@ func runtimeHealth(info RuntimeInfo) RuntimeInfo {
 	return info
 }
 
-func CurrentRuntimeInfo() RuntimeInfo { return runtimeHealth(currentExecutable.info) }
+func currentRuntimeInfo() RuntimeInfo { return runtimeHealth(currentExecutable.info) }
 
 func BuildVersion() string { return buildinfo.WithBuild(currentExecutable.loadedBuild) }
 
@@ -219,7 +219,7 @@ func (s *Service) RuntimeInfo() RuntimeInfo {
 	if s.Runtime != nil {
 		return s.Runtime.Info()
 	}
-	return CurrentRuntimeInfo()
+	return currentRuntimeInfo()
 }
 
 // Unsupported headers are counted separately, never decoded for liveness or cleanup.

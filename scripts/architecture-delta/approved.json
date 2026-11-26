@@ -3096,5 +3096,81 @@
       }
     },
     "reason": "The package internal/journal is renamed to internal/wal. The exports, methods, shapes and the unix import move to the new package name. bus now imports wal instead of journal. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "65766428cc1be8c19bd08ff19090ffd0d3c2ee2d",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/bus.CurrentRuntimeInfo",
+          "internal/bus.SessionIssue",
+          "internal/mcpserver.New"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/bus.CurrentRuntimeInfo": "func() RuntimeInfo",
+          "function:internal/mcpserver.New": "func(service Bus) *mcp.Server",
+          "type:internal/bus.SessionIssue": "SessionIssue struct {\n\tID\tstring\n\tReason\tstring\n}"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Three names that only their own package uses become private: bus.CurrentRuntimeInfo, bus.SessionIssue and mcpserver.New. No stored data, wire format or tool contract changes."
+  },
+  {
+    "base_commit": "65766428cc1be8c19bd08ff19090ffd0d3c2ee2d",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/bus.CurrentRuntimeInfo",
+          "internal/bus.SessionIssue",
+          "internal/mcpserver.New"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/bus.CurrentRuntimeInfo": "func() RuntimeInfo",
+          "function:internal/mcpserver.New": "func(service Bus) *mcp.Server",
+          "type:internal/bus.SessionIssue": "SessionIssue struct {\n\tID\tstring\n\tReason\tstring\n}"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Three names that only their own package uses become private: bus.CurrentRuntimeInfo, bus.SessionIssue and mcpserver.New. No stored data, wire format or tool contract changes."
   }
 ]
