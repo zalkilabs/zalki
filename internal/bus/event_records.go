@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/statefile"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 const (
@@ -106,7 +106,7 @@ func (w commitWriter) checkEmptyRecords() error {
 	return nil
 }
 
-func (w commitWriter) retireOldest(metadata *eventMetadata) ([]journal.Delete, error) {
+func (w commitWriter) retireOldest(metadata *eventMetadata) ([]wal.Delete, error) {
 	if metadata.Count < w.eventLimit() {
 		return nil, nil
 	}
@@ -128,41 +128,41 @@ func (w commitWriter) retireOldest(metadata *eventMetadata) ([]journal.Delete, e
 	metadata.First++
 	metadata.Count--
 	metadata.Bytes -= uint64(len(raw))
-	return []journal.Delete{journal.NewDelete(path, raw)}, nil
+	return []wal.Delete{wal.NewDelete(path, raw)}, nil
 }
 
-func (w commitWriter) prepareEvents(previous, state []byte, event model.Event) (journal.Batch, error) {
+func (w commitWriter) prepareEvents(previous, state []byte, event model.Event) (wal.Batch, error) {
 	metadata, priorMetadata, err := w.readMetadata()
 	if err != nil {
-		return journal.Batch{}, err
+		return wal.Batch{}, err
 	}
 	if metadata.Last == math.MaxUint64 {
-		return journal.Batch{}, errors.New("event sequence exhausted")
+		return wal.Batch{}, errors.New("event sequence exhausted")
 	}
 	deletes, err := w.retireOldest(&metadata)
 	if err != nil {
-		return journal.Batch{}, err
+		return wal.Batch{}, err
 	}
 	metadata.Last++
 	record := eventRecord{Epoch: metadata.Epoch, Sequence: metadata.Last, Event: event}
 	raw, err := statefile.EncodeJSON(record, maxEventBytes)
 	if err != nil {
-		return journal.Batch{}, err
+		return wal.Batch{}, err
 	}
 	metadata.Count++
 	metadata.Bytes += uint64(len(raw))
 	metaBytes, err := encodeStateJSON(metadata)
 	if err != nil {
-		return journal.Batch{}, err
+		return wal.Batch{}, err
 	}
-	return journal.Batch{ID: event.TransactionID, Puts: []journal.Put{
-		journal.NewPut(eventSubjectPath(event), previous, state),
-		journal.NewPut(eventRecordPath(record.Sequence), nil, raw),
-		journal.NewPut(eventMetaPath, priorMetadata, metaBytes),
+	return wal.Batch{ID: event.TransactionID, Puts: []wal.Put{
+		wal.NewPut(eventSubjectPath(event), previous, state),
+		wal.NewPut(eventRecordPath(record.Sequence), nil, raw),
+		wal.NewPut(eventMetaPath, priorMetadata, metaBytes),
 	}, Deletes: deletes}, nil
 }
 
-func (w commitWriter) validateMetadata(batch journal.Batch, record eventRecord) error {
+func (w commitWriter) validateMetadata(batch wal.Batch, record eventRecord) error {
 	if batch.Puts[2].Path != eventMetaPath || len(batch.Deletes) > 1 {
 		return statefile.ErrInvalidData
 	}

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 func TestPromptRegistrationWALRecoveryDoesNotRecharge(t *testing.T) {
@@ -94,7 +94,7 @@ func assertRecoveredPromptWAL(t *testing.T, store Store, registered model.Sessio
 	}
 }
 
-func stagedPromptRegistration(t *testing.T, store Store, next model.Session) journal.Batch {
+func stagedPromptRegistration(t *testing.T, store Store, next model.Session) wal.Batch {
 	t.Helper()
 	record, err := prepareSessionRecord(store, next)
 	if err != nil {

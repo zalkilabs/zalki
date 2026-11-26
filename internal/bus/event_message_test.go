@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/statefile"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 func eventAt(t *testing.T, store Store, sequence uint64) model.Event {
@@ -167,7 +167,7 @@ func TestMessageBatchValidationChecksTheMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	batch.Puts[0] = journal.NewPut(batch.Puts[0].Path, nil, data)
+	batch.Puts[0] = wal.NewPut(batch.Puts[0].Path, nil, data)
 	if err := writer.validate(batch); err == nil {
 		t.Fatal("validate accepted a message that does not match its event")
 	}

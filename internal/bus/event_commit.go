@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/statefile"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 // saveSessionFor saves a session; cause is recorded on the event, if any.
@@ -84,12 +84,12 @@ func savePrivateSessionRecord(record sessionRecord, prior []byte) error {
 		return err
 	}
 	if !bytes.Equal(current, prior) {
-		return journal.ErrBatchConflict
+		return wal.ErrBatchConflict
 	}
 	return fsutil.WriteAtomic(record.path, state)
 }
 
-func orderEventDirectory(path string) error { return journal.OrderDirectory(path) }
+func orderEventDirectory(path string) error { return wal.OrderDirectory(path) }
 
 func ensureEventDirectories(s Store, orderDir func(string) error, initialized bool) error {
 	for _, relative := range []string{"commits", "events", "events/records"} {

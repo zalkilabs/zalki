@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/statefile"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 // commitWriter publishes a prepared session or message record with its event
@@ -20,42 +20,42 @@ type commitWriter struct {
 	orderSubject func(string) error
 }
 
-func (w commitWriter) log() journal.BatchLog {
-	return journal.BatchLog{Root: w.dir, Intent: "commits/pending.json"}
+func (w commitWriter) log() wal.BatchLog {
+	return wal.BatchLog{Root: w.dir, Intent: "commits/pending.json"}
 }
 
 // previous must be the exact on-disk bytes, including surrounding whitespace;
 // decoding into json.RawMessage is not an exact-byte read for this purpose.
-func (w commitWriter) prepare(previous []byte, next model.Session, event model.Event) (journal.Batch, error) {
+func (w commitWriter) prepare(previous []byte, next model.Session, event model.Event) (wal.Batch, error) {
 	if err := validatePreparedSession(previous, next, event); err != nil {
-		return journal.Batch{}, err
+		return wal.Batch{}, err
 	}
 	state, err := encodeStateJSON(next)
 	if err != nil {
-		return journal.Batch{}, err
+		return wal.Batch{}, err
 	}
 	return w.prepareSubject(previous, state, event)
 }
 
 // prepareMessage builds the batch for a message write and its event.
-func (w commitWriter) prepareMessage(previous []byte, next model.Message, event model.Event) (journal.Batch, error) {
+func (w commitWriter) prepareMessage(previous []byte, next model.Message, event model.Event) (wal.Batch, error) {
 	if err := validatePreparedMessage(previous, next, event); err != nil {
-		return journal.Batch{}, err
+		return wal.Batch{}, err
 	}
 	state, err := encodeStateJSON(next)
 	if err != nil {
-		return journal.Batch{}, err
+		return wal.Batch{}, err
 	}
 	return w.prepareSubject(previous, state, event)
 }
 
-func (w commitWriter) prepareSubject(previous, state []byte, event model.Event) (journal.Batch, error) {
+func (w commitWriter) prepareSubject(previous, state []byte, event model.Event) (wal.Batch, error) {
 	batch, err := w.prepareEvents(previous, state, event)
 	if err != nil {
-		return journal.Batch{}, err
+		return wal.Batch{}, err
 	}
 	if err := w.validate(batch); err != nil {
-		return journal.Batch{}, err
+		return wal.Batch{}, err
 	}
 	return batch, nil
 }
@@ -64,12 +64,12 @@ func (w commitWriter) orderSubjectDirectory(path string) error {
 	if w.orderSubject != nil {
 		return w.orderSubject(path)
 	}
-	return journal.OrderDirectory(path)
+	return wal.OrderDirectory(path)
 }
 
 func (w commitWriter) recover() error { return w.log().Recover(w.validate) }
 
-func (w commitWriter) validate(batch journal.Batch) error {
+func (w commitWriter) validate(batch wal.Batch) error {
 	if len(batch.Puts) != 3 || len(batch.Puts[1].Data) > maxEventBytes || !json.Valid(batch.Puts[1].Data) {
 		return statefile.ErrInvalidData
 	}

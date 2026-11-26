@@ -1,6 +1,6 @@
 //go:build !darwin
 
-package journal
+package wal
 
 import "os"
 
