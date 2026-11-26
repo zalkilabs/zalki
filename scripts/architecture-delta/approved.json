@@ -3308,5 +3308,97 @@
       }
     },
     "reason": "internal/config uses the shared directory sync of internal/fsutil instead of its own copy. The only change is the new import edge from config to fsutil. No export, shape, receiver or OS call changes."
+  },
+  {
+    "base_commit": "b10c6d780df42a652834c80ae3adb4f21d200419",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.replyFlow": {
+            "Methods": 13,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 116,
+              "Files": 25
+            },
+            "after": {
+              "Methods": 103,
+              "Files": 24
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 13 private reply methods of Store move to a new private type, replyFlow, in the same file. Store keeps every exported method. The new private type adds 13 methods in one file, and Store loses those 13 methods and that file. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "b10c6d780df42a652834c80ae3adb4f21d200419",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.replyFlow": {
+            "Methods": 13,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 116,
+              "Files": 25
+            },
+            "after": {
+              "Methods": 103,
+              "Files": 24
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 13 private reply methods of Store move to a new private type, replyFlow, in the same file. Store keeps every exported method. The new private type adds 13 methods in one file, and Store loses those 13 methods and that file. No export, shape, import or OS call changes."
   }
 ]
