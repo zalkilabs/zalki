@@ -9,8 +9,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 func eventState(t *testing.T, store Store) eventMetadata {
@@ -89,7 +90,7 @@ func TestEventRetentionNeverBlocksHealthyFullLog(t *testing.T) {
 	}
 }
 
-func stagedLiveCommit(t *testing.T) (Store, model.Session, journal.Batch) {
+func stagedLiveCommit(t *testing.T) (Store, model.Session, wal.Batch) {
 	t.Helper()
 	store := fixtureStore(t)
 	session, _ := register(t, store, "codex")
@@ -127,7 +128,7 @@ func assertEventRecoveryCase(t *testing.T, operation string, applied int) {
 	t.Helper()
 	store, session, batch := stagedLiveCommit(t)
 	for _, put := range batch.Puts[:applied] {
-		if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
+		if err := fsutil.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 			t.Fatal(err)
 		}
 	}

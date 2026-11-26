@@ -9,9 +9,8 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // errForeignArtifact refuses to remove a file Zalki cannot prove it made.
@@ -106,8 +105,8 @@ func (s PluginFeed) checkLedger(path string, into any, shape func() (string, boo
 	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || !ownedByMe(info) {
 		return errForeignArtifact(path)
 	}
-	raw, err := journal.ReadBytes(path, 1<<20)
-	if err != nil || bus.DecodeStrictRecordJSON(raw, into) != nil {
+	raw, err := statefile.ReadBytes(path, 1<<20)
+	if err != nil || statefile.DecodeStrictRecordJSON(raw, into) != nil {
 		return errForeignArtifact(path)
 	}
 	owner, ok := shape()

@@ -11,8 +11,9 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 func latestSessionEvent(t *testing.T, store Store) model.Event {
@@ -146,7 +147,7 @@ func TestSessionRecoveryRefusesRetiredProjectionMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	batch.Puts[0] = journal.NewPut(batch.Puts[0].Path, prior, data)
+	batch.Puts[0] = wal.NewPut(batch.Puts[0].Path, prior, data)
 	stageCommit(t, commitFixture{writer: commitWriter{dir: store.dir}}, batch)
 	before := journalSnapshot(t, store)
 	if _, err := store.List(); err == nil || !strings.Contains(err.Error(), "event does not match resulting session") {
@@ -170,10 +171,10 @@ func TestSessionPrivateProducersEmitNoLifecycleFact(t *testing.T) {
 	if err := store.rememberOwner(session.ID, "cursor", true); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.locked(func() error { return store.rememberApprovalHold(session.ID, 1) }); err != nil {
+	if err := store.locked(func() error { return approvals(store).rememberApprovalHold(session.ID, 1) }); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.locked(func() error { return store.clearApprovalHeld(session.ID) }); err != nil {
+	if err := store.locked(func() error { return approvals(store).clearApprovalHeld(session.ID) }); err != nil {
 		t.Fatal(err)
 	}
 	lease := armedLease(t, store, session.ID, key)
@@ -228,10 +229,10 @@ func TestPrivateSessionAtomicSaveRefusesStalePrior(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(path, data); err != nil {
+	if err := fsutil.WriteAtomic(path, data); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.locked(func() error { return savePrivateSessionRecord(record, prior) }); !errors.Is(err, journal.ErrBatchConflict) {
+	if err := store.locked(func() error { return savePrivateSessionRecord(record, prior) }); !errors.Is(err, wal.ErrBatchConflict) {
 		t.Fatalf("stale prior = %v", err)
 	}
 	if !bytes.Equal(readCommitFile(t, path), data) {
@@ -272,9 +273,9 @@ func assertInitialSessionCut(t *testing.T, applied int) {
 	}
 }
 
-func stageInitialSessionCut(t *testing.T, store Store, next model.Session, applied int) journal.Batch {
+func stageInitialSessionCut(t *testing.T, store Store, next model.Session, applied int) wal.Batch {
 	t.Helper()
-	var batch journal.Batch
+	var batch wal.Batch
 	if err := store.locked(func() error {
 		record, err := prepareSessionRecord(store, next)
 		if err != nil {
@@ -293,7 +294,7 @@ func stageInitialSessionCut(t *testing.T, store Store, next model.Session, appli
 		}
 		stageCommit(t, commitFixture{writer: commitWriter{dir: store.dir}}, batch)
 		for _, put := range batch.Puts[:applied] {
-			if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
+			if err := fsutil.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 				return err
 			}
 		}
@@ -314,7 +315,7 @@ func TestOnePutSessionIntentRefusesCallbacks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	batch := journal.Batch{ID: newID(), Puts: []journal.Put{journal.NewPut(eventSubjectPath(model.Event{Session: model.EventSession{ID: session.ID}}), previous, data)}}
+	batch := wal.Batch{ID: newID(), Puts: []wal.Put{wal.NewPut(eventSubjectPath(model.Event{Session: model.EventSession{ID: session.ID}}), previous, data)}}
 	stageCommit(t, commitFixture{writer: commitWriter{dir: store.dir}}, batch)
 	if _, err := store.List(); err == nil {
 		t.Fatal("one-put session intent accepted")

@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // Only owner record names are considered; unrelated artifacts are never opened.
@@ -70,11 +70,11 @@ func pluginListLines(store bus.Store) ([]string, error) {
 
 func pluginListEntry(store bus.Store, name string, regular bool) (string, string) {
 	if !regular {
-		return "Unreadable plugin records", "  " + name + "  unreadable: " + pluginRecordDetail(store, name, pluginRecordCause(journal.ErrInvalidFile))
+		return "Unreadable plugin records", "  " + name + "  unreadable: " + pluginRecordDetail(store, name, pluginRecordCause(statefile.ErrInvalidFile))
 	}
 	status, err := pluginfeed.NewPluginFeed(store, name).PluginStatus()
-	if errors.Is(err, pluginfeed.ErrOldPluginRecord) {
-		return "Old plugin records", "  " + name + "  " + err.Error()
+	if errors.Is(err, pluginfeed.ErrPluginRecordUnreadable) {
+		return "Unreadable plugin records", "  " + name + "  " + err.Error()
 	}
 	if err != nil {
 		return "Unreadable plugin records", "  " + name + "  unreadable: " + pluginRecordDetail(store, name, pluginRecordCause(err))

@@ -119,10 +119,10 @@ func (s *Service) revalidateTarget(id string, target model.Session) (current mod
 		if current.State != model.StateApproval {
 			return nil
 		}
-		if err := s.Store.holdForApproval(&stored); err != nil {
+		if err := approvals(s.Store).holdForApproval(&stored); err != nil {
 			return err
 		}
-		if err := s.Store.saveReservation(stored); err != nil {
+		if err := approvals(s.Store).saveReservation(stored); err != nil {
 			return err
 		}
 		held = stored
@@ -177,7 +177,7 @@ func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result model
 	if err := model.ValidateMessageBody(body, key); err != nil {
 		return model.Message{}, err
 	}
-	msg, target, fresh, err := s.Store.prepareReply(request)
+	msg, target, fresh, err := replies(s.Store).prepareReply(request)
 	if err != nil || !fresh {
 		return msg, err
 	}

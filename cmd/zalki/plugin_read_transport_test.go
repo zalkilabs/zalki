@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func TestPluginReadActualCLIWithholdsEchoedBodyStderr(t *testing.T) {
@@ -39,11 +40,11 @@ exit 17
 	const id = "20000000-0000-4000-8000-000000000001"
 	const body = "B2-CLI-PRIVATE-BODY-MUST-NOT-REACH-HOST-STDERR"
 	m := model.Message{Schema: 1, ID: id, From: session.ID, To: session.ID, TargetGeneration: session.Generation, Body: body, CreatedAt: "2000-01-01T00:00:00Z", AcknowledgedAt: "2000-01-02T00:00:00Z", Status: model.StatusSubmitted}
-	raw, err := journal.EncodeJSON(m, 128<<10)
+	raw, err := statefile.EncodeJSON(m, 128<<10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir(), "messages", id+".json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(store.Dir(), "messages", id+".json"), raw); err != nil {
 		t.Fatal(err)
 	}
 	capabilityCLIOK(t, binary, store.Dir(), "add", "reader", "--exec", executable, "--", result, session.ID, id)

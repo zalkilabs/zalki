@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // The first-start banner (title "Zalki"). It says only that a background
@@ -126,7 +126,7 @@ func loadNotifyRecord(state string) (notifyRecord, error) {
 	case !privateFile(info):
 		return empty, errors.New("the notification state file is not a private file of this user")
 	}
-	raw, err := journal.ReadBytes(path, notifyFileLimit)
+	raw, err := statefile.ReadBytes(path, notifyFileLimit)
 	if err != nil {
 		return empty, err
 	}
@@ -136,7 +136,7 @@ func loadNotifyRecord(state string) (notifyRecord, error) {
 // decodeNotifyRecord accepts only a strict, canonical, valid record.
 func decodeNotifyRecord(raw []byte) (notifyRecord, error) {
 	var record notifyRecord
-	if len(raw) > notifyFileLimit || bus.DecodeStrictRecordJSON(raw, &record) != nil || record.Attempts == nil || !record.valid() || !canonicalJSON(raw, record) {
+	if len(raw) > notifyFileLimit || statefile.DecodeStrictRecordJSON(raw, &record) != nil || record.Attempts == nil || !record.valid() || !canonicalJSON(raw, record) {
 		return notifyRecord{}, errors.New("the notification state file is not valid")
 	}
 	return record, nil

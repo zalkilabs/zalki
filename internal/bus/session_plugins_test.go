@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -236,7 +236,7 @@ func TestSessionPluginPublishedFailureAndRetry(t *testing.T) {
 			return err
 		}
 		return errors.New("post-publication sync failure")
-	}, sync: journal.SyncDir}
+	}, sync: fsutil.SyncDir}
 	if err := setSessionPlugin(s, v.ID, key, "arbiter", true, writer); err == nil || !strings.HasSuffix(err.Error(), pluginChangeUncertain) {
 		t.Fatal("Z6_PUBLISHED_FAILURE_IS_UNCERTAIN", err)
 	}

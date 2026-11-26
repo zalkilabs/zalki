@@ -20,9 +20,10 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func TestMain(m *testing.M) {
@@ -265,7 +266,7 @@ func fakeDeliveries(state, mode string) error {
 			return err
 		}
 		// Atomic, so a test that sees the name never reads a half-written file.
-		if err := journal.WriteAtomic(filepath.Join(state, ".seen-"+value.ID), raw); err != nil {
+		if err := fsutil.WriteAtomic(filepath.Join(state, ".seen-"+value.ID), raw); err != nil {
 			return err
 		}
 		if slices.Contains([]string{"hold", "hold-exit1-on-code"}, mode) {
@@ -555,7 +556,7 @@ func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reas
 		Epoch string `json:"epoch"`
 		Last  int    `json:"last_sequence,string"`
 	}
-	if err := journal.ReadJSON(filepath.Join(store.Dir(), "events/meta.json"), 128<<10, &metadata); err != nil {
+	if err := statefile.ReadJSON(filepath.Join(store.Dir(), "events/meta.json"), 128<<10, &metadata); err != nil {
 		t.Fatal(err)
 	}
 	first := metadata.Last + 100
@@ -577,20 +578,20 @@ func seedLaterHistory(t *testing.T, store bus.Store, session model.Session, reas
 		id := fmt.Sprintf("00000000-0000-4000-8000-%012x", n)
 		event := model.Event{ID: id, TransactionID: id, Type: "session.state_changed", OccurredAt: "2026-11-08T00:00:00Z",
 			Session: model.EventSession{ID: session.ID, Generation: session.Generation, Previous: model.StateBusy, State: model.StateReady}}
-		raw, err := journal.EncodeJSON(map[string]any{"epoch": metadata.Epoch, "sequence": strconv.Itoa(n), "event": event}, 4096)
+		raw, err := statefile.EncodeJSON(map[string]any{"epoch": metadata.Epoch, "sequence": strconv.Itoa(n), "event": event}, 4096)
 		if err != nil {
 			t.Fatal(err)
 		}
 		total += len(raw)
-		if err := journal.WriteAtomic(filepath.Join(directory, fmt.Sprintf("%020d.json", n)), raw); err != nil {
+		if err := fsutil.WriteAtomic(filepath.Join(directory, fmt.Sprintf("%020d.json", n)), raw); err != nil {
 			t.Fatal(err)
 		}
 	}
-	raw, err := journal.EncodeJSON(map[string]any{"epoch": metadata.Epoch, "first_sequence": strconv.Itoa(first), "last_sequence": strconv.Itoa(first + 1), "count": 2, "bytes": total}, 4096)
+	raw, err := statefile.EncodeJSON(map[string]any{"epoch": metadata.Epoch, "first_sequence": strconv.Itoa(first), "last_sequence": strconv.Itoa(first + 1), "count": 2, "bytes": total}, 4096)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.Dir(), "events/meta.json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(store.Dir(), "events/meta.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 }

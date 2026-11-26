@@ -9,8 +9,8 @@ import (
 	"strconv"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const invalidPluginNameDetail = "invalid plugin name; expected [a-z][a-z0-9-]{0,31}"
@@ -21,7 +21,7 @@ const invalidPluginNameDetail = "invalid plugin name; expected [a-z][a-z0-9-]{0,
 func pluginRecordCause(err error) string {
 	var pathErr *fs.PathError
 	switch {
-	case errors.Is(err, journal.ErrInvalidFile):
+	case errors.Is(err, statefile.ErrInvalidFile):
 		return "it is not a safe regular file"
 	case errors.Is(err, os.ErrPermission):
 		return "permission denied"

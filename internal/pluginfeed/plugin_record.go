@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 const maxPluginGrants = 16
@@ -72,19 +73,13 @@ func (s pluginFiles) checkPluginGrants(ids []string) error {
 	return nil
 }
 
-// decodePluginRecord decodes strictly. A record of an older Zalki gives
-// ErrOldPluginRecord with the fix, and p keeps only its installation ID.
-func decodePluginRecord(name string, raw []byte, p *pluginRecord) error {
-	// An old shape is named first: some old records also decode cleanly.
-	if old := oldPluginRecord(name, raw); old != nil {
-		*p = pluginRecord{ID: oldPluginID(raw)}
-		return old
-	}
-	return bus.DecodeStrictRecordJSON(raw, p)
+// decodePluginRecord decodes strictly.
+func decodePluginRecord(raw []byte, p *pluginRecord) error {
+	return statefile.DecodeStrictRecordJSON(raw, p)
 }
 
 func (s pluginFiles) loadPlugin() (pluginRecord, []byte, error) {
-	return s.loadPluginUsing(journal.ReadBytes)
+	return s.loadPluginUsing(statefile.ReadBytes)
 }
 
 func (s pluginFiles) loadPluginUsing(read func(string, int) ([]byte, error)) (pluginRecord, []byte, error) {
@@ -105,20 +100,20 @@ func (s pluginFiles) loadPluginUsing(read func(string, int) ([]byte, error)) (pl
 	if err != nil {
 		return p, nil, err
 	}
-	if err := decodePluginRecord(s.name, raw, &p); err != nil {
-		return p, nil, err
+	if err := decodePluginRecord(raw, &p); err != nil {
+		return unreadableRecord(s.name, reasonDecode, raw, err)
 	}
 	if !p.validIdentityAndLaunch(s.name) {
-		return p, nil, journal.ErrInvalidBatch
+		return unreadableRecord(s.name, reasonIdentity, raw, statefile.ErrInvalidData)
 	}
 	if err := s.checkAccess(p.Access); err != nil {
-		return p, nil, err
+		return unreadableRecord(s.name, reasonAccess, raw, err)
 	}
 	if p.Revision != pluginRevision(p) {
-		return p, nil, journal.ErrInvalidBatch // a hand edit cannot keep an old binding
+		return unreadableRecord(s.name, reasonRevision, raw, statefile.ErrInvalidData) // a hand edit cannot keep an old binding
 	}
 	if (p.Enabled && (!p.mayRun() || !model.IsCanonicalUUID(p.Epoch))) || (p.Epoch != "" && !model.IsCanonicalUUID(p.Epoch)) {
-		return p, nil, journal.ErrInvalidBatch
+		return unreadableRecord(s.name, reasonEpoch, raw, statefile.ErrInvalidData)
 	}
 	return p, raw, nil
 }
@@ -139,11 +134,11 @@ func (p pluginRecord) mayRun() bool {
 
 func (s pluginFiles) savePlugin(p pluginRecord) ([]byte, error) {
 	p.Revision = pluginRevision(p)
-	raw, err := journal.EncodeJSON(p, 16<<10)
+	raw, err := statefile.EncodeJSON(p, 16<<10)
 	if err != nil {
 		return nil, err
 	}
-	return raw, journal.WriteAtomic(s.pluginPath(), raw)
+	return raw, fsutil.WriteAtomic(s.pluginPath(), raw)
 }
 
 // EnablePluginFeed starts at the current end; it never launches executable code.
@@ -177,7 +172,7 @@ func (s PluginFeed) enablePluginFeed(enabled bool, launch *PluginLaunch, prior [
 			return err
 		}
 		if p.Enabled == enabled {
-			return journal.SyncDir(s.pluginDir())
+			return fsutil.SyncDir(s.pluginDir())
 		}
 		if enabled {
 			if err := p.applyLaunchPin(launch, prior, raw); err != nil {

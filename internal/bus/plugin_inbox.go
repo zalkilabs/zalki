@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // pluginInboxAdmit selects an authorized plugin installation and returns its
@@ -88,7 +89,7 @@ func existingPluginInboxMessage(store Store, request SendRequest) (model.Message
 			return model.Message{}, false, model.NewError(model.CodeConflict, "message UUID already used with different contents")
 		}
 		// Confirm durability after an earlier ambiguous post-rename failure.
-		if err = journal.SyncDir(filepath.Join(store.dir, "messages")); err != nil {
+		if err = fsutil.SyncDir(filepath.Join(store.dir, "messages")); err != nil {
 			return model.Message{}, false, err
 		}
 		return old, true, nil
@@ -109,7 +110,7 @@ func (v JournalView) AckPluginInboxMessage(stateDir, installation, id string) er
 	}
 	defer done()
 	msg, _, err := currentMessage(store, id)
-	if err != nil && !errors.Is(err, os.ErrNotExist) && !errors.Is(err, journal.ErrInvalidFile) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) && !errors.Is(err, statefile.ErrInvalidFile) {
 		return err
 	}
 	if err != nil || msg.Kind != "" || msg.To != "plugin:"+installation || !msg.Status.CanAcknowledge() {

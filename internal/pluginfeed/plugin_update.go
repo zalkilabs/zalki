@@ -10,8 +10,8 @@ import (
 	"syscall"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // BeginPluginUpdate holds the name lease and captures the exact installed record.
@@ -203,7 +203,7 @@ func (i *PluginInstall) updateLaunch(artifact string, args []string, old pluginR
 }
 
 func (s PluginFeed) updatePublicationError(prior, written []byte, cause error) (bool, error) {
-	current, err := journal.ReadBytes(s.pluginPath(), 16<<10)
+	current, err := statefile.ReadBytes(s.pluginPath(), 16<<10)
 	text := "the update may or may not be in effect; check it with: zalki plugins show %s"
 	kept := true
 	if err == nil && bytes.Equal(current, written) {

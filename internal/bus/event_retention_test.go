@@ -7,8 +7,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 func retainedEventFixture(t *testing.T) (Store, model.Session, commitWriter) {
@@ -23,7 +24,7 @@ func retainedEventFixture(t *testing.T) (Store, model.Session, commitWriter) {
 	return store, session, writer
 }
 
-func prepareRetainedCommit(t *testing.T, store Store, session model.Session, writer commitWriter) journal.Batch {
+func prepareRetainedCommit(t *testing.T, store Store, session model.Session, writer commitWriter) wal.Batch {
 	t.Helper()
 	path, err := store.sessionPath(session.ID)
 	if err != nil {
@@ -73,11 +74,11 @@ func TestEventRetentionRecoversEveryMaterializationBoundary(t *testing.T) {
 	}
 }
 
-func materializeRetentionCut(t *testing.T, store Store, batch journal.Batch, completed int) {
+func materializeRetentionCut(t *testing.T, store Store, batch wal.Batch, completed int) {
 	t.Helper()
 	puts := min(completed, len(batch.Puts))
 	for _, put := range batch.Puts[:puts] {
-		if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
+		if err := fsutil.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 			t.Fatal(err)
 		}
 	}

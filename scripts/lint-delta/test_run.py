@@ -58,7 +58,8 @@ else: raise SystemExit('unexpected fake git command')
         go = common+'''
 a=sys.argv[1:]
 if a[0]=='env':
- print(json.dumps(dict(GOCACHE=str(ROOT/'go-cache'),GOMODCACHE=str(ROOT/'module-cache'),GOPATH=str(ROOT/'go-path'),GOROOT=str(ROOT/'go-root'),CGO_ENABLED='1',GOOS='fixture-os',GOARCH='fixture-arch',GOVERSION='fixture-go')))
+ ask=lambda k,d:d if (ROOT/'go-ignores-platform').exists() else os.environ.get(k) or d
+ print(json.dumps(dict(GOCACHE=str(ROOT/'go-cache'),GOMODCACHE=str(ROOT/'module-cache'),GOPATH=str(ROOT/'go-path'),GOROOT=str(ROOT/'go-root'),CGO_ENABLED=ask('CGO_ENABLED','1'),GOOS=ask('GOOS','fixture-os'),GOARCH=ask('GOARCH','fixture-arch'),GOVERSION='fixture-go')))
 elif a==['mod','download']:
  assert os.environ['GOPROXY']=='https://proxy.golang.org'
  with CALLS.open('a') as f:f.write(json.dumps(dict(kind='download',cwd=os.getcwd()))+'\\n')
@@ -70,7 +71,7 @@ assert 'ZALKI_CAPABILITY' not in os.environ and os.environ['GOENV']=='off' and o
 assert os.environ['GOPROXY']=='off' and os.environ['GOTOOLCHAIN']=='local'
 assert Path(os.environ['CODEX_HOME']).parent==Path(os.environ['HOME'])
 strict='--issues-exit-code' in a
-with CALLS.open('a') as f:f.write(json.dumps(dict(kind='lint',strict=strict,cwd=os.getcwd(),cache=str(cache),fresh=not any(cache.iterdir()),args=a,home=os.environ['HOME'],tracking_present='RUNNER_TRACKING_ID' in os.environ))+'\\n')
+with CALLS.open('a') as f:f.write(json.dumps(dict(kind='lint',strict=strict,cwd=os.getcwd(),cache=str(cache),fresh=not any(cache.iterdir()),args=a,platform=[os.environ.get(k) for k in ['GOOS','GOARCH','CGO_ENABLED']],home=os.environ['HOME'],tracking_present='RUNNER_TRACKING_ID' in os.environ))+'\\n')
 (cache/'invoked').write_text('yes')
 if scenario['mode']=='tool-error': raise SystemExit(3)
 if not strict:
@@ -98,10 +99,10 @@ print(json.dumps([dict(linter=x['FromLinter'],file=x['Pos']['Filename'],scope='s
     def write(self,path,body):
         path.write_text('#!'+sys.executable+'\n'+body);path.chmod(0o700)
 
-    def invoke(self,mode='good',base=BASE,event='pull_request'):
+    def invoke(self,mode='good',base=BASE,event='pull_request',caller=None):
         (self.root/'head/scenario.json').write_text(json.dumps(dict(label='head',mode=mode)))
         environment=dict(PATH=str(self.bin)+':/usr/bin:/bin',HOME=str(self.root),LANG='C',LC_ALL='C',
-                         ZALKI_CAPABILITY='synthetic-do-not-forward',RUNNER_TRACKING_ID='synthetic-cleanup-tracking')
+                         ZALKI_CAPABILITY='synthetic-do-not-forward',RUNNER_TRACKING_ID='synthetic-cleanup-tracking',**(caller or {}))
         command=[sys.executable,str(HERE/'run.py'),'--repo',str(self.root),'--base',base,'--head',HEAD,
                  '--event',event,'--tools',str(self.tools),'--output',str(self.root/'report')]
         result=subprocess.run(command,env=environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=30)
@@ -124,6 +125,35 @@ print(json.dumps([dict(linter=x['FromLinter'],file=x['Pos']['Filename'],scope='s
         self.assertTrue(all('--output.json.path' not in x['args'] for x in lint if not x['strict']))
         self.assertEqual(set(proof['orders']),{'base-normal-first','base-strict-first','head-normal-first','head-strict-first'})
         self.assertEqual(proof['tool_sha256']['golangci-lint'],hashlib.sha256((self.tools/'golangci-lint').read_bytes()).hexdigest())
+
+    def lint_calls(self):
+        return [x for x in map(json.loads,self.log.read_text().splitlines()) if x['kind']=='lint']
+
+    def test_native_run_pins_the_linter_to_the_platform_in_the_proof(self):
+        result=self.invoke();self.assertEqual(result.returncode,0,result.stderr)
+        proof=json.loads((self.root/'report/result.json').read_text())
+        self.assertEqual(proof['platform'],dict(GOOS='fixture-os',GOARCH='fixture-arch',CGO_ENABLED='1',GOVERSION='fixture-go'))
+        self.assertEqual({tuple(x['platform']) for x in self.lint_calls()},{('fixture-os','fixture-arch','1')})
+
+    def test_caller_platform_reaches_go_the_proof_and_every_linter_run(self):
+        result=self.invoke(caller=dict(GOOS='linux',GOARCH='amd64',CGO_ENABLED='0'));self.assertEqual(result.returncode,0,result.stderr)
+        proof=json.loads((self.root/'report/result.json').read_text())
+        self.assertEqual({k:proof['platform'][k] for k in ['GOOS','GOARCH','CGO_ENABLED']},dict(GOOS='linux',GOARCH='amd64',CGO_ENABLED='0'))
+        lint=self.lint_calls();self.assertEqual(len(lint),12)
+        self.assertEqual({tuple(x['platform']) for x in lint},{('linux','amd64','0')})
+
+    def test_a_platform_that_go_does_not_report_is_refused_before_any_lint(self):
+        for caller in [dict(GOOS='linux'),dict(GOARCH='amd64'),dict(CGO_ENABLED='0'),dict(GOOS='')]:
+            with self.subTest(caller=caller):
+                fixture=LintOrchestration();fixture.setUp()
+                try:
+                    (fixture.root/'go-ignores-platform').write_text('')
+                    result=fixture.invoke(caller=caller);self.assertEqual(result.returncode,2)
+                    self.assertIn('requested '+next(iter(caller)),result.stderr)
+                    self.assertFalse((fixture.root/'report/result.json').exists())
+                    self.assertFalse(json.loads((fixture.root/'report/failure.json').read_text())['passed'])
+                    self.assertFalse(fixture.log.exists())
+                finally:fixture.doCleanups()
 
     def test_raw_duplicate_diagnostic_addition_fails(self):
         result=self.invoke('addition');self.assertEqual(result.returncode,1,result.stderr)

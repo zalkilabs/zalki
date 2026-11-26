@@ -94,7 +94,7 @@ func checkStoredNativeProfileRefusal(t *testing.T, bad string) {
 		t.Fatal("ROOTLESS_LIST_LOST_HEALTHY_ROW", rows, skipped, err)
 	}
 	report, err := s.Diagnostics(t.Context())
-	if err != nil || !strings.Contains(strings.Join(report.Notes, "\n"), "Skipped session "+v.ID+": missing absolute config root.") {
+	if err != nil || !strings.Contains(strings.Join(report.Notes, "\n"), "Skipped session "+v.ID+": unsupported record.") {
 		t.Fatal("DOCTOR_LOST_FIXED_ROOT_REASON", err, report.Notes)
 	}
 	checkBackfillPruneKeepsMail(t, s, v.ID, held)

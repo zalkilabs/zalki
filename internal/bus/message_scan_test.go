@@ -32,11 +32,11 @@ func TestMessageScanCallersKeepTheirUnreadableRecordPolicies(t *testing.T) {
 	}
 	requireHookSkipsWhileHeld(t, store, to.ID, msg.ID)
 	if err := store.locked(func() error {
-		queued, skipped, err := store.queuedApprovals(to.ID)
+		queued, skipped, err := approvals(store).queuedApprovals(to.ID)
 		if err != nil || len(queued) != 1 || queued[0].ID != msg.ID || skipped.count != 1 {
 			t.Fatal("approval scan lost the readable held message or the skip count", err)
 		}
-		counts, broken, err := store.approvalHolds()
+		counts, broken, err := approvals(store).approvalHolds()
 		if err != nil || counts[to.ID] != 1 || len(broken) != 1 || broken[0] != unreadable {
 			t.Fatal("recount lost counts or unreadable ID", err)
 		}

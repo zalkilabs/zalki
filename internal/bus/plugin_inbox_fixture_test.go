@@ -12,10 +12,11 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/adapters"
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/platform"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type inboxAdmissionFixture struct {
@@ -46,13 +47,13 @@ func (x inboxAdmissionFixture) request() bus.SendRequest {
 
 func (x inboxAdmissionFixture) putEmptyIndex(t *testing.T, now time.Time) {
 	t.Helper()
-	raw, err := journal.EncodeJSON(map[string]any{
+	raw, err := statefile.EncodeJSON(map[string]any{
 		"version": 1, "installation": x.status.ID, "entries": []any{}, "quota": model.NewFloodState(now),
 	}, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(x.status.DataDir, "inbox.json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(x.status.DataDir, "inbox.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 }

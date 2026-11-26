@@ -150,10 +150,10 @@ func TestTransportApprovalDoesNotCountAnExistingHoldTwice(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if err := store.holdForApproval(&msg); err != nil {
+		if err := approvals(store).holdForApproval(&msg); err != nil {
 			return err
 		}
-		return store.saveReservation(msg)
+		return approvals(store).saveReservation(msg)
 	}); err != nil {
 		t.Fatal(err)
 	}

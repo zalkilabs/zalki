@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // ScopeAll is the only scope that gives standard access. Any other stored
@@ -236,7 +236,7 @@ func rebindIfEnabled(_ bus.JournalView, p *pluginRecord) error {
 //   - anything else (unreadable, missing, other bytes): unknown, and it may
 //     be in effect. Never "unchanged" without the old bytes.
 func (s PluginFeed) publicationError(prior, written []byte, err error) error {
-	current, readErr := journal.ReadBytes(s.pluginPath(), 16<<10)
+	current, readErr := statefile.ReadBytes(s.pluginPath(), 16<<10)
 	switch {
 	case readErr == nil && bytes.Equal(current, written):
 		return errors.Join(model.NewError(model.CodeUnavailable, "the access change was written, but the disk did not confirm it; it may be in effect. Check it with: zalki plugins show %s", s.name), err)

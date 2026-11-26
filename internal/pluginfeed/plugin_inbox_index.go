@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // maxPluginInboxBodyJSON leaves room for the envelope in a 64 KiB frame.
@@ -46,25 +46,25 @@ func (s pluginFiles) loadPluginInboxIndex(view bus.JournalView, installation str
 	if err := pluginDirectory(s.pluginDataPath(), false); err != nil {
 		return index, err
 	}
-	raw, err := journal.ReadBytes(filepath.Join(s.pluginDataPath(), "inbox.json"), 1<<20)
+	raw, err := statefile.ReadBytes(filepath.Join(s.pluginDataPath(), "inbox.json"), 1<<20)
 	if errors.Is(err, os.ErrNotExist) {
 		return pluginInboxIndex{Version: 1, Installation: installation, Quota: model.NewFloodState(now)}, nil
 	}
 	if err != nil {
 		return index, err
 	}
-	if err = bus.DecodeStrictRecordJSON(raw, &index); err != nil {
+	if err = statefile.DecodeStrictRecordJSON(raw, &index); err != nil {
 		return index, err
 	}
 	if !validPluginInboxIndex(index, installation, now) {
-		return index, journal.ErrInvalidFile
+		return index, statefile.ErrInvalidFile
 	}
 	seen := make(map[string]bool, len(index.Entries))
 	active := make([]pluginInboxEntry, 0, len(index.Entries))
 	total := 0
 	for _, entry := range index.Entries {
 		if seen[entry.ID] || !validPluginInboxEntry(view, entry, now) {
-			return index, journal.ErrInvalidFile
+			return index, statefile.ErrInvalidFile
 		}
 		seen[entry.ID] = true
 		if now.Sub(entry.At) >= 30*24*time.Hour {
@@ -74,7 +74,7 @@ func (s pluginFiles) loadPluginInboxIndex(view bus.JournalView, installation str
 		active = append(active, entry)
 	}
 	if total > 16<<20 {
-		return index, journal.ErrInvalidFile
+		return index, statefile.ErrInvalidFile
 	}
 	index.Entries = active
 	return index, nil

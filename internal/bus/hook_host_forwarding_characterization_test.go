@@ -404,7 +404,7 @@ func TestUnboundHookRuntimeStillSupportsHealth(t *testing.T) {
 	}
 	before := journalSnapshot(t, store)
 	var health agent.HealthHost = hookRuntime{store: store}
-	if got := health.Listener(target); got != model.ListenerStale || got != store.listenerStatus(target) {
+	if got := health.Listener(target); got != model.ListenerStale || got != listeners(store).listenerStatus(target) {
 		t.Fatalf("unbound health=%s, want unchanged stale-listener evidence", got)
 	}
 	assertForwardingChanges(t, store, before)

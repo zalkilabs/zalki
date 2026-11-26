@@ -83,11 +83,11 @@ func TestCursorRecoveryRetiresAStaleLease(t *testing.T) {
 	}
 	for _, createLock := range []bool{false, true} {
 		if createLock {
-			if err := os.WriteFile(store.listenerLockPath(to.Kind, to.ID), nil, 0600); err != nil {
+			if err := os.WriteFile(listeners(store).listenerLockPath(to.Kind, to.ID), nil, 0600); err != nil {
 				t.Fatal(err)
 			}
 		}
-		if store.listenerStatus(to) == model.ListenerRunning {
+		if listeners(store).listenerStatus(to) == model.ListenerRunning {
 			t.Fatal("trusted a bound socket without listener lock ownership")
 		}
 	}

@@ -36,7 +36,7 @@ func (h hookRuntime) EmitPending(id string) (string, error) {
 		if _, err := sessionUnderFence(h.store, id, fenceOf(h)); err != nil {
 			return err
 		}
-		return h.store.emitPendingLocked(id, &context)
+		return inboxReads(h.store).emitPendingLocked(id, &context)
 	})
 	return context.String(), err
 }
@@ -47,7 +47,9 @@ func (h hookRuntime) CompletedNativePrompt(id, prompt string) (string, error) {
 	return h.store.completedNativePrompt(id, prompt)
 }
 
-func (h hookRuntime) Listener(v model.Session) model.ListenerStatus { return h.store.listenerStatus(v) }
+func (h hookRuntime) Listener(v model.Session) model.ListenerStatus {
+	return listeners(h.store).listenerStatus(v)
+}
 
 func lifecycleSessionForHook(h hookRuntime) (model.Session, bool, error) {
 	if !h.generationBound {

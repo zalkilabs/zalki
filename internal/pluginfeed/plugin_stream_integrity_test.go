@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/platform"
 )
@@ -126,11 +126,11 @@ func (c *streamIntegrityCase) corrupt(t *testing.T) {
 	t.Helper()
 	switch c.mode {
 	case "malformed", "malformed-after-filtered":
-		if err := journal.WriteAtomic(c.eventPath, []byte("{}\n")); err != nil {
+		if err := fsutil.WriteAtomic(c.eventPath, []byte("{}\n")); err != nil {
 			t.Fatal(err)
 		}
 	case "wrong-epoch":
-		if err := journal.WriteAtomic(c.eventPath, bytes.Replace(c.original, []byte(c.epoch), []byte(model.NewUUID()), 1)); err != nil {
+		if err := fsutil.WriteAtomic(c.eventPath, bytes.Replace(c.original, []byte(c.epoch), []byte(model.NewUUID()), 1)); err != nil {
 			t.Fatal(err)
 		}
 	case "oversize":
@@ -139,7 +139,7 @@ func (c *streamIntegrityCase) corrupt(t *testing.T) {
 		if !json.Valid(large) {
 			t.Fatal("oversize fixture must be valid JSON")
 		}
-		if err := journal.WriteAtomic(c.eventPath, large); err != nil {
+		if err := fsutil.WriteAtomic(c.eventPath, large); err != nil {
 			t.Fatal(err)
 		}
 		c.wantReason = "record_file_rejected"
@@ -148,7 +148,7 @@ func (c *streamIntegrityCase) corrupt(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := journal.WriteAtomic(path, []byte("{}\n")); err != nil {
+		if err := fsutil.WriteAtomic(path, []byte("{}\n")); err != nil {
 			t.Fatal(err)
 		}
 		c.wantID, c.wantReason = c.event.ID, "membership_unavailable"

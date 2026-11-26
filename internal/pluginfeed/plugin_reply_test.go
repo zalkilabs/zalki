@@ -211,19 +211,6 @@ func TestPluginReplyCountFailsClosed(t *testing.T) {
 	}
 }
 
-func TestOldRecordFixQuotesThePath(t *testing.T) {
-	for in, want := range map[string]string{
-		"/fixture/dev/zalki-plugins/arbiter": "/fixture/dev/zalki-plugins/arbiter",
-		"/fixture/my plugins/arbiter":        "'/fixture/my plugins/arbiter'",
-		"/fixture/bob's/arbiter":             `'/fixture/bob'"'"'s/arbiter'`,
-		"/tmp/$(touch x)":                    "'/tmp/$(touch x)'",
-	} {
-		if got := shellWord(in); got != want {
-			t.Errorf("shellWord(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 // failedCountedReply makes a reply that is counted but never stored: the body
 // passes the model check, then the store's smaller body limit refuses it.
 func failedCountedReply(t *testing.T, x replyFixture, clientID string) {

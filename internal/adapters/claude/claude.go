@@ -53,11 +53,11 @@ func (Adapter) Deliver(ctx context.Context, msg model.Message, target model.Sess
 
 func (Adapter) ConfigDir() string {
 	home, _ := os.UserHomeDir()
-	return configDir("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
+	return clientconfig.ConfigDir("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 }
 
 func (Adapter) LookupName(v model.Session, indexes map[string]map[string]string) (string, string) {
-	root := absoluteConfigDir(v.NativeConfigDir)
+	root := clientconfig.AbsoluteConfigDir(v.NativeConfigDir)
 	if root == "" {
 		return "", ""
 	}
@@ -169,8 +169,7 @@ func claudeNames(root string) map[string]string {
 	return names
 }
 
-// Claude metadata has the same 128 KiB bound as the former journal reader, but
-// is client data rather than a journal record. Reject symlinks and trailing JSON.
+// Claude metadata is client data with a 128 KiB bound. Reject symlinks and trailing JSON.
 func readClaudeMetadata(path string, target any) error {
 	const limit = 128 * 1024
 	info, err := os.Lstat(path)
@@ -200,21 +199,6 @@ func readClaudeMetadata(path string, target any) error {
 func validClaudeName(name string) bool {
 	return name != "" && strings.TrimSpace(name) == name && len(name) <= 512 && utf8.ValidString(name) &&
 		!strings.ContainsFunc(name, unicode.IsControl)
-}
-
-func configDir(variable, fallback string) string {
-	root := fallback
-	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
-		root = value
-	}
-	return absoluteConfigDir(root)
-}
-
-func absoluteConfigDir(root string) string {
-	if !filepath.IsAbs(root) || !utf8.ValidString(root) || strings.ContainsFunc(root, unicode.IsControl) {
-		return ""
-	}
-	return filepath.Clean(root)
 }
 
 func failedReceipt(status model.DeliveryStatus, err error) model.Receipt {

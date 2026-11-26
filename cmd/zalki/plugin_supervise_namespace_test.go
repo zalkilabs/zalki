@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
 )
@@ -56,7 +56,7 @@ func characterizeRestartParentReplacement(t *testing.T) {
 		}
 		oldParent = replacePublicationParent(t, state, original)
 		want = bytes.Clone(raw)
-		return journal.WriteAtomic(path, raw)
+		return fsutil.WriteAtomic(path, raw)
 	}
 	status := pluginfeed.PluginFeedStatus{ID: model.NewUUID()}
 	if err := requestRestart(state, "demo", status, stateEpoch); err != nil {

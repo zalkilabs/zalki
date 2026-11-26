@@ -7,9 +7,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type pluginReadAuditRow struct {
@@ -35,7 +35,7 @@ func (s pluginFiles) loadPluginReadAudit(now time.Time) ([]pluginReadAuditRow, e
 }
 
 func (s pluginFiles) loadPluginReadAuditFile(name string, now time.Time, validate func(pluginReadAuditRow) error) ([]pluginReadAuditRow, error) {
-	raw, err := journal.ReadBytes(filepath.Join(s.root, name), 1<<20)
+	raw, err := statefile.ReadBytes(filepath.Join(s.root, name), 1<<20)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
@@ -43,17 +43,17 @@ func (s pluginFiles) loadPluginReadAuditFile(name string, now time.Time, validat
 		return nil, err
 	}
 	var log pluginReadAudit
-	if err := bus.DecodeStrictRecordJSON(raw, &log); err != nil {
+	if err := statefile.DecodeStrictRecordJSON(raw, &log); err != nil {
 		return nil, err
 	}
 	if log.Version != 1 || len(log.Rows) > 1000 || log.Rows == nil {
-		return nil, journal.ErrInvalidFile
+		return nil, statefile.ErrInvalidFile
 	}
 	rows := make([]pluginReadAuditRow, 0, len(log.Rows))
 	for i := range log.Rows {
 		row := &log.Rows[i]
 		if !validPluginReadAuditRow(row) {
-			return nil, journal.ErrInvalidFile
+			return nil, statefile.ErrInvalidFile
 		}
 		if err := validate(*row); err != nil {
 			return nil, err
@@ -76,16 +76,16 @@ func (s pluginFiles) savePluginReadAuditFile(name string, rows []pluginReadAudit
 	for {
 		if len(rows) > 1000 {
 			if now.Sub(rows[0].At) < time.Second {
-				return journal.ErrInvalidFile
+				return statefile.ErrInvalidFile
 			}
 			rows = rows[1:]
 			continue
 		}
-		raw, err := journal.EncodeJSON(pluginReadAudit{Version: 1, Rows: rows}, 1<<20)
+		raw, err := statefile.EncodeJSON(pluginReadAudit{Version: 1, Rows: rows}, 1<<20)
 		if err == nil {
-			return journal.WriteAtomic(filepath.Join(s.root, name), raw)
+			return fsutil.WriteAtomic(filepath.Join(s.root, name), raw)
 		}
-		var size *journal.SizeError
+		var size *statefile.SizeError
 		if !errors.As(err, &size) || len(rows) < 2 || now.Sub(rows[0].At) < time.Second {
 			return err
 		}

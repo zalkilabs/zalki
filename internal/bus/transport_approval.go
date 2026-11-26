@@ -23,11 +23,11 @@ func (s *Service) holdTransportApproval(attempt model.Message) (result model.Mes
 			return err
 		}
 		candidate := stored
-		if err := s.Store.holdForApproval(&candidate); err != nil {
+		if err := approvals(s.Store).holdForApproval(&candidate); err != nil {
 			result, err = settleTransportApprovalRefusal(s.Store, stored, err)
 			return err
 		}
-		if err := s.Store.saveReservation(candidate); err != nil {
+		if err := approvals(s.Store).saveReservation(candidate); err != nil {
 			return err
 		}
 		result = candidate

@@ -8,8 +8,8 @@ import (
 	"slices"
 	"sync/atomic"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 type pluginRetirementWitness struct {
@@ -43,7 +43,7 @@ func discardPluginRetirement(root, session string) {
 	}
 }
 
-func rememberPluginRetirement(root string, prior []byte, next model.Session, event model.Event, put journal.Put) {
+func rememberPluginRetirement(root string, prior []byte, next model.Session, event model.Event, put wal.Put) {
 	if !next.Retired || event.Session.Cause == model.CauseOwnerExited || event.Type != model.EventSessionStateChanged || !event.Session.Retired || event.Session.PreviousRetired {
 		return
 	}

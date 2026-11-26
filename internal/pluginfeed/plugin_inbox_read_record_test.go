@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func TestPluginInboxReadIndexMustRemainActiveAndValid(t *testing.T) {
@@ -83,7 +83,7 @@ func checkInboxReadRecord(t *testing.T, kind string) {
 	x := newInboxReadFixture(t, "")
 	m := x.message
 	editInboxReadRecord(&m, kind)
-	raw, err := journal.EncodeJSON(m, maxStateFileBytes)
+	raw, err := statefile.EncodeJSON(m, maxStateFileBytes)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/platform"
 )
 
@@ -27,7 +27,7 @@ func OpenPluginLease(path string) (*os.File, error) {
 		_ = file.Close()
 		return nil, fmt.Errorf("plugin host or child lease unavailable for %q: %w; use lsof on that exact file, confirm the plugin/helper, stop it, retry; never delete or truncate a live lease", path, err)
 	}
-	if err := errors.Join(file.Sync(), journal.SyncDir(filepath.Dir(path))); err != nil {
+	if err := errors.Join(file.Sync(), fsutil.SyncDir(filepath.Dir(path))); err != nil {
 		_ = file.Close()
 		return nil, err
 	}

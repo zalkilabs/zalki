@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -45,7 +45,7 @@ func assertSessionPluginWALCut(t *testing.T, kind string, cut int) {
 	}
 	stageCommit(t, commitFixture{writer: writer}, batch)
 	for _, put := range batch.Puts[:cut] {
-		if err := journal.WriteAtomic(filepath.Join(s.dir, put.Path), put.Data); err != nil {
+		if err := fsutil.WriteAtomic(filepath.Join(s.dir, put.Path), put.Data); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -17,7 +17,7 @@ func holdTwo(t *testing.T, store Store, from, target model.Session) model.Messag
 		if err := msg.Hold(); err != nil {
 			t.Fatal(err)
 		}
-		if err := store.locked(func() error { return store.saveReservation(msg) }); err != nil {
+		if err := store.locked(func() error { return approvals(store).saveReservation(msg) }); err != nil {
 			t.Fatal(err)
 		}
 		if i == 0 {
@@ -94,7 +94,7 @@ func TestOldestHoldComparesInstantsNotText(t *testing.T) {
 			t.Fatal(err)
 		}
 		msg.Receipt.At = at
-		if err := store.locked(func() error { return store.saveReservation(msg) }); err != nil {
+		if err := store.locked(func() error { return approvals(store).saveReservation(msg) }); err != nil {
 			t.Fatal(err)
 		}
 	}

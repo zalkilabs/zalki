@@ -217,9 +217,9 @@ func TestExtendedOnlyInstallWithNoTargets(t *testing.T) {
 	}
 }
 
-// A receipt from before install provenance is an old record: never
-// completed with a guessed installer.
-func TestPluginOldRecordRefusal(t *testing.T) {
+// A receipt without its install provenance is refused with the one plain
+// error: it is never completed with a guessed installer.
+func TestPluginRecordWithoutProvenanceIsRefused(t *testing.T) {
 	s := fixtureStore(t)
 	f := installForTest(t, s)
 	raw, err := os.ReadFile(f.pluginPath())
@@ -239,8 +239,8 @@ func TestPluginOldRecordRefusal(t *testing.T) {
 		if err := os.WriteFile(f.pluginPath(), old, 0600); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := f.PluginStatus(); !errors.Is(err, ErrOldPluginRecord) {
-			t.Fatalf("a receipt without %s is not an old record: %v", key, err)
+		if _, err := f.PluginStatus(); !errors.Is(err, ErrPluginRecordUnreadable) || err.Error() != "plugin record "+f.name+" cannot be read; remove it with: zalki plugins remove "+f.name {
+			t.Fatalf("a receipt without %s is not refused with the plain error: %v", key, err)
 		}
 	}
 }

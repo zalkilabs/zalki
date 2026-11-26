@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // The reply rule: a plugin that may receive from a session may answer it, but
@@ -85,7 +86,7 @@ func (l replyLedger) valid() bool {
 
 func (s pluginFiles) loadReplyLedger(installation string, now time.Time) (replyLedger, error) {
 	ledger := replyLedger{Version: 1, Installation: installation, Parents: map[string]replyParent{}}
-	raw, err := journal.ReadBytes(s.replyLedgerPath(), 1<<20)
+	raw, err := statefile.ReadBytes(s.replyLedgerPath(), 1<<20)
 	if errors.Is(err, os.ErrNotExist) {
 		return ledger, nil
 	}
@@ -93,11 +94,11 @@ func (s pluginFiles) loadReplyLedger(installation string, now time.Time) (replyL
 		return ledger, err
 	}
 	var read replyLedger
-	if err := bus.DecodeStrictRecordJSON(raw, &read); err != nil {
+	if err := statefile.DecodeStrictRecordJSON(raw, &read); err != nil {
 		return ledger, err
 	}
 	if !read.valid() {
-		return ledger, journal.ErrInvalidFile
+		return ledger, statefile.ErrInvalidFile
 	}
 	if read.Installation != installation {
 		return ledger, nil // left by an earlier installation of this name
@@ -193,9 +194,9 @@ func replyStored(view bus.JournalView, messageID string) bool {
 }
 
 func (s pluginFiles) saveReplyLedger(ledger replyLedger) error {
-	raw, err := journal.EncodeJSON(ledger, 1<<20)
+	raw, err := statefile.EncodeJSON(ledger, 1<<20)
 	if err != nil {
 		return err
 	}
-	return journal.WriteAtomic(s.replyLedgerPath(), raw)
+	return fsutil.WriteAtomic(s.replyLedgerPath(), raw)
 }

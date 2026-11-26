@@ -8,22 +8,15 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
-const oldSessionGuidance = "Old records are not migrated. Start a new native session."
-
-var (
-	errSessionUnexpectedOwner = model.NewError(model.CodeUnavailable, "session record is not supported (unexpected process owner). "+oldSessionGuidance)
-	errSessionMissingRoot     = model.NewError(model.CodeUnavailable, "session record is not supported (missing absolute config root). "+oldSessionGuidance)
-	errSessionMissingPolicy   = model.NewError(model.CodeUnavailable, "session record is not supported (missing plugin policy). "+oldSessionGuidance)
-)
+// errSessionUnsupported is the one error for a stored session that fails the
+// shape checks of validateStoredSession. It names no cause: the record is
+// skipped and left as it is.
+var errSessionUnsupported = model.NewError(model.CodeUnavailable, "session record is not supported")
 
 func sessionIssueReason(err error) string {
 	switch {
-	case errors.Is(err, errSessionUnexpectedOwner):
-		return "session_unexpected_owner"
-	case errors.Is(err, errSessionMissingPolicy):
-		return "session_missing_policy"
-	case errors.Is(err, errSessionMissingRoot):
-		return "session_missing_root"
+	case errors.Is(err, errSessionUnsupported):
+		return "session_unsupported"
 	case model.ErrorCodeOf(err) == model.CodeUnsupportedSchema:
 		return "session_unsupported_schema"
 	case model.ErrorCodeOf(err) == model.CodeInvalidIdentity:
@@ -35,12 +28,8 @@ func sessionIssueReason(err error) string {
 
 func sessionIssueLabel(reason string) string {
 	switch reason {
-	case "session_unexpected_owner":
-		return "unexpected process owner"
-	case "session_missing_policy":
-		return "missing plugin policy"
-	case "session_missing_root":
-		return "missing absolute config root"
+	case "session_unsupported":
+		return "unsupported record"
 	case "session_unsupported_schema":
 		return "unsupported schema"
 	case "session_identity_mismatch":
@@ -53,11 +42,11 @@ func sessionIssueLabel(reason string) string {
 }
 
 // Only canonical filename-derived IDs and fixed labels reach terminal copy.
-func diagnoseSessionIssues(report *DiagnosticReport, issues []SessionIssue) {
+func diagnoseSessionIssues(report *DiagnosticReport, issues []sessionIssue) {
 	if len(issues) == 0 {
 		return
 	}
-	report.Notes = append(report.Notes, fmt.Sprintf("Skipped %d unreadable or unsupported session records. %s", len(issues), oldSessionGuidance))
+	report.Notes = append(report.Notes, fmt.Sprintf("Skipped %d unreadable or unsupported session records.", len(issues)))
 	invalid := 0
 	for _, issue := range issues {
 		id, ok := watchNameID(strings.ReplaceAll(issue.ID, ":", "_"))

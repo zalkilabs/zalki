@@ -21,7 +21,7 @@ func TestHeldReservationUnreadableFailureKeepsCountUntilRecount(t *testing.T) {
 	if err := os.Mkdir(path, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.locked(func() error { return store.saveReservation(msg) }); err == nil {
+	if err := store.locked(func() error { return approvals(store).saveReservation(msg) }); err == nil {
 		t.Fatal("reservation unexpectedly saved over a directory")
 	}
 	current, err := store.session(target.ID)

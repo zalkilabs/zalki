@@ -45,7 +45,7 @@ func decodeStoredSession(s Store, raw []byte) (model.Session, error) {
 	if expected, err := s.sessionID(v.Kind, v.NativeID); err != nil || expected != v.ID {
 		return v, model.NewError(model.CodeInvalidIdentity, "native and Zalki session identities do not match")
 	}
-	if err := validateSessionBackfills(s, v); err != nil {
+	if err := validateStoredSession(s, v); err != nil {
 		return v, err
 	}
 	var err error
@@ -69,25 +69,25 @@ func derivedID(namespace string, parts ...string) string {
 	return model.DeriveUUID(namespace, parts...)
 }
 
-// SessionIssue describes one skipped file. ID comes from its filename, never
+// sessionIssue describes one skipped file. ID comes from its filename, never
 // from an unvalidated record, and is only diagnostic metadata.
-type SessionIssue struct {
+type sessionIssue struct {
 	ID     string
 	Reason string
 }
 
 // scanSessions is shared by list, prune, diagnostics and exit observation.
 // Caller holds the journal lock; directory scan errors remain fatal.
-func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
+func (s Store) scanSessions() ([]model.Session, []sessionIssue, error) {
 	files, err := filepath.Glob(filepath.Join(s.dir, "sessions", "*.json"))
 	if err != nil {
 		return nil, nil, err
 	}
-	items, issues := []model.Session{}, []SessionIssue{}
+	items, issues := []model.Session{}, []sessionIssue{}
 	for _, path := range files {
 		id, validName := watchNameID(strings.TrimSuffix(filepath.Base(path), ".json"))
 		if !validName {
-			issues = append(issues, SessionIssue{filepath.Base(path), "session_identity_mismatch"})
+			issues = append(issues, sessionIssue{filepath.Base(path), "session_identity_mismatch"})
 			continue
 		}
 		v, readErr := s.readSession(path)
@@ -103,7 +103,7 @@ func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
 			if _, err := s.registry.Lookup(kind); err != nil {
 				reason = "session_adapter_missing"
 			}
-			issues = append(issues, SessionIssue{id, reason})
+			issues = append(issues, sessionIssue{id, reason})
 			continue
 		}
 		items = append(items, v)
@@ -117,15 +117,17 @@ func (s Store) rawSessions() ([]model.Session, error) {
 	return sessions, err
 }
 
-// Old session shapes are refused before authority or liveness is used. Present
-// damaged policy remains closed by its existing parser and explicit-off repair.
-func validateSessionBackfills(s Store, v model.Session) error {
+// A session whose shape is not valid is refused before authority or liveness is
+// used: a process owner on a client that has none, a missing plugin policy, or
+// a missing absolute config root. Present damaged policy remains closed by its
+// existing parser and explicit-off repair.
+func validateStoredSession(s Store, v model.Session) error {
 	if !s.tracksOwnProcess(v.Kind) && v.Owner != nil {
-		return errSessionUnexpectedOwner
+		return errSessionUnsupported
 	}
 	policy := bytes.TrimSpace(v.PluginPolicy)
 	if len(policy) == 0 || bytes.Equal(policy, []byte("null")) {
-		return errSessionMissingPolicy
+		return errSessionUnsupported
 	}
 	return validateStoredConfigRoot(s, v)
 }

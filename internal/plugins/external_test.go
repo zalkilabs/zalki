@@ -14,9 +14,10 @@ import (
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/pluginfeed"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type externalEvidence struct {
@@ -40,7 +41,7 @@ func externalTestChild(args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := journal.WriteAtomic(args[0], raw); err != nil {
+	if err := fsutil.WriteAtomic(args[0], raw); err != nil {
 		return err
 	}
 	if err := writeFrame(os.Stdout, frame{Hello: &hello{Wire: wireName, Requires: []string{"feed"}}}); err != nil {
@@ -58,11 +59,11 @@ func externalTestChild(args []string) error {
 		if err != nil {
 			return err
 		}
-		raw, err := journal.EncodeJSON(value, maxFrame)
+		raw, err := statefile.EncodeJSON(value, maxFrame)
 		if err != nil {
 			return err
 		}
-		if err := journal.WriteAtomic(args[0]+".last", raw); err != nil {
+		if err := fsutil.WriteAtomic(args[0]+".last", raw); err != nil {
 			return err
 		}
 		if err := writeFrame(os.Stdout, frame{Ack: value.ID}); err != nil {

@@ -2476,5 +2476,1205 @@
       }
     },
     "reason": "The list_agents rows can carry approval_since, the start of the oldest wait for a permission prompt (new AgentInfo field). It is computed when the answer is built; nothing stored changes."
+  },
+  {
+    "base_commit": "7b748f8a7e730d8170a1dc8d2c92fbec844bec9d",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/pluginfeed.ErrPluginRecordUnreadable",
+          "internal/pluginfeed.unreadablePluginRecordError.Error",
+          "internal/pluginfeed.unreadablePluginRecordError.Is",
+          "internal/pluginfeed.unreadablePluginRecordError.LogReason",
+          "internal/pluginfeed.unreadablePluginRecordError.Unwrap"
+        ],
+        "removed": [
+          "internal/pluginfeed.ErrOldPluginRecord"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/pluginfeed.unreadablePluginRecordError.Error": "func(unreadablePluginRecordError) func() string",
+          "function:internal/pluginfeed.unreadablePluginRecordError.Is": "func(unreadablePluginRecordError) func(target error) bool",
+          "function:internal/pluginfeed.unreadablePluginRecordError.LogReason": "func(unreadablePluginRecordError) func() string",
+          "function:internal/pluginfeed.unreadablePluginRecordError.Unwrap": "func(unreadablePluginRecordError) func() error",
+          "var:internal/pluginfeed.ErrPluginRecordUnreadable": "ErrPluginRecordUnreadable = errors.New(\"plugin record cannot be read\")"
+        },
+        "changed": {},
+        "removed": {
+          "var:internal/pluginfeed.ErrOldPluginRecord": "ErrOldPluginRecord = errors.New(\"plugin record from an older Zalki\")"
+        }
+      },
+      "receivers": {
+        "added": {
+          "internal/pluginfeed.unreadablePluginRecordError": {
+            "Files": 1,
+            "Methods": 4
+          }
+        },
+        "changed": {},
+        "removed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "A plugin record that cannot be read now gets one plain error. The exported ErrOldPluginRecord is replaced by ErrPluginRecordUnreadable, and the error type that carries the text has its three error methods. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "7b748f8a7e730d8170a1dc8d2c92fbec844bec9d",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/pluginfeed.ErrPluginRecordUnreadable",
+          "internal/pluginfeed.unreadablePluginRecordError.Error",
+          "internal/pluginfeed.unreadablePluginRecordError.Is",
+          "internal/pluginfeed.unreadablePluginRecordError.LogReason",
+          "internal/pluginfeed.unreadablePluginRecordError.Unwrap"
+        ],
+        "removed": [
+          "internal/pluginfeed.ErrOldPluginRecord"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/pluginfeed.unreadablePluginRecordError.Error": "func(unreadablePluginRecordError) func() string",
+          "function:internal/pluginfeed.unreadablePluginRecordError.Is": "func(unreadablePluginRecordError) func(target error) bool",
+          "function:internal/pluginfeed.unreadablePluginRecordError.LogReason": "func(unreadablePluginRecordError) func() string",
+          "function:internal/pluginfeed.unreadablePluginRecordError.Unwrap": "func(unreadablePluginRecordError) func() error",
+          "var:internal/pluginfeed.ErrPluginRecordUnreadable": "ErrPluginRecordUnreadable = errors.New(\"plugin record cannot be read\")"
+        },
+        "changed": {},
+        "removed": {
+          "var:internal/pluginfeed.ErrOldPluginRecord": "ErrOldPluginRecord = errors.New(\"plugin record from an older Zalki\")"
+        }
+      },
+      "receivers": {
+        "added": {
+          "internal/pluginfeed.unreadablePluginRecordError": {
+            "Files": 1,
+            "Methods": 4
+          }
+        },
+        "changed": {},
+        "removed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "A plugin record that cannot be read now gets one plain error. The exported ErrOldPluginRecord is replaced by ErrPluginRecordUnreadable, and the error type that carries the text has its three error methods. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "68ddc5600648743ae0adfafac2e8b0c91a6e703a",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/journal.SyncDir",
+          "internal/journal.WriteAtomic"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/journal.SyncDir": "func(path string) error",
+          "function:internal/journal.WriteAtomic": "func(path string, data []byte) error"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/fsutil",
+          "internal/pluginfeed -> internal/fsutil"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The two forwards journal.WriteAtomic and journal.SyncDir are removed. Callers now use fsutil directly, so cmd/zalki and pluginfeed import fsutil. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "68ddc5600648743ae0adfafac2e8b0c91a6e703a",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/journal.SyncDir",
+          "internal/journal.WriteAtomic"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/journal.SyncDir": "func(path string) error",
+          "function:internal/journal.WriteAtomic": "func(path string, data []byte) error"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/fsutil",
+          "internal/pluginfeed -> internal/fsutil"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The two forwards journal.WriteAtomic and journal.SyncDir are removed. Callers now use fsutil directly, so cmd/zalki and pluginfeed import fsutil. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "487412d40ec617fcee7d039d8c28811be02111c2",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/statefile.CheckSchema",
+          "internal/statefile.DecodeStrictRecordJSON",
+          "internal/statefile.EncodeJSON",
+          "internal/statefile.ErrInvalidData",
+          "internal/statefile.ErrInvalidFile",
+          "internal/statefile.ReadBytes",
+          "internal/statefile.ReadJSON",
+          "internal/statefile.SchemaError",
+          "internal/statefile.SchemaError.Error",
+          "internal/statefile.SizeError",
+          "internal/statefile.SizeError.Error"
+        ],
+        "removed": [
+          "internal/bus.DecodeStrictRecordJSON",
+          "internal/journal.CheckSchema",
+          "internal/journal.EncodeJSON",
+          "internal/journal.ErrInvalidBatch",
+          "internal/journal.ErrInvalidFile",
+          "internal/journal.ReadBytes",
+          "internal/journal.ReadJSON",
+          "internal/journal.SchemaError",
+          "internal/journal.SchemaError.Error",
+          "internal/journal.SizeError",
+          "internal/journal.SizeError.Error"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/statefile.CheckSchema": "func(raw json.RawMessage, supported int) (int, error)",
+          "function:internal/statefile.DecodeStrictRecordJSON": "func(raw []byte, target any) error",
+          "function:internal/statefile.EncodeJSON": "func(value any, limit int) ([]byte, error)",
+          "function:internal/statefile.ReadBytes": "func(path string, limit int) ([]byte, error)",
+          "function:internal/statefile.ReadJSON": "func(path string, limit int, target any) error",
+          "function:internal/statefile.SchemaError.Error": "func(*SchemaError) func() string",
+          "function:internal/statefile.SizeError.Error": "func(*SizeError) func() string",
+          "type:internal/statefile.SchemaError": "SchemaError struct{ Version, Supported int }",
+          "type:internal/statefile.SizeError": "SizeError struct{ Size, Limit int }",
+          "var:internal/statefile.ErrInvalidData": "ErrInvalidData = errors.New(\"invalid journal batch\")",
+          "var:internal/statefile.ErrInvalidFile": "ErrInvalidFile = errors.New(\"invalid state file\")"
+        },
+        "removed": {
+          "function:internal/bus.DecodeStrictRecordJSON": "func(raw []byte, target any) error",
+          "function:internal/journal.CheckSchema": "func(raw json.RawMessage, supported int) (int, error)",
+          "function:internal/journal.EncodeJSON": "func(value any, limit int) ([]byte, error)",
+          "function:internal/journal.ReadBytes": "func(path string, limit int) ([]byte, error)",
+          "function:internal/journal.ReadJSON": "func(path string, limit int, target any) error",
+          "function:internal/journal.SchemaError.Error": "func(*SchemaError) func() string",
+          "function:internal/journal.SizeError.Error": "func(*SizeError) func() string",
+          "type:internal/journal.SchemaError": "SchemaError struct{ Version, Supported int }",
+          "type:internal/journal.SizeError": "SizeError struct{ Size, Limit int }",
+          "var:internal/journal.ErrInvalidBatch": "ErrInvalidBatch = errors.New(\"invalid journal batch\")",
+          "var:internal/journal.ErrInvalidFile": "ErrInvalidFile = errors.New(\"invalid state file\")"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/statefile.SchemaError": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/statefile.SizeError": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "removed": {
+          "internal/journal.SchemaError": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/journal.SizeError": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/statefile",
+          "internal/bus -> internal/statefile",
+          "internal/journal -> internal/statefile",
+          "internal/pluginfeed -> internal/statefile"
+        ],
+        "removed": [
+          "cmd/zalki -> internal/journal",
+          "internal/pluginfeed -> internal/journal"
+        ]
+      },
+      "os_calls": {
+        "added": {
+          "internal/statefile/read_bytes.go": [
+            "syscall"
+          ]
+        },
+        "removed": {
+          "internal/journal/read_bytes.go": [
+            "syscall"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    "reason": "The record reads, record encoding, strict decoder and schema check move from internal/journal and internal/bus to the new internal/statefile package with the same names and signatures. Callers import statefile instead of journal or bus for these. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "487412d40ec617fcee7d039d8c28811be02111c2",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/statefile.CheckSchema",
+          "internal/statefile.DecodeStrictRecordJSON",
+          "internal/statefile.EncodeJSON",
+          "internal/statefile.ErrInvalidData",
+          "internal/statefile.ErrInvalidFile",
+          "internal/statefile.ReadBytes",
+          "internal/statefile.ReadJSON",
+          "internal/statefile.SchemaError",
+          "internal/statefile.SchemaError.Error",
+          "internal/statefile.SizeError",
+          "internal/statefile.SizeError.Error"
+        ],
+        "removed": [
+          "internal/bus.DecodeStrictRecordJSON",
+          "internal/journal.CheckSchema",
+          "internal/journal.EncodeJSON",
+          "internal/journal.ErrInvalidBatch",
+          "internal/journal.ErrInvalidFile",
+          "internal/journal.ReadBytes",
+          "internal/journal.ReadJSON",
+          "internal/journal.SchemaError",
+          "internal/journal.SchemaError.Error",
+          "internal/journal.SizeError",
+          "internal/journal.SizeError.Error"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/statefile.CheckSchema": "func(raw json.RawMessage, supported int) (int, error)",
+          "function:internal/statefile.DecodeStrictRecordJSON": "func(raw []byte, target any) error",
+          "function:internal/statefile.EncodeJSON": "func(value any, limit int) ([]byte, error)",
+          "function:internal/statefile.ReadBytes": "func(path string, limit int) ([]byte, error)",
+          "function:internal/statefile.ReadJSON": "func(path string, limit int, target any) error",
+          "function:internal/statefile.SchemaError.Error": "func(*SchemaError) func() string",
+          "function:internal/statefile.SizeError.Error": "func(*SizeError) func() string",
+          "type:internal/statefile.SchemaError": "SchemaError struct{ Version, Supported int }",
+          "type:internal/statefile.SizeError": "SizeError struct{ Size, Limit int }",
+          "var:internal/statefile.ErrInvalidData": "ErrInvalidData = errors.New(\"invalid journal batch\")",
+          "var:internal/statefile.ErrInvalidFile": "ErrInvalidFile = errors.New(\"invalid state file\")"
+        },
+        "removed": {
+          "function:internal/bus.DecodeStrictRecordJSON": "func(raw []byte, target any) error",
+          "function:internal/journal.CheckSchema": "func(raw json.RawMessage, supported int) (int, error)",
+          "function:internal/journal.EncodeJSON": "func(value any, limit int) ([]byte, error)",
+          "function:internal/journal.ReadBytes": "func(path string, limit int) ([]byte, error)",
+          "function:internal/journal.ReadJSON": "func(path string, limit int, target any) error",
+          "function:internal/journal.SchemaError.Error": "func(*SchemaError) func() string",
+          "function:internal/journal.SizeError.Error": "func(*SizeError) func() string",
+          "type:internal/journal.SchemaError": "SchemaError struct{ Version, Supported int }",
+          "type:internal/journal.SizeError": "SizeError struct{ Size, Limit int }",
+          "var:internal/journal.ErrInvalidBatch": "ErrInvalidBatch = errors.New(\"invalid journal batch\")",
+          "var:internal/journal.ErrInvalidFile": "ErrInvalidFile = errors.New(\"invalid state file\")"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/statefile.SchemaError": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/statefile.SizeError": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "removed": {
+          "internal/journal.SchemaError": {
+            "Methods": 1,
+            "Files": 1
+          },
+          "internal/journal.SizeError": {
+            "Methods": 1,
+            "Files": 1
+          }
+        },
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "cmd/zalki -> internal/statefile",
+          "internal/bus -> internal/statefile",
+          "internal/journal -> internal/statefile",
+          "internal/pluginfeed -> internal/statefile"
+        ],
+        "removed": [
+          "cmd/zalki -> internal/journal",
+          "internal/pluginfeed -> internal/journal"
+        ]
+      },
+      "os_calls": {
+        "added": {
+          "internal/statefile/read_bytes.go": [
+            "syscall"
+          ]
+        },
+        "removed": {
+          "internal/journal/read_bytes.go": [
+            "syscall"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    "reason": "The record reads, record encoding, strict decoder and schema check move from internal/journal and internal/bus to the new internal/statefile package with the same names and signatures. Callers import statefile instead of journal or bus for these. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "52b75e0507b925af6dc13280cfc291056d9f8c2f",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/wal.Batch",
+          "internal/wal.BatchLog",
+          "internal/wal.BatchLog.Commit",
+          "internal/wal.BatchLog.Recover",
+          "internal/wal.Delete",
+          "internal/wal.ErrBatchConflict",
+          "internal/wal.NewDelete",
+          "internal/wal.NewPut",
+          "internal/wal.OrderDirectory",
+          "internal/wal.Put"
+        ],
+        "removed": [
+          "internal/journal.Batch",
+          "internal/journal.BatchLog",
+          "internal/journal.BatchLog.Commit",
+          "internal/journal.BatchLog.Recover",
+          "internal/journal.Delete",
+          "internal/journal.ErrBatchConflict",
+          "internal/journal.NewDelete",
+          "internal/journal.NewPut",
+          "internal/journal.OrderDirectory",
+          "internal/journal.Put"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/wal.BatchLog.Commit": "func(BatchLog) func(batch Batch) error",
+          "function:internal/wal.BatchLog.Recover": "func(BatchLog) func(check func(Batch) error) error",
+          "function:internal/wal.NewDelete": "func(path string, previous []byte) Delete",
+          "function:internal/wal.NewPut": "func(path string, previous, next []byte) Put",
+          "function:internal/wal.OrderDirectory": "func(path string) error",
+          "type:internal/wal.Batch": "Batch struct {\n\tID\tstring\t\t`json:\"id\"`\n\tPuts\t[]Put\t\t`json:\"puts\"`\n\tDeletes\t[]Delete\t`json:\"deletes,omitempty\"`\n}",
+          "type:internal/wal.BatchLog": "BatchLog struct {\n\tRoot\tstring\n\tIntent\tstring\n\tio\t*batchIO\n}",
+          "type:internal/wal.Delete": "Delete struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256\"`\n}",
+          "type:internal/wal.Put": "Put struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256,omitempty\"`\n\tData\t\t[]byte\t`json:\"data\"`\n\tSHA256\t\tstring\t`json:\"sha256\"`\n}",
+          "var:internal/wal.ErrBatchConflict": "ErrBatchConflict = errors.New(\"journal batch conflict\")"
+        },
+        "removed": {
+          "function:internal/journal.BatchLog.Commit": "func(BatchLog) func(batch Batch) error",
+          "function:internal/journal.BatchLog.Recover": "func(BatchLog) func(check func(Batch) error) error",
+          "function:internal/journal.NewDelete": "func(path string, previous []byte) Delete",
+          "function:internal/journal.NewPut": "func(path string, previous, next []byte) Put",
+          "function:internal/journal.OrderDirectory": "func(path string) error",
+          "type:internal/journal.Batch": "Batch struct {\n\tID\tstring\t\t`json:\"id\"`\n\tPuts\t[]Put\t\t`json:\"puts\"`\n\tDeletes\t[]Delete\t`json:\"deletes,omitempty\"`\n}",
+          "type:internal/journal.BatchLog": "BatchLog struct {\n\tRoot\tstring\n\tIntent\tstring\n\tio\t*batchIO\n}",
+          "type:internal/journal.Delete": "Delete struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256\"`\n}",
+          "type:internal/journal.Put": "Put struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256,omitempty\"`\n\tData\t\t[]byte\t`json:\"data\"`\n\tSHA256\t\tstring\t`json:\"sha256\"`\n}",
+          "var:internal/journal.ErrBatchConflict": "ErrBatchConflict = errors.New(\"journal batch conflict\")"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/wal.Batch": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "internal/wal.BatchLog": {
+            "Methods": 10,
+            "Files": 1
+          }
+        },
+        "removed": {
+          "internal/journal.Batch": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "internal/journal.BatchLog": {
+            "Methods": 10,
+            "Files": 1
+          }
+        },
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "internal/bus -> internal/wal",
+          "internal/wal -> internal/fsutil",
+          "internal/wal -> internal/statefile"
+        ],
+        "removed": [
+          "internal/bus -> internal/journal",
+          "internal/journal -> internal/fsutil",
+          "internal/journal -> internal/statefile"
+        ]
+      },
+      "os_calls": {
+        "added": {
+          "internal/wal/order_darwin.go": [
+            "golang.org/x/sys/unix"
+          ]
+        },
+        "removed": {
+          "internal/journal/order_darwin.go": [
+            "golang.org/x/sys/unix"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    "reason": "The package internal/journal is renamed to internal/wal. The exports, methods, shapes and the unix import move to the new package name. bus now imports wal instead of journal. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "52b75e0507b925af6dc13280cfc291056d9f8c2f",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/wal.Batch",
+          "internal/wal.BatchLog",
+          "internal/wal.BatchLog.Commit",
+          "internal/wal.BatchLog.Recover",
+          "internal/wal.Delete",
+          "internal/wal.ErrBatchConflict",
+          "internal/wal.NewDelete",
+          "internal/wal.NewPut",
+          "internal/wal.OrderDirectory",
+          "internal/wal.Put"
+        ],
+        "removed": [
+          "internal/journal.Batch",
+          "internal/journal.BatchLog",
+          "internal/journal.BatchLog.Commit",
+          "internal/journal.BatchLog.Recover",
+          "internal/journal.Delete",
+          "internal/journal.ErrBatchConflict",
+          "internal/journal.NewDelete",
+          "internal/journal.NewPut",
+          "internal/journal.OrderDirectory",
+          "internal/journal.Put"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/wal.BatchLog.Commit": "func(BatchLog) func(batch Batch) error",
+          "function:internal/wal.BatchLog.Recover": "func(BatchLog) func(check func(Batch) error) error",
+          "function:internal/wal.NewDelete": "func(path string, previous []byte) Delete",
+          "function:internal/wal.NewPut": "func(path string, previous, next []byte) Put",
+          "function:internal/wal.OrderDirectory": "func(path string) error",
+          "type:internal/wal.Batch": "Batch struct {\n\tID\tstring\t\t`json:\"id\"`\n\tPuts\t[]Put\t\t`json:\"puts\"`\n\tDeletes\t[]Delete\t`json:\"deletes,omitempty\"`\n}",
+          "type:internal/wal.BatchLog": "BatchLog struct {\n\tRoot\tstring\n\tIntent\tstring\n\tio\t*batchIO\n}",
+          "type:internal/wal.Delete": "Delete struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256\"`\n}",
+          "type:internal/wal.Put": "Put struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256,omitempty\"`\n\tData\t\t[]byte\t`json:\"data\"`\n\tSHA256\t\tstring\t`json:\"sha256\"`\n}",
+          "var:internal/wal.ErrBatchConflict": "ErrBatchConflict = errors.New(\"journal batch conflict\")"
+        },
+        "removed": {
+          "function:internal/journal.BatchLog.Commit": "func(BatchLog) func(batch Batch) error",
+          "function:internal/journal.BatchLog.Recover": "func(BatchLog) func(check func(Batch) error) error",
+          "function:internal/journal.NewDelete": "func(path string, previous []byte) Delete",
+          "function:internal/journal.NewPut": "func(path string, previous, next []byte) Put",
+          "function:internal/journal.OrderDirectory": "func(path string) error",
+          "type:internal/journal.Batch": "Batch struct {\n\tID\tstring\t\t`json:\"id\"`\n\tPuts\t[]Put\t\t`json:\"puts\"`\n\tDeletes\t[]Delete\t`json:\"deletes,omitempty\"`\n}",
+          "type:internal/journal.BatchLog": "BatchLog struct {\n\tRoot\tstring\n\tIntent\tstring\n\tio\t*batchIO\n}",
+          "type:internal/journal.Delete": "Delete struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256\"`\n}",
+          "type:internal/journal.Put": "Put struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256,omitempty\"`\n\tData\t\t[]byte\t`json:\"data\"`\n\tSHA256\t\tstring\t`json:\"sha256\"`\n}",
+          "var:internal/journal.ErrBatchConflict": "ErrBatchConflict = errors.New(\"journal batch conflict\")"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/wal.Batch": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "internal/wal.BatchLog": {
+            "Methods": 10,
+            "Files": 1
+          }
+        },
+        "removed": {
+          "internal/journal.Batch": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "internal/journal.BatchLog": {
+            "Methods": 10,
+            "Files": 1
+          }
+        },
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "internal/bus -> internal/wal",
+          "internal/wal -> internal/fsutil",
+          "internal/wal -> internal/statefile"
+        ],
+        "removed": [
+          "internal/bus -> internal/journal",
+          "internal/journal -> internal/fsutil",
+          "internal/journal -> internal/statefile"
+        ]
+      },
+      "os_calls": {
+        "added": {
+          "internal/wal/order_darwin.go": [
+            "golang.org/x/sys/unix"
+          ]
+        },
+        "removed": {
+          "internal/journal/order_darwin.go": [
+            "golang.org/x/sys/unix"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    "reason": "The package internal/journal is renamed to internal/wal. The exports, methods, shapes and the unix import move to the new package name. bus now imports wal instead of journal. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "65766428cc1be8c19bd08ff19090ffd0d3c2ee2d",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/bus.CurrentRuntimeInfo",
+          "internal/bus.SessionIssue",
+          "internal/mcpserver.New"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/bus.CurrentRuntimeInfo": "func() RuntimeInfo",
+          "function:internal/mcpserver.New": "func(service Bus) *mcp.Server",
+          "type:internal/bus.SessionIssue": "SessionIssue struct {\n\tID\tstring\n\tReason\tstring\n}"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Three names that only their own package uses become private: bus.CurrentRuntimeInfo, bus.SessionIssue and mcpserver.New. No stored data, wire format or tool contract changes."
+  },
+  {
+    "base_commit": "65766428cc1be8c19bd08ff19090ffd0d3c2ee2d",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/bus.CurrentRuntimeInfo",
+          "internal/bus.SessionIssue",
+          "internal/mcpserver.New"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/bus.CurrentRuntimeInfo": "func() RuntimeInfo",
+          "function:internal/mcpserver.New": "func(service Bus) *mcp.Server",
+          "type:internal/bus.SessionIssue": "SessionIssue struct {\n\tID\tstring\n\tReason\tstring\n}"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Three names that only their own package uses become private: bus.CurrentRuntimeInfo, bus.SessionIssue and mcpserver.New. No stored data, wire format or tool contract changes."
+  },
+  {
+    "base_commit": "f5036828f71e24cae38cc7e822f872f178d1319e",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/clientconfig.AbsoluteConfigDir",
+          "internal/clientconfig.ConfigDir"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/clientconfig.AbsoluteConfigDir": "func(root string) string",
+          "function:internal/clientconfig.ConfigDir": "func(variable, fallback string) string"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The native profile folder selection of the clients moves into internal/clientconfig as ConfigDir and AbsoluteConfigDir. The Claude adapter uses it. No stored data, wire format or client setting changes."
+  },
+  {
+    "base_commit": "f5036828f71e24cae38cc7e822f872f178d1319e",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/clientconfig.AbsoluteConfigDir",
+          "internal/clientconfig.ConfigDir"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/clientconfig.AbsoluteConfigDir": "func(root string) string",
+          "function:internal/clientconfig.ConfigDir": "func(variable, fallback string) string"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The native profile folder selection of the clients moves into internal/clientconfig as ConfigDir and AbsoluteConfigDir. The Claude adapter uses it. No stored data, wire format or client setting changes."
+  },
+  {
+    "base_commit": "5e02f77f43fd56e4709c083edf857ac65c1f1251",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "internal/config -> internal/fsutil"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "internal/config uses the shared directory sync of internal/fsutil instead of its own copy. The only change is the new import edge from config to fsutil. No export, shape, receiver or OS call changes."
+  },
+  {
+    "base_commit": "5e02f77f43fd56e4709c083edf857ac65c1f1251",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "internal/config -> internal/fsutil"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "internal/config uses the shared directory sync of internal/fsutil instead of its own copy. The only change is the new import edge from config to fsutil. No export, shape, receiver or OS call changes."
+  },
+  {
+    "base_commit": "b10c6d780df42a652834c80ae3adb4f21d200419",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.replyFlow": {
+            "Methods": 13,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 116,
+              "Files": 25
+            },
+            "after": {
+              "Methods": 103,
+              "Files": 24
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 13 private reply methods of Store move to a new private type, replyFlow, in the same file. Store keeps every exported method. The new private type adds 13 methods in one file, and Store loses those 13 methods and that file. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "b10c6d780df42a652834c80ae3adb4f21d200419",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.replyFlow": {
+            "Methods": 13,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 116,
+              "Files": 25
+            },
+            "after": {
+              "Methods": 103,
+              "Files": 24
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 13 private reply methods of Store move to a new private type, replyFlow, in the same file. Store keeps every exported method. The new private type adds 13 methods in one file, and Store loses those 13 methods and that file. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "ec23320fe041c6d6beae36ee1fb94d1c13b99132",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.approvalQueue": {
+            "Methods": 16,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 103,
+              "Files": 24
+            },
+            "after": {
+              "Methods": 87,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 16 private approval queue methods of Store move to a new private type, approvalQueue, in the same file. Store keeps every exported method. The new private type adds 16 methods in one file, and Store loses those 16 methods and that file. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "ec23320fe041c6d6beae36ee1fb94d1c13b99132",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.approvalQueue": {
+            "Methods": 16,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 103,
+              "Files": 24
+            },
+            "after": {
+              "Methods": 87,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 16 private approval queue methods of Store move to a new private type, approvalQueue, in the same file. Store keeps every exported method. The new private type adds 16 methods in one file, and Store loses those 16 methods and that file. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "f7dfe6530e8e4bd83f72ea451ba14b4bd9f9306c",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.inboxReader": {
+            "Methods": 7,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 87,
+              "Files": 23
+            },
+            "after": {
+              "Methods": 80,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 7 private inbox read and hook context methods of Store move to a new private type, inboxReader, in the same file. Store keeps every exported method. The new private type adds 7 methods in one file, and Store loses those 7 methods. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "f7dfe6530e8e4bd83f72ea451ba14b4bd9f9306c",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.inboxReader": {
+            "Methods": 7,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 87,
+              "Files": 23
+            },
+            "after": {
+              "Methods": 80,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 7 private inbox read and hook context methods of Store move to a new private type, inboxReader, in the same file. Store keeps every exported method. The new private type adds 7 methods in one file, and Store loses those 7 methods. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "a26459b2d086dab700cb2c8a17dbb7a0625e9aaa",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.listenerLeases": {
+            "Methods": 4,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 80,
+              "Files": 23
+            },
+            "after": {
+              "Methods": 76,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 4 private listener lock methods of Store move to a new private type, listenerLeases, in the same file. Store keeps every exported method. The new private type adds 4 methods in one file, and Store loses those 4 methods. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "a26459b2d086dab700cb2c8a17dbb7a0625e9aaa",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.listenerLeases": {
+            "Methods": 4,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 80,
+              "Files": 23
+            },
+            "after": {
+              "Methods": 76,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 4 private listener lock methods of Store move to a new private type, listenerLeases, in the same file. Store keeps every exported method. The new private type adds 4 methods in one file, and Store loses those 4 methods. No export, shape, import or OS call changes."
   }
 ]

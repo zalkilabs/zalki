@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 func eventAt(t *testing.T, store Store, sequence uint64) model.Event {
@@ -119,14 +121,14 @@ func TestMessageCommitRecoversWithOneEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := journal.EncodeJSON(batch, 1<<20)
+	raw, err := statefile.EncodeJSON(batch, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.dir, "commits", "pending.json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(store.dir, "commits", "pending.json"), raw); err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(filepath.Join(store.dir, batch.Puts[0].Path), batch.Puts[0].Data); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(store.dir, batch.Puts[0].Path), batch.Puts[0].Data); err != nil {
 		t.Fatal(err)
 	}
 	before := eventState(t, store).Last
@@ -165,7 +167,7 @@ func TestMessageBatchValidationChecksTheMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	batch.Puts[0] = journal.NewPut(batch.Puts[0].Path, nil, data)
+	batch.Puts[0] = wal.NewPut(batch.Puts[0].Path, nil, data)
 	if err := writer.validate(batch); err == nil {
 		t.Fatal("validate accepted a message that does not match its event")
 	}

@@ -33,7 +33,7 @@ func TestSessionPluginFinalCoreHandoffs(t *testing.T) {
 		t.Fatal("Z6_FINAL_TRANSPORT_CHECK")
 	}
 	err := s.locked(func() error {
-		pending, err := s.pendingForHook(to.ID, to)
+		pending, err := inboxReads(s).pendingForHook(to.ID, to)
 		if err != nil {
 			return err
 		}
@@ -41,7 +41,7 @@ func TestSessionPluginFinalCoreHandoffs(t *testing.T) {
 			t.Fatal("Z6_FINAL_PENDING_SELECTION_CHECK")
 		}
 		var out strings.Builder
-		if err := s.emitPendingContext([]model.Message{m}, &out); err != nil {
+		if err := inboxReads(s).emitPendingContext([]model.Message{m}, &out); err != nil {
 			return err
 		}
 		if out.Len() != 0 {

@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func TestPluginInboxOwnerRepairsHintsWithoutTrustingThem(t *testing.T) {
@@ -49,7 +49,7 @@ func checkOwnerInboxHint(t *testing.T, kind string) {
 		t.Fatal("valid hint was rewritten")
 	}
 	raw, err := os.ReadFile(hint)
-	want, _ := journal.EncodeJSON(x.f.name, 128)
+	want, _ := statefile.EncodeJSON(x.f.name, 128)
 	if err != nil || !bytes.Equal(raw, want) {
 		t.Fatal("owner did not repair exact hint", err)
 	}
@@ -92,7 +92,7 @@ func poisonOwnerInboxHint(t *testing.T, x inboxStorageFixture, kind, hint string
 		id := model.NewUUID()
 		hint = filepath.Join(x.f.pluginDir(), "id-"+id+".json")
 		r.To = "plugin:" + id
-		raw, _ = journal.EncodeJSON(x.f.name, 128)
+		raw, _ = statefile.EncodeJSON(x.f.name, 128)
 	}
 	if err := os.WriteFile(hint, raw, 0600); err != nil {
 		t.Fatal(err)

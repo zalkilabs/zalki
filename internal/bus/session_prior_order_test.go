@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 // This models the permitted durable namespace after a rename whose directory
@@ -39,7 +40,7 @@ func TestZeroEventPriorRenameOrdering(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(store.dir, "commits", "pending.json")); !os.IsNotExist(err) {
 			t.Fatal("intent published before prior ordering", err)
 		}
-		if err := journal.OrderDirectory(parent); err != nil {
+		if err := wal.OrderDirectory(parent); err != nil {
 			return err
 		}
 		durable = bytes.Clone(d1) // D1 namespace now submitted before FULL intent sync.
@@ -50,7 +51,7 @@ func TestZeroEventPriorRenameOrdering(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Power loss retains only the namespace submitted before the durable intent.
-	if err := journal.WriteAtomic(path, durable); err != nil {
+	if err := fsutil.WriteAtomic(path, durable); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.List(); err != nil {

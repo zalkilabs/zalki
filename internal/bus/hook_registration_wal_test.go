@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 func TestPromptRegistrationWALRecoveryDoesNotRecharge(t *testing.T) {
@@ -53,7 +54,7 @@ func runPromptWALCrash(t *testing.T, dir string) {
 		if err != nil {
 			return err
 		}
-		if err := debitPromptRegistration(store.dir, registered.ID, time.Now().UTC(), journal.WriteAtomic); err != nil {
+		if err := debitPromptRegistration(store.dir, registered.ID, time.Now().UTC(), fsutil.WriteAtomic); err != nil {
 			return err
 		}
 		registered.Generation = os.Getenv("ZALKI_PROMPT_WAL_GENERATION")
@@ -62,7 +63,7 @@ func runPromptWALCrash(t *testing.T, dir string) {
 			t.Fatal("C18_EXISTING_THREE_IMAGE_WAL_UNCHANGED")
 		}
 		for _, put := range batch.Puts[:applied] {
-			if err := journal.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
+			if err := fsutil.WriteAtomic(filepath.Join(store.dir, put.Path), put.Data); err != nil {
 				return err
 			}
 		}
@@ -93,7 +94,7 @@ func assertRecoveredPromptWAL(t *testing.T, store Store, registered model.Sessio
 	}
 }
 
-func stagedPromptRegistration(t *testing.T, store Store, next model.Session) journal.Batch {
+func stagedPromptRegistration(t *testing.T, store Store, next model.Session) wal.Batch {
 	t.Helper()
 	record, err := prepareSessionRecord(store, next)
 	if err != nil {

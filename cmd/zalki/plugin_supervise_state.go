@@ -13,9 +13,9 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // Lifecycle states persisted in NAME.run.json.
@@ -94,10 +94,10 @@ func loadRunState(dir, name, installation string) (pluginRunState, error) {
 	if !privateFile(info) {
 		return fresh, model.NewError(model.CodeConflict, "%s is not a private file of this user; it was kept", path)
 	}
-	raw, err := journal.ReadBytes(path, runStateLimit)
+	raw, err := statefile.ReadBytes(path, runStateLimit)
 	var state pluginRunState
 	if err == nil {
-		err = bus.DecodeStrictRecordJSON(raw, &state)
+		err = statefile.DecodeStrictRecordJSON(raw, &state)
 	}
 	if err != nil || !state.valid() || !canonicalJSON(raw, state) {
 		return fresh, model.NewError(model.CodeConflict, "%s is damaged; it was kept", path)
@@ -224,7 +224,7 @@ func saveRunState(dir, name string, state pluginRunState) error {
 	if len(raw) > runStateLimit {
 		return errors.New("plugin run state exceeds its limit")
 	}
-	return journal.WriteAtomic(runStatePath(dir, name), raw)
+	return fsutil.WriteAtomic(runStatePath(dir, name), raw)
 }
 
 // recentFailures keeps the failures inside the rolling window, including

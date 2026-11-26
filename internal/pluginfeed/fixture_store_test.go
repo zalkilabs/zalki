@@ -13,8 +13,9 @@ import (
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 // These are persisted-format fixtures, not new production Store APIs.
@@ -42,11 +43,11 @@ func writeJSON(path string, value any) error {
 			Binding string `json:"plugin_binding,omitempty"`
 		}{message, message.PluginBinding}
 	}
-	raw, err := journal.EncodeJSON(value, bus.MaxMessageRecordBytes)
+	raw, err := statefile.EncodeJSON(value, bus.MaxMessageRecordBytes)
 	if err != nil {
 		return err
 	}
-	return journal.WriteAtomic(path, raw)
+	return fsutil.WriteAtomic(path, raw)
 }
 
 func sessionTestPath(store bus.Store, id string) (string, error) {
@@ -111,7 +112,7 @@ func eventRecordPath(sequence uint64) string {
 func eventState(t *testing.T, store bus.Store) eventTestMetadata {
 	t.Helper()
 	var head eventTestMetadata
-	if err := journal.ReadJSON(filepath.Join(store.Dir(), eventMetaPath), bus.MaxMessageRecordBytes, &head); err != nil {
+	if err := statefile.ReadJSON(filepath.Join(store.Dir(), eventMetaPath), bus.MaxMessageRecordBytes, &head); err != nil {
 		t.Fatal(err)
 	}
 	return head

@@ -15,7 +15,7 @@ import (
 )
 
 // These tests close gaps found in pruneRun.sweepSessions (prune.go) and
-// Store.reconcileApprovalHolds (approval.go). They pin today's behavior; odd
+// approvalQueue.reconcileApprovalHolds (approval.go). They pin today's behavior; odd
 // results are characterized, not endorsed.
 //
 // A prune run reports session decisions in this order (report.Sessions):
@@ -73,7 +73,7 @@ func retiredWithLease(t *testing.T, store Store, ago time.Duration) model.Sessio
 
 func lockFile(t *testing.T, store Store, v model.Session) string {
 	t.Helper()
-	path := store.listenerLockPath(v.Kind, v.ID)
+	path := listeners(store).listenerLockPath(v.Kind, v.ID)
 	if err := os.WriteFile(path, nil, 0600); err != nil {
 		t.Fatal(err)
 	}

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 type streamIntegrity struct{ id, reason string }
@@ -17,10 +17,10 @@ type streamWaiting struct {
 
 func (s PluginFeed) noteStreamReadFailure(id string, cause error) {
 	reason := "record_unreadable"
-	if errors.Is(cause, journal.ErrInvalidBatch) {
+	if errors.Is(cause, statefile.ErrInvalidData) {
 		reason = "invalid_record"
 	}
-	if errors.Is(cause, journal.ErrInvalidFile) {
+	if errors.Is(cause, statefile.ErrInvalidFile) {
 		reason = "record_file_rejected"
 	}
 	s.noteStreamIntegrity(id, reason, cause)

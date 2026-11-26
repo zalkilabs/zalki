@@ -56,8 +56,6 @@ Restart your sessions afterwards so they use the new build.
 - Without Homebrew, `zalki upgrade` fails: install the new binary yourself, then
   run `zalki upgrade --config-only`.
 
-Coming from rc.7? The upgrade prints the steps to follow.
-
 ### Your own keys and hooks
 
 You may add keys to the Zalki entry, for example `env` in `mcpServers.zalki`.

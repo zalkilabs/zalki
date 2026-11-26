@@ -10,7 +10,7 @@ import (
 
 // Inject real filesystem operation errors through the existing private quota
 // writer seam. This tests admission/accounting, not a replacement production
-// atomic-write implementation. Production still uses journal.WriteAtomic.
+// atomic-write implementation. Production still uses fsutil.WriteAtomic.
 func TestPromptQuotaAtomicFailureAccounting(t *testing.T) {
 	for _, cut := range []string{"temporary-write", "rename", "directory-sync"} {
 		t.Run(cut, func(t *testing.T) { assertPromptQuotaAtomicFailure(t, cut) })

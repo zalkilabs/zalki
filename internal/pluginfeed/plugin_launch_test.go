@@ -9,8 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalkilabs/zalki/internal/journal"
+	"github.com/zalkilabs/zalki/internal/fsutil"
 	"github.com/zalkilabs/zalki/internal/model"
+	"github.com/zalkilabs/zalki/internal/statefile"
 )
 
 func externalPinFixture(t *testing.T) (PluginFeed, string, string) {
@@ -234,11 +235,11 @@ func rewritePluginLaunchRecord(t *testing.T, f PluginFeed, edit func(*PluginLaun
 	// The revision is an unkeyed hash: whoever can write the record can
 	// recompute it. The pin is a drift check, not authenticity.
 	p.Revision = pluginRevision(p)
-	raw, err := journal.EncodeJSON(p, 16<<10)
+	raw, err := statefile.EncodeJSON(p, 16<<10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := journal.WriteAtomic(f.pluginPath(), raw); err != nil {
+	if err := fsutil.WriteAtomic(f.pluginPath(), raw); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -248,7 +249,7 @@ func TestExternalPluginEditedNullArgvFailsDriftVerification(t *testing.T) {
 	rewritePluginLaunchRecord(t, f, func(l *PluginLaunch) { l.Args = nil })
 	status, err := f.PluginStatus()
 	if err != nil {
-		if !errors.Is(err, journal.ErrInvalidBatch) && model.ErrorCodeOf(err) != model.CodeInvalidInput {
+		if !errors.Is(err, statefile.ErrInvalidData) && model.ErrorCodeOf(err) != model.CodeInvalidInput {
 			t.Fatal("unexpected load failure", err)
 		}
 		return
