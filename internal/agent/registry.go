@@ -49,6 +49,22 @@ func validateAdapterCapabilities(adapter Adapter, d AdapterDescriptor) error {
 			return fmt.Errorf("%s has no lifecycle adapter", d.Kind)
 		}
 	}
+	return validateHookEventKey(d)
+}
+
+// validateHookEventKey checks a declared hook event key. Core reads the event
+// name under this key, so it must be a plain name and the adapter must have
+// hooks. That every hook adapter declares a key is checked by agenttest.
+func validateHookEventKey(d AdapterDescriptor) error {
+	if d.HookEventKey == "" {
+		return nil
+	}
+	if !model.ValidName(d.HookEventKey) {
+		return fmt.Errorf("%s declares an invalid hook event key", d.Kind)
+	}
+	if len(d.Hooks) == 0 {
+		return fmt.Errorf("%s declares a hook event key but no hooks", d.Kind)
+	}
 	return nil
 }
 
