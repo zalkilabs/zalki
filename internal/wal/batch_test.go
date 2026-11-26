@@ -247,6 +247,41 @@ func TestBatchPendingIntentIsImmutable(t *testing.T) {
 	assertBatchTargets(t, f, true)
 }
 
+// The conflict text is part of the answer callers show. Every place that
+// reaches the conflict returns the error value itself, so the text must stay
+// the same.
+func TestBatchConflictKeepsItsText(t *testing.T) {
+	const want = "journal batch conflict"
+	t.Run("target with different bytes", func(t *testing.T) {
+		f := newBatchFixture(t)
+		writeBatchIntent(t, f)
+		if err := os.WriteFile(filepath.Join(f.log.Root, "outbox/event.json"), []byte("different"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.log.Recover(nil); err == nil || err.Error() != want {
+			t.Fatalf("conflicting target = %v, want %q", err, want)
+		}
+	})
+	t.Run("pending intent of another batch", func(t *testing.T) {
+		f := newBatchFixture(t)
+		writeBatchIntent(t, f)
+		other := f.batch
+		other.ID = "different-batch"
+		if err := f.log.Commit(other); err == nil || err.Error() != want {
+			t.Fatalf("replacement = %v, want %q", err, want)
+		}
+	})
+	t.Run("delete target with different bytes", func(t *testing.T) {
+		f := retainingFixture(t)
+		if err := os.WriteFile(filepath.Join(f.log.Root, "outbox/old.json"), []byte("changed"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.log.Commit(f.batch); err == nil || err.Error() != want {
+			t.Fatalf("changed delete target = %v, want %q", err, want)
+		}
+	})
+}
+
 func TestBatchRejectsInvalidInputBeforePublication(t *testing.T) {
 	tests := []struct {
 		name   string
