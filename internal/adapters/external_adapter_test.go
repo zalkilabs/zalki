@@ -22,7 +22,7 @@ type fourthAdapter struct{ agent.StandardHooks }
 
 func (fourthAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{
-		Kind: "fourth", Label: "Fourth", Hooks: agent.StandardEvents(true),
+		Kind: "fourth", Label: "Fourth", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(true),
 		ProcessNames: []string{"fourth"}, OwnerRole: "client", Executable: "fourth",
 	}
 }

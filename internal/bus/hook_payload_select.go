@@ -21,7 +21,7 @@ const (
 // Only trusted adapter opt-in uses this selector. The complete first object is
 // validated before the ordinary typed decoder or any lifecycle operation. Bulk
 // strings/containers never become tokens, RawMessages, or retained byte slices.
-func decodeSelectedHookPayload(ctx context.Context, input io.Reader, event *agent.HookInput, extendedEvent string) (int, []byte, error) {
+func decodeSelectedHookPayload(ctx context.Context, input io.Reader, event *agent.HookInput, extendedEvent, eventKey string) (int, []byte, error) {
 	reader := &hookSelectorInput{Reader: input, ctx: ctx}
 	s := hookPayloadSelector{input: bufio.NewReader(io.LimitReader(reader, maxExtendedHookWire+1))}
 	s.object()
@@ -29,6 +29,7 @@ func decodeSelectedHookPayload(ctx context.Context, input io.Reader, event *agen
 		return s.wire, append([]byte(nil), s.kept[:min(len(s.kept), hookHeaderLimit)]...), s.err
 	}
 	_, header, err := decodeHookPayload(bytes.NewReader(s.kept), event)
+	err = useEventKey(event, s.kept, eventKey, err)
 	if s.wire > maxHookPayload && event.Event != extendedEvent {
 		err = model.NewError(model.CodeInvalidInput, "hook payload exceeds 8 MiB")
 	}

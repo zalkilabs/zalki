@@ -59,7 +59,7 @@ func TestAdapterRejectsInvalidDraftsAndEmptyPatches(t *testing.T) {
 }
 
 func (a fixtureAdapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: a.kind, Label: "Fixture", Hooks: map[string]string{"start": "SessionStart", "end": "SessionEnd", "tool": "PostToolUse"}, ProcessNames: []string{"fixture-agent"}, OwnerRole: "client"}
+	return agent.AdapterDescriptor{Kind: a.kind, Label: "Fixture", HookEventKey: "hook_event_name", Hooks: map[string]string{"start": "SessionStart", "end": "SessionEnd", "tool": "PostToolUse"}, ProcessNames: []string{"fixture-agent"}, OwnerRole: "client"}
 }
 
 func (a fixtureAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {

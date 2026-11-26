@@ -16,7 +16,7 @@ import (
 type stubCodexAdapter struct{ agent.StandardHooks }
 
 func (stubCodexAdapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex"}
+	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex"}
 }
 
 func (stubCodexAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
@@ -36,7 +36,7 @@ func (stubCodexAdapter) Health(agent.HealthHost, model.Session) (string, string)
 type stubClaudeAdapter struct{ agent.StandardHooks }
 
 func (stubClaudeAdapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
+	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}
 }
 
 func (stubClaudeAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
@@ -52,7 +52,7 @@ func (stubClaudeAdapter) Deliver(context.Context, model.Message, model.Session) 
 type stubCursorAdapter struct{ agent.StandardHooks }
 
 func (stubCursorAdapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Lifecycle: agent.Lifecycle{PromptMayRegister: true}, Native: stubNativeFields, Hooks: map[string]string{"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop"}}
+	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", HookEventKey: "hook_event_name", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Lifecycle: agent.Lifecycle{PromptMayRegister: true}, Native: stubNativeFields, Hooks: map[string]string{"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop"}}
 }
 func (stubCursorAdapter) ReceiveCapabilities(v model.Session) model.ReceiveCapabilities {
 	c := model.ReceiveCapabilities{Delivery: "next_postToolUse_or_completed_stop_hook", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, LifecycleHooks: true, HookDelivery: true, RequiresListener: true}

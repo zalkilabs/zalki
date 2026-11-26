@@ -51,7 +51,7 @@ func TestCodexPostToolUseStreamingSelection(t *testing.T) {
 		for _, late := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/late_%t", field, late), func(t *testing.T) {
 				var event agent.HookInput
-				size, _, err := decodeSelectedHookPayload(t.Context(), codexBulkReader(id, "PostToolUse", field, 9*1024*1024, late), &event, "PostToolUse")
+				size, _, err := decodeSelectedHookPayload(t.Context(), codexBulkReader(id, "PostToolUse", field, 9*1024*1024, late), &event, "PostToolUse", structEventKey)
 				if err != nil || size <= maxHookPayload || event.Event != "PostToolUse" || event.SessionID != id || event.CWD != "/fixture/workspace" || event.SessionTitle == nil || *event.SessionTitle != "large" {
 					t.Fatal("CODEX_BULK_METADATA_LOST", size, err)
 				}
@@ -83,7 +83,7 @@ func assertCodexWireBoundary(t *testing.T, id string) {
 	for _, extra := range []int{0, 1} {
 		prefix, suffix := codexBulkParts(id, "PostToolUse", "tool_response", true)
 		var event agent.HookInput
-		size, _, err := decodeSelectedHookPayload(t.Context(), codexBulkReader(id, "PostToolUse", "tool_response", codexTestWireLimit+extra-len(prefix)-len(suffix), true), &event, "PostToolUse")
+		size, _, err := decodeSelectedHookPayload(t.Context(), codexBulkReader(id, "PostToolUse", "tool_response", codexTestWireLimit+extra-len(prefix)-len(suffix), true), &event, "PostToolUse", structEventKey)
 		if extra == 0 && (err != nil || size != codexTestWireLimit) || extra == 1 && model.ErrorCodeOf(err) != model.CodeInvalidInput {
 			t.Fatal("CODEX_WIRE_BOUNDARY", size, extra, err)
 		}
@@ -95,7 +95,7 @@ func TestCodexPostToolUseSelectorRefusesInvalid(t *testing.T) {
 		t.Run(fmt.Sprintf("value_%x", []byte(value)), func(t *testing.T) {
 			input := `{"tool_response":` + value + `,"hook_event_name":"PostToolUse"}`
 			var event agent.HookInput
-			_, _, err := decodeSelectedHookPayload(t.Context(), strings.NewReader(input), &event, "PostToolUse")
+			_, _, err := decodeSelectedHookPayload(t.Context(), strings.NewReader(input), &event, "PostToolUse", structEventKey)
 			if (err == nil) != json.Valid([]byte(input)) {
 				t.Fatal("CODEX_IGNORED_JSON_NOT_VALIDATED", err)
 			}
@@ -111,26 +111,26 @@ func TestCodexPostToolUseSelectorRefusesInvalid(t *testing.T) {
 		`[]`, `null`,
 	} {
 		var event agent.HookInput
-		if _, _, err := decodeSelectedHookPayload(t.Context(), strings.NewReader(input), &event, "PostToolUse"); err == nil {
+		if _, _, err := decodeSelectedHookPayload(t.Context(), strings.NewReader(input), &event, "PostToolUse", structEventKey); err == nil {
 			t.Fatal("CODEX_AMBIGUOUS_OBJECT_ACCEPTED")
 		}
 	}
 	for _, eventName := range []string{"Stop", "SessionStart", "UserPromptSubmit", "unknown"} {
 		var event agent.HookInput
-		if _, _, err := decodeSelectedHookPayload(t.Context(), codexBulkReader(newID(), eventName, "tool_response", 9*1024*1024, true), &event, "PostToolUse"); model.ErrorCodeOf(err) != model.CodeInvalidInput {
+		if _, _, err := decodeSelectedHookPayload(t.Context(), codexBulkReader(newID(), eventName, "tool_response", 9*1024*1024, true), &event, "PostToolUse", structEventKey); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 			t.Fatal("CODEX_OTHER_EVENT_BUDGET_WIDENED", eventName, err)
 		}
 	}
 	for _, field := range []string{"status", "nested"} {
 		input := io.MultiReader(strings.NewReader(`{"hook_event_name":"PostToolUse","`+field+`":{"tool_response":"`), io.LimitReader(codexRepeatedByte('x'), 9*1024*1024), strings.NewReader(`"}}`))
 		var event agent.HookInput
-		if _, _, err := decodeSelectedHookPayload(t.Context(), input, &event, "PostToolUse"); model.ErrorCodeOf(err) != model.CodeInvalidInput {
+		if _, _, err := decodeSelectedHookPayload(t.Context(), input, &event, "PostToolUse", structEventKey); model.ErrorCodeOf(err) != model.CodeInvalidInput {
 			t.Fatal("CODEX_RETAINED_METADATA_BUDGET_WIDENED", err)
 		}
 	}
 	deep := `{"hook_event_name":"PostToolUse","tool_input":` + strings.Repeat("[", maxHookDepth) + "0" + strings.Repeat("]", maxHookDepth) + "}"
 	var event agent.HookInput
-	if _, _, err := decodeSelectedHookPayload(t.Context(), strings.NewReader(deep), &event, "PostToolUse"); err == nil {
+	if _, _, err := decodeSelectedHookPayload(t.Context(), strings.NewReader(deep), &event, "PostToolUse", structEventKey); err == nil {
 		t.Fatal("CODEX_NESTING_UNBOUNDED")
 	}
 }
@@ -236,22 +236,22 @@ func TestCodexPostToolUseStreamingFraming(t *testing.T) {
 	id := newID()
 	tail := &countedHookInput{t: t}
 	var event agent.HookInput
-	if _, _, err := decodeSelectedHookPayload(t.Context(), io.MultiReader(codexBulkReader(id, "PostToolUse", "tool_input", 9*1024*1024, true), tail), &event, "PostToolUse"); err != nil || tail.read != 0 {
+	if _, _, err := decodeSelectedHookPayload(t.Context(), io.MultiReader(codexBulkReader(id, "PostToolUse", "tool_input", 9*1024*1024, true), tail), &event, "PostToolUse", structEventKey); err != nil || tail.read != 0 {
 		t.Fatal("CODEX_SELECTOR_READ_AFTER_OBJECT", err, tail.read)
 	}
 	assertCodexPipeReturnsWithoutEOF(t, id)
-	if _, _, err := decodeSelectedHookPayload(t.Context(), failedHookInput{}, &event, "PostToolUse"); !errors.Is(err, io.ErrClosedPipe) {
+	if _, _, err := decodeSelectedHookPayload(t.Context(), failedHookInput{}, &event, "PostToolUse", structEventKey); !errors.Is(err, io.ErrClosedPipe) {
 		t.Fatal("CODEX_SELECTOR_LOST_READ_ERROR", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, _, err := decodeSelectedHookPayload(ctx, codexBulkReader(id, "PostToolUse", "tool_response", 9*1024*1024, false), &event, "PostToolUse"); !errors.Is(err, context.Canceled) {
+	if _, _, err := decodeSelectedHookPayload(ctx, codexBulkReader(id, "PostToolUse", "tool_response", 9*1024*1024, false), &event, "PostToolUse", structEventKey); !errors.Is(err, context.Canceled) {
 		t.Fatal("CODEX_EXTENDED_READ_IGNORED_CANCEL", err)
 	}
 	// Whitespace never completes an object; the bounded selector must stop even
 	// without EOF. The outer LimitedReader cannot consume more than wire+1.
 	counted := &hookSelectorInput{Reader: codexRepeatedByte(' '), ctx: t.Context()}
-	if n, _, err := decodeSelectedHookPayload(t.Context(), counted, &event, "PostToolUse"); model.ErrorCodeOf(err) != model.CodeInvalidInput || n != codexTestWireLimit+1 || counted.read != codexTestWireLimit+1 {
+	if n, _, err := decodeSelectedHookPayload(t.Context(), counted, &event, "PostToolUse", structEventKey); model.ErrorCodeOf(err) != model.CodeInvalidInput || n != codexTestWireLimit+1 || counted.read != codexTestWireLimit+1 {
 		t.Fatal("CODEX_SELECTOR_UNBOUNDED_READ", n, counted.read, err)
 	}
 }
@@ -304,7 +304,7 @@ func assertCodexPipeReturnsWithoutEOF(t *testing.T, id string) {
 		close(written)
 	}()
 	go func() {
-		size, _, decodeErr = decodeSelectedHookPayload(t.Context(), reader, &event, "PostToolUse")
+		size, _, decodeErr = decodeSelectedHookPayload(t.Context(), reader, &event, "PostToolUse", structEventKey)
 		close(decoded)
 	}()
 	defer func() {
