@@ -171,10 +171,10 @@ func TestSessionPrivateProducersEmitNoLifecycleFact(t *testing.T) {
 	if err := store.rememberOwner(session.ID, "cursor", true); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.locked(func() error { return store.rememberApprovalHold(session.ID, 1) }); err != nil {
+	if err := store.locked(func() error { return approvals(store).rememberApprovalHold(session.ID, 1) }); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.locked(func() error { return store.clearApprovalHeld(session.ID) }); err != nil {
+	if err := store.locked(func() error { return approvals(store).clearApprovalHeld(session.ID) }); err != nil {
 		t.Fatal(err)
 	}
 	lease := armedLease(t, store, session.ID, key)

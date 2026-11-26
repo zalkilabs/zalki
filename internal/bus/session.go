@@ -97,7 +97,7 @@ func (s Store) register(kind, id, cwd string, endpoint *model.Endpoint, compact 
 			session.Task = current.Task
 		}
 		if !preserved && exists {
-			carried, err := s.settleApprovalQueue(full, "destination registration changed before delivery", current.ApprovalHeld)
+			carried, err := approvals(s).settleApprovalQueue(full, "destination registration changed before delivery", current.ApprovalHeld)
 			if err != nil {
 				return err
 			}

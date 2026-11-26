@@ -114,7 +114,7 @@ func (s *sessionLatencySubject) reset(mode string) error {
 	case "same-state":
 		return s.store.Update(s.session.ID, model.StateBusy, false)
 	case "count":
-		return s.store.locked(func() error { return s.store.clearApprovalHeld(s.session.ID) })
+		return s.store.locked(func() error { return approvals(s.store).clearApprovalHeld(s.session.ID) })
 	default:
 		return nil
 	}
@@ -155,7 +155,7 @@ func (s *sessionLatencySubject) runPrivate(mode string) error {
 		_, err := (&Service{Store: s.store}).SetTask(s.session.ID, s.key, "latency")
 		return err
 	case "count":
-		return s.store.locked(func() error { return s.store.rememberApprovalHold(s.session.ID, 1) })
+		return s.store.locked(func() error { return approvals(s.store).rememberApprovalHold(s.session.ID, 1) })
 	case "listener":
 		return s.lease.Confirm(func(model.SessionView) (json.RawMessage, error) { return nil, nil })
 	case "recovery":

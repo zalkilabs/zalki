@@ -259,7 +259,7 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 			TargetGeneration: current.Generation, CreatedAt: model.Timestamp(), Status: model.StatusAttempting,
 		}
 		if current.State == model.StateApproval {
-			if err := s.Store.holdForApproval(&msg); err != nil {
+			if err := approvals(s.Store).holdForApproval(&msg); err != nil {
 				if moveErr := msg.SettleNotSent(model.ErrorCodeOf(err), err.Error()); moveErr != nil {
 					return moveErr
 				}
@@ -267,7 +267,7 @@ func (s *Service) deliverCompletion(ctx context.Context, watcherID string, subje
 		} else {
 			fresh = true
 		}
-		return s.Store.saveReservation(msg)
+		return approvals(s.Store).saveReservation(msg)
 	})
 	if err != nil || !fresh || msg.ID == "" {
 		return msg, err

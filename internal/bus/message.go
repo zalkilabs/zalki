@@ -163,7 +163,7 @@ func (s Store) reserveNewMessage(sender model.Session, request SendRequest, pers
 	}
 	fresh = target.State != model.StateApproval
 	if persist {
-		if err := s.saveReservation(message); err != nil {
+		if err := approvals(s).saveReservation(message); err != nil {
 			return message, target, fresh, err
 		}
 		s.logReservation(message)
@@ -196,7 +196,7 @@ func validateReservationTarget(s Store, target model.Session, actor, replyTo str
 
 func prepareReservation(s Store, message *model.Message, target model.Session) error {
 	if target.State == model.StateApproval {
-		if err := s.approvalCapacity(message.To); err != nil {
+		if err := approvals(s).approvalCapacity(message.To); err != nil {
 			return err
 		}
 	}

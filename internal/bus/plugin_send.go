@@ -113,7 +113,7 @@ func reservePluginMessage(s Store, request PluginSendRequest, revision string) (
 	if err := prepareReservation(s, &message, target); err != nil {
 		return message, target, false, err
 	}
-	if err := s.saveReservation(message); err != nil {
+	if err := approvals(s).saveReservation(message); err != nil {
 		return message, target, false, err
 	}
 	s.logReservation(message)
