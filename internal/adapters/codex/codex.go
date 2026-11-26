@@ -57,8 +57,14 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 // ExtendedHookEvent permits bounded streaming of native tool input/output.
 func (Adapter) ExtendedHookEvent() string { return "PostToolUse" }
 
+// The sentences core shows for a Codex message whose delivery is unconfirmed.
+const (
+	uncertainReceiverText     = "Message %s may already be in your Codex thread. If you can see it, ACK it; otherwise tell the sender delivery is still unconfirmed. Sending another copy may duplicate it."
+	uncertainAcknowledgedText = "The receiver ACKed message %s, but Codex did not confirm the earlier delivery attempt."
+)
+
 func (Adapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Lifecycle: agent.Lifecycle{KeepOnSessionEnd: true}, Notes: []string{
+	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Lifecycle: agent.Lifecycle{KeepOnSessionEnd: true}, UncertainReceiver: uncertainReceiverText, UncertainAcknowledged: uncertainAcknowledgedText, Notes: []string{
 		"A Codex backend can outlive its terminal.",
 		"Ended Codex threads stay listed until zalki prune --session codex:UUID.",
 		"Codex 0.164.0 or newer can receive tool output on a loaded thread without resuming or steering it. Between-tool delivery is advertised only after this process has verified that app-server. Otherwise delivery requires the owner to enable codex.allow_queue_fallback; queue passes message text in process arguments. An unconfirmed or ambiguous write is not retried.",
