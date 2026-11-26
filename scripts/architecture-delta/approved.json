@@ -3244,5 +3244,69 @@
       }
     },
     "reason": "The native profile folder selection of the clients moves into internal/clientconfig as ConfigDir and AbsoluteConfigDir. The Claude adapter uses it. No stored data, wire format or client setting changes."
+  },
+  {
+    "base_commit": "5e02f77f43fd56e4709c083edf857ac65c1f1251",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "internal/config -> internal/fsutil"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "internal/config uses the shared directory sync of internal/fsutil instead of its own copy. The only change is the new import edge from config to fsutil. No export, shape, receiver or OS call changes."
+  },
+  {
+    "base_commit": "5e02f77f43fd56e4709c083edf857ac65c1f1251",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "internal/config -> internal/fsutil"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "internal/config uses the shared directory sync of internal/fsutil instead of its own copy. The only change is the new import edge from config to fsutil. No export, shape, receiver or OS call changes."
   }
 ]

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -38,6 +39,37 @@ func TestConfigEditSyncAfterRenameFailure(t *testing.T) {
 	entries, _ := os.ReadDir(filepath.Dir(path))
 	if err == nil || !strings.Contains(err.Error(), "was replaced, but its directory could not be synced") || !strings.Contains(string(raw), "debug") || len(entries) != 1 {
 		t.Fatal("post-commit error untruthful", err, string(raw), entries)
+	}
+}
+
+// The directory sync gets the directory of the config file, not the file.
+func TestConfigEditSyncsTheConfigDirectory(t *testing.T) {
+	input := fixtureInput(t, nil)
+	path := fixtureFile(t, input, "{}\n")
+	original := syncConfigDir
+	t.Cleanup(func() { syncConfigDir = original })
+	var synced []string
+	syncConfigDir = func(dir string) error {
+		synced = append(synced, dir)
+		return original(dir)
+	}
+	value := "debug"
+	if _, err := Update(input, "logging.level", &value); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{filepath.Dir(path)}; !slices.Equal(synced, want) {
+		t.Fatalf("synced %q, want %q", synced, want)
+	}
+}
+
+// The default directory sync is a real sync: a missing directory is an error.
+// Without this, a seam replaced by a no-op would pass every other test.
+func TestConfigDirSyncSeamReallySyncs(t *testing.T) {
+	if err := syncConfigDir(t.TempDir()); err != nil {
+		t.Fatalf("sync of an existing directory: %v", err)
+	}
+	if err := syncConfigDir(filepath.Join(t.TempDir(), "missing")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("sync of a missing directory = %v, want os.ErrNotExist", err)
 	}
 }
 
