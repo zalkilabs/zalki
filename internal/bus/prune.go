@@ -213,12 +213,12 @@ func (r *pruneRun) deleteRetired(v model.Session) error {
 	if err != nil {
 		return err
 	}
-	lockRemoved, err := s.removeFreeListenerLock(v.Kind, v.ID, !dryRun)
+	lockRemoved, err := listeners(s).removeFreeListenerLock(v.Kind, v.ID, !dryRun)
 	if err != nil {
 		return err
 	}
 	if lockRemoved {
-		report.DeletedLocks = append(report.DeletedLocks, filepath.Base(s.listenerLockPath(v.Kind, v.ID)))
+		report.DeletedLocks = append(report.DeletedLocks, filepath.Base(listeners(s).listenerLockPath(v.Kind, v.ID)))
 	}
 	if dryRun {
 		return nil
@@ -252,7 +252,7 @@ func (r *pruneRun) deleteOrphanListenerLocks() error {
 			return err
 		}
 		kind, native, _ := strings.Cut(id, ":")
-		removed, err := s.removeFreeListenerLock(kind, kind+":"+native, !dryRun)
+		removed, err := listeners(s).removeFreeListenerLock(kind, kind+":"+native, !dryRun)
 		if err != nil {
 			return err
 		}
