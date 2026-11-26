@@ -169,8 +169,7 @@ func claudeNames(root string) map[string]string {
 	return names
 }
 
-// Claude metadata has the same 128 KiB bound as the former journal reader, but
-// is client data rather than a journal record. Reject symlinks and trailing JSON.
+// Claude metadata is client data with a 128 KiB bound. Reject symlinks and trailing JSON.
 func readClaudeMetadata(path string, target any) error {
 	const limit = 128 * 1024
 	info, err := os.Lstat(path)

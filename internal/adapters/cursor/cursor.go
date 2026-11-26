@@ -321,8 +321,7 @@ func claimRecovery(v model.SessionView) (agent.RecoveryDecision, error) {
 	return agent.RecoveryDecision{Recover: true, AdapterState: encodeCursorState(state)}, nil
 }
 
-// Cursor metadata has the same 128 KiB bound as the former journal reader, but
-// is client data rather than a journal record. Reject symlinks and trailing JSON.
+// Cursor metadata is client data with a 128 KiB bound. Reject symlinks and trailing JSON.
 func readCursorMetadata(path string, target any) error {
 	const limit = 128 * 1024
 	info, err := os.Lstat(path)
