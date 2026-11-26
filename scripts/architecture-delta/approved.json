@@ -2880,5 +2880,433 @@
       }
     },
     "reason": "The record reads, record encoding, strict decoder and schema check move from internal/journal and internal/bus to the new internal/statefile package with the same names and signatures. Callers import statefile instead of journal or bus for these. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "52b75e0507b925af6dc13280cfc291056d9f8c2f",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/wal.Batch",
+          "internal/wal.BatchLog",
+          "internal/wal.BatchLog.Commit",
+          "internal/wal.BatchLog.Recover",
+          "internal/wal.Delete",
+          "internal/wal.ErrBatchConflict",
+          "internal/wal.NewDelete",
+          "internal/wal.NewPut",
+          "internal/wal.OrderDirectory",
+          "internal/wal.Put"
+        ],
+        "removed": [
+          "internal/journal.Batch",
+          "internal/journal.BatchLog",
+          "internal/journal.BatchLog.Commit",
+          "internal/journal.BatchLog.Recover",
+          "internal/journal.Delete",
+          "internal/journal.ErrBatchConflict",
+          "internal/journal.NewDelete",
+          "internal/journal.NewPut",
+          "internal/journal.OrderDirectory",
+          "internal/journal.Put"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/wal.BatchLog.Commit": "func(BatchLog) func(batch Batch) error",
+          "function:internal/wal.BatchLog.Recover": "func(BatchLog) func(check func(Batch) error) error",
+          "function:internal/wal.NewDelete": "func(path string, previous []byte) Delete",
+          "function:internal/wal.NewPut": "func(path string, previous, next []byte) Put",
+          "function:internal/wal.OrderDirectory": "func(path string) error",
+          "type:internal/wal.Batch": "Batch struct {\n\tID\tstring\t\t`json:\"id\"`\n\tPuts\t[]Put\t\t`json:\"puts\"`\n\tDeletes\t[]Delete\t`json:\"deletes,omitempty\"`\n}",
+          "type:internal/wal.BatchLog": "BatchLog struct {\n\tRoot\tstring\n\tIntent\tstring\n\tio\t*batchIO\n}",
+          "type:internal/wal.Delete": "Delete struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256\"`\n}",
+          "type:internal/wal.Put": "Put struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256,omitempty\"`\n\tData\t\t[]byte\t`json:\"data\"`\n\tSHA256\t\tstring\t`json:\"sha256\"`\n}",
+          "var:internal/wal.ErrBatchConflict": "ErrBatchConflict = errors.New(\"journal batch conflict\")"
+        },
+        "removed": {
+          "function:internal/journal.BatchLog.Commit": "func(BatchLog) func(batch Batch) error",
+          "function:internal/journal.BatchLog.Recover": "func(BatchLog) func(check func(Batch) error) error",
+          "function:internal/journal.NewDelete": "func(path string, previous []byte) Delete",
+          "function:internal/journal.NewPut": "func(path string, previous, next []byte) Put",
+          "function:internal/journal.OrderDirectory": "func(path string) error",
+          "type:internal/journal.Batch": "Batch struct {\n\tID\tstring\t\t`json:\"id\"`\n\tPuts\t[]Put\t\t`json:\"puts\"`\n\tDeletes\t[]Delete\t`json:\"deletes,omitempty\"`\n}",
+          "type:internal/journal.BatchLog": "BatchLog struct {\n\tRoot\tstring\n\tIntent\tstring\n\tio\t*batchIO\n}",
+          "type:internal/journal.Delete": "Delete struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256\"`\n}",
+          "type:internal/journal.Put": "Put struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256,omitempty\"`\n\tData\t\t[]byte\t`json:\"data\"`\n\tSHA256\t\tstring\t`json:\"sha256\"`\n}",
+          "var:internal/journal.ErrBatchConflict": "ErrBatchConflict = errors.New(\"journal batch conflict\")"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/wal.Batch": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "internal/wal.BatchLog": {
+            "Methods": 10,
+            "Files": 1
+          }
+        },
+        "removed": {
+          "internal/journal.Batch": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "internal/journal.BatchLog": {
+            "Methods": 10,
+            "Files": 1
+          }
+        },
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "internal/bus -> internal/wal",
+          "internal/wal -> internal/fsutil",
+          "internal/wal -> internal/statefile"
+        ],
+        "removed": [
+          "internal/bus -> internal/journal",
+          "internal/journal -> internal/fsutil",
+          "internal/journal -> internal/statefile"
+        ]
+      },
+      "os_calls": {
+        "added": {
+          "internal/wal/order_darwin.go": [
+            "golang.org/x/sys/unix"
+          ]
+        },
+        "removed": {
+          "internal/journal/order_darwin.go": [
+            "golang.org/x/sys/unix"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    "reason": "The package internal/journal is renamed to internal/wal. The exports, methods, shapes and the unix import move to the new package name. bus now imports wal instead of journal. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "52b75e0507b925af6dc13280cfc291056d9f8c2f",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/wal.Batch",
+          "internal/wal.BatchLog",
+          "internal/wal.BatchLog.Commit",
+          "internal/wal.BatchLog.Recover",
+          "internal/wal.Delete",
+          "internal/wal.ErrBatchConflict",
+          "internal/wal.NewDelete",
+          "internal/wal.NewPut",
+          "internal/wal.OrderDirectory",
+          "internal/wal.Put"
+        ],
+        "removed": [
+          "internal/journal.Batch",
+          "internal/journal.BatchLog",
+          "internal/journal.BatchLog.Commit",
+          "internal/journal.BatchLog.Recover",
+          "internal/journal.Delete",
+          "internal/journal.ErrBatchConflict",
+          "internal/journal.NewDelete",
+          "internal/journal.NewPut",
+          "internal/journal.OrderDirectory",
+          "internal/journal.Put"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/wal.BatchLog.Commit": "func(BatchLog) func(batch Batch) error",
+          "function:internal/wal.BatchLog.Recover": "func(BatchLog) func(check func(Batch) error) error",
+          "function:internal/wal.NewDelete": "func(path string, previous []byte) Delete",
+          "function:internal/wal.NewPut": "func(path string, previous, next []byte) Put",
+          "function:internal/wal.OrderDirectory": "func(path string) error",
+          "type:internal/wal.Batch": "Batch struct {\n\tID\tstring\t\t`json:\"id\"`\n\tPuts\t[]Put\t\t`json:\"puts\"`\n\tDeletes\t[]Delete\t`json:\"deletes,omitempty\"`\n}",
+          "type:internal/wal.BatchLog": "BatchLog struct {\n\tRoot\tstring\n\tIntent\tstring\n\tio\t*batchIO\n}",
+          "type:internal/wal.Delete": "Delete struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256\"`\n}",
+          "type:internal/wal.Put": "Put struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256,omitempty\"`\n\tData\t\t[]byte\t`json:\"data\"`\n\tSHA256\t\tstring\t`json:\"sha256\"`\n}",
+          "var:internal/wal.ErrBatchConflict": "ErrBatchConflict = errors.New(\"journal batch conflict\")"
+        },
+        "removed": {
+          "function:internal/journal.BatchLog.Commit": "func(BatchLog) func(batch Batch) error",
+          "function:internal/journal.BatchLog.Recover": "func(BatchLog) func(check func(Batch) error) error",
+          "function:internal/journal.NewDelete": "func(path string, previous []byte) Delete",
+          "function:internal/journal.NewPut": "func(path string, previous, next []byte) Put",
+          "function:internal/journal.OrderDirectory": "func(path string) error",
+          "type:internal/journal.Batch": "Batch struct {\n\tID\tstring\t\t`json:\"id\"`\n\tPuts\t[]Put\t\t`json:\"puts\"`\n\tDeletes\t[]Delete\t`json:\"deletes,omitempty\"`\n}",
+          "type:internal/journal.BatchLog": "BatchLog struct {\n\tRoot\tstring\n\tIntent\tstring\n\tio\t*batchIO\n}",
+          "type:internal/journal.Delete": "Delete struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256\"`\n}",
+          "type:internal/journal.Put": "Put struct {\n\tPath\t\tstring\t`json:\"path\"`\n\tPreviousSHA256\tstring\t`json:\"previous_sha256,omitempty\"`\n\tData\t\t[]byte\t`json:\"data\"`\n\tSHA256\t\tstring\t`json:\"sha256\"`\n}",
+          "var:internal/journal.ErrBatchConflict": "ErrBatchConflict = errors.New(\"journal batch conflict\")"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/wal.Batch": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "internal/wal.BatchLog": {
+            "Methods": 10,
+            "Files": 1
+          }
+        },
+        "removed": {
+          "internal/journal.Batch": {
+            "Methods": 3,
+            "Files": 1
+          },
+          "internal/journal.BatchLog": {
+            "Methods": 10,
+            "Files": 1
+          }
+        },
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "internal/bus -> internal/wal",
+          "internal/wal -> internal/fsutil",
+          "internal/wal -> internal/statefile"
+        ],
+        "removed": [
+          "internal/bus -> internal/journal",
+          "internal/journal -> internal/fsutil",
+          "internal/journal -> internal/statefile"
+        ]
+      },
+      "os_calls": {
+        "added": {
+          "internal/wal/order_darwin.go": [
+            "golang.org/x/sys/unix"
+          ]
+        },
+        "removed": {
+          "internal/journal/order_darwin.go": [
+            "golang.org/x/sys/unix"
+          ]
+        },
+        "changed": {}
+      }
+    },
+    "reason": "The package internal/journal is renamed to internal/wal. The exports, methods, shapes and the unix import move to the new package name. bus now imports wal instead of journal. No stored data or wire format changes."
+  },
+  {
+    "base_commit": "65766428cc1be8c19bd08ff19090ffd0d3c2ee2d",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/bus.CurrentRuntimeInfo",
+          "internal/bus.SessionIssue",
+          "internal/mcpserver.New"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/bus.CurrentRuntimeInfo": "func() RuntimeInfo",
+          "function:internal/mcpserver.New": "func(service Bus) *mcp.Server",
+          "type:internal/bus.SessionIssue": "SessionIssue struct {\n\tID\tstring\n\tReason\tstring\n}"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Three names that only their own package uses become private: bus.CurrentRuntimeInfo, bus.SessionIssue and mcpserver.New. No stored data, wire format or tool contract changes."
+  },
+  {
+    "base_commit": "65766428cc1be8c19bd08ff19090ffd0d3c2ee2d",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": [
+          "internal/bus.CurrentRuntimeInfo",
+          "internal/bus.SessionIssue",
+          "internal/mcpserver.New"
+        ]
+      },
+      "shapes": {
+        "added": {},
+        "removed": {
+          "function:internal/bus.CurrentRuntimeInfo": "func() RuntimeInfo",
+          "function:internal/mcpserver.New": "func(service Bus) *mcp.Server",
+          "type:internal/bus.SessionIssue": "SessionIssue struct {\n\tID\tstring\n\tReason\tstring\n}"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Three names that only their own package uses become private: bus.CurrentRuntimeInfo, bus.SessionIssue and mcpserver.New. No stored data, wire format or tool contract changes."
+  },
+  {
+    "base_commit": "f5036828f71e24cae38cc7e822f872f178d1319e",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/clientconfig.AbsoluteConfigDir",
+          "internal/clientconfig.ConfigDir"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/clientconfig.AbsoluteConfigDir": "func(root string) string",
+          "function:internal/clientconfig.ConfigDir": "func(variable, fallback string) string"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The native profile folder selection of the clients moves into internal/clientconfig as ConfigDir and AbsoluteConfigDir. The Claude adapter uses it. No stored data, wire format or client setting changes."
+  },
+  {
+    "base_commit": "f5036828f71e24cae38cc7e822f872f178d1319e",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/clientconfig.AbsoluteConfigDir",
+          "internal/clientconfig.ConfigDir"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/clientconfig.AbsoluteConfigDir": "func(root string) string",
+          "function:internal/clientconfig.ConfigDir": "func(variable, fallback string) string"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The native profile folder selection of the clients moves into internal/clientconfig as ConfigDir and AbsoluteConfigDir. The Claude adapter uses it. No stored data, wire format or client setting changes."
+  },
+  {
+    "base_commit": "5e02f77f43fd56e4709c083edf857ac65c1f1251",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "internal/config -> internal/fsutil"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "internal/config uses the shared directory sync of internal/fsutil instead of its own copy. The only change is the new import edge from config to fsutil. No export, shape, receiver or OS call changes."
+  },
+  {
+    "base_commit": "5e02f77f43fd56e4709c083edf857ac65c1f1251",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [
+          "internal/config -> internal/fsutil"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "internal/config uses the shared directory sync of internal/fsutil instead of its own copy. The only change is the new import edge from config to fsutil. No export, shape, receiver or OS call changes."
   }
 ]

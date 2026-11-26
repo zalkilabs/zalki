@@ -1,4 +1,4 @@
-// Package journal holds the durable batch intents beneath zalki's on-disk
+// Package wal holds the durable batch intents beneath zalki's on-disk
 // record store: a redo batch of puts and deletes that is written first and
 // applied in a fixed order. Bounded record reads, record encoding and the
 // shared error values are in internal/statefile. Atomic replacement and
@@ -14,4 +14,4 @@
 //
 // Callers own the transaction. This package does not decide when to lock, in
 // which order, or what to recover. File locks are in internal/platform.
-package journal
+package wal

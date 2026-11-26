@@ -70,11 +70,11 @@ func (Adapter) ConfigDir() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); filepath.IsAbs(xdg) {
 		root = filepath.Join(xdg, "cursor")
 	}
-	return configDir("CURSOR_CONFIG_DIR", root)
+	return clientconfig.ConfigDir("CURSOR_CONFIG_DIR", root)
 }
 
 func (Adapter) LookupName(v model.Session, _ map[string]map[string]string) (string, string) {
-	root := absoluteConfigDir(v.NativeConfigDir)
+	root := clientconfig.AbsoluteConfigDir(v.NativeConfigDir)
 	if root == "" {
 		return "", ""
 	}
@@ -321,8 +321,7 @@ func claimRecovery(v model.SessionView) (agent.RecoveryDecision, error) {
 	return agent.RecoveryDecision{Recover: true, AdapterState: encodeCursorState(state)}, nil
 }
 
-// Cursor metadata has the same 128 KiB bound as the former journal reader, but
-// is client data rather than a journal record. Reject symlinks and trailing JSON.
+// Cursor metadata is client data with a 128 KiB bound. Reject symlinks and trailing JSON.
 func readCursorMetadata(path string, target any) error {
 	const limit = 128 * 1024
 	info, err := os.Lstat(path)
@@ -352,19 +351,4 @@ func readCursorMetadata(path string, target any) error {
 func validCursorName(name string) bool {
 	return name != "" && strings.TrimSpace(name) == name && len(name) <= 512 && utf8.ValidString(name) &&
 		!strings.ContainsFunc(name, unicode.IsControl)
-}
-
-func configDir(variable, fallback string) string {
-	root := fallback
-	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
-		root = value
-	}
-	return absoluteConfigDir(root)
-}
-
-func absoluteConfigDir(root string) string {
-	if !filepath.IsAbs(root) || !utf8.ValidString(root) || strings.ContainsFunc(root, unicode.IsControl) {
-		return ""
-	}
-	return filepath.Clean(root)
 }

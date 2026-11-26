@@ -42,7 +42,7 @@ func sessionIssueLabel(reason string) string {
 }
 
 // Only canonical filename-derived IDs and fixed labels reach terminal copy.
-func diagnoseSessionIssues(report *DiagnosticReport, issues []SessionIssue) {
+func diagnoseSessionIssues(report *DiagnosticReport, issues []sessionIssue) {
 	if len(issues) == 0 {
 		return
 	}

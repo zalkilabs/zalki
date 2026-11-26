@@ -34,7 +34,7 @@ type AgentDiagnostic struct {
 }
 
 func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
-	report := DiagnosticReport{Runtime: CurrentRuntimeInfo(), Runtimes: []RuntimeInfo{},
+	report := DiagnosticReport{Runtime: currentRuntimeInfo(), Runtimes: []RuntimeInfo{},
 		UntrackedProcesses: []model.ProcessRef{}, Sessions: []model.SessionDiagnostic{}, Notes: []string{
 			"Process liveness does not establish an attached terminal.",
 			"Untracked processes have an unknown loaded build; they may predate runtime tracking.",
@@ -44,7 +44,7 @@ func (s Store) Diagnostics(ctx context.Context) (DiagnosticReport, error) {
 	var runtimes []RuntimeInfo
 	err := s.readLocked(func() error {
 		var err error
-		var issues []SessionIssue
+		var issues []sessionIssue
 		sessions, issues, err = s.scanSessions()
 		report.SessionScanComplete = err == nil && len(issues) == 0
 		diagnoseSessionIssues(&report, issues)

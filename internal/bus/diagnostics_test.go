@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/zalkilabs/zalki/internal/buildinfo"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
@@ -35,6 +37,95 @@ func TestDiagnosticSessionScanCompleteness(t *testing.T) {
 	raw, err := json.Marshal(report)
 	if err != nil || bytes.Contains(raw, []byte("SessionScanComplete")) || bytes.Contains(raw, []byte("session_scan_complete")) {
 		t.Fatal("D12_COMPLETENESS_FIELD_PRIVATE", err)
+	}
+}
+
+// The doctor report names this process: the runtime block is built from
+// the executable captured at start, not from an empty value.
+func TestCurrentRuntimeInfoDescribesThisProcess(t *testing.T) {
+	path, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := func(t *testing.T, info RuntimeInfo) {
+		t.Helper()
+		if info.Role != "cli" || info.Version != buildinfo.Version || info.PID != os.Getpid() || info.Binary != path || info.StartedAt == "" {
+			t.Fatalf("runtime identity is wrong: %+v", info)
+		}
+		if info.LoadedBuild == "" || info.DiskBuild != info.LoadedBuild || info.NeedsRestart || info.BuildError != "" {
+			t.Fatalf("runtime build state is wrong: %+v", info)
+		}
+	}
+	t.Run("current runtime info", func(t *testing.T) { check(t, currentRuntimeInfo()) })
+	t.Run("service without a tracked runtime", func(t *testing.T) { check(t, (&Service{Store: fixtureStore(t)}).RuntimeInfo()) })
+	t.Run("doctor report", func(t *testing.T) {
+		t.Setenv("PATH", t.TempDir())
+		report, err := fixtureStore(t).Diagnostics(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, report.Runtime)
+	})
+}
+
+func scanSessionIssues(t *testing.T, store Store) []sessionIssue {
+	t.Helper()
+	var issues []sessionIssue
+	err := store.readLocked(func() error {
+		var err error
+		_, issues, err = store.scanSessions()
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return issues
+}
+
+// A session file whose name is not a canonical session name is skipped and
+// reported. Without the issue the doctor would call the scan complete.
+func TestSessionScanReportsAFileWithANoncanonicalName(t *testing.T) {
+	store := fixtureStore(t)
+	t.Setenv("PATH", t.TempDir())
+	const name = "cursor_not-a-uuid.json"
+	if err := os.MkdirAll(filepath.Join(store.dir, "sessions"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(store.dir, "sessions", name), []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := scanSessionIssues(t, store), []sessionIssue{{name, "session_identity_mismatch"}}; !slices.Equal(got, want) {
+		t.Fatalf("issues = %v, want %v", got, want)
+	}
+	report, err := store.Diagnostics(t.Context())
+	if err != nil || report.SessionScanComplete {
+		t.Fatal("A_SKIPPED_NAME_MUST_MAKE_THE_SCAN_INCOMPLETE", err, report.SessionScanComplete)
+	}
+	for _, note := range []string{
+		"Skipped 1 unreadable or unsupported session records.",
+		"Skipped 1 session records with noncanonical filenames.",
+	} {
+		if !slices.Contains(report.Notes, note) {
+			t.Fatalf("missing note %q in %q", note, report.Notes)
+		}
+	}
+}
+
+// A session file with a canonical name whose record belongs to another session
+// is skipped and reported with the same reason.
+func TestSessionScanReportsARecordThatNamesAnotherSession(t *testing.T) {
+	store := fixtureStore(t)
+	session, _ := register(t, store, "cursor")
+	raw, err := os.ReadFile(mustSessionPath(t, store, session.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := "cursor:" + newID()
+	if err := os.WriteFile(mustSessionPath(t, store, other), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := scanSessionIssues(t, store), []sessionIssue{{other, "session_identity_mismatch"}}; !slices.Equal(got, want) {
+		t.Fatalf("issues = %v, want %v", got, want)
 	}
 }
 

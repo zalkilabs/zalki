@@ -14,10 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/clientconfig"
@@ -108,11 +105,11 @@ func (a Adapter) Deliver(ctx context.Context, msg model.Message, target model.Se
 
 func (Adapter) ConfigDir() string {
 	home, _ := os.UserHomeDir()
-	return configDir("CODEX_HOME", filepath.Join(home, ".codex"))
+	return clientconfig.ConfigDir("CODEX_HOME", filepath.Join(home, ".codex"))
 }
 
 func (Adapter) LookupName(v model.Session, indexes map[string]map[string]string) (string, string) {
-	root := absoluteConfigDir(v.NativeConfigDir)
+	root := clientconfig.AbsoluteConfigDir(v.NativeConfigDir)
 	if root == "" {
 		return "", ""
 	}
@@ -232,21 +229,6 @@ func codexNames(root string) map[string]string {
 		return nil
 	}
 	return names
-}
-
-func configDir(variable, fallback string) string {
-	root := fallback
-	if value := os.Getenv(variable); strings.TrimSpace(value) != "" {
-		root = value
-	}
-	return absoluteConfigDir(root)
-}
-
-func absoluteConfigDir(root string) string {
-	if !filepath.IsAbs(root) || !utf8.ValidString(root) || strings.ContainsFunc(root, unicode.IsControl) {
-		return ""
-	}
-	return filepath.Clean(root)
 }
 
 func failedReceipt(status model.DeliveryStatus, err error) model.Receipt {

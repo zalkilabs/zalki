@@ -41,7 +41,7 @@ func testClient(t *testing.T, service *bus.Service) (*mcp.ClientSession, context
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
 	ct, st := mcp.NewInMemoryTransports()
-	server, err := New(service).Connect(ctx, st, nil)
+	server, err := newServer(service).Connect(ctx, st, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

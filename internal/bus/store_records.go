@@ -69,25 +69,25 @@ func derivedID(namespace string, parts ...string) string {
 	return model.DeriveUUID(namespace, parts...)
 }
 
-// SessionIssue describes one skipped file. ID comes from its filename, never
+// sessionIssue describes one skipped file. ID comes from its filename, never
 // from an unvalidated record, and is only diagnostic metadata.
-type SessionIssue struct {
+type sessionIssue struct {
 	ID     string
 	Reason string
 }
 
 // scanSessions is shared by list, prune, diagnostics and exit observation.
 // Caller holds the journal lock; directory scan errors remain fatal.
-func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
+func (s Store) scanSessions() ([]model.Session, []sessionIssue, error) {
 	files, err := filepath.Glob(filepath.Join(s.dir, "sessions", "*.json"))
 	if err != nil {
 		return nil, nil, err
 	}
-	items, issues := []model.Session{}, []SessionIssue{}
+	items, issues := []model.Session{}, []sessionIssue{}
 	for _, path := range files {
 		id, validName := watchNameID(strings.TrimSuffix(filepath.Base(path), ".json"))
 		if !validName {
-			issues = append(issues, SessionIssue{filepath.Base(path), "session_identity_mismatch"})
+			issues = append(issues, sessionIssue{filepath.Base(path), "session_identity_mismatch"})
 			continue
 		}
 		v, readErr := s.readSession(path)
@@ -103,7 +103,7 @@ func (s Store) scanSessions() ([]model.Session, []SessionIssue, error) {
 			if _, err := s.registry.Lookup(kind); err != nil {
 				reason = "session_adapter_missing"
 			}
-			issues = append(issues, SessionIssue{id, reason})
+			issues = append(issues, sessionIssue{id, reason})
 			continue
 		}
 		items = append(items, v)

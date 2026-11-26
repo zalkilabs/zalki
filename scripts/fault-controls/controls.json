@@ -67,8 +67,8 @@
     "mutation": {
       "path": "internal/adapters/codex/codex.go",
       "symbol": "LookupName",
-      "old": "root := absoluteConfigDir(v.NativeConfigDir)\n\tif root == \"\" {\n\t\treturn \"\", \"\"\n\t}",
-      "new": "root := absoluteConfigDir(v.NativeConfigDir)\n\tif root == \"\" {\n\t\troot = (Adapter{}).ConfigDir()\n\t}",
+      "old": "root := clientconfig.AbsoluteConfigDir(v.NativeConfigDir)\n\tif root == \"\" {\n\t\treturn \"\", \"\"\n\t}",
+      "new": "root := clientconfig.AbsoluteConfigDir(v.NativeConfigDir)\n\tif root == \"\" {\n\t\troot = (Adapter{}).ConfigDir()\n\t}",
       "required_occurrences": 1
     },
     "selection": {
@@ -95,8 +95,8 @@
     "mutation": {
       "path": "internal/adapters/codex/codex_app_server.go",
       "symbol": "codexConfigRoot",
-      "old": "return absoluteConfigDir(target.NativeConfigDir)",
-      "new": "if root := absoluteConfigDir(target.NativeConfigDir); root != \"\" { return root }; return (Adapter{}).ConfigDir()",
+      "old": "return clientconfig.AbsoluteConfigDir(target.NativeConfigDir)",
+      "new": "if root := clientconfig.AbsoluteConfigDir(target.NativeConfigDir); root != \"\" { return root }; return (Adapter{}).ConfigDir()",
       "required_occurrences": 1
     },
     "selection": {
@@ -357,8 +357,8 @@
     "id": "B-L2-CODEX",
     "kind": "production",
     "mutation": {
-      "path": "internal/adapters/codex/codex.go",
-      "symbol": "absoluteConfigDir",
+      "path": "internal/clientconfig/profile.go",
+      "symbol": "AbsoluteConfigDir",
       "old": "strings.ContainsFunc(root, unicode.IsControl)",
       "new": "strings.ContainsFunc(root, func(r rune) bool { return !unicode.IsGraphic(r) })",
       "required_occurrences": 1
@@ -396,8 +396,8 @@
     "id": "B-L2-CLAUDE",
     "kind": "production",
     "mutation": {
-      "path": "internal/adapters/claude/claude.go",
-      "symbol": "absoluteConfigDir",
+      "path": "internal/clientconfig/profile.go",
+      "symbol": "AbsoluteConfigDir",
       "old": "strings.ContainsFunc(root, unicode.IsControl)",
       "new": "strings.ContainsFunc(root, func(r rune) bool { return !unicode.IsGraphic(r) })",
       "required_occurrences": 1
@@ -435,8 +435,8 @@
     "id": "B-L2-CURSOR",
     "kind": "production",
     "mutation": {
-      "path": "internal/adapters/cursor/cursor.go",
-      "symbol": "absoluteConfigDir",
+      "path": "internal/clientconfig/profile.go",
+      "symbol": "AbsoluteConfigDir",
       "old": "strings.ContainsFunc(root, unicode.IsControl)",
       "new": "strings.ContainsFunc(root, func(r rune) bool { return !unicode.IsGraphic(r) })",
       "required_occurrences": 1

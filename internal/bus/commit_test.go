@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/fsutil"
-	"github.com/zalkilabs/zalki/internal/journal"
 	"github.com/zalkilabs/zalki/internal/model"
 	"github.com/zalkilabs/zalki/internal/statefile"
+	"github.com/zalkilabs/zalki/internal/wal"
 )
 
 type commitFixture struct {
@@ -87,7 +87,7 @@ func TestDormantCommitPublishesMatchingStateAndMetadata(t *testing.T) {
 	}
 }
 
-func preparedCommit(t *testing.T, f commitFixture) journal.Batch {
+func preparedCommit(t *testing.T, f commitFixture) wal.Batch {
 	t.Helper()
 	batch, err := f.writer.prepare(f.previous, f.next, f.event)
 	if err != nil {
@@ -96,7 +96,7 @@ func preparedCommit(t *testing.T, f commitFixture) journal.Batch {
 	return batch
 }
 
-func stageCommit(t *testing.T, f commitFixture, batch journal.Batch) {
+func stageCommit(t *testing.T, f commitFixture, batch wal.Batch) {
 	t.Helper()
 	raw, err := statefile.EncodeJSON(batch, 1<<20)
 	if err != nil {
@@ -186,7 +186,7 @@ func TestDormantRecoveryRejectsPrivateEventFields(t *testing.T) {
 	batch := preparedCommit(t, f)
 	raw := bytes.TrimSpace(batch.Puts[1].Data)
 	raw = append(bytes.Clone(raw[:len(raw)-1]), []byte(",\"body\":\"private\"}\n")...)
-	batch.Puts[1] = journal.NewPut(batch.Puts[1].Path, nil, raw)
+	batch.Puts[1] = wal.NewPut(batch.Puts[1].Path, nil, raw)
 	stageCommit(t, f, batch)
 	if err := f.writer.recover(); err == nil {
 		t.Fatal("private event field accepted")

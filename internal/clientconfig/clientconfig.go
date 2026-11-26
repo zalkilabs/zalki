@@ -1,7 +1,8 @@
 // Package clientconfig builds the native client configuration patches that
 // Zalki declares (hook commands, hook entries and the MCP server entry) and
-// the shell quoting they need. It depends on the standard library only, so
-// client adapters can use it without importing the installer.
+// the shell quoting they need. It also selects the native profile folder of a
+// client. It depends on the standard library only, so client adapters can use
+// it without importing the installer.
 package clientconfig
 
 import "strings"

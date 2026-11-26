@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/zalkilabs/zalki/internal/fsutil"
 )
 
 // Private operation seams let tests distinguish failures before and after the
 // commit point without product flags or changes to the public API.
 var renameConfig = os.Rename
-var syncConfigDir = syncDirectory
+var syncConfigDir = fsutil.SyncDir
 
 func replaceConfig(path string, raw []byte) error {
 	if err := makeConfigDir(filepath.Dir(path)); err != nil {
@@ -51,15 +53,6 @@ func writeConfigTemp(file *os.File, raw []byte) error {
 
 func configReplaceError(path string, err error) error {
 	return fmt.Errorf("config file %q could not be replaced: %w. The previous file was not changed.", path, err) //nolint:revive // error-strings: the exact CLI diagnostic contract includes a final period.
-}
-
-func syncDirectory(path string) error {
-	dir, err := os.Open(path) //nolint:gosec // G304: selected absolute config directory.
-	if err != nil {
-		return err
-	}
-	defer dir.Close() //nolint:errcheck // Sync reports durability errors before descriptor cleanup.
-	return dir.Sync()
 }
 
 // makeConfigDir sets only directories this invocation creates to 0700, before
