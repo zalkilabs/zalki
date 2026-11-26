@@ -91,7 +91,7 @@ func (s Store) DiscoverWithWarnings(actor, key string) ([]AgentInfo, int, error)
 // started to wait, or "" when no readable held message has one. The caller holds
 // the journal lock. It reads, and changes nothing.
 func oldestHold(s Store, target string) string {
-	queued, _, err := s.queuedApprovals(target)
+	queued, _, err := approvals(s).queuedApprovals(target)
 	if err != nil {
 		return ""
 	}

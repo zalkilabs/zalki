@@ -270,7 +270,7 @@ func (r replyFlow) replyReservationMissing(tx replyTransaction) (bool, error) {
 
 // restoreReplyReservation writes the reply record from the stored intent.
 func (r replyFlow) restoreReplyReservation(tx replyTransaction) error {
-	if err := r.store.saveReservation(tx.Reply); err != nil {
+	if err := approvals(r.store).saveReservation(tx.Reply); err != nil {
 		return err
 	}
 	r.store.logReservation(tx.Reply)

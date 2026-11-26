@@ -72,7 +72,7 @@ func TestApprovalPendingIntentErrorKeepsCountUntilRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(dir, 0700) })
-	err = store.locked(func() error { return store.saveReservation(msg) })
+	err = store.locked(func() error { return approvals(store).saveReservation(msg) })
 	if err == nil {
 		t.Fatal("target publication refusal did not fail")
 	}

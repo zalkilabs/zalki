@@ -3400,5 +3400,97 @@
       }
     },
     "reason": "The 13 private reply methods of Store move to a new private type, replyFlow, in the same file. Store keeps every exported method. The new private type adds 13 methods in one file, and Store loses those 13 methods and that file. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "ec23320fe041c6d6beae36ee1fb94d1c13b99132",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.approvalQueue": {
+            "Methods": 16,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 103,
+              "Files": 24
+            },
+            "after": {
+              "Methods": 87,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 16 private approval queue methods of Store move to a new private type, approvalQueue, in the same file. Store keeps every exported method. The new private type adds 16 methods in one file, and Store loses those 16 methods and that file. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "ec23320fe041c6d6beae36ee1fb94d1c13b99132",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.approvalQueue": {
+            "Methods": 16,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 103,
+              "Files": 24
+            },
+            "after": {
+              "Methods": 87,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 16 private approval queue methods of Store move to a new private type, approvalQueue, in the same file. Store keeps every exported method. The new private type adds 16 methods in one file, and Store loses those 16 methods and that file. No export, shape, import or OS call changes."
   }
 ]

@@ -112,7 +112,7 @@ func (r *pruneRun) execute() error {
 	if err := r.sweepSessions(sessions); err != nil {
 		return err
 	}
-	if err := r.store.reconcileApprovalHolds(r.dryRun, &r.report, r.retired); err != nil {
+	if err := approvals(r.store).reconcileApprovalHolds(r.dryRun, &r.report, r.retired); err != nil {
 		return err
 	}
 	if err := r.deleteOrphanListenerLocks(); err != nil {

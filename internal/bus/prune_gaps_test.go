@@ -15,7 +15,7 @@ import (
 )
 
 // These tests close gaps found in pruneRun.sweepSessions (prune.go) and
-// Store.reconcileApprovalHolds (approval.go). They pin today's behavior; odd
+// approvalQueue.reconcileApprovalHolds (approval.go). They pin today's behavior; odd
 // results are characterized, not endorsed.
 //
 // A prune run reports session decisions in this order (report.Sessions):

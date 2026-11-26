@@ -283,7 +283,7 @@ func (s Store) emitPendingLocked(actor string, out *strings.Builder) error {
 	if !current.Receive.HookDelivery {
 		return errors.New("this adapter does not support hook delivery")
 	}
-	resolved, err := s.resolveApprovalQueue(current, true)
+	resolved, err := approvals(s).resolveApprovalQueue(current, true)
 	if err != nil || resolved.unreachable {
 		return err
 	}

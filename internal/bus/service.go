@@ -119,10 +119,10 @@ func (s *Service) revalidateTarget(id string, target model.Session) (current mod
 		if current.State != model.StateApproval {
 			return nil
 		}
-		if err := s.Store.holdForApproval(&stored); err != nil {
+		if err := approvals(s.Store).holdForApproval(&stored); err != nil {
 			return err
 		}
-		if err := s.Store.saveReservation(stored); err != nil {
+		if err := approvals(s.Store).saveReservation(stored); err != nil {
 			return err
 		}
 		held = stored

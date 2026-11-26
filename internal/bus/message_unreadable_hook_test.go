@@ -291,7 +291,7 @@ func TestPruneApprovalSettlementAddsNoSkipDiagnostic(t *testing.T) {
 	output := capture(&store)
 	newUnreadableMessage(t, store, truncatedMessage)
 	if err := store.locked(func() error {
-		return store.settleReadableApprovalQueue(target.ID, "destination has retired")
+		return approvals(store).settleReadableApprovalQueue(target.ID, "destination has retired")
 	}); err != nil {
 		t.Fatal(err)
 	}
