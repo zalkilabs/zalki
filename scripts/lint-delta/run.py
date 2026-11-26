@@ -20,6 +20,7 @@ from compare import compare, read_json, read_report
 
 HERE = Path(__file__).resolve().parent
 GO_PATHS = ['GOCACHE', 'GOMODCACHE', 'GOPATH', 'GOROOT']
+PLATFORM = ['GOOS', 'GOARCH', 'CGO_ENABLED']
 
 
 def digest(path):
@@ -88,6 +89,10 @@ def go_paths(go):
     # native-client variables never enter the tool or analyzed trees.
     env = {k: os.environ[k] for k in ['PATH', 'HOME', *GO_PATHS] if k in os.environ}
     env.update(GOENV='off', GOWORK='off', GOTOOLCHAIN='local')
+    # The caller may choose the platform (for example GOOS=linux on a Mac).
+    # Go must report exactly that, or the run is refused: no silent host default.
+    requested = {k: os.environ[k] for k in PLATFORM if k in os.environ}
+    env.update(requested)
     if os.environ.get('RUNNER_TRACKING_ID'):
         env['RUNNER_TRACKING_ID'] = os.environ['RUNNER_TRACKING_ID']
     names = [*GO_PATHS, 'CGO_ENABLED', 'GOOS', 'GOARCH', 'GOVERSION']
@@ -101,6 +106,9 @@ def go_paths(go):
         paths[key] = os.pathsep.join(str(Path(part).resolve()) for part in parts)
     if paths.get('CGO_ENABLED') not in ['0', '1'] or any(not paths.get(k) for k in ['GOOS', 'GOARCH', 'GOVERSION']):
         raise ValueError('Go platform identity is incomplete')
+    for key, value in requested.items():
+        if paths[key] != value:
+            raise ValueError('requested %s=%r but Go reports %r' % (key, value, paths[key]))
     return paths
 
 
@@ -111,6 +119,7 @@ def environment(paths, home, cache, linter, report):
                   HOME=str(home), CODEX_HOME=str(home/'codex'), CLAUDE_CONFIG_DIR=str(home/'claude'),
                   CURSOR_CONFIG_DIR=str(home/'cursor'), XDG_CONFIG_HOME=str(home/'config'),
                   XDG_CACHE_HOME=str(home/'cache'), LANG='C', LC_ALL='C',
+                  GOOS=paths['GOOS'], GOARCH=paths['GOARCH'],
                   GOENV='off', GOWORK='off', GOTOOLCHAIN='local', GOTELEMETRY='off',
                   GOFLAGS='-mod=readonly -p=2', GOMAXPROCS='2', CGO_ENABLED=paths['CGO_ENABLED'],
                   GOPROXY='off', GOSUMDB='off', GOPRIVATE='', GONOPROXY='none',
