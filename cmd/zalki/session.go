@@ -186,5 +186,5 @@ func runSend(cmd *cobra.Command, port sessionPort, args sendArgs, key string) er
 	if err != nil {
 		return err
 	}
-	return encodeOutput(cmd, sendOutput(message))
+	return encodeOutput(cmd, sendOutput(message, port.Registry()))
 }
