@@ -36,7 +36,7 @@ func (h hookRuntime) EmitPending(id string) (string, error) {
 		if _, err := sessionUnderFence(h.store, id, fenceOf(h)); err != nil {
 			return err
 		}
-		return h.store.emitPendingLocked(id, &context)
+		return inboxReads(h.store).emitPendingLocked(id, &context)
 	})
 	return context.String(), err
 }

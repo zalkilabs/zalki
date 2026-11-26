@@ -11,6 +11,14 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
+// inboxReader is the inbox work of a Store: reading a session's messages and
+// building the context a hook emits. It is a separate type so this work adds no
+// methods to Store.
+type inboxReader struct{ store Store }
+
+// inboxReads returns the inbox work for s.
+func inboxReads(s Store) inboxReader { return inboxReader{s} }
+
 // Messages returns full history for local diagnostics and integrations.
 func (s Store) Messages(actor, key string) ([]model.Message, error) {
 	return s.QueryMessages(MessageQuery{Actor: actor, Capability: key, History: true, Limit: 100, IncludeBody: true})
@@ -65,18 +73,18 @@ func (s Store) ReadMessages(query MessageQuery) (MessageBatch, error) {
 			return err
 		}
 		read := messageRead{query: query, current: current, history: query.History || query.Sent}
-		if read.recipient, err = s.canonicalRecipient(query.To); err != nil {
+		if read.recipient, err = inboxReads(s).canonicalRecipient(query.To); err != nil {
 			return err
 		}
 		if query.MessageID != "" {
-			message, err := s.readExactMessage(read)
+			message, err := inboxReads(s).readExactMessage(read)
 			if err == nil {
 				batch.Messages = []model.Message{message}
 			}
 			return err
 		}
 		var skipped skippedMessages
-		batch.Messages, batch.More, err = s.scanMessages(read, limit, &skipped)
+		batch.Messages, batch.More, err = inboxReads(s).scanMessages(read, limit, &skipped)
 		skipped.report(s, query.Actor)
 		batch.Unreadable = skipped.count
 		return err
@@ -103,23 +111,23 @@ func (r messageRead) view(message model.Message, omitBody bool) model.Message {
 
 // canonicalRecipient maps a name or ID to a session ID. Canonical IDs work even
 // after the recipient's session was deleted.
-func (s Store) canonicalRecipient(to string) (string, error) {
+func (q inboxReader) canonicalRecipient(to string) (string, error) {
 	if to == "" {
 		return "", nil
 	}
-	if _, err := s.sessionPath(to); err == nil {
+	if _, err := q.store.sessionPath(to); err == nil {
 		return to, nil
 	}
-	target, err := s.resolve(to)
+	target, err := q.store.resolve(to)
 	if err != nil {
 		return "", err
 	}
 	return target.ID, nil
 }
 
-func (s Store) readExactMessage(r messageRead) (model.Message, error) {
+func (q inboxReader) readExactMessage(r messageRead) (model.Message, error) {
 	actor := r.query.Actor
-	message, err := s.message(r.query.MessageID)
+	message, err := q.store.message(r.query.MessageID)
 	if err != nil {
 		return model.Message{}, publicMessageError(err)
 	}
@@ -132,7 +140,7 @@ func (s Store) readExactMessage(r messageRead) (model.Message, error) {
 	if r.recipient != "" && message.To != r.recipient {
 		return model.Message{}, model.NewError(model.CodeNotFound, "message was not sent to this recipient")
 	}
-	if blockedPluginInbox(s, actor, message) {
+	if blockedPluginInbox(q.store, actor, message) {
 		return model.Message{}, model.NewError(model.CodeUnavailable, "message is not available for delivery now")
 	}
 	return r.view(message, false), nil
@@ -143,14 +151,14 @@ func (s Store) readExactMessage(r messageRead) (model.Message, error) {
 // error, in scan order, and the view is never nil. The cursor is checked before
 // anything is scanned and stays strict; a record that is unreadable or
 // unsupported is added to skipped, so one such file cannot hide a whole inbox.
-func (s Store) scanMessages(r messageRead, limit int, skipped *skippedMessages) (items []model.Message, more bool, err error) {
+func (q inboxReader) scanMessages(r messageRead, limit int, skipped *skippedMessages) (items []model.Message, more bool, err error) {
 	items = []model.Message{}
-	cursor, err := s.scanCursor(r.query)
+	cursor, err := q.scanCursor(r.query)
 	if err != nil {
 		return items, false, err
 	}
-	*skipped, err = s.eachReadableMessage(func(item model.Message) error {
-		if r.matches(item, cursor) && !blockedPluginInbox(s, r.query.Actor, item) {
+	*skipped, err = q.store.eachReadableMessage(func(item model.Message) error {
+		if r.matches(item, cursor) && !blockedPluginInbox(q.store, r.query.Actor, item) {
 			items = append(items, r.view(item, r.history && !r.query.IncludeBody))
 		}
 		return nil
@@ -167,18 +175,18 @@ func (s Store) scanMessages(r messageRead, limit int, skipped *skippedMessages) 
 
 // scanCursor loads the message a page starts after, or nil when there is no
 // cursor. The cursor must be a message the caller sent or received.
-func (s Store) scanCursor(query MessageQuery) (*model.Message, error) {
+func (q inboxReader) scanCursor(query MessageQuery) (*model.Message, error) {
 	if query.Cursor == "" {
 		return nil, nil
 	}
-	anchor, err := s.message(query.Cursor)
+	anchor, err := q.store.message(query.Cursor)
 	if err != nil {
 		return nil, err
 	}
 	if anchor.From != query.Actor && anchor.To != query.Actor {
 		return nil, model.NewError(model.CodeUnauthorized, "cursor belongs to another session")
 	}
-	if blockedPluginInbox(s, query.Actor, anchor) {
+	if blockedPluginInbox(q.store, query.Actor, anchor) {
 		return nil, model.NewError(model.CodeUnavailable, "cursor is not available for delivery now")
 	}
 	return &anchor, nil
@@ -267,7 +275,7 @@ const (
 // together with the error.
 func (s Store) EmitPending(actor string) (string, error) {
 	var context strings.Builder
-	err := s.locked(func() error { return s.emitPendingLocked(actor, &context) })
+	err := s.locked(func() error { return inboxReads(s).emitPendingLocked(actor, &context) })
 	return context.String(), err
 }
 
@@ -275,23 +283,23 @@ func (s Store) EmitPending(actor string) (string, error) {
 // load the session, require hook delivery, resolve the approval queue (an
 // unreachable target ends here with no error), read the pending messages,
 // then emit them into out.
-func (s Store) emitPendingLocked(actor string, out *strings.Builder) error {
-	current, err := s.session(actor)
+func (q inboxReader) emitPendingLocked(actor string, out *strings.Builder) error {
+	current, err := q.store.session(actor)
 	if err != nil {
 		return err
 	}
 	if !current.Receive.HookDelivery {
 		return errors.New("this adapter does not support hook delivery")
 	}
-	resolved, err := approvals(s).resolveApprovalQueue(current, true)
+	resolved, err := approvals(q.store).resolveApprovalQueue(current, true)
 	if err != nil || resolved.unreachable {
 		return err
 	}
-	pending, err := s.pendingForHook(actor, current)
+	pending, err := q.pendingForHook(actor, current)
 	if err != nil {
 		return err
 	}
-	return s.emitPendingContext(pending, out)
+	return q.emitPendingContext(pending, out)
 }
 
 // skippedMessages counts message files that a tolerant scan skipped because
@@ -322,17 +330,17 @@ func (k skippedMessages) report(s Store, actor string) {
 // for the current registration, oldest first. An unreadable record is skipped
 // and reported, so one bad file cannot block every hook. A skipped record is
 // not changed; it stays pending and is delivered once it can be read again.
-func (s Store) pendingForHook(actor string, current model.Session) ([]model.Message, error) {
+func (q inboxReader) pendingForHook(actor string, current model.Session) ([]model.Message, error) {
 	pending := []model.Message{}
-	skipped, err := markers(s).eachReadable(func(msg model.Message) error {
+	skipped, err := markers(q.store).eachReadable(func(msg model.Message) error {
 		if msg.To == actor && msg.TargetGeneration == current.Generation && model.HookPendingStatus(msg.Status) && msg.AcknowledgedAt == "" {
-			if checkPluginMessageDelivery(s, msg) == nil {
+			if checkPluginMessageDelivery(q.store, msg) == nil {
 				pending = append(pending, msg)
 			}
 		}
 		return nil
 	})
-	skipped.report(s, actor)
+	skipped.report(q.store, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -344,9 +352,9 @@ func (s Store) pendingForHook(actor string, current model.Session) ([]model.Mess
 // envelopes to out. It stops, leaving the rest pending, at the first message
 // that is over the count cap or would push out over the byte cap; a smaller
 // later message is not skipped ahead.
-func (s Store) emitPendingContext(pending []model.Message, out *strings.Builder) error {
+func (q inboxReader) emitPendingContext(pending []model.Message, out *strings.Builder) error {
 	for i, msg := range pending {
-		if checkPluginMessageDelivery(s, msg) != nil {
+		if checkPluginMessageDelivery(q.store, msg) != nil {
 			continue
 		}
 		body := model.Envelope(msg) + "\n\n"
@@ -356,10 +364,10 @@ func (s Store) emitPendingContext(pending []model.Message, out *strings.Builder)
 		if err := msg.EmitContext(); err != nil {
 			return err
 		}
-		if err := s.saveMessage(msg); err != nil {
+		if err := q.store.saveMessage(msg); err != nil {
 			return err
 		}
-		s.logEvent(slog.LevelInfo, "message.context_emitted", messageEvent(msg))
+		q.store.logEvent(slog.LevelInfo, "message.context_emitted", messageEvent(msg))
 		out.WriteString(body)
 	}
 	return nil

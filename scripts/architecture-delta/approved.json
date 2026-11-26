@@ -3492,5 +3492,97 @@
       }
     },
     "reason": "The 16 private approval queue methods of Store move to a new private type, approvalQueue, in the same file. Store keeps every exported method. The new private type adds 16 methods in one file, and Store loses those 16 methods and that file. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "f7dfe6530e8e4bd83f72ea451ba14b4bd9f9306c",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.inboxReader": {
+            "Methods": 7,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 87,
+              "Files": 23
+            },
+            "after": {
+              "Methods": 80,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 7 private inbox read and hook context methods of Store move to a new private type, inboxReader, in the same file. Store keeps every exported method. The new private type adds 7 methods in one file, and Store loses those 7 methods. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "f7dfe6530e8e4bd83f72ea451ba14b4bd9f9306c",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/bus.inboxReader": {
+            "Methods": 7,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {
+          "internal/bus.Store": {
+            "before": {
+              "Methods": 87,
+              "Files": 23
+            },
+            "after": {
+              "Methods": 80,
+              "Files": 23
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The 7 private inbox read and hook context methods of Store move to a new private type, inboxReader, in the same file. Store keeps every exported method. The new private type adds 7 methods in one file, and Store loses those 7 methods. No export, shape, import or OS call changes."
   }
 ]
