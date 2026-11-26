@@ -3746,5 +3746,153 @@
       }
     },
     "reason": "The struct agent.AdapterDescriptor gets one string field, HookEventKey: the JSON key of the hook event name that the client sends. It is a shape change of an existing type. The export count stays 510. No other export, shape, receiver, import or OS call changes."
+  },
+  {
+    "base_commit": "0e3e0bb986b2eadb34c6307b32c614e50bd90a0a",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/bus.Service.UncertainDelivery"
+        ],
+        "removed": [
+          "internal/mcpserver.StateUnknown"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/bus.Service.UncertainDelivery": "func(*Service) func(kind string) (receiver, acknowledged string)"
+        },
+        "removed": {
+          "const:internal/mcpserver.StateUnknown": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)"
+        },
+        "changed": {
+          "const:internal/mcpserver.StateDelivered": {
+            "before": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+            "after": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)"
+          },
+          "const:internal/mcpserver.StateFailed": {
+            "before": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+            "after": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)"
+          },
+          "const:internal/mcpserver.StateQueued": {
+            "before": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+            "after": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)"
+          },
+          "const:internal/mcpserver.StateRead": {
+            "before": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+            "after": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)"
+          },
+          "type:internal/agent.AdapterDescriptor": {
+            "before": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHookEventKey\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tNative\t\t[]NativeField\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}",
+            "after": "AdapterDescriptor struct {\n\tKind, Label\t\t\t\t\tstring\n\tHookEventKey\t\t\t\t\tstring\n\tHooks\t\t\t\t\t\tmap[string]string\n\tLifecycle\t\t\t\t\tLifecycle\n\tNative\t\t\t\t\t\t[]NativeField\n\tProcessNames\t\t\t\t\t[]string\n\tOwnerRole\t\t\t\t\tstring\n\tExecutable\t\t\t\t\tstring\n\tNotes\t\t\t\t\t\t[]string\n\tUncertainReceiver, UncertainAcknowledged\tstring\n}"
+          },
+          "type:internal/mcpserver.Bus": {
+            "before": "Bus interface {\n\tSend(ctx context.Context, request bus.SendRequest) (model.Message, error)\n\tReply(ctx context.Context, request bus.ReplyRequest) (model.Message, error)\n\tWatch(actor, key, to string) (bus.WatchResult, error)\n\tSetTask(actor, key, task string) (bus.TaskResult, error)\n\tObserveTool(name, actor, id string, elapsed time.Duration, err error)\n\tRuntimeStatus() bus.RuntimeStatus\n\tAck(actor, key, id string) (model.Message, error)\n\tReadMessages(query bus.MessageQuery) (bus.MessageBatch, error)\n\tDiscoverWithWarnings(actor, key string) ([]bus.AgentInfo, int, error)\n}",
+            "after": "Bus interface {\n\tSend(ctx context.Context, request bus.SendRequest) (model.Message, error)\n\tReply(ctx context.Context, request bus.ReplyRequest) (model.Message, error)\n\tWatch(actor, key, to string) (bus.WatchResult, error)\n\tSetTask(actor, key, task string) (bus.TaskResult, error)\n\tObserveTool(name, actor, id string, elapsed time.Duration, err error)\n\tRuntimeStatus() bus.RuntimeStatus\n\tAck(actor, key, id string) (model.Message, error)\n\tReadMessages(query bus.MessageQuery) (bus.MessageBatch, error)\n\tDiscoverWithWarnings(actor, key string) ([]bus.AgentInfo, int, error)\n\tUncertainDelivery(kind string) (receiver, acknowledged string)\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/bus.Service": {
+            "before": {
+              "Methods": 31,
+              "Files": 11
+            },
+            "after": {
+              "Methods": 32,
+              "Files": 12
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "A client can declare its own wording for an unconfirmed delivery. agent.AdapterDescriptor gets two string fields (UncertainReceiver, UncertainAcknowledged). bus.Service gets one method, UncertainDelivery (a new export, one method in one new file), and the mcpserver.Bus interface lists it. The same change makes the constant mcpserver.StateUnknown private (its value \"unknown\" is unchanged), so the export count stays 510; the shapes of the other State constants in the same group change because the group is part of their shape. No import or OS call changes."
+  },
+  {
+    "base_commit": "0e3e0bb986b2eadb34c6307b32c614e50bd90a0a",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/bus.Service.UncertainDelivery"
+        ],
+        "removed": [
+          "internal/mcpserver.StateUnknown"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/bus.Service.UncertainDelivery": "func(*Service) func(kind string) (receiver, acknowledged string)"
+        },
+        "removed": {
+          "const:internal/mcpserver.StateUnknown": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)"
+        },
+        "changed": {
+          "const:internal/mcpserver.StateDelivered": {
+            "before": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+            "after": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)"
+          },
+          "const:internal/mcpserver.StateFailed": {
+            "before": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+            "after": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)"
+          },
+          "const:internal/mcpserver.StateQueued": {
+            "before": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+            "after": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)"
+          },
+          "const:internal/mcpserver.StateRead": {
+            "before": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tStateUnknown\tDeliveryState\t= \"unknown\"\n)",
+            "after": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)"
+          },
+          "type:internal/agent.AdapterDescriptor": {
+            "before": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHookEventKey\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tNative\t\t[]NativeField\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}",
+            "after": "AdapterDescriptor struct {\n\tKind, Label\t\t\t\t\tstring\n\tHookEventKey\t\t\t\t\tstring\n\tHooks\t\t\t\t\t\tmap[string]string\n\tLifecycle\t\t\t\t\tLifecycle\n\tNative\t\t\t\t\t\t[]NativeField\n\tProcessNames\t\t\t\t\t[]string\n\tOwnerRole\t\t\t\t\tstring\n\tExecutable\t\t\t\t\tstring\n\tNotes\t\t\t\t\t\t[]string\n\tUncertainReceiver, UncertainAcknowledged\tstring\n}"
+          },
+          "type:internal/mcpserver.Bus": {
+            "before": "Bus interface {\n\tSend(ctx context.Context, request bus.SendRequest) (model.Message, error)\n\tReply(ctx context.Context, request bus.ReplyRequest) (model.Message, error)\n\tWatch(actor, key, to string) (bus.WatchResult, error)\n\tSetTask(actor, key, task string) (bus.TaskResult, error)\n\tObserveTool(name, actor, id string, elapsed time.Duration, err error)\n\tRuntimeStatus() bus.RuntimeStatus\n\tAck(actor, key, id string) (model.Message, error)\n\tReadMessages(query bus.MessageQuery) (bus.MessageBatch, error)\n\tDiscoverWithWarnings(actor, key string) ([]bus.AgentInfo, int, error)\n}",
+            "after": "Bus interface {\n\tSend(ctx context.Context, request bus.SendRequest) (model.Message, error)\n\tReply(ctx context.Context, request bus.ReplyRequest) (model.Message, error)\n\tWatch(actor, key, to string) (bus.WatchResult, error)\n\tSetTask(actor, key, task string) (bus.TaskResult, error)\n\tObserveTool(name, actor, id string, elapsed time.Duration, err error)\n\tRuntimeStatus() bus.RuntimeStatus\n\tAck(actor, key, id string) (model.Message, error)\n\tReadMessages(query bus.MessageQuery) (bus.MessageBatch, error)\n\tDiscoverWithWarnings(actor, key string) ([]bus.AgentInfo, int, error)\n\tUncertainDelivery(kind string) (receiver, acknowledged string)\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/bus.Service": {
+            "before": {
+              "Methods": 31,
+              "Files": 11
+            },
+            "after": {
+              "Methods": 32,
+              "Files": 12
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "A client can declare its own wording for an unconfirmed delivery. agent.AdapterDescriptor gets two string fields (UncertainReceiver, UncertainAcknowledged). bus.Service gets one method, UncertainDelivery (a new export, one method in one new file), and the mcpserver.Bus interface lists it. The same change makes the constant mcpserver.StateUnknown private (its value \"unknown\" is unchanged), so the export count stays 510; the shapes of the other State constants in the same group change because the group is part of their shape. No import or OS call changes."
   }
 ]
