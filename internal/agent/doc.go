@@ -5,7 +5,8 @@
 // An adapter must implement Adapter. Every other interface is optional: core
 // checks for it with a type assertion and uses the default below when it is
 // missing. The descriptor's Lifecycle states two client facts that core reads
-// instead of switching on a client name.
+// instead of switching on a client name. HookEventKey says which JSON key holds
+// the native hook event name; an adapter with hooks declares it.
 //
 //	Interface            Core calls it                         Default when missing
 //	HookAdapter          every lifecycle hook                  no hooks: the hook command fails

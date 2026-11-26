@@ -48,7 +48,7 @@ func (a brokenAdapter) HandleHook(agent.HookHost, agent.HookInput, string, io.Wr
 }
 
 func good() brokenAdapter {
-	return brokenAdapter{descriptor: agent.AdapterDescriptor{Kind: "fixture", Label: "Fixture", Hooks: agent.StandardEvents(true)}, caps: model.ReceiveCapabilities{LifecycleHooks: true}}
+	return brokenAdapter{descriptor: agent.AdapterDescriptor{Kind: "fixture", Label: "Fixture", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(true)}, caps: model.ReceiveCapabilities{LifecycleHooks: true}}
 }
 
 func TestChecksCatchBrokenAdapters(t *testing.T) {
@@ -60,6 +60,7 @@ func TestChecksCatchBrokenAdapters(t *testing.T) {
 		{"missing label", func(a *brokenAdapter) { a.descriptor.Label = "" }, "kind and a label"},
 		{"unknown mapped event", func(a *brokenAdapter) { a.descriptor.Hooks = map[string]string{"start": "SessionStart", "x": "Nope"} }, "unknown event"},
 		{"no session start", func(a *brokenAdapter) { a.descriptor.Hooks = map[string]string{"stop": "Stop"} }, "SessionStart"},
+		{"no hook event key", func(a *brokenAdapter) { a.descriptor.HookEventKey = "" }, `adapter "fixture" has hooks but declares no HookEventKey`},
 		{"no hooks mapped", func(a *brokenAdapter) { a.descriptor.Hooks = nil }, "at least one"},
 		{"empty native key", func(a *brokenAdapter) { a.descriptor.Native = []agent.NativeField{{Key: ""}} }, "empty or declared twice"},
 		{"native key twice", func(a *brokenAdapter) {

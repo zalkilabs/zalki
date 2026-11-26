@@ -55,6 +55,9 @@ func checkDescriptor(t reporter, adapter agent.Adapter) {
 	if hooked && !mapsTo(d.Hooks, "SessionStart") {
 		t.Errorf("a hook adapter must map a native event to SessionStart")
 	}
+	if hooked && d.HookEventKey == "" {
+		t.Errorf("adapter %q has hooks but declares no HookEventKey; set it in the descriptor to the JSON key its client sends the event name in (for example \"hook_event_name\"); core has no default", d.Kind)
+	}
 	checkNative(t, adapter, d.Native)
 }
 

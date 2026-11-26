@@ -48,7 +48,12 @@ type NativeField struct {
 }
 
 type AdapterDescriptor struct {
-	Kind, Label  string
+	Kind, Label string
+	// HookEventKey is the top-level key of the hook JSON that holds the native
+	// event name: "hook_event_name" for Claude, Codex and Cursor, "hookEventName"
+	// for a client that sends camelCase. Every adapter with Hooks declares it;
+	// core has no default. The registry refuses a key for an adapter with no hooks.
+	HookEventKey string
 	Hooks        map[string]string // Native event name to the common lifecycle event.
 	Lifecycle    Lifecycle
 	Native       []NativeField

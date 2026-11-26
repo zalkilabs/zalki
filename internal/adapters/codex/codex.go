@@ -58,7 +58,7 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 func (Adapter) ExtendedHookEvent() string { return "PostToolUse" }
 
 func (Adapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Lifecycle: agent.Lifecycle{KeepOnSessionEnd: true}, Notes: []string{
+	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex", Lifecycle: agent.Lifecycle{KeepOnSessionEnd: true}, Notes: []string{
 		"A Codex backend can outlive its terminal.",
 		"Ended Codex threads stay listed until zalki prune --session codex:UUID.",
 		"Codex 0.164.0 or newer can receive tool output on a loaded thread without resuming or steering it. Between-tool delivery is advertised only after this process has verified that app-server. Otherwise delivery requires the owner to enable codex.allow_queue_fallback; queue passes message text in process arguments. An unconfirmed or ambiguous write is not retried.",

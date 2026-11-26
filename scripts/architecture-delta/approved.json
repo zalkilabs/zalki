@@ -3676,5 +3676,75 @@
       }
     },
     "reason": "The 4 private listener lock methods of Store move to a new private type, listenerLeases, in the same file. Store keeps every exported method. The new private type adds 4 methods in one file, and Store loses those 4 methods. No export, shape, import or OS call changes."
+  },
+  {
+    "base_commit": "af336e42cae12c5725a220210e7859a8909c0571",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "type:internal/agent.AdapterDescriptor": {
+            "before": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tNative\t\t[]NativeField\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}",
+            "after": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHookEventKey\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tNative\t\t[]NativeField\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The struct agent.AdapterDescriptor gets one string field, HookEventKey: the JSON key of the hook event name that the client sends. It is a shape change of an existing type. The export count stays 510. No other export, shape, receiver, import or OS call changes."
+  },
+  {
+    "base_commit": "af336e42cae12c5725a220210e7859a8909c0571",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "type:internal/agent.AdapterDescriptor": {
+            "before": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tNative\t\t[]NativeField\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}",
+            "after": "AdapterDescriptor struct {\n\tKind, Label\tstring\n\tHookEventKey\tstring\n\tHooks\t\tmap[string]string\n\tLifecycle\tLifecycle\n\tNative\t\t[]NativeField\n\tProcessNames\t[]string\n\tOwnerRole\tstring\n\tExecutable\tstring\n\tNotes\t\t[]string\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The struct agent.AdapterDescriptor gets one string field, HookEventKey: the JSON key of the hook event name that the client sends. It is a shape change of an existing type. The export count stays 510. No other export, shape, receiver, import or OS call changes."
   }
 ]
