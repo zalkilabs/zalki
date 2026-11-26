@@ -192,7 +192,7 @@ func TestHookPayloadHeaderProbe(t *testing.T) {
 		{``, ""},
 		{`{"x":"hook_event_name: Stop","hook_event_name":"SessionEnd"}`, "SessionEnd"},
 	} {
-		if got := probeHookEvent([]byte(test.input)); got != test.want {
+		if got := probeHookEvent([]byte(test.input), structEventKey); got != test.want {
 			t.Fatalf("probe %q: %q want %q", test.input, got, test.want)
 		}
 	}
@@ -338,7 +338,7 @@ func TestHookPayloadHeaderProbeDoesNotReadStdin(t *testing.T) {
 	var event agent.HookInput
 	size, header, err := decodeHookPayload(input, &event)
 	var syntaxErr *json.SyntaxError
-	if !errors.As(err, &syntaxErr) || size != len(input.payload) || probeHookEvent(header) != "PostToolUse" {
+	if !errors.As(err, &syntaxErr) || size != len(input.payload) || probeHookEvent(header, structEventKey) != "PostToolUse" {
 		t.Fatal("failed decode lost its bounded buffered header", err)
 	}
 }

@@ -105,6 +105,11 @@ func (s *Service) finishHook(kind string, trace hookTrace, started time.Time, er
 func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, adapter agent.Adapter, hooks agent.HookAdapter, trace *hookTrace) (agent.HookInput, string, error) {
 	var event agent.HookInput
 	trace.stage = "decode"
+	descriptor := adapter.Descriptor()
+	eventKey := descriptor.HookEventKey
+	if eventKey == "" {
+		return event, "", model.NewError(model.CodeInternal, "adapter %q has hooks but declares no HookEventKey; set it in its descriptor to the JSON key its client sends the event name in (for example %q)", kind, structEventKey)
+	}
 	var size int
 	var header []byte
 	var err error
@@ -112,21 +117,21 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 	if payload, ok := adapter.(agent.HookPayloadAdapter); ok {
 		extendedEvent = payload.ExtendedHookEvent()
 	}
-	descriptor := adapter.Descriptor()
-	input, native := nativeCapture(input, descriptor, extendedEvent)
+	input, kept := keepHookBytes(input, descriptor, extendedEvent)
 	if extendedEvent != "" {
-		size, header, err = decodeSelectedHookPayload(ctx, input, &event, extendedEvent)
+		size, header, err = decodeSelectedHookPayload(ctx, input, &event, extendedEvent, eventKey)
 	} else {
 		size, header, err = decodeHookPayload(input, &event)
+		err = useEventKey(&event, kept(), eventKey, err)
 	}
 	if err == nil {
-		event.Native, err = native()
+		event.Native, err = pickNative(kept(), descriptor)
 	}
 	trace.payloadClass = hookPayloadSizeClass(size)
 	if err != nil {
 		// Type errors can leave valid identity fields decoded; retain correlation
 		// without accepting the malformed event or logging its contents.
-		nativeEvent := probeHookEvent(header)
+		nativeEvent := probeHookEvent(header, eventKey)
 		if event.Event != "" {
 			nativeEvent = event.Event
 		}

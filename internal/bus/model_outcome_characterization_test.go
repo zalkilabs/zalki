@@ -54,6 +54,7 @@ type modelReleaseAdapter struct {
 
 func (a modelReleaseAdapter) Descriptor() agentapi.AdapterDescriptor {
 	d := a.fakeAdapter.Descriptor()
+	d.HookEventKey = "hook_event_name"
 	d.Hooks = map[string]string{"stop": "Stop"}
 	return d
 }

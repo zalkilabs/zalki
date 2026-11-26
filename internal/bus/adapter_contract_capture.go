@@ -30,7 +30,7 @@ func captureHookContract(ctx context.Context, adapter agent.Adapter, event agent
 	if err := privateDir(root); err != nil {
 		return err
 	}
-	hook := map[string]any{"hook_event_name": event.Event}
+	hook := map[string]any{adapter.Descriptor().HookEventKey: event.Event}
 	if event.SessionID != "" {
 		hook["session_id"] = "00000000-0000-4000-8000-000000000001"
 	}

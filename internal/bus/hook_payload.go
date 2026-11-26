@@ -47,7 +47,7 @@ func hookPayloadSizeClass(size int) string {
 
 // Probe the bounded top-level header without treating nested fields or strings
 // as headers. Events beyond the prefix are unknown after a syntax/size failure.
-func probeHookEvent(data []byte) string {
+func probeHookEvent(data []byte, eventKey string) string {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	token, err := decoder.Token()
 	if err != nil || token != json.Delim('{') {
@@ -58,7 +58,7 @@ func probeHookEvent(data []byte) string {
 		if err != nil {
 			return ""
 		}
-		if key == "hook_event_name" {
+		if key == eventKey {
 			var event string
 			if decoder.Decode(&event) != nil {
 				return ""
