@@ -157,6 +157,13 @@ func TestSendUncertainNeedsTheClientsOwnWording(t *testing.T) {
 	if got := sendOutput(msg, uncertainRegistry(t)); got.Receipt != msg.Receipt {
 		t.Fatal("a client without wording got Codex guidance")
 	}
+	// A valid message id with an invalid address is not formatted.
+	for _, to := range []string{"codex:invalid", "codex", "codex:00000000-0000-4000-8000-000000000124:x", ""} {
+		bad := model.Message{ID: msg.ID, To: to, Status: model.StatusUnknownWrite, Receipt: &model.Receipt{Error: "unchanged"}}
+		if got := sendOutput(bad, uncertainRegistry(t)); got.Receipt != bad.Receipt {
+			t.Fatalf("an invalid address %q was formatted", to)
+		}
+	}
 	msg.To = "missing:00000000-0000-4000-8000-000000000124"
 	if got := sendOutput(msg, uncertainRegistry(t)); got.Receipt != msg.Receipt {
 		t.Fatal("an unknown client got guidance")

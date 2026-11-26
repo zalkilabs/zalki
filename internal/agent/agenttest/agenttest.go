@@ -59,6 +59,24 @@ func checkDescriptor(t reporter, adapter agent.Adapter) {
 		t.Errorf("adapter %q has hooks but declares no HookEventKey; set it in the descriptor to the JSON key its client sends the event name in (for example \"hook_event_name\"); core has no default", d.Kind)
 	}
 	checkNative(t, adapter, d.Native)
+	checkUncertainWording(t, d)
+}
+
+// checkUncertainWording checks the sentences for an unconfirmed delivery. Core
+// uses each one as a format string with the message id: a client declares both
+// or neither, and each has exactly one %s and no other verb.
+func checkUncertainWording(t reporter, d agent.AdapterDescriptor) {
+	t.Helper()
+	if d.UncertainReceiver == "" && d.UncertainAcknowledged == "" {
+		return
+	}
+	for field, sentence := range map[string]string{"UncertainReceiver": d.UncertainReceiver, "UncertainAcknowledged": d.UncertainAcknowledged} {
+		if sentence == "" {
+			t.Errorf("adapter %q sets only one of UncertainReceiver and UncertainAcknowledged; %s is empty, set both or neither", d.Kind, field)
+		} else if strings.Count(sentence, "%") != 1 || strings.Count(sentence, "%s") != 1 {
+			t.Errorf("adapter %q: %s is used as a format string and must have exactly one %%s and no other %% verb, got %q", d.Kind, field, sentence)
+		}
+	}
 }
 
 func checkNative(t reporter, adapter agent.Adapter, fields []agent.NativeField) {
