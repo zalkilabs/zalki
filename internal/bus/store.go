@@ -126,7 +126,7 @@ func (s Store) locked(fn func() error) error {
 	if err := recoverEventCommit(s); err != nil {
 		return err
 	}
-	if err := s.recoverReplies(); err != nil {
+	if err := replies(s).recoverReplies(); err != nil {
 		s.logEvent(slog.LevelError, "reply.recovery_failed", eventData{Err: err})
 		return err
 	}

@@ -177,7 +177,7 @@ func (s *Service) Reply(ctx context.Context, request ReplyRequest) (result model
 	if err := model.ValidateMessageBody(body, key); err != nil {
 		return model.Message{}, err
 	}
-	msg, target, fresh, err := s.Store.prepareReply(request)
+	msg, target, fresh, err := replies(s.Store).prepareReply(request)
 	if err != nil || !fresh {
 		return msg, err
 	}
