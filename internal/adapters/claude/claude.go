@@ -40,7 +40,7 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 }
 
 func (Adapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude", Notes: []string{"Check CLAUDE_CONFIG_DIR and HOME for the native profile. Use absolute UTF-8 paths without control characters; a leading ~ is not expanded."}}
+	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude", Notes: []string{"Check CLAUDE_CONFIG_DIR and HOME for the native profile. Use absolute UTF-8 paths without control characters; a leading ~ is not expanded."}}
 }
 
 func (Adapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
