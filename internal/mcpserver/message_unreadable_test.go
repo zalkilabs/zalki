@@ -69,7 +69,7 @@ func TestMessagePageBudgetCountsTheUnreadableField(t *testing.T) {
 	}
 	n := 1000
 	for {
-		encoded, _ := json.Marshal(messageViews([]model.Message{view(n)}, "", nil)[0])
+		encoded, _ := json.Marshal(messageViews([]model.Message{view(n)}, "", nil, codexNotes)[0])
 		if used+len(encoded)+1 >= messagePageBytes {
 			if used+len(encoded)+1 != messagePageBytes {
 				t.Fatalf("fixture could not hit the exact limit at n=%d", n)
@@ -79,7 +79,7 @@ func TestMessagePageBudgetCountsTheUnreadableField(t *testing.T) {
 		n++
 	}
 	second := model.Message{ID: "00000000-0000-4000-8000-000000000002", Body: "next"}
-	page := messagePage(bus.MessageBatch{Messages: []model.Message{view(n), second}, More: true, Unreadable: 1}, false, "", nil)
+	page := messagePage(bus.MessageBatch{Messages: []model.Message{view(n), second}, More: true, Unreadable: 1}, false, "", nil, codexNotes)
 	encoded, _ := json.Marshal(page)
 	if len(encoded) > messagePageBytes || page.Unreadable != 1 {
 		t.Fatalf("page is %d bytes with unreadable=%d, over the %d limit", len(encoded), page.Unreadable, messagePageBytes)

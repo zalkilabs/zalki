@@ -22,7 +22,7 @@ func TestUncertainReceiptGuidance(t *testing.T) {
 	for _, status := range []model.DeliveryStatus{model.StatusUnknownWrite, model.StatusUnknownTimeout} {
 		t.Run(string(status), func(t *testing.T) {
 			msg := uncertainMessage(status)
-			receipt, err := messageReceipt(msg, nil)
+			receipt, err := messageReceipt(msg, nil, codexNotes)
 			want := "Message " + uncertaintyID + " may have been delivered; ask the receiver to ACK it, and do not resend it without checking."
 			if err != nil || receipt.Error != want {
 				t.Fatalf("%s guidance missing: %+v %v", status, receipt, err)
@@ -31,7 +31,7 @@ func TestUncertainReceiptGuidance(t *testing.T) {
 				t.Fatal("uncertain status or original ID changed")
 			}
 			msg.AcknowledgedAt = "2026-11-13T23:00:00Z"
-			receipt, err = messageReceipt(msg, nil)
+			receipt, err = messageReceipt(msg, nil, codexNotes)
 			if err != nil || !receipt.Acknowledged || receipt.Error != "The receiver ACKed message "+uncertaintyID+", but Codex did not confirm the earlier delivery attempt." {
 				t.Fatal("ACKed uncertainty still asks for ACK", receipt)
 			}
@@ -42,18 +42,18 @@ func TestUncertainReceiptGuidance(t *testing.T) {
 func TestUncertainMessageHistoryGuidance(t *testing.T) {
 	for _, status := range []model.DeliveryStatus{model.StatusUnknownWrite, model.StatusUnknownTimeout} {
 		msg := uncertainMessage(status)
-		sender := messageViews([]model.Message{msg}, msg.From, nil)[0]
-		receiver := messageViews([]model.Message{msg}, msg.To, nil)[0]
+		sender := messageViews([]model.Message{msg}, msg.From, nil, codexNotes)[0]
+		receiver := messageViews([]model.Message{msg}, msg.To, nil, codexNotes)[0]
 		want := "Message " + uncertaintyID + " may already be in your Codex thread. If you can see it, ACK it; otherwise tell the sender delivery is still unconfirmed. Sending another copy may duplicate it."
 		if receiver.Error != want {
 			t.Fatal("receiver guidance lost unconfirmed/duplication warning", receiver.Error)
 		}
-		receipt, _ := messageReceipt(msg, nil)
+		receipt, _ := messageReceipt(msg, nil, codexNotes)
 		if sender.Error != receipt.Error || receiver.Status != status || receiver.Code != msg.Receipt.Code {
 			t.Fatal("uncertain history changed identity/status/code or sender copy")
 		}
 		msg.AcknowledgedAt = "2026-11-13T23:00:00Z"
-		acknowledged := messageViews([]model.Message{msg}, msg.To, nil)[0]
+		acknowledged := messageViews([]model.Message{msg}, msg.To, nil, codexNotes)[0]
 		if acknowledged.Error != "The receiver ACKed message "+uncertaintyID+", but Codex did not confirm the earlier delivery attempt." {
 			t.Fatal("ACKed history still asks for ACK")
 		}
@@ -72,7 +72,7 @@ func checkUncertainTime(t *testing.T, status model.DeliveryStatus, at string) {
 	t.Helper()
 	msg := uncertainMessage(status)
 	msg.Receipt.At = at
-	view := messageViews([]model.Message{msg}, msg.From, nil)[0]
+	view := messageViews([]model.Message{msg}, msg.From, nil, codexNotes)[0]
 	if at == "" || strings.HasPrefix(at, "not-") || strings.Contains(at, "\n") || len(at) > 35 {
 		if strings.Contains(view.Error, "since") || strings.Contains(view.Error, msg.CreatedAt) {
 			t.Fatal("unconfirmed time came from outside receipt.at", view.Error)
@@ -91,12 +91,12 @@ func checkUncertainTime(t *testing.T, status model.DeliveryStatus, at string) {
 	if view.Error != want {
 		t.Fatal("validated receipt.at formatting changed", view.Error)
 	}
-	receiver := messageViews([]model.Message{msg}, msg.To, nil)[0]
+	receiver := messageViews([]model.Message{msg}, msg.To, nil, codexNotes)[0]
 	if !strings.HasSuffix(receiver.Error, "\n\n"+want) || !strings.Contains(receiver.Error, "Sending another copy may duplicate it.") {
 		t.Fatal("receiver time displaced receiver guidance")
 	}
 	msg.AcknowledgedAt = "2026-11-14T00:00:00Z"
-	if strings.Contains(messageViews([]model.Message{msg}, msg.To, nil)[0].Error, "since") {
+	if strings.Contains(messageViews([]model.Message{msg}, msg.To, nil, codexNotes)[0].Error, "since") {
 		t.Fatal("ACKed history kept unconfirmed time")
 	}
 }
@@ -106,20 +106,20 @@ func TestUncertainProjectionExcludesOtherStates(t *testing.T) {
 		msg := uncertainMessage(status)
 		msg.Held = true
 		msg.Receipt.At = "2026-11-13T23:00:00Z"
-		if uncertaintyText(msg, msg.To, true) != "" {
+		if uncertaintyText(msg, msg.To, true, codexNotes) != "" {
 			t.Fatal("approval queue described as uncertain delivery")
 		}
 	}
 	for _, to := range []string{"claude:00000000-0000-4000-8000-000000000124", "codex:unsafe\nmarker"} {
 		msg := uncertainMessage(model.StatusUnknownWrite)
 		msg.To = to
-		if uncertaintyText(msg, msg.To, true) != "" {
+		if uncertaintyText(msg, msg.To, true, codexNotes) != "" {
 			t.Fatal("non-Codex record received Codex guidance")
 		}
 	}
 	msg := uncertainMessage(model.StatusUnknownWrite)
 	msg.ID = "unsafe\nmarker"
-	if uncertaintyText(msg, msg.To, true) != "" {
+	if uncertaintyText(msg, msg.To, true, codexNotes) != "" {
 		t.Fatal("invalid message ID entered guidance")
 	}
 }
@@ -127,8 +127,8 @@ func TestUncertainProjectionExcludesOtherStates(t *testing.T) {
 func TestUncertainHistoryProjectionDoesNotPersist(t *testing.T) {
 	msg := uncertainMessage(model.StatusUnknownWrite)
 	before, _ := json.Marshal(msg)
-	page := messagePage(bus.MessageBatch{Messages: []model.Message{msg}}, true, msg.To, nil)
-	_, _ = messageReceipt(msg, nil)
+	page := messagePage(bus.MessageBatch{Messages: []model.Message{msg}}, true, msg.To, nil, codexNotes)
+	_, _ = messageReceipt(msg, nil, codexNotes)
 	after, _ := json.Marshal(msg)
 	if string(before) != string(after) {
 		t.Fatal("display formatting mutated original receipt")
@@ -144,9 +144,26 @@ func TestUncertainPageAccountsForGuidance(t *testing.T) {
 	for range 100 {
 		messages = append(messages, uncertainMessage(model.StatusUnknownWrite))
 	}
-	page := messagePage(bus.MessageBatch{Messages: messages}, false, uncertaintyTarget, nil)
+	page := messagePage(bus.MessageBatch{Messages: messages}, false, uncertaintyTarget, nil, codexNotes)
 	raw, _ := json.Marshal(page)
 	if len(raw) > messagePageBytes || !page.More || len(page.Messages) == 0 {
 		t.Fatal("uncertain guidance bypassed page byte accounting")
+	}
+}
+
+// A client that declares no wording gets none, for the same status: the generic
+// receipt stays. This is what Claude gets today.
+func TestUncertaintyTextNeedsTheClientsOwnWording(t *testing.T) {
+	msg := uncertainMessage(model.StatusUnknownWrite)
+	msg.To = "claude:" + strings.TrimPrefix(msg.To, "codex:")
+	if got := uncertaintyText(msg, msg.To, true, codexNotes); got != "" {
+		t.Fatal("a client without wording got guidance:", got)
+	}
+	if got := uncertaintyText(msg, msg.To, true, nil); got != "" {
+		t.Fatal("no lookup must give no guidance:", got)
+	}
+	msg.To = "codex:" + strings.TrimPrefix(msg.To, "claude:")
+	if got := uncertaintyText(msg, msg.To, true, func(string) (string, string) { return "", "" }); got != "" {
+		t.Fatal("a client with empty wording got guidance:", got)
 	}
 }

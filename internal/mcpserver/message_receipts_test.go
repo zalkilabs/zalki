@@ -76,11 +76,11 @@ func TestMCPGeneratedSendIDReplyCorrelationAndSentReceipts(t *testing.T) {
 }
 
 func TestReceiptNotesNeverPromiseRefusedOrUnconfirmedDelivery(t *testing.T) {
-	queued, err := messageReceipt(model.Message{Status: model.StatusApprovalBlocked, Held: true}, nil)
+	queued, err := messageReceipt(model.Message{Status: model.StatusApprovalBlocked, Held: true}, nil, codexNotes)
 	if err != nil || queued.Note != "Queued until the target's permission prompt is answered." {
 		t.Fatal("a queued approval message was described as refused")
 	}
-	acknowledged, err := messageReceipt(model.Message{Status: model.StatusPendingActivity, AcknowledgedAt: "2026-11-01T00:00:00Z"}, nil)
+	acknowledged, err := messageReceipt(model.Message{Status: model.StatusPendingActivity, AcknowledgedAt: "2026-11-01T00:00:00Z"}, nil, codexNotes)
 	if err != nil || !acknowledged.Acknowledged || acknowledged.Note != "" {
 		t.Fatal("an acknowledged message was still described as deferred")
 	}
@@ -99,7 +99,7 @@ func TestReceiptNotesNeverPromiseRefusedOrUnconfirmedDelivery(t *testing.T) {
 		{model.StatusUnknownTimeout, model.DeliveryNextTurn, ""},
 		{model.StatusUnknownWrite, model.DeliveryBetweenTools, ""},
 	} {
-		receipt, err := messageReceipt(model.Message{Status: test.status, BusyDelivery: test.timing}, nil)
+		receipt, err := messageReceipt(model.Message{Status: test.status, BusyDelivery: test.timing}, nil, codexNotes)
 		if err != nil || (test.want == "" && receipt.Note != "") || (test.want != "" && !strings.Contains(receipt.Note, test.want)) {
 			t.Fatalf("status=%s timing=%s: note=%q want=%q", test.status, test.timing, receipt.Note, test.want)
 		}

@@ -9,24 +9,27 @@ import (
 )
 
 const (
-	uncertainSenderText       = "Message %s may have been delivered; ask the receiver to ACK it, and do not resend it without checking."
-	uncertainReceiverText     = "Message %s may already be in your Codex thread. If you can see it, ACK it; otherwise tell the sender delivery is still unconfirmed. Sending another copy may duplicate it."
-	uncertainAcknowledgedText = "The receiver ACKed message %s, but Codex did not confirm the earlier delivery attempt."
-	uncertainSinceText        = "Delivery unconfirmed since %s; message %s may have been delivered, so ask the receiver to ACK it and do not resend it without checking."
+	uncertainSenderText = "Message %s may have been delivered; ask the receiver to ACK it, and do not resend it without checking."
+	uncertainSinceText  = "Delivery unconfirmed since %s; message %s may have been delivered, so ask the receiver to ACK it and do not resend it without checking."
 )
+
+// uncertainNotes gives the sentences a client declares for an unconfirmed
+// delivery to it (see bus.Service.UncertainDelivery). Empty means none.
+type uncertainNotes func(kind string) (receiver, acknowledged string)
 
 // uncertaintyText derives display text only. It never changes a delivery record
 // or treats a later ACK as confirmation of the earlier native attempt.
-func uncertaintyText(msg model.Message, actor string, history bool) string {
-	if !isCodexUncertain(msg) {
+func uncertaintyText(msg model.Message, actor string, history bool, notes uncertainNotes) string {
+	receiver, acknowledged, ok := uncertainSentences(msg, notes)
+	if !ok {
 		return ""
 	}
 	if msg.AcknowledgedAt != "" {
-		return fmt.Sprintf(uncertainAcknowledgedText, msg.ID)
+		return fmt.Sprintf(acknowledged, msg.ID)
 	}
 	text := fmt.Sprintf(uncertainSenderText, msg.ID)
 	if history && actor == msg.To {
-		text = fmt.Sprintf(uncertainReceiverText, msg.ID)
+		text = fmt.Sprintf(receiver, msg.ID)
 	}
 	if !history || msg.Receipt == nil || !validUncertaintyTime(msg.Receipt.At) {
 		return text
@@ -38,9 +41,16 @@ func uncertaintyText(msg model.Message, actor string, history bool) string {
 	return since
 }
 
-func isCodexUncertain(msg model.Message) bool {
-	return (msg.Status == model.StatusUnknownWrite || msg.Status == model.StatusUnknownTimeout) &&
-		strings.HasPrefix(msg.To, "codex:") && model.ValidateSessionAddress(msg.To) == nil && model.IsCanonicalUUID(msg.ID)
+// uncertainSentences says whether msg is an unconfirmed delivery to a client with
+// its own wording, and gives that wording.
+func uncertainSentences(msg model.Message, notes uncertainNotes) (receiver, acknowledged string, ok bool) {
+	if (msg.Status != model.StatusUnknownWrite && msg.Status != model.StatusUnknownTimeout) ||
+		model.ValidateSessionAddress(msg.To) != nil || !model.IsCanonicalUUID(msg.ID) || notes == nil {
+		return "", "", false
+	}
+	kind, _, _ := strings.Cut(msg.To, ":")
+	receiver, acknowledged = notes(kind)
+	return receiver, acknowledged, receiver != ""
 }
 
 func validUncertaintyTime(value string) bool {
