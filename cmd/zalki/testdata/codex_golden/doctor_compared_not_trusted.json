@@ -1,0 +1,72 @@
+{
+  "status": "compared",
+  "message": "Codex: hook trust compared offline; review individual hooks.",
+  "advice": "Codex: open /hooks and trust the zalki hooks, then send a message in each thread",
+  "observation": "Codex: no Codex sessions are registered.",
+  "caveat": "A hash match does not guarantee execution: enabled settings, profile, feature, event, matcher, project policy and a running thread's loaded configuration still apply.",
+  "hooks": [
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "Interrupt",
+      "key": "$HOME/.codex/hooks.json:interrupt:0:0",
+      "status": "not_trusted",
+      "enabled": true,
+      "trusted_hash_matches": false,
+      "message": "Codex hook Interrupt: not trusted; review it in /hooks."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "PermissionRequest",
+      "key": "$HOME/.codex/hooks.json:permission_request:0:0",
+      "status": "not_trusted",
+      "enabled": true,
+      "trusted_hash_matches": false,
+      "message": "Codex hook PermissionRequest: not trusted; review it in /hooks."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "PostToolUse",
+      "key": "$HOME/.codex/hooks.json:post_tool_use:0:0",
+      "status": "not_trusted",
+      "enabled": true,
+      "trusted_hash_matches": false,
+      "message": "Codex hook PostToolUse: not trusted; review it in /hooks."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "SessionEnd",
+      "key": "$HOME/.codex/hooks.json:session_end:0:0",
+      "status": "not_trusted",
+      "enabled": true,
+      "trusted_hash_matches": false,
+      "message": "Codex hook SessionEnd: not trusted; review it in /hooks."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "SessionStart",
+      "key": "$HOME/.codex/hooks.json:session_start:0:0",
+      "status": "not_trusted",
+      "enabled": true,
+      "trusted_hash_matches": false,
+      "message": "Codex hook SessionStart: not trusted; review it in /hooks."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "Stop",
+      "key": "$HOME/.codex/hooks.json:stop:0:0",
+      "status": "not_trusted",
+      "enabled": true,
+      "trusted_hash_matches": false,
+      "message": "Codex hook Stop: not trusted; review it in /hooks."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "UserPromptSubmit",
+      "key": "$HOME/.codex/hooks.json:user_prompt_submit:0:0",
+      "status": "not_trusted",
+      "enabled": true,
+      "trusted_hash_matches": false,
+      "message": "Codex hook UserPromptSubmit: not trusted; review it in /hooks."
+    }
+  ]
+}

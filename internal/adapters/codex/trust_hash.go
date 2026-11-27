@@ -1,4 +1,4 @@
-package main
+package codex
 
 import (
 	"crypto/sha256"

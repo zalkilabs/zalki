@@ -22,6 +22,7 @@
 //	HealthAdapter        diagnostics                           no transport or listener health
 //	RecoveryHintAdapter  diagnostics hints                     no client-specific hint
 //	Listener             cursor-style wake-up listener         sessions never listen
+//	DiagnosticsAdapter   doctor section about the client         no section for this adapter
 //
 // Package agenttest runs a shared conformance check against any adapter.
 package agent

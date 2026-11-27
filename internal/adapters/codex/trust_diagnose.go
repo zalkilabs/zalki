@@ -1,4 +1,4 @@
-package main
+package codex
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/zalkilabs/zalki/internal/bus"
+	"github.com/zalkilabs/zalki/internal/agent"
 )
 
 type codexHooksDiagnostic struct {
@@ -39,30 +39,40 @@ type codexHookDefinition struct {
 	hash  string
 }
 
-func diagnoseCodexHooks(opts *commandOptions, report bus.DiagnosticReport) codexHooksDiagnostic {
+// codexTrustNotice is what the user must do after installing: the install
+// command prints it (descriptor InstallNotice) and the doctor repeats it as advice.
+const codexTrustNotice = "Codex: open /hooks and trust the zalki hooks, then send a message in each thread"
+
+// Diagnose reports the doctor section about Codex hook trust. It compares files
+// offline: it starts no process and writes nothing.
+func (a Adapter) Diagnose(in agent.DiagnosticInput) (string, any) {
+	return "codex_hooks", a.diagnoseCodexHooks(in)
+}
+
+func (a Adapter) diagnoseCodexHooks(in agent.DiagnosticInput) codexHooksDiagnostic {
 	result := codexHooksDiagnostic{
 		Status: "cannot_verify", Message: "Codex: cannot verify hook trust.",
-		Advice: "Codex: open /hooks and trust the zalki hooks, then send a message in each thread",
+		Advice: codexTrustNotice,
 		Caveat: "A hash match does not guarantee execution: enabled settings, profile, feature, event, matcher, project policy and a running thread's loaded configuration still apply.",
 		Hooks:  []codexHookDiagnostic{},
 	}
-	if codexZeroSessions(report) {
+	if codexZeroSessions(in) {
 		result.Observation = "Codex: no Codex sessions are registered."
 	}
-	if !codexHashVersionSupported(report.Agents) {
+	if !codexHashVersionSupported(in) {
 		result.Message = "Codex: cannot verify hook trust (unverified version)."
-		if root, reason := codexDiagnosticRoot(opts.home); reason == "" {
-			if expected, err := expectedCodexHookHashes(opts); err == nil {
+		if root, reason := codexDiagnosticRoot(in.Home); reason == "" {
+			if expected, err := a.expectedCodexHookHashes(in); err == nil {
 				result.Hooks = codexOwnedHookRows(filepath.Join(root, "hooks.json"), expected, nil, nil, "unverified_version")
 			}
 		}
 		return result
 	}
-	root, reason := codexDiagnosticRoot(opts.home)
+	root, reason := codexDiagnosticRoot(in.Home)
 	if reason != "" {
 		return result
 	}
-	expected, err := expectedCodexHookHashes(opts)
+	expected, err := a.expectedCodexHookHashes(in)
 	if err != nil {
 		return result
 	}
@@ -73,35 +83,22 @@ func diagnoseCodexHooks(opts *commandOptions, report bus.DiagnosticReport) codex
 		reason = stateReason
 	}
 	if reason == "" {
-		reason = codexRecordedTargetReason(opts, path)
+		reason = codexRecordedTargetReason(in, path)
 	}
 	result.Hooks = codexOwnedHookRows(path, expected, definitions, states, reason)
 	result.Status, result.Message = codexHookSummary(result.Hooks)
 	return result
 }
 
-func codexHashVersionSupported(agents []bus.AgentDiagnostic) bool {
+func codexHashVersionSupported(in agent.DiagnosticInput) bool {
 	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
 		return false
 	}
-	for _, client := range agents {
-		if client.Kind == "codex" {
-			return client.Found && client.Version == "0.167.2"
-		}
-	}
-	return false
+	return in.Found && in.Version == "0.167.2"
 }
 
-func codexZeroSessions(report bus.DiagnosticReport) bool {
-	if !report.SessionScanComplete {
-		return false
-	}
-	for _, session := range report.Sessions {
-		if session.Kind == "codex" {
-			return false
-		}
-	}
-	return true
+func codexZeroSessions(in agent.DiagnosticInput) bool {
+	return in.SessionScanComplete && !in.HasSessions
 }
 
 func codexDiagnosticRoot(home string) (string, string) {
@@ -118,16 +115,12 @@ func codexDiagnosticRoot(home string) (string, string) {
 	return filepath.Clean(root), ""
 }
 
-func expectedCodexHookHashes(opts *commandOptions) (map[string]string, error) {
-	binary, err := installationBinary()
-	if err != nil {
-		return nil, err
+// expectedCodexHookHashes hashes the hooks this adapter itself declares for installation.
+func (a Adapter) expectedCodexHookHashes(in agent.DiagnosticInput) (map[string]string, error) {
+	if !filepath.IsAbs(in.Binary) {
+		return nil, errCodexDefinition // the registry refuses a relative binary the same way
 	}
-	files, err := installDeclarations(opts.registry, opts.snapshot.Paths.ConfigFile.Value)(binary, opts.snapshot.Paths.StateDir.Value)
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
+	for _, file := range a.Configuration(in.Binary, []string{"--config", in.ConfigFile, "--state", in.StateDir}) {
 		if file.Path == ".codex/hooks.json" {
 			return expectedCodexHashes(file.JSON)
 		}
@@ -336,26 +329,17 @@ func codexHookSummary(rows []codexHookDiagnostic) (string, string) {
 	return "compared", "Codex: hook trust compared offline; review individual hooks."
 }
 
-func codexRecordedTargetReason(opts *commandOptions, path string) string {
-	recordPath := filepath.Join(opts.snapshot.Paths.StateDir.Value, "installation.json")
-	raw, reason := readCodexDiagnosticFile(recordPath)
-	if reason == "missing_file" {
+// codexRecordedTargetReason compares the installation record, which the
+// installer read for us, with the file this diagnostic read.
+func codexRecordedTargetReason(in agent.DiagnosticInput, path string) string {
+	switch in.RecordReason {
+	case "missing_file":
 		return "" // Ownership can still be compared to compiled declarations.
+	case "":
+		if in.RecordedTargets[".codex/hooks.json"] != path {
+			return "ambiguous_ownership"
+		}
+		return ""
 	}
-	if reason != "" {
-		return reason
-	}
-	record, err := decodeCodexJSON(raw)
-	if err != nil {
-		return "invalid_data"
-	}
-	schema, err := codexUnsignedInteger(record["schema"])
-	if err != nil || schema != 3 || record["home"] != opts.home || record["state"] != opts.snapshot.Paths.StateDir.Value {
-		return "ambiguous_ownership"
-	}
-	targets, ok := record["targets"].(map[string]any)
-	if !ok || targets[".codex/hooks.json"] != path {
-		return "ambiguous_ownership"
-	}
-	return ""
+	return in.RecordReason
 }

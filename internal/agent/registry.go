@@ -66,6 +66,7 @@ func declarationProblems(adapter Adapter, d AdapterDescriptor) []error {
 	add(validateHookEventKey(d))
 	add(validateNativeDeclaration(adapter, d, hooked))
 	add(validateUncertainWording(d))
+	add(validateInstallNotice(d))
 	return problems
 }
 
@@ -174,4 +175,12 @@ func (r *Registry) Kinds() []string {
 	}
 	sort.Strings(kinds)
 	return kinds
+}
+
+// validateInstallNotice checks the line the install command prints for this adapter.
+func validateInstallNotice(d AdapterDescriptor) error {
+	if d.InstallNotice != "" && !model.ValidName(d.InstallNotice) {
+		return fmt.Errorf("%s declares an InstallNotice that is not one plain line (no control characters, no padding, at most 512 bytes)", d.Kind)
+	}
+	return nil
 }

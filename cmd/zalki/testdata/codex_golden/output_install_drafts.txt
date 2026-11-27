@@ -1,0 +1,3 @@
+Config file: $HOME/.config/zalki/config.json
+Configuration drafts written to $HOME/drafts
+To apply after review: zalki install --apply

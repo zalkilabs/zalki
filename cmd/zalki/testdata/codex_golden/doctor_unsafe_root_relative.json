@@ -1,0 +1,7 @@
+{
+  "status": "cannot_verify",
+  "message": "Codex: cannot verify hook trust.",
+  "advice": "Codex: open /hooks and trust the zalki hooks, then send a message in each thread",
+  "caveat": "A hash match does not guarantee execution: enabled settings, profile, feature, event, matcher, project policy and a running thread's loaded configuration still apply.",
+  "hooks": []
+}

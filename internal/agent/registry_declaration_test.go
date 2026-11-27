@@ -79,6 +79,9 @@ func declarationCases() []declarationCase {
 			[]string{"declared: UncertainAcknowledged is used as a format string"}},
 		{"a percent sign next to %s", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { sentences(d, "ok %s", "100% ACKed %s") })},
 			[]string{"declared: UncertainAcknowledged is used as a format string"}},
+		{"a plain install notice", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { d.InstallNotice = "Open the settings and trust the hooks" })}, nil},
+		{"an install notice with a line break", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { d.InstallNotice = "line one\nline two" })},
+			[]string{"declared declares an InstallNotice that is not one plain line"}},
 		{"two sentences with problems", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { sentences(d, "no verb", "two %s %s") })},
 			[]string{"declared: UncertainReceiver is used as a format string", "declared: UncertainAcknowledged is used as a format string"}},
 		// Two different broken rules give two lines, in the fixed order of the rules.

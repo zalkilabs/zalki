@@ -4036,5 +4036,141 @@
       }
     },
     "reason": "Each adapter renders its own startup output. agent.StandardHooks no longer has StartupOutput (one export removed). The Claude and Codex adapters get their own StartupOutput method (two new exports). The export count goes from 510 to 511. The method counts of agent.StandardHooks, claude.Adapter and codex.Adapter change by one each. No import, other shape or OS call changes."
+  },
+  {
+    "base_commit": "149734d20c1bc9a5ac06cd33f24965a6cda2eb69",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/adapters/codex.Adapter.Diagnose",
+          "internal/agent.DiagnosticInput",
+          "internal/agent.DiagnosticsAdapter",
+          "internal/install.RecordedTargets"
+        ],
+        "removed": [
+          "internal/mcpserver.StateDelivered",
+          "internal/mcpserver.StateFailed",
+          "internal/mcpserver.StateQueued",
+          "internal/mcpserver.StateRead"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/adapters/codex.Adapter.Diagnose": "func(Adapter) func(in agent.DiagnosticInput) (string, any)",
+          "function:internal/install.RecordedTargets": "func(raw []byte, readReason, home, stateDir string) (map[string]string, string)",
+          "type:internal/agent.DiagnosticInput": "DiagnosticInput struct {\n\tHome, StateDir, ConfigFile, Binary\tstring\n\tFound\t\t\t\t\tbool\n\tVersion\t\t\t\t\tstring\n\tSessionScanComplete, HasSessions\tbool\n\tRecordReason\t\t\t\tstring\n\tRecordedTargets\t\t\t\tmap[string]string\n}",
+          "type:internal/agent.DiagnosticsAdapter": "DiagnosticsAdapter interface {\n\tDiagnose(DiagnosticInput) (key string, section any)\n}"
+        },
+        "removed": {
+          "const:internal/mcpserver.StateDelivered": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateFailed": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateQueued": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateRead": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)"
+        },
+        "changed": {
+          "type:internal/agent.AdapterDescriptor": {
+            "before": "AdapterDescriptor struct {\n\tKind, Label\t\t\t\t\tstring\n\tHookEventKey\t\t\t\t\tstring\n\tHooks\t\t\t\t\t\tmap[string]string\n\tLifecycle\t\t\t\t\tLifecycle\n\tNative\t\t\t\t\t\t[]NativeField\n\tProcessNames\t\t\t\t\t[]string\n\tOwnerRole\t\t\t\t\tstring\n\tExecutable\t\t\t\t\tstring\n\tNotes\t\t\t\t\t\t[]string\n\tUncertainReceiver, UncertainAcknowledged\tstring\n}",
+            "after": "AdapterDescriptor struct {\n\tKind, Label\t\t\t\t\tstring\n\tHookEventKey\t\t\t\t\tstring\n\tHooks\t\t\t\t\t\tmap[string]string\n\tLifecycle\t\t\t\t\tLifecycle\n\tNative\t\t\t\t\t\t[]NativeField\n\tProcessNames\t\t\t\t\t[]string\n\tOwnerRole\t\t\t\t\tstring\n\tExecutable\t\t\t\t\tstring\n\tNotes\t\t\t\t\t\t[]string\n\tUncertainReceiver, UncertainAcknowledged\tstring\n\tInstallNotice\t\t\t\t\tstring\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/adapters/codex.Adapter": {
+            "before": {
+              "Methods": 16,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 19,
+              "Files": 4
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [
+          "internal/adapters/codex -> internal/statefile"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The Codex hook-trust engine moves from cmd/zalki into internal/adapters/codex, and the doctor and install commands take their client-specific parts from adapter data. New exports: agent.DiagnosticsAdapter and agent.DiagnosticInput (the optional doctor-section interface and its plain input), codex.Adapter.Diagnose, and install.RecordedTargets (the installer judges its own record, from bytes the caller passes, for a diagnostic). Removed exports: the four mcpserver constants StateQueued, StateDelivered, StateRead and StateFailed become private (their words do not change), so the export count stays the same. agent.AdapterDescriptor gets the field InstallNotice. codex.Adapter gets 3 private/exported methods in a new file. One new import: internal/adapters/codex -> internal/statefile (the bounded file read moved with the engine). No OS call changes."
+  },
+  {
+    "base_commit": "149734d20c1bc9a5ac06cd33f24965a6cda2eb69",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/adapters/codex.Adapter.Diagnose",
+          "internal/agent.DiagnosticInput",
+          "internal/agent.DiagnosticsAdapter",
+          "internal/install.RecordedTargets"
+        ],
+        "removed": [
+          "internal/mcpserver.StateDelivered",
+          "internal/mcpserver.StateFailed",
+          "internal/mcpserver.StateQueued",
+          "internal/mcpserver.StateRead"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/adapters/codex.Adapter.Diagnose": "func(Adapter) func(in agent.DiagnosticInput) (string, any)",
+          "function:internal/install.RecordedTargets": "func(raw []byte, readReason, home, stateDir string) (map[string]string, string)",
+          "type:internal/agent.DiagnosticInput": "DiagnosticInput struct {\n\tHome, StateDir, ConfigFile, Binary\tstring\n\tFound\t\t\t\t\tbool\n\tVersion\t\t\t\t\tstring\n\tSessionScanComplete, HasSessions\tbool\n\tRecordReason\t\t\t\tstring\n\tRecordedTargets\t\t\t\tmap[string]string\n}",
+          "type:internal/agent.DiagnosticsAdapter": "DiagnosticsAdapter interface {\n\tDiagnose(DiagnosticInput) (key string, section any)\n}"
+        },
+        "removed": {
+          "const:internal/mcpserver.StateDelivered": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateFailed": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateQueued": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)",
+          "const:internal/mcpserver.StateRead": "const (\n\tStateQueued\tDeliveryState\t= \"queued\"\n\tStateDelivered\tDeliveryState\t= \"delivered\"\n\tStateRead\tDeliveryState\t= \"read\"\n\tStateFailed\tDeliveryState\t= \"failed\"\n\tstateUnknown\tDeliveryState\t= \"unknown\"\n)"
+        },
+        "changed": {
+          "type:internal/agent.AdapterDescriptor": {
+            "before": "AdapterDescriptor struct {\n\tKind, Label\t\t\t\t\tstring\n\tHookEventKey\t\t\t\t\tstring\n\tHooks\t\t\t\t\t\tmap[string]string\n\tLifecycle\t\t\t\t\tLifecycle\n\tNative\t\t\t\t\t\t[]NativeField\n\tProcessNames\t\t\t\t\t[]string\n\tOwnerRole\t\t\t\t\tstring\n\tExecutable\t\t\t\t\tstring\n\tNotes\t\t\t\t\t\t[]string\n\tUncertainReceiver, UncertainAcknowledged\tstring\n}",
+            "after": "AdapterDescriptor struct {\n\tKind, Label\t\t\t\t\tstring\n\tHookEventKey\t\t\t\t\tstring\n\tHooks\t\t\t\t\t\tmap[string]string\n\tLifecycle\t\t\t\t\tLifecycle\n\tNative\t\t\t\t\t\t[]NativeField\n\tProcessNames\t\t\t\t\t[]string\n\tOwnerRole\t\t\t\t\tstring\n\tExecutable\t\t\t\t\tstring\n\tNotes\t\t\t\t\t\t[]string\n\tUncertainReceiver, UncertainAcknowledged\tstring\n\tInstallNotice\t\t\t\t\tstring\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/adapters/codex.Adapter": {
+            "before": {
+              "Methods": 16,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 19,
+              "Files": 4
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [
+          "internal/adapters/codex -> internal/statefile"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The Codex hook-trust engine moves from cmd/zalki into internal/adapters/codex, and the doctor and install commands take their client-specific parts from adapter data. New exports: agent.DiagnosticsAdapter and agent.DiagnosticInput (the optional doctor-section interface and its plain input), codex.Adapter.Diagnose, and install.RecordedTargets (the installer judges its own record, from bytes the caller passes, for a diagnostic). Removed exports: the four mcpserver constants StateQueued, StateDelivered, StateRead and StateFailed become private (their words do not change), so the export count stays the same. agent.AdapterDescriptor gets the field InstallNotice. codex.Adapter gets 3 private/exported methods in a new file. One new import: internal/adapters/codex -> internal/statefile (the bounded file read moved with the engine). No OS call changes."
   }
 ]
