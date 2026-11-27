@@ -48,7 +48,10 @@ func (a brokenAdapter) HandleHook(agent.HookHost, agent.HookInput, string, io.Wr
 }
 
 func good() brokenAdapter {
-	return brokenAdapter{descriptor: agent.AdapterDescriptor{Kind: "fixture", Label: "Fixture", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(true)}, caps: model.ReceiveCapabilities{LifecycleHooks: true}}
+	return brokenAdapter{
+		descriptor: agent.AdapterDescriptor{Kind: "fixture", Label: "Fixture", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(true)},
+		caps:       model.ReceiveCapabilities{Delivery: "fixture", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, LifecycleHooks: true},
+	}
 }
 
 func TestChecksCatchBrokenAdapters(t *testing.T) {
@@ -57,36 +60,6 @@ func TestChecksCatchBrokenAdapters(t *testing.T) {
 		break_ func(*brokenAdapter)
 		want   string
 	}{
-		{"missing label", func(a *brokenAdapter) { a.descriptor.Label = "" }, "kind and a label"},
-		{"unknown mapped event", func(a *brokenAdapter) { a.descriptor.Hooks = map[string]string{"start": "SessionStart", "x": "Nope"} }, "unknown event"},
-		{"no session start", func(a *brokenAdapter) { a.descriptor.Hooks = map[string]string{"stop": "Stop"} }, "SessionStart"},
-		{"no hook event key", func(a *brokenAdapter) { a.descriptor.HookEventKey = "" }, `adapter "fixture" has hooks but declares no HookEventKey`},
-		{"only the receiver sentence", func(a *brokenAdapter) { a.descriptor.UncertainReceiver = "may be in your thread: %s" }, `adapter "fixture" sets only one of UncertainReceiver and UncertainAcknowledged; UncertainAcknowledged is empty`},
-		{"only the ACKed sentence", func(a *brokenAdapter) { a.descriptor.UncertainAcknowledged = "ACKed %s" }, `UncertainReceiver is empty, set both or neither`},
-		{"receiver sentence without %s", func(a *brokenAdapter) {
-			a.descriptor.UncertainReceiver, a.descriptor.UncertainAcknowledged = "a sentence", "ACKed %s"
-		}, `adapter "fixture": UncertainReceiver is used as a format string and must have exactly one %s`},
-		{"ACKed sentence with two %s", func(a *brokenAdapter) {
-			a.descriptor.UncertainReceiver, a.descriptor.UncertainAcknowledged = "ok %s", "%s and %s"
-		}, `UncertainAcknowledged is used as a format string`},
-		{"another verb", func(a *brokenAdapter) {
-			a.descriptor.UncertainReceiver, a.descriptor.UncertainAcknowledged = "ok %s", "ACKed %s and %d"
-		}, `UncertainAcknowledged is used as a format string`},
-		// Without the "exactly one %s" count, a single other verb or a lone % would pass.
-		{"a single verb that is not %s", func(a *brokenAdapter) {
-			a.descriptor.UncertainReceiver, a.descriptor.UncertainAcknowledged = "ok %s", "ACKed %d"
-		}, `UncertainAcknowledged is used as a format string`},
-		{"a lone percent sign", func(a *brokenAdapter) {
-			a.descriptor.UncertainReceiver, a.descriptor.UncertainAcknowledged = "ok %", "ACKed %s"
-		}, `UncertainReceiver is used as a format string`},
-		{"a percent sign next to %s", func(a *brokenAdapter) {
-			a.descriptor.UncertainReceiver, a.descriptor.UncertainAcknowledged = "ok %s", "100% ACKed %s"
-		}, `UncertainAcknowledged is used as a format string`},
-		{"no hooks mapped", func(a *brokenAdapter) { a.descriptor.Hooks = nil }, "at least one"},
-		{"empty native key", func(a *brokenAdapter) { a.descriptor.Native = []agent.NativeField{{Key: ""}} }, "empty or declared twice"},
-		{"native key twice", func(a *brokenAdapter) {
-			a.descriptor.Native = []agent.NativeField{{Key: "status"}, {Key: "STATUS"}}
-		}, "empty or declared twice"},
 		{"normalizer allows registration", func(a *brokenAdapter) {
 			a.normalize = func(v agent.HookInput) (agent.HookInput, error) { v.AllowPromptRegistration = true; return v, nil }
 		}, "descriptor does"},
@@ -101,47 +74,35 @@ func TestChecksCatchBrokenAdapters(t *testing.T) {
 		adapter := good()
 		test.break_(&adapter)
 		r := &recorder{}
-		checkDescriptor(r, adapter)
 		checkHooks(r, adapter)
 		if !strings.Contains(strings.Join(r.failures, "\n"), test.want) {
 			t.Fatal(test.name, "was not caught:", r.failures)
 		}
 	}
 	r := &recorder{}
-	checkDescriptor(r, good())
+	checkDeclaration(r, good())
 	checkHooks(r, good())
-	checkCapabilities(r, good())
+	checkState(r, good())
 	if len(r.failures) != 0 {
 		t.Fatal("a conforming adapter failed:", r.failures)
 	}
 }
 
-func TestConformingUncertainWordingPasses(t *testing.T) {
+// The declaration rules are not here: the registry enforces them (see the
+// registry tests in package agent) and Run reports its refusal, every problem
+// of the adapter at once.
+func TestRunReportsTheRegistryRefusal(t *testing.T) {
 	adapter := good()
-	adapter.descriptor.UncertainReceiver, adapter.descriptor.UncertainAcknowledged = "may be in your thread: %s", "ACKed %s"
+	adapter.descriptor.HookEventKey = ""
+	adapter.descriptor.Hooks = map[string]string{"stop": "Stop"}
 	r := &recorder{}
-	checkDescriptor(r, adapter)
-	if len(r.failures) != 0 {
-		t.Fatal("valid wording failed:", r.failures)
-	}
-}
-
-func TestCapabilitiesNeedHooks(t *testing.T) {
-	r := &recorder{}
-	checkCapabilities(r, bareAdapter{})
+	checkDeclaration(r, adapter)
 	if len(r.failures) != 1 {
-		t.Fatal("hook capabilities without HookAdapter were not caught", r.failures)
+		t.Fatalf("want one failure that lists the problems, got %q", r.failures)
 	}
-}
-
-type bareAdapter struct{}
-
-func (bareAdapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "bare", Label: "Bare"}
-}
-func (bareAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
-	return model.ReceiveCapabilities{LifecycleHooks: true}
-}
-func (bareAdapter) Deliver(_ context.Context, _ model.Message, _ model.Session) model.Receipt {
-	return model.NewReceipt(model.StatusSubmitted)
+	for _, want := range []string{"the registry refuses this adapter's declaration", "fixture maps no native event to SessionStart", "fixture has hooks but declares no HookEventKey"} {
+		if !strings.Contains(r.failures[0], want) {
+			t.Fatalf("failure lacks %q:\n%s", want, r.failures[0])
+		}
+	}
 }
