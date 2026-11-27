@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -275,23 +276,106 @@ func TestAntigravityTreatsAStopWithoutAReasonAsANormalEnd(t *testing.T) {
 	requireReply(t, out, continuePrefix, "BODY-NOREASON")
 }
 
-func TestAntigravityIgnoresAConversationItDoesNotKnow(t *testing.T) {
+// capabilityIn returns the private capability that a start or claim message carries.
+func capabilityIn(t *testing.T, reply string) string {
+	t.Helper()
+	found := regexp.MustCompile(`your private capability is ([0-9a-f-]{72})`).FindStringSubmatch(reply)
+	if found == nil {
+		t.Fatalf("the reply holds no capability: %q", reply)
+	}
+	return found[1]
+}
+
+// canSend says whether the actor and capability are accepted by the service.
+func (c antigravityChat) canSend(actor, capability string) bool {
+	_, err := c.service.Send(context.Background(), bus.SendRequest{Actor: actor, Capability: capability, To: c.receiver.ID, MessageID: model.NewUUID(), Body: "ping"})
+	return err == nil
+}
+
+// A stop of a conversation core does not know is stale: nothing happens.
+func TestAntigravityIgnoresAStopOfAConversationItDoesNotKnow(t *testing.T) {
 	service := bus.Service{Store: antigravityStore(t)}
-	for _, event := range []string{"PreInvocation", "Stop"} {
-		if out, err := antigravityHook(t, service, antigravityPayload(event, model.NewUUID(), nil)); err != nil || out != "" {
-			t.Fatalf("%s for an unknown conversation: %q, %v", event, out, err)
-		}
+	if out, err := antigravityHook(t, service, antigravityPayload("Stop", model.NewUUID(), nil)); err != nil || out != "" {
+		t.Fatalf("Stop for an unknown conversation: %q, %v", out, err)
+	}
+	if sessions, err := service.Store.List(); err != nil || len(sessions) != 0 {
+		t.Fatalf("%d sessions after a stop of an unknown conversation (%v)", len(sessions), err)
 	}
 }
 
+// A chat that was resumed with no start hook (or whose record is gone) is registered by
+// its first model call, gets its credentials in that same message, and gets them once.
+func TestAntigravityRegistersAnUnknownConversationAtItsFirstModelCall(t *testing.T) {
+	chat := newAntigravityChat(t)
+	native := model.NewUUID()
+	out, err := antigravityHook(t, chat.service, antigravityPayload("PreInvocation", native, nil))
+	if err != nil || !strings.HasPrefix(out, injectPrefix) || !strings.Contains(out, "Zalki actor: antigravity:"+native) || !strings.Contains(out, "allow mcp(zalki/*)") {
+		t.Fatalf("first model call: output %q, error %v", out, err)
+	}
+	got, err := chat.store.List()
+	if err != nil || len(got) != 3 {
+		t.Fatalf("%d sessions, want the two of the chat and the new one (%v)", len(got), err)
+	}
+	if !chat.canSend("antigravity:"+native, capabilityIn(t, out)) {
+		t.Fatal("the credentials in the message are not accepted")
+	}
+	if again, err := antigravityHook(t, chat.service, antigravityPayload("PreInvocation", native, nil)); err != nil || again != "" {
+		t.Fatalf("second model call: output %q, error %v; want nothing (no new credentials)", again, err)
+	}
+}
+
+// The credentials of a chat that was registered by a start hook, retired when its
+// owner exited, and resumed, work again after its next model call: nothing is claimed
+// and nothing is sent.
+func TestAntigravityRevivesARetiredConversationWithItsOwnCredentials(t *testing.T) {
+	chat := newAntigravityChat(t)
+	native := model.NewUUID()
+	start, err := antigravityHook(t, chat.service, antigravityPayload("SessionStart", native, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor, key := "antigravity:"+native, capabilityIn(t, start)
+	if err := chat.store.Update(actor, model.StateRetired, true); err != nil {
+		t.Fatal(err)
+	}
+	if chat.canSend(actor, key) {
+		t.Fatal("a retired chat could send")
+	}
+	if out, err := antigravityHook(t, chat.service, antigravityPayload("PreInvocation", native, nil)); err != nil || out != "" {
+		t.Fatalf("model call of a retired chat: output %q, error %v; want nothing", out, err)
+	}
+	if got := adapterTestSession(t, chat.store, actor); got.Retired || got.State != model.StateBusy {
+		t.Fatalf("the chat was not revived: retired %v, state %q", got.Retired, got.State)
+	}
+	if !chat.canSend(actor, key) {
+		t.Fatal("the credentials of the start hook do not work after the chat was revived")
+	}
+}
+
+// A payload whose conversation id has the wrong type is refused for every event. One
+// without a conversation id is refused for a stop and, quietly, for a model call: the
+// hook that may register a chat never fails the client. Nothing is created either way.
 func TestAntigravityRefusesAPayloadWithoutAConversationOrWithAWrongType(t *testing.T) {
 	chat := newAntigravityChat(t)
-	missing := antigravityPayload("PreInvocation", chat.receiver.NativeID, nil)
-	delete(missing, "conversationId")
-	wrong := antigravityPayload("PreInvocation", chat.receiver.NativeID, map[string]any{"conversationId": 7})
-	for name, payload := range map[string]map[string]any{"no conversation id": missing, "a number as conversation id": wrong} {
-		if out, err := antigravityHook(t, chat.service, payload); err == nil || out != "" {
-			t.Fatalf("%s: output %q, error %v; want a refusal and no output", name, out, err)
+	before, _ := chat.store.List()
+	for _, event := range []string{"PreInvocation", "Stop"} {
+		missing := antigravityPayload(event, chat.receiver.NativeID, nil)
+		delete(missing, "conversationId")
+		wrong := antigravityPayload(event, chat.receiver.NativeID, map[string]any{"conversationId": 7})
+		for name, test := range map[string]struct {
+			payload   map[string]any
+			wantError bool
+		}{
+			"no conversation id":          {missing, event == "Stop"},
+			"a number as conversation id": {wrong, true},
+		} {
+			out, err := antigravityHook(t, chat.service, test.payload)
+			if (err != nil) != test.wantError || out != "" {
+				t.Fatalf("%s, %s: output %q, error %v; want no output and error %v", event, name, out, err, test.wantError)
+			}
 		}
+	}
+	if after, _ := chat.store.List(); len(after) != len(before) {
+		t.Fatalf("%d sessions after refused payloads, was %d", len(after), len(before))
 	}
 }

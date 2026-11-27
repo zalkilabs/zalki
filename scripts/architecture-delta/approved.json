@@ -4626,5 +4626,75 @@
       }
     },
     "reason": "A common lifecycle event, Activity, and a descriptor flag for it. internal/model gets one cause constant, CauseActivity (exports 511 to 512). It sits in the shared constant block, so the shape entry of each of the ten other cause constants changes with it. agent.HookInput renames its core-set field AllowPromptRegistration to AllowRegistration, because core sets it for a prompt hook and for an Activity hook. agent.Lifecycle gets one bool field, ActivityMayRegister. No import, receiver or OS call changes."
+  },
+  {
+    "base_commit": "725942bb77d6dcc70c9bb22c8d920594ea97ce8d",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "receivers": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "shapes": {
+        "added": {},
+        "changed": {
+          "type:internal/agent.HookInput": {
+            "after": "HookInput struct {\n\tAllowRegistration\tbool\t\t`json:\"-\"`\n\tRegistered\t\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tNativeEvent\t\tstring\t\t`json:\"-\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tNative\t\t\tjson.RawMessage\t`json:\"-\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}",
+            "before": "HookInput struct {\n\tAllowRegistration\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tNativeEvent\t\tstring\t\t`json:\"-\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tNative\t\t\tjson.RawMessage\t`json:\"-\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}"
+          }
+        },
+        "removed": {}
+      }
+    },
+    "reason": "agent.HookInput gets one core-set field, Registered, set on the hook that created the session through the optional registration rule. It is a shape change of an existing type. No export, import, receiver or OS call is added or removed."
+  },
+  {
+    "base_commit": "725942bb77d6dcc70c9bb22c8d920594ea97ce8d",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "receivers": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "shapes": {
+        "added": {},
+        "changed": {
+          "type:internal/agent.HookInput": {
+            "after": "HookInput struct {\n\tAllowRegistration\tbool\t\t`json:\"-\"`\n\tRegistered\t\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tNativeEvent\t\tstring\t\t`json:\"-\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tNative\t\t\tjson.RawMessage\t`json:\"-\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}",
+            "before": "HookInput struct {\n\tAllowRegistration\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tNativeEvent\t\tstring\t\t`json:\"-\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tNative\t\t\tjson.RawMessage\t`json:\"-\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}"
+          }
+        },
+        "removed": {}
+      }
+    },
+    "reason": "agent.HookInput gets one core-set field, Registered, set on the hook that created the session through the optional registration rule. It is a shape change of an existing type. No export, import, receiver or OS call is added or removed."
   }
 ]

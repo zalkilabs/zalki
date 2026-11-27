@@ -25,6 +25,8 @@ type diagnostic struct {
 	Status   string    `json:"status"`
 	Message  string    `json:"message"`
 	Problems []problem `json:"problems"`
+	// Notes are facts the user may want to know that are not problems.
+	Notes []string `json:"notes"`
 }
 
 // problem is one finding. Code is stable; Message says what is wrong and what to do.
@@ -40,7 +42,7 @@ func (a Adapter) Diagnose(in agent.DiagnosticInput) (string, any) {
 }
 
 func (a Adapter) diagnose(in agent.DiagnosticInput) diagnostic {
-	result := diagnostic{Status: "cannot_verify", Message: "Antigravity: cannot verify the Zalki entries.", Problems: []problem{}}
+	result := diagnostic{Status: "cannot_verify", Message: "Antigravity: cannot verify the Zalki entries.", Problems: []problem{}, Notes: []string{}}
 	if !filepath.IsAbs(in.Binary) || !filepath.IsAbs(in.Home) {
 		return result
 	}
@@ -58,6 +60,9 @@ func (a Adapter) diagnose(in agent.DiagnosticInput) diagnostic {
 	result.Problems = append(result.Problems, a.hooksProblems(hooksTop, hooksReason, expected[0].JSON[ownedEntry])...)
 	mcpTop, mcpReason := readJSONObject(mcp)
 	result.Problems = append(result.Problems, mcpProblems(mcpTop, mcpReason, expected[1].JSON)...)
+	if note := toolPermissionNote(in.Home); note != "" {
+		result.Notes = append(result.Notes, note)
+	}
 	if len(result.Problems) == 0 {
 		result.Status, result.Message = "ok", "Antigravity: the Zalki hooks and MCP entry are installed."
 		return result
@@ -217,4 +222,61 @@ func holdsAll(have, want any) bool {
 		}
 	}
 	return true
+}
+
+// permissionRulesPath is where agy keeps the permission rules the user saved.
+const permissionRulesPath = ".gemini/config/config.json"
+
+// toolPermissionNote says when no allow rule covers the Zalki tools. agy denies a
+// tool the user has not allowed, in a headless run at once. The note is quiet when
+// the file is missing or has a shape this code does not know, because the rule may
+// be kept elsewhere (a rule saved for one project, for example).
+func toolPermissionNote(home string) string {
+	raw, err := statefile.ReadBytes(filepath.Join(home, filepath.FromSlash(permissionRulesPath)), maxClientFile)
+	if err != nil {
+		return ""
+	}
+	var top map[string]any
+	if json.Unmarshal(raw, &top) != nil || top == nil {
+		return ""
+	}
+	allow, known := allowRules(top)
+	if !known {
+		return ""
+	}
+	for _, rule := range allow {
+		if rule == "mcp(*)" || rule == "mcp("+ownedEntry+"/*)" || strings.HasPrefix(rule, "mcp("+ownedEntry+"/") {
+			return ""
+		}
+	}
+	return "Antigravity: no allow rule for the Zalki tools was found in " + permissionRulesPath + ". If agy asks to approve a Zalki tool, approve it, or add mcp(" + ownedEntry + "/*) to its allow rules; a headless agy run denies the tools without it."
+}
+
+// allowRules returns the allow rules of a settings object. known is false when
+// the permissions or their allow list have a shape that is not an object of strings.
+func allowRules(top map[string]any) (rules []string, known bool) {
+	permissions, present := top["permissions"]
+	if !present {
+		return nil, true
+	}
+	object, ok := permissions.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	list, present := object["allow"]
+	if !present {
+		return nil, true
+	}
+	items, ok := list.([]any)
+	if !ok {
+		return nil, false
+	}
+	for _, item := range items {
+		rule, ok := item.(string)
+		if !ok {
+			return nil, false
+		}
+		rules = append(rules, rule)
+	}
+	return rules, true
 }

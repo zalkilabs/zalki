@@ -4,19 +4,21 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // HandleHook delivers messages. Before a model call (PreInvocation, the common
-// event PostToolUse) it writes pending messages as a system message and lets
-// core mark the session busy. At a Stop it may continue the turn with them, and
-// it ends the turn when the continue limit is reached.
+// event Activity) it revives a retired chat, hands a chat that core just
+// registered its credentials, and writes pending messages as a system message.
+// At a Stop it may continue the turn with them, and it ends the turn when the
+// continue limit is reached.
 func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error) {
 	switch event.Event {
-	case "PostToolUse":
-		return deliverBeforeModelCall(host, id, output)
+	case "Activity":
+		return beforeModelCall(host, event, id, output)
 	case "Stop", "Interrupt":
 		lifecycle, ok := host.(agent.LifecycleHost)
 		if !ok {
@@ -27,18 +29,60 @@ func (Adapter) HandleHook(host agent.HookHost, event agent.HookInput, id string,
 	return false, nil
 }
 
-// deliverBeforeModelCall writes the pending messages as a system message. Nothing
-// pending means nothing is written, which Antigravity accepts. It returns false
-// so that core applies the busy state.
-func deliverBeforeModelCall(host agent.HookHost, id string, output io.Writer) (bool, error) {
+// beforeModelCall runs at every model call, in this order: the chat is marked busy
+// (and revived if it was retired: its credentials are kept, see core), a chat that
+// core registered with this very hook gets new credentials, and pending messages
+// are written. Credentials and messages go out in one system message. A failure
+// after the credentials were claimed still sends them, so they are never lost.
+func beforeModelCall(host agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error) {
+	lifecycle, ok := host.(agent.LifecycleHost)
+	if !ok {
+		return false, errors.New("Antigravity hook host lacks lifecycle support")
+	}
+	var parts []string
+	if event.Registered {
+		grant, err := lifecycle.ClaimRecovery(claimNewChat)
+		if err != nil {
+			return true, err
+		}
+		if grant.Capability != "" {
+			parts = append(parts, grant.Instructions+" "+permissionNote)
+		}
+	}
+	if err := lifecycle.ApplyLifecycle(reviveChat); err != nil {
+		return true, errors.Join(err, writeParts(output, parts))
+	}
 	text, err := host.EmitPending(id)
 	if errors.Is(err, os.ErrNotExist) {
-		return true, nil
+		return true, writeParts(output, parts)
 	}
-	if err != nil || text == "" {
-		return false, err
+	if text != "" {
+		parts = append(parts, text)
 	}
-	return false, writeReply(output, injectStepsReply(text))
+	return true, errors.Join(err, writeParts(output, parts))
+}
+
+// writeParts writes the parts as one system message; nothing is written for no parts.
+func writeParts(output io.Writer, parts []string) error {
+	if len(parts) == 0 {
+		return nil
+	}
+	return writeReply(output, injectStepsReply(strings.Join(parts, "\n")))
+}
+
+// claimNewChat asks for credentials for a chat that core registered at this hook.
+func claimNewChat(model.SessionView) (agent.RecoveryDecision, error) {
+	return agent.RecoveryDecision{Recover: true}, nil
+}
+
+// reviveChat marks the chat busy and, when it was retired, brings it back with
+// its counter reset. Its capability was kept through the retirement.
+func reviveChat(v model.SessionView) (agent.LifecycleChange, error) {
+	change := agent.LifecycleChange{Transition: agent.TransitionPromptReactivate}
+	if v.Retired {
+		change.AdapterState = encodeState(loopState{})
+	}
+	return change, nil
 }
 
 // endOfTurn marks the session ready. A normal end with pending messages and room

@@ -1,8 +1,9 @@
 // Package antigravity is the adapter for Antigravity (the agy command). Zalki
 // installs three hooks: SessionStart, which
 // registers the conversation and gives it its credentials, PreInvocation, which
-// delivers messages before each model call, and Stop, which can continue a turn
-// that is about to end. Antigravity has no way to wake an idle chat, so a
+// runs before each model call (it registers a resumed chat that sent no start
+// hook, revives a retired one and delivers messages), and Stop, which can
+// continue a turn that is about to end. Antigravity has no way to wake an idle chat, so a
 // message to an idle chat waits for its next hook.
 package antigravity
 
@@ -28,14 +29,15 @@ func New() Adapter { return Adapter{} }
 func (Adapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{
 		Kind: "antigravity", Label: "Antigravity", HookEventKey: "hookEventName",
-		// PreInvocation fires before every model call. No common event means that, so it
-		// maps to the one that marks a session busy; the cause recorded for it is "tool".
-		Hooks:        map[string]string{"SessionStart": "SessionStart", "PreInvocation": "PostToolUse", "Stop": "Stop"},
+		// PreInvocation fires before every model call, also in a resumed chat that sent
+		// no start hook. It is the Activity event, which may register the chat.
+		Hooks:        map[string]string{"SessionStart": "SessionStart", "PreInvocation": "Activity", "Stop": "Stop"},
+		Lifecycle:    agent.Lifecycle{ActivityMayRegister: true},
 		Native:       nativeFields,
 		ProcessNames: []string{"agy"}, OwnerRole: "client", Executable: "agy",
 		Notes: []string{
 			"Antigravity cannot wake an idle chat. A message reaches a running chat before its next model call or when its turn ends, and an idle chat gets it at its next hook.",
-			"A chat that was resumed with agy --resume sends no start hook, so Zalki does not register it by itself.",
+			"A chat that was resumed with agy --resume sends no start hook. Zalki registers it at its first model call and gives it new credentials if it had none.",
 		},
 	}
 }
@@ -57,7 +59,7 @@ func (Adapter) Health(agent.HealthHost, model.Session) (string, string) { return
 
 // StartupOutput gives the new conversation its Zalki instructions as a system message.
 func (Adapter) StartupOutput(startup agent.StartupContext) (any, error) {
-	return injectStepsReply(startup.Instructions), nil
+	return injectStepsReply(startup.Instructions + " " + permissionNote), nil
 }
 
 // NormalizeHook takes the session id from the conversation id (Antigravity sends
