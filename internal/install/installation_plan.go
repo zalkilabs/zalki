@@ -227,7 +227,7 @@ func (record installation) validate(request Request, declarations map[string]Con
 		if !exists || file.JSON == nil {
 			return errors.New("installation record has unexpected settings paths")
 		}
-		if err := validateInstallationPatch(patch); err != nil {
+		if err := validateRecordedPatch(file, patch); err != nil {
 			return err
 		}
 	}
@@ -331,6 +331,7 @@ func planSettingsEdits(action string, owners []installation, next installation, 
 			change.ownedFragments = append(change.ownedFragments, owner.Fragments[ownerKey])
 		}
 		change.isJSON = declarations[key].JSON != nil
+		change.ownedEntry = declarations[key].OwnedEntry
 		edit, err := change.plan(action)
 		if err != nil {
 			return nil, err
@@ -346,8 +347,11 @@ func planSettingsEdits(action string, owners []installation, next installation, 
 // record's entry and, after crashes, each pending record's entry; any one of
 // them may be in the file.
 type settingsChange struct {
-	path           string
-	isJSON         bool
+	path   string
+	isJSON bool
+	// ownedEntry is the declared top-level key that zalki owns as a whole; empty
+	// for a file merged by the rules of the built-in settings keys.
+	ownedEntry     string
 	ownedPatches   []map[string]any
 	nextPatch      map[string]any
 	ownedFragments []string
@@ -360,9 +364,12 @@ func (change settingsChange) plan(action string) (configEdit, error) {
 	if err != nil {
 		return edit, err
 	}
-	if change.isJSON {
+	switch {
+	case change.isJSON && change.ownedEntry != "":
+		edit.after, edit.notes, err = planOwnedEntryFile(change, action, before, exists)
+	case change.isJSON:
 		edit.after, edit.notes, err = planJSONFile(change, action, before, exists)
-	} else {
+	default:
 		edit.after, edit.notes, err = planTOMLFile(change, action, before, exists)
 	}
 	return edit, err

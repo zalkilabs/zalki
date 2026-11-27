@@ -1,6 +1,7 @@
 package install_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -27,7 +28,9 @@ func editJSONFile(t *testing.T, path string, change func(map[string]any)) {
 		t.Fatal(err)
 	}
 	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber() // the user's numbers keep their digits when the test rewrites the file
+	if err := decoder.Decode(&value); err != nil {
 		t.Fatal(err)
 	}
 	change(value)

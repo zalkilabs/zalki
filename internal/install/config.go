@@ -20,6 +20,9 @@ type ConfigFile struct {
 	TOML  string
 	// ConfigRootEnv relocates this file's basename; Path remains its stable ownership key.
 	ConfigRootEnv string
+	// OwnedEntry is the top-level key whose value zalki owns as a whole; JSON is
+	// then exactly {OwnedEntry: entry}. See model.ConfigDeclaration.
+	OwnedEntry string
 }
 
 func (file ConfigFile) target(home string) (string, error) {

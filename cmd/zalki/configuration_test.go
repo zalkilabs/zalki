@@ -27,14 +27,14 @@ func TestInstallDeclarationsPreservesFieldsAndJSONSharing(t *testing.T) {
 	patch := map[string]any{"fixture": map[string]any{"enabled": true}}
 	registry, err := agent.NewRegistry(declarationFixture{files: []model.ConfigDeclaration{
 		{Path: ".b/config.toml", Draft: "b.toml", TOML: "setting = true\n", ConfigRootEnv: "B_CONFIG_ROOT"},
-		{Path: ".a/config.json", Draft: "a.json", JSON: patch, ConfigRootEnv: "A_CONFIG_ROOT"},
+		{Path: ".a/config.json", Draft: "a.json", JSON: patch, ConfigRootEnv: "A_CONFIG_ROOT", OwnedEntry: "fixture"},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	got, err := installDeclarations(registry, "/fixture/config.json")("/fixture/zalki", "/fixture/state")
 	want := []install.ConfigFile{
-		{Path: ".a/config.json", Draft: "a.json", JSON: patch, ConfigRootEnv: "A_CONFIG_ROOT"},
+		{Path: ".a/config.json", Draft: "a.json", JSON: patch, ConfigRootEnv: "A_CONFIG_ROOT", OwnedEntry: "fixture"},
 		{Path: ".b/config.toml", Draft: "b.toml", TOML: "setting = true\n", ConfigRootEnv: "B_CONFIG_ROOT"},
 	}
 	if err != nil || !reflect.DeepEqual(got, want) {

@@ -1,0 +1,72 @@
+{
+  "alpha": [
+    1,
+    "two",
+    {
+      "three": 3.0
+    }
+  ],
+  "other-tool": {
+    "SessionStart": [
+      {
+        "command": "echo \"hi\" && true",
+        "timeout": 30.0,
+        "type": "command"
+      }
+    ],
+    "deep": {
+      "a": {
+        "b": [
+          {
+            "c": null,
+            "d": true,
+            "e": []
+          },
+          {}
+        ]
+      }
+    },
+    "enabled": false,
+    "note": "héllo ✓ <b> & done",
+    "numbers": [
+      1.50,
+      1e3,
+      12345678901234567890,
+      0.1,
+      -0,
+      1E+2,
+      7
+    ]
+  },
+  "zalki": {
+    "PostInvocation": [
+      {
+        "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'PostInvocation'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ],
+    "PreInvocation": [
+      {
+        "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'PreInvocation'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ],
+    "SessionStart": [
+      {
+        "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'SessionStart'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ],
+    "Stop": [
+      {
+        "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'Stop'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ]
+  },
+  "zeta": {}
+}
