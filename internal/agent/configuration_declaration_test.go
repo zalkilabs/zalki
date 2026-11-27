@@ -74,3 +74,25 @@ func TestConfigurationChecksADeclaredOwnedEntry(t *testing.T) {
 func sprintfRefusal(format, name string) string {
 	return strings.Replace(format, "%q", strconv.Quote(name), 1)
 }
+
+// The registry says which client each file belongs to, from the descriptor; an
+// adapter cannot say it for itself.
+func TestConfigurationNamesTheClientOfEachFile(t *testing.T) {
+	file := ownedEntryDeclaration(func(f *model.ConfigDeclaration) {
+		f.Client, f.ClientLabel, f.Executable = "other", "Other", "other-cmd"
+	})
+	registry, err := agent.NewRegistry(configAdapter{
+		plainAdapter: plainAdapter{descriptor: agent.AdapterDescriptor{Kind: "app", Label: "App", Executable: "app-cmd"}},
+		files:        []model.ConfigDeclaration{file},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := registry.Configuration("/bin/zalki", nil)
+	if err != nil || len(files) != 1 {
+		t.Fatalf("files %v, error %v", files, err)
+	}
+	if got := files[0]; got.Client != "app" || got.ClientLabel != "App" || got.Executable != "app-cmd" {
+		t.Fatalf("client %q, label %q, executable %q; want the descriptor's, not the adapter's", got.Client, got.ClientLabel, got.Executable)
+	}
+}

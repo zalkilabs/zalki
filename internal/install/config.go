@@ -23,6 +23,9 @@ type ConfigFile struct {
 	// OwnedEntry is the top-level key whose value zalki owns as a whole; JSON is
 	// then exactly {OwnedEntry: entry}. See model.ConfigDeclaration.
 	OwnedEntry string
+	// Client, ClientLabel and Executable name the client the file belongs to (see
+	// model.ConfigDeclaration). An empty Client means the file is always configured.
+	Client, ClientLabel, Executable string
 }
 
 func (file ConfigFile) target(home string) (string, error) {

@@ -35,6 +35,22 @@ func configDeclare(binary, state string) ([]install.ConfigFile, error) {
 	return out, nil
 }
 
+// clientAwareDeclare is configDeclare with the client of each file, as the
+// command line passes them: the installer then configures only the clients that
+// are present.
+func clientAwareDeclare(binary, state string) ([]install.ConfigFile, error) {
+	files, err := adapters.Builtin().Configuration(binary, []string{"--state", state})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]install.ConfigFile, 0, len(files))
+	for _, file := range files {
+		out = append(out, install.ConfigFile{Path: file.Path, Draft: file.Draft, JSON: file.JSON, TOML: file.TOML, ConfigRootEnv: file.ConfigRootEnv, OwnedEntry: file.OwnedEntry,
+			Client: file.Client, ClientLabel: file.ClientLabel, Executable: file.Executable})
+	}
+	return out, nil
+}
+
 func isolateConfigEnv(t *testing.T) {
 	t.Helper()
 	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {

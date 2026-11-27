@@ -36,7 +36,7 @@ func newUninstallCommand(opts *commandOptions) *cobra.Command {
 					return errors.Join(encodeOutput(cmd, report), err)
 				}
 			}
-			return encodeOutput(cmd, report)
+			return errors.Join(encodeOutput(cmd, report), skippedClientsError(report))
 		},
 	}
 	cmd.Flags().BoolVar(&apply, "apply", false, "apply the planned settings changes, keeping backups")

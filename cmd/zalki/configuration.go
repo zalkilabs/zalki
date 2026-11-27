@@ -24,6 +24,9 @@ func installDeclarations(registry *agent.Registry, configFile string) install.De
 				TOML:          declaration.TOML,
 				ConfigRootEnv: declaration.ConfigRootEnv,
 				OwnedEntry:    declaration.OwnedEntry,
+				Client:        declaration.Client,
+				ClientLabel:   declaration.ClientLabel,
+				Executable:    declaration.Executable,
 			})
 		}
 		return files, nil

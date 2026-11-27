@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -163,4 +164,34 @@ func equalFiles(a, b map[string]string) bool {
 		}
 	}
 	return true
+}
+
+// An installation made by an earlier version keeps working when a client is gone: the
+// upgrade leaves that client's files and record entries alone and does not make its
+// directory again.
+func TestUpgradeOfAnEarlierInstallationKeepsAClientThatIsGone(t *testing.T) {
+	isolateConfigEnv(t)
+	home := loadRC8Home(t)
+	if err := os.RemoveAll(filepath.Join(home, ".cursor")); err != nil {
+		t.Fatal(err)
+	}
+	record, err := os.ReadFile(filepath.Join(home, "state", "installation.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := goldenRequest(home, "upgrade", goldenBinary)
+	request.FindExecutable = func(string) bool { return false }
+	report, err := install.Manage(clientAwareDeclare, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(report.Configured, []string{"claude", "codex"}) || len(report.Paths) != 0 {
+		t.Fatalf("configured %v, edits %v; want claude and codex configured and nothing to change", report.Configured, report.Paths)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".cursor")); !os.IsNotExist(err) {
+		t.Fatalf("the directory of a client that is gone was made again (%v)", err)
+	}
+	if after, err := os.ReadFile(filepath.Join(home, "state", "installation.json")); err != nil || string(after) != string(record) {
+		t.Fatalf("the record changed (%v)", err)
+	}
 }

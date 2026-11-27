@@ -196,7 +196,7 @@ func TestAdapterSectionInputs(t *testing.T) {
 
 func TestInstallNoticesComeFromTheAdapters(t *testing.T) {
 	var lines []string
-	if err := printInstallNotices(adapters.Builtin(), func(line string) error { lines = append(lines, line); return nil }); err != nil {
+	if err := printInstallNotices(adapters.Builtin(), nil, func(line string) error { lines = append(lines, line); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if len(lines) != 1 || lines[0]+"\n" != codexNoticeForTest {
@@ -290,5 +290,18 @@ func TestReadDiagnosticFile(t *testing.T) {
 	}
 	if _, reason := readDiagnosticFile(filepath.Join(dir, "fifo.json")); reason != "unsafe_file" {
 		t.Fatalf("a FIFO: %q", reason)
+	}
+}
+
+// Only the clients that were configured print their line.
+func TestInstallNoticesAreOnlyForTheConfiguredClients(t *testing.T) {
+	for configured, want := range map[string]int{"codex": 1, "claude": 0, "cursor": 0} {
+		var lines []string
+		if err := printInstallNotices(adapters.Builtin(), []string{configured}, func(line string) error { lines = append(lines, line); return nil }); err != nil {
+			t.Fatal(err)
+		}
+		if len(lines) != want {
+			t.Errorf("configured %s: notices %q, want %d", configured, lines, want)
+		}
 	}
 }

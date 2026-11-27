@@ -34,8 +34,8 @@ func TestInstallDeclarationsPreservesFieldsAndJSONSharing(t *testing.T) {
 	}
 	got, err := installDeclarations(registry, "/fixture/config.json")("/fixture/zalki", "/fixture/state")
 	want := []install.ConfigFile{
-		{Path: ".a/config.json", Draft: "a.json", JSON: patch, ConfigRootEnv: "A_CONFIG_ROOT", OwnedEntry: "fixture"},
-		{Path: ".b/config.toml", Draft: "b.toml", TOML: "setting = true\n", ConfigRootEnv: "B_CONFIG_ROOT"},
+		{Path: ".a/config.json", Draft: "a.json", JSON: patch, ConfigRootEnv: "A_CONFIG_ROOT", OwnedEntry: "fixture", Client: "fixture", ClientLabel: "Fixture"},
+		{Path: ".b/config.toml", Draft: "b.toml", TOML: "setting = true\n", ConfigRootEnv: "B_CONFIG_ROOT", Client: "fixture", ClientLabel: "Fixture"},
 	}
 	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("converted declarations = %+v, %v; want %+v", got, err, want)

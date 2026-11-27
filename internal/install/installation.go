@@ -37,6 +37,9 @@ type Request struct {
 	ExpectRecord string
 
 	Apply bool
+	// FindExecutable says whether a client's command is on this machine. Nil uses
+	// the PATH of the process.
+	FindExecutable func(string) bool
 }
 
 type Report struct {
@@ -44,6 +47,11 @@ type Report struct {
 	DryRun bool     `json:"dry_run"`
 	Paths  []string `json:"paths"`
 	Notes  []string `json:"notes,omitempty"`
+	// Configured lists the clients (by kind) the run configured or kept; Unusable
+	// lists the display names of the clients it skipped because a file could not
+	// be used. Both are empty when no declared file has a client.
+	Configured []string `json:"-"`
+	Unusable   []string `json:"-"`
 	// Login item inspect only (ManagedLoginItem); empty for native installs.
 	ManagedState     string `json:"managed_state,omitempty"`
 	ServiceState     string `json:"service_state,omitempty"`
