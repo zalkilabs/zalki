@@ -20,8 +20,8 @@ const (
 	StateRead DeliveryState = "read"
 	// StateFailed means the message was refused or could not be sent.
 	StateFailed DeliveryState = "failed"
-	// StateUnknown means the message may or may not have arrived.
-	StateUnknown DeliveryState = "unknown"
+	// stateUnknown means the message may or may not have arrived.
+	stateUnknown DeliveryState = "unknown"
 )
 
 // deliveryState names the stored status of a message. An empty status with no
@@ -50,9 +50,9 @@ func deliveryState(msg model.Message) DeliveryState {
 	case model.StatusNotSent, model.StatusApprovalBlocked, model.StatusCommandFailed:
 		return StateFailed
 	case model.StatusWakeUncertain, model.StatusUnknownTimeout, model.StatusUnknownWrite, model.StatusQueuedForApproval:
-		return StateUnknown
+		return stateUnknown
 	}
-	return StateUnknown
+	return stateUnknown
 }
 
 // DeliveryReceipt is the result of send_message, reply_message and ack_message.
@@ -94,16 +94,22 @@ func agentNames(service Bus, args toolArgs) map[string]string {
 }
 
 // ackReceipt is the result of ack_message: the message is read.
-func ackReceipt(message model.Message, err error) (DeliveryReceipt, error) {
-	receipt, err := messageReceipt(message, err)
+func ackReceipt(message model.Message, err error, notes uncertainNotes) (DeliveryReceipt, error) {
+	receipt, err := messageReceipt(message, err, notes)
 	return DeliveryReceipt{MessageReceipt: receipt, State: deliveryState(message)}, err
+}
+
+// ackResult runs ack_message and builds its result.
+func ackResult(service Bus, args toolArgs) (DeliveryReceipt, error) {
+	message, err := service.Ack(args.Actor, args.Capability, args.MessageID)
+	return ackReceipt(message, err, service.UncertainDelivery)
 }
 
 // sentReceipt builds the result of send_message. It adds the resolved receiver
 // (ID and current name), so a wrong address is visible at once.
 func sentReceipt(service Bus, args toolArgs) func(model.Message, error) (DeliveryReceipt, error) {
 	return func(message model.Message, err error) (DeliveryReceipt, error) {
-		receipt, err := ackReceipt(message, err)
+		receipt, err := ackReceipt(message, err, service.UncertainDelivery)
 		if message.To != "" {
 			receipt.To = message.To
 			receipt.ToName = agentNames(service, args)[message.To]

@@ -12,12 +12,12 @@ import (
 
 func TestSessionPluginMCPBindingProjections(t *testing.T) {
 	message := model.Message{ID: model.NewUUID(), From: "plugin:" + model.NewUUID(), To: "cursor:" + model.NewUUID(), Body: "projection fixture body", CreatedAt: model.Timestamp(), Status: model.StatusPendingActivity, PluginBinding: strings.Repeat("d", 64)}
-	receipt, err := messageReceipt(message, nil)
+	receipt, err := messageReceipt(message, nil, codexNotes)
 	if err != nil {
 		t.Fatal(err)
 	}
 	batch := bus.MessageBatch{Messages: []model.Message{message}}
-	views := map[string]any{"list": messagePage(batch, false, "", nil), "get": messagePage(batch, true, "", nil), "receipt": receipt}
+	views := map[string]any{"list": messagePage(batch, false, "", nil, codexNotes), "get": messagePage(batch, true, "", nil, codexNotes), "receipt": receipt}
 	for name, value := range views {
 		raw, err := json.Marshal(value)
 		if err != nil || bytes.Contains(raw, []byte("plugin_binding")) || bytes.Contains(raw, []byte(message.PluginBinding)) {

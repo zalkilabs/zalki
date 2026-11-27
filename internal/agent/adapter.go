@@ -61,6 +61,12 @@ type AdapterDescriptor struct {
 	OwnerRole    string
 	Executable   string
 	Notes        []string
+
+	// UncertainReceiver and UncertainAcknowledged are the sentences core shows
+	// for a message to this client whose delivery is unconfirmed (it may have
+	// arrived): to the receiver, and after the receiver ACKed it. Each has one %s
+	// for the message id. Empty means core adds no client-specific sentence.
+	UncertainReceiver, UncertainAcknowledged string
 }
 
 type Adapter interface {

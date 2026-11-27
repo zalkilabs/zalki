@@ -48,11 +48,11 @@ func TestHeldReceiptAndViewNameTheWait(t *testing.T) {
 	clock = func() time.Time { return start.Add(16*time.Hour + 3*time.Minute) }
 	defer func() { clock = time.Now }()
 	msg := heldMessage(start.Format(time.RFC3339Nano))
-	receipt, err := messageReceipt(msg, nil)
+	receipt, err := messageReceipt(msg, nil, codexNotes)
 	if err != nil || receipt.Note != "Queued until the target's permission prompt is answered; waiting since 2026-11-21T00:51:12+02:00 (16 h 3 min)." {
 		t.Fatalf("receipt note = %q, %v", receipt.Note, err)
 	}
-	view := messageViews([]model.Message{msg}, "", nil)[0]
+	view := messageViews([]model.Message{msg}, "", nil, codexNotes)[0]
 	if view.Error != "Waiting for the target's permission prompt since 2026-11-21T00:51:12+02:00 (16 h 3 min)." || view.Status != model.StatusQueuedForApproval {
 		t.Fatalf("view error = %q, status %s", view.Error, view.Status)
 	}

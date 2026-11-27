@@ -58,6 +58,8 @@ func (f *fakeBus) ObserveTool(name, actor, id string, _ time.Duration, err error
 
 func (f *fakeBus) RuntimeStatus() bus.RuntimeStatus { return bus.RuntimeStatus{} }
 
+func (f *fakeBus) UncertainDelivery(kind string) (string, string) { return codexNotes(kind) }
+
 func (f *fakeBus) Ack(actor, key, id string) (model.Message, error) {
 	f.calls = append(f.calls, "Ack:"+actor+":"+key+":"+id)
 	return model.Message{ID: id}, f.err

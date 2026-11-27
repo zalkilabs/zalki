@@ -159,7 +159,7 @@ func toolTable() []toolSpec {
 			name: "ack_message", description: "Record receipt locally without sending a message. Needs actor, capability, message_id.",
 			input: schema(ack, "actor", "capability", "message_id"), validate: checkMessageID,
 		}, func(_ context.Context, service Bus, args toolArgs) (DeliveryReceipt, error) {
-			return ackReceipt(service.Ack(args.Actor, args.Capability, args.MessageID))
+			return ackResult(service, args)
 		}),
 		defineTool(toolDefinition{
 			name: "list_messages", description: "Unread inbox, sent:true history, or exact message_id. Needs actor, capability. History omits bodies. Page with next_cursor. Fetch body_omitted by ID; body_deferred: native delivery owns this body; it is shown in your session when delivered. If you saw it shortened, ack_message it, then read it by message_id.",
@@ -171,7 +171,7 @@ func toolTable() []toolSpec {
 				Sent: args.Sent, To: args.To, Preview: args.Preview,
 				MessageID: args.MessageID, IncludeBody: args.IncludeBody, Cursor: args.Cursor,
 			})
-			return messagePage(messages, args.MessageID != "", args.Actor, sentNames(service, args, messages.Messages)), err
+			return messagePage(messages, args.MessageID != "", args.Actor, sentNames(service, args, messages.Messages), service.UncertainDelivery), err
 		}),
 		defineTool(toolDefinition{
 			name: "watch_agent", description: "One notice when an agent next finishes or ends; expires in 12h. Needs actor, capability, to.",

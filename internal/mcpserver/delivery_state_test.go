@@ -30,9 +30,9 @@ func TestDeliveryStateNamesEveryStoredStatus(t *testing.T) {
 		{"not sent", model.Message{Status: model.StatusNotSent}, StateFailed},
 		{"command failed", model.Message{Status: model.StatusCommandFailed}, StateFailed},
 		{"final approval refusal", model.Message{Status: model.StatusApprovalBlocked}, StateFailed},
-		{"wake hint uncertain", model.Message{Status: model.StatusWakeUncertain}, StateUnknown},
-		{"unknown after timeout", model.Message{Status: model.StatusUnknownTimeout}, StateUnknown},
-		{"unknown after write", model.Message{Status: model.StatusUnknownWrite}, StateUnknown},
+		{"wake hint uncertain", model.Message{Status: model.StatusWakeUncertain}, stateUnknown},
+		{"unknown after timeout", model.Message{Status: model.StatusUnknownTimeout}, stateUnknown},
+		{"unknown after write", model.Message{Status: model.StatusUnknownWrite}, stateUnknown},
 		{"acknowledged delivered", model.Message{Status: model.StatusTransportWritten, AcknowledgedAt: at}, StateRead},
 		{"acknowledged after uncertain delivery", model.Message{Status: model.StatusUnknownWrite, AcknowledgedAt: at}, StateRead},
 		{"acknowledged while queued", model.Message{Status: model.StatusPendingActivity, AcknowledgedAt: at}, StateRead},
@@ -98,7 +98,7 @@ func TestReplyReceiptSaysTheParentWasAcknowledged(t *testing.T) {
 }
 
 func TestAckReceiptIsReadAndNamesNoReceiver(t *testing.T) {
-	acknowledged, err := ackReceipt(model.Message{ID: model.NewUUID(), Status: model.StatusTransportWritten, AcknowledgedAt: "2026-11-22T00:00:00Z"}, nil)
+	acknowledged, err := ackReceipt(model.Message{ID: model.NewUUID(), Status: model.StatusTransportWritten, AcknowledgedAt: "2026-11-22T00:00:00Z"}, nil, codexNotes)
 	if err != nil || acknowledged.State != StateRead || acknowledged.To != "" || acknowledged.ToName != "" || !acknowledged.Acknowledged {
 		t.Fatalf("ack receipt: %+v %v", acknowledged, err)
 	}
@@ -128,7 +128,7 @@ func TestMessageViewsShowStateAndNameOnlyForSentMessages(t *testing.T) {
 	sent := model.Message{ID: model.NewUUID(), From: me, To: other, Status: model.StatusTransportWritten}
 	received := model.Message{ID: model.NewUUID(), From: other, To: me, Status: model.StatusTransportWritten}
 	names := map[string]string{other: "lead", me: "worker"}
-	views := messageViews([]model.Message{sent, received}, me, names)
+	views := messageViews([]model.Message{sent, received}, me, names, codexNotes)
 	if views[0].State != StateDelivered || views[0].ToName != "lead" {
 		t.Fatalf("sent view: %+v", views[0])
 	}
@@ -136,7 +136,7 @@ func TestMessageViewsShowStateAndNameOnlyForSentMessages(t *testing.T) {
 		t.Fatalf("received view must not claim a sender-side state or name: %+v", views[1])
 	}
 	sent.AcknowledgedAt = "2026-11-22T00:00:00Z"
-	if view := messageViews([]model.Message{sent}, me, nil)[0]; view.State != StateRead || view.ToName != "" {
+	if view := messageViews([]model.Message{sent}, me, nil, codexNotes)[0]; view.State != StateRead || view.ToName != "" {
 		t.Fatalf("read view without names: %+v", view)
 	}
 }
@@ -273,4 +273,14 @@ func TestInstructionsExplainTheStatesAndAckMessage(t *testing.T) {
 // receiver and the parent acknowledgement.
 func isQueuedReplyReceipt(data map[string]any, receiver string) bool {
 	return len(data) == 7 && data["state"] == string(StateQueued) && data["parent_acknowledged"] == true && data["to"] == receiver
+}
+
+// The five state words are part of the tool results and their schema: a
+// constant may become private, its word may not change.
+func TestDeliveryStateWordsDoNotChange(t *testing.T) {
+	for state, word := range map[DeliveryState]string{StateQueued: "queued", StateDelivered: "delivered", StateRead: "read", StateFailed: "failed", stateUnknown: "unknown"} {
+		if string(state) != word {
+			t.Fatalf("state %q, want %q", state, word)
+		}
+	}
 }

@@ -35,13 +35,13 @@ type MessageReceipt struct {
 	Code         model.ErrorCode      `json:"code,omitempty"`
 }
 
-func messageReceipt(message model.Message, err error) (MessageReceipt, error) {
+func messageReceipt(message model.Message, err error, notes uncertainNotes) (MessageReceipt, error) {
 	receipt := MessageReceipt{ID: message.ID, Status: message.Status, Acknowledged: message.AcknowledgedAt != ""}
 	if message.Receipt != nil {
 		receipt.Error = message.Receipt.Error
 		receipt.Code = message.Receipt.Code
 	}
-	if text := uncertaintyText(message, "", false); text != "" {
+	if text := uncertaintyText(message, "", false, notes); text != "" {
 		receipt.Error = text
 	}
 	if err != nil || receipt.Acknowledged {
@@ -107,7 +107,7 @@ type MessageView struct {
 	Code           model.ErrorCode      `json:"code,omitempty"`
 }
 
-func messageViews(messages []model.Message, actor string, names map[string]string) []DeliveryView {
+func messageViews(messages []model.Message, actor string, names map[string]string, notes uncertainNotes) []DeliveryView {
 	views := make([]DeliveryView, 0, len(messages))
 	for _, msg := range messages {
 		view := MessageView{ID: msg.ID, From: msg.From, FromName: msg.FromName, FromLabel: msg.FromLabel, Kind: msg.Kind,
@@ -116,7 +116,7 @@ func messageViews(messages []model.Message, actor string, names map[string]strin
 		if msg.Receipt != nil {
 			view.Error, view.Code = msg.Receipt.Error, msg.Receipt.Code
 		}
-		if text := uncertaintyText(msg, actor, true); text != "" {
+		if text := uncertaintyText(msg, actor, true, notes); text != "" {
 			view.Error = text
 		}
 		if msg.IsQueuedForApproval() {
@@ -138,13 +138,13 @@ type MessagePage struct {
 	Unreadable int `json:"unreadable,omitempty"`
 }
 
-func messagePage(batch bus.MessageBatch, exact bool, actor string, names map[string]string) MessagePage {
+func messagePage(batch bus.MessageBatch, exact bool, actor string, names map[string]string, notes uncertainNotes) MessagePage {
 	page := MessagePage{Messages: []DeliveryView{}, More: batch.More, Unreadable: batch.Unreadable}
 	used := len(`{"messages":[],"more":false,"next_cursor":"00000000-0000-4000-8000-000000000000"}`)
 	if page.Unreadable > 0 {
 		used += len(`,"unreadable":`) + len(strconv.Itoa(page.Unreadable))
 	}
-	for _, view := range messageViews(batch.Messages, actor, names) {
+	for _, view := range messageViews(batch.Messages, actor, names, notes) {
 		encoded, _ := json.Marshal(view)
 		if !exact && used+len(encoded)+1 > messagePageBytes {
 			if len(page.Messages) != 0 {
@@ -217,6 +217,8 @@ type Bus interface {
 	Ack(actor, key, id string) (model.Message, error)
 	ReadMessages(query bus.MessageQuery) (bus.MessageBatch, error)
 	DiscoverWithWarnings(actor, key string) ([]bus.AgentInfo, int, error)
+	// UncertainDelivery gives a client's own wording for an unconfirmed delivery to it.
+	UncertainDelivery(kind string) (receiver, acknowledged string)
 }
 
 func newServer(service Bus) *mcp.Server {
