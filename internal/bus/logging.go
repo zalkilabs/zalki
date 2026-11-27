@@ -79,7 +79,7 @@ func (s Store) appendAgentAndHookAttrs(attrs []slog.Attr, data eventData) []slog
 	if _, err := s.registry.Lookup(data.Agent); err == nil {
 		attrs = append(attrs, slog.String("agent", data.Agent))
 	}
-	if data.HookEvent == "unknown" || agent.StandardEvents(true)[data.HookEvent] != "" {
+	if data.HookEvent == "unknown" || agent.StandardEvents(true)[data.HookEvent] != "" || data.HookEvent == "Activity" {
 		attrs = append(attrs, slog.String("hook_event", data.HookEvent))
 	}
 	switch data.HookStage {

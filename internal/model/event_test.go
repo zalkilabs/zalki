@@ -69,3 +69,27 @@ func TestMetadataRegistrationAndRetirementFacts(t *testing.T) {
 		}
 	}
 }
+
+// Every cause a hook or cleanup step writes is a valid cause of an event, and a
+// name that is not one is refused: a reader that validates events (the plugin
+// stream does) accepts "activity", and nothing else it does not know.
+func TestEventCauseValues(t *testing.T) {
+	for _, cause := range []model.EventCause{"", model.CauseActivity, model.CauseRegister, model.CauseStop, model.CauseInterrupt,
+		model.CausePrompt, model.CauseTool, model.CausePermission, model.CauseSessionEnd, model.CauseOwnerExited, model.CauseCleanup, model.CauseRecovery} {
+		e := validMetadataEvent()
+		e.Session.Cause = cause
+		if err := e.Validate(); err != nil {
+			t.Errorf("cause %q refused: %v", cause, err)
+		}
+	}
+	for _, cause := range []model.EventCause{"Activity", "model_call", "tool ", "unknown"} {
+		e := validMetadataEvent()
+		e.Session.Cause = cause
+		if err := e.Validate(); err == nil {
+			t.Errorf("cause %q accepted", cause)
+		}
+	}
+	if model.CauseActivity != "activity" {
+		t.Fatalf("CauseActivity = %q: the published fixture and plugins use the string", model.CauseActivity)
+	}
+}

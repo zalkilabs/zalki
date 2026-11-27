@@ -42,7 +42,7 @@ func newResumedCursorFixture(t *testing.T) resumedCursorFixture {
 	service := &bus.Service{Store: store}
 	native, unrelated := model.NewUUID(), model.NewUUID()
 	for _, event := range []string{"postToolUse", "stop", "sessionEnd"} {
-		runCursorHook(t, service, map[string]any{"conversation_id": native, "hook_event_name": event, "status": "completed", "AllowPromptRegistration": true})
+		runCursorHook(t, service, map[string]any{"conversation_id": native, "hook_event_name": event, "status": "completed", "AllowRegistration": true})
 	}
 	if items, err := store.List(); err != nil || len(items) != 0 {
 		t.Fatal("C01_LATE_HOOKS_NEVER_CREATE", err, items)
@@ -113,7 +113,7 @@ func TestCursorPromptSessionIDFallbackAndInvalidTitle(t *testing.T) {
 func TestOtherAdapterCannotForgePromptRegistrationFlag(t *testing.T) {
 	store := adapterTestStore(t)
 	service := bus.Service{Store: store}
-	raw, err := json.Marshal(map[string]any{"session_id": model.NewUUID(), "cwd": "/workspace", "hook_event_name": "UserPromptSubmit", "AllowPromptRegistration": true, "allow_prompt_registration": true})
+	raw, err := json.Marshal(map[string]any{"session_id": model.NewUUID(), "cwd": "/workspace", "hook_event_name": "UserPromptSubmit", "AllowRegistration": true, "allow_prompt_registration": true})
 	if err != nil {
 		t.Fatal(err)
 	}

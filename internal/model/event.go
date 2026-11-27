@@ -36,6 +36,7 @@ type EventCause string
 
 // Session state change causes.
 const (
+	CauseActivity    EventCause = "activity"
 	CauseRegister    EventCause = "register"
 	CauseStop        EventCause = "stop"
 	CauseInterrupt   EventCause = "interrupt"
@@ -51,7 +52,7 @@ const (
 // Valid reports whether c is empty or a known cause.
 func (c EventCause) Valid() bool {
 	switch c {
-	case "", CauseRegister, CauseStop, CauseInterrupt, CausePrompt, CauseTool, CausePermission,
+	case "", CauseActivity, CauseRegister, CauseStop, CauseInterrupt, CausePrompt, CauseTool, CausePermission,
 		CauseSessionEnd, CauseOwnerExited, CauseCleanup, CauseRecovery:
 		return true
 	}

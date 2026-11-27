@@ -20,6 +20,7 @@ func TestLifecycleRulesAreExactlyTheCurrentRows(t *testing.T) {
 		"SessionEnd":        {state: model.StateRetired, retire: true, endsSession: true},
 		"PermissionRequest": {state: model.StateApproval},
 		"PostToolUse":       {state: model.StateBusy},
+		"Activity":          {state: model.StateBusy},
 		"UserPromptSubmit":  {state: model.StateBusy},
 		"Stop":              {state: model.StateReady},
 		"Interrupt":         {state: model.StateReady},
@@ -33,6 +34,7 @@ func TestLifecycleCausesAreExactlyTheCurrentRows(t *testing.T) {
 	want := map[string]model.EventCause{
 		"Stop": model.CauseStop, "Interrupt": model.CauseInterrupt, "UserPromptSubmit": model.CausePrompt,
 		"PostToolUse": model.CauseTool, "PermissionRequest": model.CausePermission, "SessionEnd": model.CauseSessionEnd,
+		"Activity": model.CauseActivity,
 	}
 	if !reflect.DeepEqual(lifecycleCauses, want) {
 		t.Fatalf("lifecycleCauses = %v, want %v", lifecycleCauses, want)
@@ -48,14 +50,15 @@ func TestAllowedTransitionsAreExactlyTheCurrentRows(t *testing.T) {
 		"Stop":             {agent.TransitionNone, agent.TransitionReady},
 		"Interrupt":        {agent.TransitionNone, agent.TransitionReady},
 		"PostToolUse":      {agent.TransitionNone},
+		"Activity":         {agent.TransitionNone, agent.TransitionPromptReactivate},
 	}
 	if !reflect.DeepEqual(allowedTransitions, want) {
 		t.Fatalf("allowedTransitions = %v, want %v", allowedTransitions, want)
 	}
 }
 
-func TestRecoveryEventsAreExactlyPostToolUseAndStop(t *testing.T) {
-	if want := map[string]bool{"PostToolUse": true, "Stop": true}; !reflect.DeepEqual(recoveryEvents, want) {
+func TestRecoveryEventsAreExactlyToolActivityAndStop(t *testing.T) {
+	if want := map[string]bool{"PostToolUse": true, "Activity": true, "Stop": true}; !reflect.DeepEqual(recoveryEvents, want) {
 		t.Fatalf("recoveryEvents = %v, want %v", recoveryEvents, want)
 	}
 }
@@ -74,7 +77,7 @@ func TestClaimRecoveryIsRefusedOutsideItsEvents(t *testing.T) {
 			t.Errorf("%s: error %v, policy called %v; want a refused transition", event, err, called)
 		}
 	}
-	for _, event := range []string{"PostToolUse", "Stop"} {
+	for _, event := range []string{"PostToolUse", "Activity", "Stop"} {
 		if _, err := cursorHost(store, session.ID, event).ClaimRecovery(func(model.SessionView) (agent.RecoveryDecision, error) {
 			return agent.RecoveryDecision{}, nil
 		}); err != nil {
@@ -91,6 +94,14 @@ func TestNoTransitionIsAllowedForAnEventOutsideTheTable(t *testing.T) {
 				t.Errorf("%s allows transition %v", event, transition)
 			}
 		}
+	}
+}
+
+// An Activity hook may reactivate a retired session like a prompt, and may not
+// mark a turn ready (that is what a stop does).
+func TestActivityAllowsNoneAndReactivateButNotReady(t *testing.T) {
+	if !transitionAllowed("Activity", agent.TransitionNone) || !transitionAllowed("Activity", agent.TransitionPromptReactivate) || transitionAllowed("Activity", agent.TransitionReady) {
+		t.Fatal("the transitions of an Activity hook changed")
 	}
 }
 

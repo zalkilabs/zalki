@@ -17,7 +17,7 @@ import (
 )
 
 func trustedPrompt(native string) agent.HookInput {
-	return agent.HookInput{SessionID: native, CWD: "/workspace", Event: "UserPromptSubmit", AllowPromptRegistration: true}
+	return agent.HookInput{SessionID: native, CWD: "/workspace", Event: "UserPromptSubmit", AllowRegistration: true}
 }
 
 func TestPromptRegistrationRequiresTrustedCanonicalPrompt(t *testing.T) {
@@ -29,7 +29,7 @@ func TestPromptRegistrationRequiresTrustedCanonicalPrompt(t *testing.T) {
 	} {
 		store := fixtureStore(t)
 		input := trustedPrompt(newID())
-		input.Event, input.AllowPromptRegistration = test.event, test.trusted
+		input.Event, input.AllowRegistration = test.event, test.trusted
 		actor, err := store.sessionID("cursor", input.SessionID)
 		if err != nil {
 			t.Fatal(err)
@@ -42,7 +42,7 @@ func TestPromptRegistrationRequiresTrustedCanonicalPrompt(t *testing.T) {
 		}
 	}
 	var forged agent.HookInput
-	if err := json.Unmarshal([]byte(`{"AllowPromptRegistration":true,"allow_prompt_registration":true,"hook_event_name":"UserPromptSubmit"}`), &forged); err != nil || forged.AllowPromptRegistration {
+	if err := json.Unmarshal([]byte(`{"AllowRegistration":true,"allow_registration":true,"hook_event_name":"UserPromptSubmit"}`), &forged); err != nil || forged.AllowRegistration {
 		t.Fatal("C01_JSON_CANNOT_SELECT_REGISTRATION", err)
 	}
 }
@@ -205,7 +205,7 @@ func TestPromptRegistrationSecretsStayPrivate(t *testing.T) {
 		t.Fatal(err)
 	}
 	var output bytes.Buffer
-	if err := finishPromptHook(store, &output, `{"continue":true}`, nil); err != nil || strings.TrimSpace(output.String()) != `{"continue":true}` {
+	if err := finishPromptHook(store, &output, false, "", `{"continue":true}`, nil); err != nil || strings.TrimSpace(output.String()) != `{"continue":true}` {
 		t.Fatal("C10_PROMPT_HAS_NO_CAPABILITY", err, output.String())
 	}
 	host.event = "PostToolUse"

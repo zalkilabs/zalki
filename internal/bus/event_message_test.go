@@ -234,6 +234,12 @@ func TestSessionEventsCarryTheirCause(t *testing.T) {
 		{"session end", func(s Store, v model.Session) error {
 			return (&Service{Store: s}).applyLifecycleState(v.ID, "SessionEnd")
 		}, model.CauseSessionEnd},
+		{"activity", func(s Store, v model.Session) error {
+			if err := s.Update(v.ID, model.StateReady, false); err != nil {
+				return err
+			}
+			return (&Service{Store: s}).applyLifecycleState(v.ID, "Activity")
+		}, model.CauseActivity},
 		{"host update", func(s Store, v model.Session) error {
 			return (hookRuntime{store: s, actor: v.ID, event: "PostToolUse"}).UpdateSession(v.ID, model.StateBusy, false)
 		}, model.CauseTool},

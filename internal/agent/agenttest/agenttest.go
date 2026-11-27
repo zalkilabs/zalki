@@ -18,7 +18,13 @@ import (
 )
 
 // events are the common lifecycle events a descriptor may map native names onto.
-var events = agent.StandardEvents(true)
+var events = commonEvents()
+
+func commonEvents() map[string]string {
+	all := agent.StandardEvents(true)
+	all["Activity"] = "Activity"
+	return all
+}
 
 type reporter interface {
 	Helper()
@@ -109,8 +115,8 @@ func checkHookEvent(t reporter, hooks agent.HookAdapter, event, native string) {
 	if err != nil {
 		return
 	}
-	if out.AllowPromptRegistration {
-		t.Errorf("%s (%s): NormalizeHook must not allow prompt registration; the descriptor does", event, native)
+	if out.AllowRegistration {
+		t.Errorf("%s (%s): NormalizeHook must not allow registration; the descriptor does", event, native)
 	}
 	if events[out.Event] == "" {
 		t.Errorf("%s (%s): NormalizeHook returned the unknown event %q", event, native, out.Event)

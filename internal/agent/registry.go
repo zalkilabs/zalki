@@ -54,7 +54,7 @@ func declarationProblems(adapter Adapter, d AdapterDescriptor) []error {
 		add(fmt.Errorf("%s hook capabilities do not match its descriptor", d.Kind))
 	}
 	for native, common := range d.Hooks {
-		if !model.ValidName(native) || StandardEvents(true)[common] == "" {
+		if !model.ValidName(native) || !commonEvent(common) {
 			add(fmt.Errorf("%s declares an unsupported lifecycle event", d.Kind))
 			break
 		}
@@ -69,6 +69,7 @@ func declarationProblems(adapter Adapter, d AdapterDescriptor) []error {
 	add(validateUncertainWording(d))
 	add(validateInstallNotice(d))
 	add(validatePromptReply(d))
+	add(validateActivityRule(d))
 	return problems
 }
 
@@ -87,6 +88,20 @@ func validatePromptReply(d AdapterDescriptor) error {
 		return fmt.Errorf("%s: PromptReply must be one JSON object on one line without a newline, got %q", d.Kind, reply)
 	}
 	return nil
+}
+
+// validateActivityRule checks that an adapter that lets an Activity hook register
+// a session maps some native event to Activity.
+func validateActivityRule(d AdapterDescriptor) error {
+	if !d.Lifecycle.ActivityMayRegister {
+		return nil
+	}
+	for _, common := range d.Hooks {
+		if common == "Activity" {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s declares ActivityMayRegister but maps no native event to Activity", d.Kind)
 }
 
 // validateHookDeclaration checks what a hook adapter must map.
@@ -202,4 +217,12 @@ func validateInstallNotice(d AdapterDescriptor) error {
 		return fmt.Errorf("%s declares an InstallNotice that is not one plain line (no control characters, no padding, at most 512 bytes)", d.Kind)
 	}
 	return nil
+}
+
+// commonEvent reports whether name is a common lifecycle event a descriptor may
+// map a native name onto. Activity is common but is not in StandardEvents: that
+// list is also the set of native names Claude and Codex accept, and "Activity"
+// is not a native name for either.
+func commonEvent(name string) bool {
+	return StandardEvents(true)[name] != "" || name == "Activity"
 }

@@ -11,6 +11,7 @@
     {"value": "retired", "meaning": "the session ended or was retired; it gets no more messages"}
   ],
   "event_cause": [
+    {"value": "activity", "meaning": "the client started work for the session (a model call), without a prompt or a tool"},
     {"value": "cleanup", "meaning": "a cleanup step (for example prune) changed the session"},
     {"value": "interrupt", "meaning": "the owner interrupted the turn"},
     {"value": "owner_exited", "meaning": "the session's owner process exited"},

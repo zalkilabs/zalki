@@ -68,6 +68,27 @@ func good() brokenAdapter {
 	}
 }
 
+// An adapter that maps a native event to Activity passes the checks, and its
+// normalizer still may not allow registration.
+func TestChecksAcceptAnActivityEvent(t *testing.T) {
+	adapter := good()
+	hooks := agent.StandardEvents(true)
+	hooks["model_call"] = "Activity"
+	adapter.descriptor.Hooks = hooks
+	r := &recorder{}
+	checkDeclaration(r, adapter)
+	checkHooks(r, adapter)
+	if len(r.failures) != 0 {
+		t.Fatalf("an adapter with an Activity event failed the checks: %v", r.failures)
+	}
+	adapter.normalize = func(v agent.HookInput) (agent.HookInput, error) { v.Event = "Activity"; return v, nil }
+	r = &recorder{}
+	checkHooks(r, adapter)
+	if len(r.failures) != 0 {
+		t.Fatalf("a normalizer that returns Activity was refused: %v", r.failures)
+	}
+}
+
 func TestChecksCatchBrokenAdapters(t *testing.T) {
 	for _, test := range []struct {
 		name   string
@@ -75,7 +96,7 @@ func TestChecksCatchBrokenAdapters(t *testing.T) {
 		want   string
 	}{
 		{"normalizer allows registration", func(a *brokenAdapter) {
-			a.normalize = func(v agent.HookInput) (agent.HookInput, error) { v.AllowPromptRegistration = true; return v, nil }
+			a.normalize = func(v agent.HookInput) (agent.HookInput, error) { v.AllowRegistration = true; return v, nil }
 		}, "descriptor does"},
 		{"normalizer invents an event", func(a *brokenAdapter) {
 			a.normalize = func(v agent.HookInput) (agent.HookInput, error) { v.Event = "Other"; return v, nil }
