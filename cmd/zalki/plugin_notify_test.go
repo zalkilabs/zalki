@@ -42,8 +42,9 @@ func testNotifier(state, controller string, c *notifyClock) *notifier {
 
 // notifyFake is the owned banner fixture. Each call records its argv;
 // files in dir pick a mode: fail (exit 1), loud (5000 bytes of output),
-// sleep (5 s, then a slept marker), quiet (closes its output, then exits 0
-// after 1 s), leave (moves itself into the test's group, then sleeps 8 s).
+// loudexit (the same, from one process that exits at once), sleep (5 s, then
+// a slept marker), quiet (closes its output, then exits 0 after 1 s), leave
+// (moves itself into the test's group, then sleeps 8 s).
 type notifyFake struct{ dir string }
 
 const notifyFixtureScript = `#!/bin/sh
@@ -52,6 +53,7 @@ d=%q
 /usr/bin/printf '%%s\0' "$@" > "$d/call.$$"
 [ -f "$d/fail" ] && exit 1
 [ -f "$d/loud" ] && /usr/bin/head -c 5000 /dev/zero
+[ -f "$d/loudexit" ] && exec /usr/bin/head -c 5000 /dev/zero
 [ -f "$d/sleep" ] && { /bin/sleep 5; /usr/bin/touch "$d/slept.$$"; }
 [ -f "$d/quiet" ] && { exec >&- 2>&-; /bin/sleep 1; exit 0; }
 [ -f "$d/leave" ] && exec /usr/bin/perl -e 'setpgrp(0, getpgrp(getppid())) or exit 9; open(my $f, ">", $ARGV[0]); close($f); sleep 8' "$d/left"
@@ -227,7 +229,7 @@ func TestPluginBackgroundInstalledBy(t *testing.T) {
 // child keeps the plugin running and charges nothing.
 func TestPluginFirstStartNotificationBestEffort(t *testing.T) {
 	t.Run("queued with the start", checkQueuedWithStart)
-	for _, mode := range []string{"fail", "sleep", "loud"} {
+	for _, mode := range []string{"fail", "sleep", "loud", "loudexit"} {
 		t.Run(mode, func(t *testing.T) { checkBadChildCharged(t, mode) })
 	}
 	t.Run("reserved before exec", checkReservedBeforeExec)

@@ -303,14 +303,15 @@ func awaitNotifyChild(pid int, watchdog <-chan time.Time, drained <-chan int64) 
 // endNotifyGroup sends the final group SIGKILL while the leader is unreaped
 // and reports positive evidence that nothing of the group is left: the
 // signal was delivered, no such group exists, or (Darwin's EPERM) every
-// member is a zombie. Any other answer is unknown.
+// member is a zombie, read for a short time while the group is still leaving
+// (awaitGroupOnlyZombies). Any other answer is unknown.
 func endNotifyGroup(pgid int) bool {
 	err := notifyKill(-pgid, syscall.SIGKILL)
 	switch {
 	case err == nil, errors.Is(err, syscall.ESRCH):
 		return true
 	case errors.Is(err, syscall.EPERM):
-		return groupOnlyZombies(pgid)
+		return awaitGroupOnlyZombies(pgid)
 	}
 	return false
 }
