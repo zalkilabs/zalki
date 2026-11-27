@@ -20,6 +20,7 @@ func prepareHookRuntime(s Store, kind, actor string, event agent.HookInput) (hoo
 		v, err := s.session(actor)
 		if errors.Is(err, os.ErrNotExist) && event.AllowRegistration && (event.Event == "UserPromptSubmit" || event.Event == "Activity") {
 			v, err = registerPromptAbsent(s, kind, actor, event, time.Now().UTC(), fsutil.WriteAtomic)
+			h.registered = err == nil
 		}
 		if errors.Is(err, os.ErrNotExist) {
 			return errStaleHook

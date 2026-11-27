@@ -18,14 +18,14 @@ func TestDescriptorDeclaresWhatAgyProved(t *testing.T) {
 		t.Fatalf("process names = %v, want %v: a shared app process must not own a chat", d.ProcessNames, want)
 	}
 	// Three hooks only: a tool hook that fails would block the user's tool.
-	want := map[string]string{"SessionStart": "SessionStart", "PreInvocation": "PostToolUse", "Stop": "Stop"}
+	want := map[string]string{"SessionStart": "SessionStart", "PreInvocation": "Activity", "Stop": "Stop"}
 	if !reflect.DeepEqual(d.Hooks, want) {
 		t.Fatalf("hooks = %v, want %v", d.Hooks, want)
 	}
 	if want := []agent.NativeField{{Key: "conversationId", Kind: agent.NativeString, Capture: agent.CaptureID}, {Key: "terminationReason", Kind: agent.NativeString}}; !reflect.DeepEqual(d.Native, want) {
 		t.Fatalf("native fields = %+v", d.Native)
 	}
-	if d.Lifecycle != (agent.Lifecycle{}) || d.UncertainReceiver != "" || d.UncertainAcknowledged != "" {
+	if d.Lifecycle != (agent.Lifecycle{ActivityMayRegister: true}) || d.UncertainReceiver != "" || d.UncertainAcknowledged != "" {
 		t.Fatalf("lifecycle %+v and wording are not the defaults", d)
 	}
 }

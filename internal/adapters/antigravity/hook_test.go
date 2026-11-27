@@ -22,7 +22,21 @@ type stubHost struct {
 	failApply  int // the number of the ApplyLifecycle call that fails; 0 = none
 	calls      int
 	changes    []agent.LifecycleChange
-	order      []string // "apply" and "emit", in the order the adapter called them
+	order      []string // "apply", "claim" and "emit", in the order the adapter called them
+	retired    bool     // the view the policies see
+	grant      agent.RecoveryGrant
+	claimErr   error
+	claimed    bool // a claim policy asked for a recovery
+}
+
+func (h *stubHost) ClaimRecovery(policy func(model.SessionView) (agent.RecoveryDecision, error)) (agent.RecoveryGrant, error) {
+	h.order = append(h.order, "claim")
+	if h.claimErr != nil {
+		return agent.RecoveryGrant{}, h.claimErr
+	}
+	decision, err := policy(model.SessionView{AdapterState: h.state, Retired: h.retired})
+	h.claimed = decision.Recover
+	return h.grant, err
 }
 
 func (h *stubHost) EmitPending(string) (string, error) {
@@ -36,7 +50,7 @@ func (h *stubHost) ApplyLifecycle(policy func(model.SessionView) (agent.Lifecycl
 	if h.calls == h.failApply {
 		return errors.New("write failed")
 	}
-	change, err := policy(model.SessionView{AdapterState: h.state})
+	change, err := policy(model.SessionView{AdapterState: h.state, Retired: h.retired})
 	if err != nil {
 		return err
 	}
@@ -48,15 +62,19 @@ func (h *stubHost) ApplyLifecycle(policy func(model.SessionView) (agent.Lifecycl
 }
 
 func hookWith(host *stubHost, event string) (handled bool, out string, err error) {
+	return hookWithInput(host, agent.HookInput{Event: event})
+}
+
+func hookWithInput(host *stubHost, input agent.HookInput) (handled bool, out string, err error) {
 	var output bytes.Buffer
-	handled, err = New().HandleHook(host, agent.HookInput{Event: event}, "antigravity:c", &output)
+	handled, err = New().HandleHook(host, input, "antigravity:c", &output)
 	return handled, output.String(), err
 }
 
 // A session can vanish between core's check and the adapter's read. The hook then
 // ends quietly, as for any session that is not there.
 func TestAHookForASessionThatVanishedEndsQuietly(t *testing.T) {
-	for _, event := range []string{"PostToolUse", "Stop"} {
+	for _, event := range []string{"Activity", "Stop"} {
 		host := &stubHost{pendingErr: os.ErrNotExist, state: []byte(`{"continues":2}`)}
 		handled, out, err := hookWith(host, event)
 		if err != nil || out != "" || !handled {
@@ -67,7 +85,7 @@ func TestAHookForASessionThatVanishedEndsQuietly(t *testing.T) {
 
 func TestAHookThatCannotReadPendingMessagesFails(t *testing.T) {
 	boom := errors.New("read failed")
-	for _, event := range []string{"PostToolUse", "Stop"} {
+	for _, event := range []string{"Activity", "Stop"} {
 		host := &stubHost{pendingErr: boom}
 		if _, out, err := hookWith(host, event); !errors.Is(err, boom) || out != "" {
 			t.Errorf("%s: output %q, error %v; want the read error and no output", event, out, err)
@@ -143,18 +161,82 @@ func TestStopAndInterruptAreHandledByTheAdapter(t *testing.T) {
 	}
 }
 
-// A model call is not handled by the adapter alone: core still marks the session busy.
-func TestABeforeModelCallHookLeavesTheBusyStateToCore(t *testing.T) {
+// Before a model call the adapter marks the chat busy itself (one write that also
+// revives a retired chat), so core does not repeat it.
+func TestABeforeModelCallHookMarksTheChatBusyItself(t *testing.T) {
 	for _, pending := range []string{"", "text"} {
 		host := &stubHost{pending: pending}
-		if handled, _, err := hookWith(host, "PostToolUse"); err != nil || handled {
-			t.Errorf("pending %q: handled %v, error %v; want not handled", pending, handled, err)
+		handled, _, err := hookWith(host, "Activity")
+		if err != nil || !handled || len(host.changes) != 1 || host.changes[0].Transition != agent.TransitionPromptReactivate {
+			t.Errorf("pending %q: handled %v, error %v, changes %+v; want handled with one reactivating write", pending, handled, err, host.changes)
 		}
 	}
 }
 
+// A retired chat comes back with its continue count reset; a live chat keeps it.
+func TestARetiredChatComesBackWithItsCountReset(t *testing.T) {
+	retired := &stubHost{retired: true, state: []byte(`{"continues":4}`)}
+	if _, _, err := hookWith(retired, "Activity"); err != nil || string(retired.state) != `{}` {
+		t.Fatalf("retired: state %s, error %v; want the count reset", retired.state, err)
+	}
+	live := &stubHost{state: []byte(`{"continues":4}`)}
+	if _, _, err := hookWith(live, "Activity"); err != nil || string(live.state) != `{"continues":4}` || live.changes[0].AdapterState != nil {
+		t.Fatalf("live: state %s, error %v; want the count kept and no state written", live.state, err)
+	}
+}
+
+// A chat that core registered at this hook gets credentials, once, and its pending
+// messages in the same reply. A chat that existed before gets no claim.
+func TestACreatedChatGetsItsCredentialsWithItsMessages(t *testing.T) {
+	grant := agent.RecoveryGrant{Instructions: "INSTRUCTIONS", Capability: "cap"}
+	host := &stubHost{grant: grant, pending: "MESSAGE"}
+	handled, out, err := hookWithInput(host, agent.HookInput{Event: "Activity", Registered: true})
+	want := `{"injectSteps":[{"systemMessage":{"systemMessage":"INSTRUCTIONS ` + permissionNote + `\nMESSAGE"}}]}` + "\n"
+	if err != nil || !handled || out != want || !host.claimed || !reflect.DeepEqual(host.order, []string{"claim", "apply", "emit"}) {
+		t.Fatalf("handled %v, error %v, claimed %v, calls %v, output %q; want %q", handled, err, host.claimed, host.order, out, want)
+	}
+	existing := &stubHost{grant: grant, pending: "MESSAGE"}
+	if _, out, err := hookWithInput(existing, agent.HookInput{Event: "Activity"}); err != nil || existing.claimed || reflect.DeepEqual(existing.order[:1], []string{"claim"}) || out == "" {
+		t.Fatalf("existing chat: output %q, error %v, calls %v; want messages only and no claim", out, err, existing.order)
+	}
+}
+
+// Credentials that core did not issue (a guard refused the claim) send only the messages.
+func TestARefusedClaimSendsOnlyTheMessages(t *testing.T) {
+	host := &stubHost{pending: "MESSAGE"}
+	_, out, err := hookWithInput(host, agent.HookInput{Event: "Activity", Registered: true})
+	if err != nil || out != `{"injectSteps":[{"systemMessage":{"systemMessage":"MESSAGE"}}]}`+"\n" {
+		t.Fatalf("output %q, error %v", out, err)
+	}
+}
+
+// Once the credentials are claimed they are sent even when a later step fails.
+func TestClaimedCredentialsAreSentWhenALaterStepFails(t *testing.T) {
+	grant := agent.RecoveryGrant{Instructions: "INSTRUCTIONS", Capability: "cap"}
+	readFailed := errors.New("read failed")
+	host := &stubHost{grant: grant, pendingErr: readFailed}
+	_, out, err := hookWithInput(host, agent.HookInput{Event: "Activity", Registered: true})
+	if !errors.Is(err, readFailed) || out != `{"injectSteps":[{"systemMessage":{"systemMessage":"INSTRUCTIONS `+permissionNote+`"}}]}`+"\n" {
+		t.Fatalf("output %q, error %v; want the credentials and the read error", out, err)
+	}
+	writeFailed := &stubHost{grant: grant, failApply: 1}
+	if _, out, err := hookWithInput(writeFailed, agent.HookInput{Event: "Activity", Registered: true}); err == nil || out == "" {
+		t.Fatalf("output %q, error %v; want the credentials and the write error", out, err)
+	}
+}
+
+func TestAFailedClaimSendsNothing(t *testing.T) {
+	host := &stubHost{claimErr: errors.New("claim failed"), pending: "MESSAGE"}
+	if _, out, err := hookWithInput(host, agent.HookInput{Event: "Activity", Registered: true}); err == nil || out != "" {
+		t.Fatalf("output %q, error %v; want an error and no reply", out, err)
+	}
+	if !reflect.DeepEqual(host.order, []string{"claim"}) {
+		t.Fatalf("calls = %v: a failed claim must not touch a message", host.order)
+	}
+}
+
 func TestOtherEventsAreNotHandled(t *testing.T) {
-	for _, event := range []string{"SessionStart", "SessionEnd", "UserPromptSubmit", "PermissionRequest"} {
+	for _, event := range []string{"SessionStart", "SessionEnd", "UserPromptSubmit", "PermissionRequest", "PostToolUse"} {
 		if handled, out, err := hookWith(&stubHost{pending: "text"}, event); handled || out != "" || err != nil {
 			t.Errorf("%s: handled %v, output %q, error %v", event, handled, out, err)
 		}

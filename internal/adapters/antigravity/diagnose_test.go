@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -307,4 +308,53 @@ func TestDiagnoseCannotVerifyWithoutTheFactsItNeeds(t *testing.T) {
 			}
 		})
 	}
+}
+
+const permissionNoteText = "Antigravity: no allow rule for the Zalki tools was found in .gemini/config/config.json. If agy asks to approve a Zalki tool, approve it, or add mcp(zalki/*) to its allow rules; a headless agy run denies the tools without it."
+
+// The doctor says when no allow rule covers the Zalki tools, as a note: the status stays ok.
+func TestDiagnoseNotesAMissingToolPermissionRule(t *testing.T) {
+	for name, test := range map[string]struct {
+		config string // "" = no file
+		note   bool
+	}{
+		"no file":                      {"", false},
+		"no permissions":               {`{"theme":"dark"}`, true},
+		"no allow list":                {`{"permissions":{"deny":[]}}`, true},
+		"an empty allow list":          {`{"permissions":{"allow":[]}}`, true},
+		"rules for other things":       {`{"permissions":{"allow":["command(ls)","mcp(other/*)"]}}`, true},
+		"every mcp tool":               {`{"permissions":{"allow":["mcp(*)"]}}`, false},
+		"every Zalki tool":             {`{"permissions":{"allow":["command(ls)","mcp(zalki/*)"]}}`, false},
+		"one Zalki tool":               {`{"permissions":{"allow":["mcp(zalki/send_message)"]}}`, false},
+		"permissions is not an object": {`{"permissions":"all"}`, false},
+		"allow is not a list":          {`{"permissions":{"allow":"mcp(*)"}}`, false},
+		"a rule that is not a string":  {`{"permissions":{"allow":[1]}}`, false},
+		"invalid JSON":                 {`{"permissions":`, false},
+		"not an object":                {`[1]`, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newDiagnoseFixture(t)
+			if test.config != "" {
+				f.writeRaw(t, permissionRulesPath, test.config)
+			}
+			got := f.diagnose(t)
+			requireDiagnosis(t, got, "ok", "")
+			want := []string{}
+			if test.note {
+				want = []string{permissionNoteText}
+			}
+			if !reflect.DeepEqual(got.Notes, want) {
+				t.Fatalf("notes = %q, want %q", got.Notes, want)
+			}
+		})
+	}
+	t.Run("a folder", func(t *testing.T) {
+		f := newDiagnoseFixture(t)
+		if err := os.MkdirAll(f.path(permissionRulesPath), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if got := f.diagnose(t); len(got.Notes) != 0 {
+			t.Fatalf("notes = %q, want none for a file that cannot be read", got.Notes)
+		}
+	})
 }

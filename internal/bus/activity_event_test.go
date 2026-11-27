@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ type activityAdapter struct {
 	mayRegister, reactivate bool
 	handlerErr              error // what the handler of an Activity hook returns
 	promptReply             string
+	registered              *[]bool // what each hook saw in HookInput.Registered
 }
 
 const activityKind = "activitytest"
@@ -56,6 +58,9 @@ func (activityAdapter) Health(agent.HealthHost, model.Session) (string, string) 
 func (a activityAdapter) HandleHook(host agent.HookHost, event agent.HookInput, _ string, _ io.Writer) (bool, error) {
 	if event.Event == "Activity" && a.handlerErr != nil {
 		return false, a.handlerErr
+	}
+	if a.registered != nil {
+		*a.registered = append(*a.registered, event.Registered)
 	}
 	if event.Event != "Activity" || !a.reactivate {
 		return false, nil
@@ -312,5 +317,55 @@ func TestAnActivityHookFailureNamesItsStep(t *testing.T) {
 	const want = "Zalki could not finish its work for this chat (step: handler). The chat was not blocked."
 	if err != nil || out != "" || !strings.HasPrefix(stderr, want) || strings.Contains(stderr, "register") {
 		t.Fatalf("output %q, error %v, stderr %q; want a line that names the handler step", out, err, stderr)
+	}
+}
+
+// A hook that created the session says so to the adapter, once: the next hook of the
+// same chat, a chat that existed, and a hook of an adapter that may not register do not.
+func TestAHookThatCreatedTheSessionSaysSo(t *testing.T) {
+	var seen []bool
+	service := activityService(t, activityAdapter{mayRegister: true, registered: &seen})
+	native := newID()
+	for i := 0; i < 2; i++ {
+		if _, err := activityHook(t, service, native, "activity"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	existing := activitySession(t, service)
+	if _, err := activityHook(t, service, existing.NativeID, "activity"); err != nil {
+		t.Fatal(err)
+	}
+	if want := []bool{true, false, false}; !reflect.DeepEqual(seen, want) {
+		t.Fatalf("Registered seen by the adapter = %v, want %v", seen, want)
+	}
+	var forged agent.HookInput
+	if err := json.Unmarshal([]byte(`{"Registered":true,"registered":true,"hook_event_name":"activity"}`), &forged); err != nil || forged.Registered {
+		t.Fatalf("JSON set Registered (%v)", err)
+	}
+	var quiet []bool
+	if _, err := activityHook(t, activityService(t, activityAdapter{registered: &quiet}), newID(), "activity"); err != nil || len(quiet) != 0 {
+		t.Fatalf("an adapter that may not register saw %v (%v); want no hook at all", quiet, err)
+	}
+}
+
+// A retired session keeps its capability, so a chat that is revived can use the
+// credentials it already holds. A deleted record is the only way to lose them.
+func TestARevivedSessionKeepsItsCapability(t *testing.T) {
+	service := activityService(t, activityAdapter{mayRegister: true, reactivate: true})
+	session, key, err := service.Store.Register(activityKind, newID(), "/workspace", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Store.Update(session.ID, model.StateRetired, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Store.authenticate(session.ID, key); err == nil {
+		t.Fatal("a retired session authenticated")
+	}
+	if _, err := activityHook(t, service, session.NativeID, "activity"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Store.authenticate(session.ID, key); err != nil {
+		t.Fatalf("the capability does not work after the session was revived: %v", err)
 	}
 }
