@@ -117,4 +117,5 @@ acknowledges each one. The host offers `feed` (status), `inbox` and `reply`
 The process must exit within 2 seconds when stdin closes, and must not
 daemonize. Helpers must exit with it and must not keep file descriptor 3. It
 gets only `HOME` and `PATH` in its environment. Its working directory is its
-own data folder. Terminal input does not work.
+own data folder. Zalki keeps its own files for the plugin outside that folder,
+so every file in it is yours. Terminal input does not work.

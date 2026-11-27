@@ -262,5 +262,6 @@ func doctorBackground(cmd *cobra.Command, opts *commandOptions, store bus.Store)
 	}
 	notes := backgroundNotes(view, launcher)
 	notes = append(notes, notifyNotes(store)...)
+	notes = append(notes, inboxIndexNotes(store)...)
 	return doctorBackgroundView{pluginBackgroundView: view, Launcher: launcher, EnabledPlugins: enabled, Notes: notes}
 }

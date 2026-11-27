@@ -38,7 +38,7 @@ func TestPluginJournalPersistedBytes(t *testing.T) {
 	paths := map[string]string{
 		"installation":  f.pluginPath(),
 		"identity hint": filepath.Join(f.pluginDir(), "id-"+byteFixturePlugin+".json"),
-		"inbox index":   filepath.Join(f.pluginDataPath(), "inbox.json"),
+		"inbox index":   f.inboxIndexPath(),
 		"native audit":  filepath.Join(f.store.Dir(), "plugin-read-audit.json"),
 	}
 	for name, path := range paths {

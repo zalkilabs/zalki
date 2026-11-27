@@ -4942,5 +4942,119 @@
       }
     },
     "reason": "install.Report gets one field, Clients (not in JSON): the display name of the client of each changed file in Paths. The install and uninstall questions list the files grouped by client from it. It is a shape change of an existing type; no export is added or removed (524 stays 524), and no receiver or OS call changes."
+  },
+  {
+    "base_commit": "bda9c0264aee99df732f8887642025b6a4a43b25",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/pluginfeed.PluginFeed.InboxIndexProblem",
+          "internal/pluginfeed.PluginFeed.SettleInboxIndex"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/pluginfeed.PluginFeed.InboxIndexProblem": "func(PluginFeed) func() string",
+          "function:internal/pluginfeed.PluginFeed.SettleInboxIndex": "func(PluginFeed) func() error"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/pluginfeed.PluginFeed": {
+            "before": {
+              "Methods": 64,
+              "Files": 18
+            },
+            "after": {
+              "Methods": 66,
+              "Files": 19
+            }
+          },
+          "internal/pluginfeed.pluginFiles": {
+            "before": {
+              "Methods": 35,
+              "Files": 13
+            },
+            "after": {
+              "Methods": 43,
+              "Files": 14
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The plugin inbox list moves from the plugin's data folder to plugins/NAME.inbox.json. PluginFeed gets two methods: SettleInboxIndex moves a list kept by an earlier build before the plugin starts, and InboxIndexProblem names a list that cannot be read (for zalki doctor). The export count goes from 524 to 526 (2 added, 0 removed)."
+  },
+  {
+    "base_commit": "bda9c0264aee99df732f8887642025b6a4a43b25",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/pluginfeed.PluginFeed.InboxIndexProblem",
+          "internal/pluginfeed.PluginFeed.SettleInboxIndex"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/pluginfeed.PluginFeed.InboxIndexProblem": "func(PluginFeed) func() string",
+          "function:internal/pluginfeed.PluginFeed.SettleInboxIndex": "func(PluginFeed) func() error"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/pluginfeed.PluginFeed": {
+            "before": {
+              "Methods": 64,
+              "Files": 18
+            },
+            "after": {
+              "Methods": 66,
+              "Files": 19
+            }
+          },
+          "internal/pluginfeed.pluginFiles": {
+            "before": {
+              "Methods": 35,
+              "Files": 13
+            },
+            "after": {
+              "Methods": 43,
+              "Files": 14
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The plugin inbox list moves from the plugin's data folder to plugins/NAME.inbox.json. PluginFeed gets two methods: SettleInboxIndex moves a list kept by an earlier build before the plugin starts, and InboxIndexProblem names a list that cannot be read (for zalki doctor). The export count goes from 524 to 526 (2 added, 0 removed)."
   }
 ]

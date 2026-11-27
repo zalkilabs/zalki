@@ -25,7 +25,7 @@ func checkExistingInboxIndexFields(t *testing.T, kind string) {
 	if _, err := x.service.Send(context.Background(), seed); err != nil {
 		t.Fatal(err)
 	}
-	indexPath := filepath.Join(x.f.pluginDataPath(), "inbox.json")
+	indexPath := x.f.inboxIndexPath()
 	canonicalPath := filepath.Join(x.f.store.Dir(), "messages", seed.MessageID+".json")
 	canonical, err := os.ReadFile(canonicalPath)
 	if err != nil {
@@ -162,7 +162,7 @@ func checkReadAuditMissingHeader(t *testing.T, raw []byte) {
 
 func TestPluginInboxFreshStateRequiresMissingFile(t *testing.T) {
 	x := newInboxStorageFixture(t)
-	path := filepath.Join(x.f.pluginDataPath(), "inbox.json")
+	path := x.f.inboxIndexPath()
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatal("fixture not initially absent")
 	}

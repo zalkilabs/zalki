@@ -2,9 +2,6 @@ package pluginfeed
 
 import (
 	"encoding/json"
-	"errors"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -37,28 +34,38 @@ type pluginInboxIndex struct {
 	Installation string             `json:"installation"`
 	Entries      []pluginInboxEntry `json:"entries"`
 	Quota        model.FloodState   `json:"quota"`
+
+	// adopted is set when the list was read from the data folder in this
+	// operation, so that the write that follows removes that file. It is never
+	// stored.
+	adopted bool
 }
 
 // Under Store flock: validate before pruning or admitting. Orphan reservations
 // count just like readable entries until expiration; no body is stored here.
 func (s pluginFiles) loadPluginInboxIndex(view bus.JournalView, installation string, now time.Time) (pluginInboxIndex, error) {
-	var index pluginInboxIndex
-	if err := pluginDirectory(s.pluginDataPath(), false); err != nil {
-		return index, err
-	}
-	raw, err := statefile.ReadBytes(filepath.Join(s.pluginDataPath(), "inbox.json"), 1<<20)
-	if errors.Is(err, os.ErrNotExist) {
-		return pluginInboxIndex{Version: 1, Installation: installation, Quota: model.NewFloodState(now)}, nil
-	}
+	index, source, err := s.readInboxIndex(view, installation, now)
 	if err != nil {
 		return index, err
 	}
-	if err = statefile.DecodeStrictRecordJSON(raw, &index); err != nil {
-		return index, err
+	if source == inboxIndexAbsent {
+		return emptyPluginInboxIndex(installation, now), nil
 	}
-	if !validPluginInboxIndex(index, installation, now) {
-		return index, statefile.ErrInvalidFile
+	index, err = filterInboxEntries(view, index, now)
+	if err != nil {
+		return index, inboxIndexError(s.name, s.inboxIndexPath())
 	}
+	index.adopted = source == inboxIndexEarlier
+	return index, nil
+}
+
+func emptyPluginInboxIndex(installation string, now time.Time) pluginInboxIndex {
+	return pluginInboxIndex{Version: 1, Installation: installation, Entries: []pluginInboxEntry{}, Quota: model.NewFloodState(now)}
+}
+
+// filterInboxEntries checks every entry, drops those older than 30 days and
+// bounds the total size. An entry that is not valid makes the whole list invalid.
+func filterInboxEntries(view bus.JournalView, index pluginInboxIndex, now time.Time) (pluginInboxIndex, error) {
 	seen := make(map[string]bool, len(index.Entries))
 	active := make([]pluginInboxEntry, 0, len(index.Entries))
 	total := 0

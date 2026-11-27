@@ -137,8 +137,8 @@ func (s PluginFeed) sweepPluginInstallFiles() error {
 	return errors.Join(os.RemoveAll(s.stagingPath()), fsutil.SyncDir(s.stagingRoot()))
 }
 
-// sweepInstallArtifacts removes this name's leftover pin, reply ledger and
-// start-notice ledger, only after checkInstallArtifacts proved every one of
+// sweepInstallArtifacts removes this name's leftover pin, reply ledger,
+// start-notice ledger and inbox index, only after checkInstallArtifacts proved every one of
 // them is Zalki's own for current (see there); otherwise nothing is removed.
 // It runs only on remove, or in Commit once the receipt and choices are
 // checked and no installation of this name exists (current "").
@@ -146,7 +146,7 @@ func (s PluginFeed) sweepInstallArtifacts(current string) error {
 	if err := s.checkInstallArtifacts(current); err != nil {
 		return err
 	}
-	return errors.Join(os.RemoveAll(s.pluginBinPath()), removeIfPresent(s.replyLedgerPath()), removeIfPresent(s.startNoticePath()))
+	return errors.Join(os.RemoveAll(s.pluginBinPath()), removeIfPresent(s.replyLedgerPath()), removeIfPresent(s.startNoticePath()), removeIfPresent(s.inboxIndexPath()))
 }
 
 // BeginPluginInstall reserves a new plugin name for one install attempt.

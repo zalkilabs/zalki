@@ -50,7 +50,7 @@ func (x inboxStorageFixture) request() bus.SendRequest {
 }
 func (x inboxStorageFixture) index(t *testing.T) pluginInboxIndex {
 	t.Helper()
-	raw, err := statefile.ReadBytes(filepath.Join(x.f.pluginDataPath(), "inbox.json"), 1<<20)
+	raw, err := statefile.ReadBytes(x.f.inboxIndexPath(), 1<<20)
 	var out pluginInboxIndex
 	if err != nil || statefile.DecodeStrictRecordJSON(raw, &out) != nil {
 		t.Fatal("missing valid index", err)
@@ -63,7 +63,7 @@ func (x inboxStorageFixture) putIndex(t *testing.T, index pluginInboxIndex) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = fsutil.WriteAtomic(filepath.Join(x.f.pluginDataPath(), "inbox.json"), raw); err != nil {
+	if err = fsutil.WriteAtomic(x.f.inboxIndexPath(), raw); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -224,7 +224,7 @@ func checkInboxPublicationCut(t *testing.T, cut string) {
 
 	x := newInboxStorageFixture(t)
 	r := x.request()
-	indexPath := filepath.Join(x.f.pluginDataPath(), "inbox.json")
+	indexPath := x.f.inboxIndexPath()
 	prepareInboxPublicationCut(t, x, cut, indexPath)
 	m, err := x.service.Send(context.Background(), r)
 	assertInboxFailure(t, m, err)
@@ -235,7 +235,7 @@ func checkInboxPublicationCut(t *testing.T, cut string) {
 	if !errors.Is(err, os.ErrPermission) {
 		t.Fatal("cut was not directory sync", err)
 	}
-	if err = os.Chmod(x.f.pluginDataPath(), 0700); err != nil {
+	if err = os.Chmod(x.f.pluginDir(), 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err = os.Chmod(filepath.Join(x.f.store.Dir(), "messages"), 0700); err != nil {
@@ -287,7 +287,7 @@ func checkInboxCapacity(t *testing.T, scope string) {
 	}
 	index.Quota = model.NewFloodState(now)
 	x.putIndex(t, index)
-	path := filepath.Join(x.f.pluginDataPath(), "inbox.json")
+	path := x.f.inboxIndexPath()
 	before, _ := os.ReadFile(path)
 	r := x.request()
 	if scope == "full-encoding" {
@@ -315,7 +315,7 @@ func checkInboxCorruption(t *testing.T, kind string) {
 		t.Fatal(err)
 	}
 	index := x.index(t)
-	path := filepath.Join(x.f.pluginDataPath(), "inbox.json")
+	path := x.f.inboxIndexPath()
 	poisonInboxMetadata(&index, kind)
 	x.putIndex(t, index)
 	if kind == "unknown-field" {
@@ -363,7 +363,7 @@ func checkStoredInboxProvenance(t *testing.T, x inboxStorageFixture, r bus.SendR
 	if !reflect.DeepEqual([]any{e.ID, e.Sender, e.Generation, e.Revision, e.Bytes, e.At.Format(time.RFC3339Nano)}, []any{r.MessageID, x.from.ID, x.from.Generation, x.status.Revision, len(canonical), m.CreatedAt}) {
 		t.Fatal("caller-controlled or incomplete provenance")
 	}
-	indexPath := filepath.Join(x.f.pluginDataPath(), "inbox.json")
+	indexPath := x.f.inboxIndexPath()
 	before, _ := os.ReadFile(indexPath)
 	if bytes.Contains(before, []byte(r.Body)) || bytes.Contains(before, []byte(r.Capability)) {
 		t.Fatal("index contains body or native capability")
@@ -435,7 +435,7 @@ func prepareInboxPublicationCut(t *testing.T, x inboxStorageFixture, cut, indexP
 		if os.Geteuid() == 0 {
 			t.Skip("directory sync permission cut requires ordinary user")
 		}
-		dir := x.f.pluginDataPath()
+		dir := x.f.pluginDir() // the index file's folder
 		if cut == "canonical-dir-sync" {
 			dir = filepath.Join(x.f.store.Dir(), "messages")
 		}

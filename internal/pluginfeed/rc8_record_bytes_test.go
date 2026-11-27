@@ -110,10 +110,14 @@ func TestRC8InboxIndexIsReadAndWrittenWithTheSameBytes(t *testing.T) {
 	if err := statefile.DecodeStrictRecordJSON(raw, &index); err != nil {
 		t.Fatalf("the strict decoder refuses the rc.8 inbox index: %v", err)
 	}
+	index.adopted = true // as the loader sets it for a list read from the data folder
 	if err := files.savePluginInboxIndex(index); err != nil {
 		t.Fatal(err)
 	}
-	requireRC8File(t, path, "demo.inbox.json")
+	requireRC8File(t, files.inboxIndexPath(), "demo.inbox.json")
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatalf("the earlier file is still in the data folder after the move: %v", err)
+	}
 }
 
 func TestRC8PluginIdentityFileIsWrittenWithTheSameBytes(t *testing.T) {

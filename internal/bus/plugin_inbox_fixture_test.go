@@ -53,7 +53,7 @@ func (x inboxAdmissionFixture) putEmptyIndex(t *testing.T, now time.Time) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := fsutil.WriteAtomic(filepath.Join(x.status.DataDir, "inbox.json"), raw); err != nil {
+	if err := fsutil.WriteAtomic(filepath.Join(filepath.Dir(x.status.DataDir), x.status.Name+".inbox.json"), raw); err != nil {
 		t.Fatal(err)
 	}
 }
