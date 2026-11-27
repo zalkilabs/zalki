@@ -9,7 +9,8 @@ zalki doctor
 `doctor` prints JSON. It shows each client Zalki supports (found or not, its
 version, and how it can receive), every session with its state, the running
 Zalki builds, untracked processes, a Codex hook check, the background plugin
-setup, and a list of notes. `zalki list` prints only the sessions.
+setup, and a list of notes. `zalki list` prints only the sessions, one line each.
+Add `--json` to `zalki list` or `zalki prune` when a script reads the output.
 
 If `doctor` says it cannot verify the Codex hooks, trust them as described in
 [First run](../README.md#first-run), then send a message in each thread.

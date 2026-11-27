@@ -137,7 +137,7 @@ func TestConfigRuntimePruneRetention(t *testing.T) {
 	writeConfigFixture(t, path, `{"prune":{"retired_older_than":"0"},"messages":{"max_body_bytes":4},"logging":{"level":"off"}}`)
 	run := func(extra ...string) bus.PruneReport {
 		t.Helper()
-		args := append([]string{"--state", state, "prune"}, extra...)
+		args := append([]string{"--state", state, "prune", "--json"}, extra...)
 		out, diagnostic, err := execute(t, home, "", args...)
 		var report bus.PruneReport
 		if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil {

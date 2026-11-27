@@ -41,8 +41,8 @@ func TestListKeepsHealthySessionsAndWarnsOnceForSkippedRecords(t *testing.T) {
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	output, warning, err := execute(t, home, "", "list", "--state", state)
-	if err != nil || !strings.Contains(output, healthy.ID) || strings.Contains(output, future.ID) || !strings.Contains(warning, "skipped 1") || strings.Count(warning, "\n") != 1 {
+	output, warning, err := execute(t, home, "", "list", "--json", "--state", state)
+	if err != nil || !strings.Contains(output, healthy.ID) || strings.Contains(output, future.ID) || !strings.Contains(warning, "1 session record cannot be read, so it is not listed.\nNext: run zalki doctor") || strings.Count(warning, "\n") != 2 {
 		t.Fatal("list lost output or warning", output, warning, err)
 	}
 	if after, _ := os.ReadFile(path); !bytes.Equal(raw, after) {

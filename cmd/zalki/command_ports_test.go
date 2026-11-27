@@ -204,10 +204,10 @@ func (f *fakeDiagnostics) Dir() string { return f.dir }
 func TestRunListWarnsAboutSkippedRecordsAndPrintsSessions(t *testing.T) {
 	fake := &fakeDiagnostics{sessions: []model.Session{}, skipped: 2}
 	cmd, out, errOut := portCommand()
-	if err := runList(cmd, fake); err != nil {
+	if err := runList(cmd, fake, true); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(errOut.String(), "skipped 2 unreadable") || strings.TrimSpace(out.String()) != "[]" || fake.noticeRuns != 1 {
+	if !strings.Contains(errOut.String(), "2 session records cannot be read") || strings.TrimSpace(out.String()) != "[]" || fake.noticeRuns != 1 {
 		t.Fatalf("stderr %q stdout %q notices %d", errOut.String(), out.String(), fake.noticeRuns)
 	}
 }
@@ -215,7 +215,7 @@ func TestRunListWarnsAboutSkippedRecordsAndPrintsSessions(t *testing.T) {
 func TestRunListFailsOnAListError(t *testing.T) {
 	fake := &fakeDiagnostics{listErr: errors.New("unreadable")}
 	cmd, out, _ := portCommand()
-	if err := runList(cmd, fake); !errors.Is(err, fake.listErr) || out.Len() != 0 || fake.noticeRuns != 0 {
+	if err := runList(cmd, fake, true); !errors.Is(err, fake.listErr) || out.Len() != 0 || fake.noticeRuns != 0 {
 		t.Fatalf("error %v output %q notices %d", err, out.String(), fake.noticeRuns)
 	}
 }
@@ -239,7 +239,7 @@ func TestRunPruneSendsNoticesOnlyAfterARealPrune(t *testing.T) {
 	for _, dryRun := range []bool{true, false} {
 		fake := &fakeDiagnostics{}
 		cmd, out, _ := portCommand()
-		if err := runPrune(cmd, fake, dryRun, []string{"claude:a"}, time.Hour); err != nil {
+		if err := runPrune(cmd, fake, dryRun, []string{"claude:a"}, time.Hour, true); err != nil {
 			t.Fatal(err)
 		}
 		want := 1
@@ -262,7 +262,7 @@ func TestRunPruneSendsNoticesOnlyAfterARealPrune(t *testing.T) {
 func TestRunPruneStopsOnAPruneError(t *testing.T) {
 	fake := &fakeDiagnostics{pruneErr: errors.New("locked")}
 	cmd, out, _ := portCommand()
-	if err := runPrune(cmd, fake, false, nil, 0); !errors.Is(err, fake.pruneErr) || fake.noticeRuns != 0 || out.Len() != 0 {
+	if err := runPrune(cmd, fake, false, nil, 0, true); !errors.Is(err, fake.pruneErr) || fake.noticeRuns != 0 || out.Len() != 0 {
 		t.Fatalf("error %v notices %d output %q", err, fake.noticeRuns, out.String())
 	}
 }

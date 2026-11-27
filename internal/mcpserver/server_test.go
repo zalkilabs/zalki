@@ -300,7 +300,7 @@ func TestBinaryLoadedBuildSurvivesOnDiskUpgrade(t *testing.T) {
 		t.Fatal("doctor leaked capability data")
 	}
 	for _, dry := range []bool{true, false} {
-		args := []string{"--state", state, "prune", "--session", actor.ID}
+		args := []string{"--state", state, "prune", "--json", "--session", actor.ID}
 		if dry {
 			args = append(args, "--dry-run")
 		}
