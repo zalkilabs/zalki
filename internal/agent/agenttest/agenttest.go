@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 
@@ -70,26 +71,52 @@ func checkHooks(t reporter, adapter agent.Adapter) {
 		return
 	}
 	for event := range events {
-		var out agent.HookInput
-		var err error
-		if message := panicked(func() {
-			out, err = hooks.NormalizeHook(agent.HookInput{Event: event, SessionID: "fixture", CWD: "/fixture"})
-		}); message != nil {
-			t.Errorf("%s: NormalizeHook panicked: %v", event, message)
-			continue
+		for _, native := range nativeNames(adapter.Descriptor(), event) {
+			checkHookEvent(t, hooks, event, native)
 		}
-		if err != nil {
-			continue
+	}
+}
+
+// nativeNames lists the native events the descriptor maps to the common event,
+// in a fixed order. When it maps none, the common name stands in, so every
+// common event is still tried.
+func nativeNames(d agent.AdapterDescriptor, event string) []string {
+	var names []string
+	for native, common := range d.Hooks {
+		if common == event {
+			names = append(names, native)
 		}
-		if out.AllowPromptRegistration {
-			t.Errorf("%s: NormalizeHook must not allow prompt registration; the descriptor does", event)
-		}
-		if events[out.Event] == "" {
-			t.Errorf("%s: NormalizeHook returned the unknown event %q", event, out.Event)
-		}
-		if message := panicked(func() { _, _ = hooks.HandleHook(host{}, out, "fixture", io.Discard) }); message != nil {
-			t.Errorf("%s: HandleHook panicked: %v", event, message)
-		}
+	}
+	sort.Strings(names)
+	if len(names) == 0 {
+		names = []string{event}
+	}
+	return names
+}
+
+// checkHookEvent calls the adapter as core does: Event is the common event and
+// NativeEvent is the name the client sent.
+func checkHookEvent(t reporter, hooks agent.HookAdapter, event, native string) {
+	t.Helper()
+	var out agent.HookInput
+	var err error
+	if message := panicked(func() {
+		out, err = hooks.NormalizeHook(agent.HookInput{Event: event, NativeEvent: native, SessionID: "fixture", CWD: "/fixture"})
+	}); message != nil {
+		t.Errorf("%s (%s): NormalizeHook panicked: %v", event, native, message)
+		return
+	}
+	if err != nil {
+		return
+	}
+	if out.AllowPromptRegistration {
+		t.Errorf("%s (%s): NormalizeHook must not allow prompt registration; the descriptor does", event, native)
+	}
+	if events[out.Event] == "" {
+		t.Errorf("%s (%s): NormalizeHook returned the unknown event %q", event, native, out.Event)
+	}
+	if message := panicked(func() { _, _ = hooks.HandleHook(host{}, out, "fixture", io.Discard) }); message != nil {
+		t.Errorf("%s (%s): HandleHook panicked: %v", event, native, message)
 	}
 }
 

@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -255,4 +257,25 @@ func TestRunInATemporaryDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	Run(t, good())
+}
+
+// checkHooks calls the adapter the way core does: the common event in Event and
+// the native name in NativeEvent, once for each native event that maps to it.
+func TestHooksCheckTriesEveryNativeEventOfTheDescriptor(t *testing.T) {
+	adapter := good()
+	adapter.descriptor.Hooks = map[string]string{"b-start": "SessionStart", "z-tool": "PostToolUse", "a-tool": "PostToolUse"}
+	var seen []string
+	adapter.normalize = func(v agent.HookInput) (agent.HookInput, error) {
+		if v.Event == "PostToolUse" || v.Event == "SessionStart" || v.Event == "Stop" {
+			seen = append(seen, v.Event+"/"+v.NativeEvent)
+		}
+		return v, nil
+	}
+	r := &recorder{}
+	checkHooks(r, adapter)
+	want := []string{"PostToolUse/a-tool", "PostToolUse/z-tool", "SessionStart/b-start", "Stop/Stop"}
+	sort.Strings(seen)
+	if len(r.failures) != 0 || !reflect.DeepEqual(seen, want) {
+		t.Fatalf("calls %q (failures %q), want %q", seen, r.failures, want)
+	}
 }

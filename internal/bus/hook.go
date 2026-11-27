@@ -154,12 +154,14 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 	if !ok {
 		return event, "", errors.New("unsupported agent lifecycle event")
 	}
-	event.Event, trace.lifecycle = mapped, mapped
+	native := event.Event
+	event.NativeEvent, event.Event, trace.lifecycle = native, mapped, mapped
 	trace.stage = "normalize"
 	event, err = hooks.NormalizeHook(event)
 	if err != nil {
 		return event, "", err
 	}
+	event.NativeEvent = native
 	// Only the descriptor can allow a prompt hook to create a session.
 	event.AllowPromptRegistration = descriptor.Lifecycle.PromptMayRegister && event.Event == "UserPromptSubmit"
 	trace.stage = "identity"
