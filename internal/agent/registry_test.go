@@ -17,6 +17,11 @@ type keyAdapter struct {
 
 func (a keyAdapter) Descriptor() agent.AdapterDescriptor { return a.descriptor }
 
+// StartupOutput renders a plain test format: there is no default in package agent.
+func (keyAdapter) StartupOutput(startup agent.StartupContext) (any, error) {
+	return map[string]string{"keyed_context": startup.Instructions}, nil
+}
+
 func (a keyAdapter) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
 	return model.ReceiveCapabilities{Delivery: "test", Inbox: model.InboxJournal, BusyDelivery: model.DeliveryNextHook, LifecycleHooks: len(a.descriptor.Hooks) > 0}
 }

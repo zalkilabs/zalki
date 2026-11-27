@@ -18,7 +18,7 @@ import (
 )
 
 type fixtureAdapter struct {
-	agent.StandardHooks
+	stubStartup
 	kind       string
 	inbox      model.InboxMode
 	deliveries *atomic.Int32

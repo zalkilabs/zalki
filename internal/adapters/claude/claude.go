@@ -25,8 +25,16 @@ import (
 // Adapter implements the Claude client.
 type Adapter struct{ agent.StandardHooks }
 
+var _ agent.HookAdapter = Adapter{}
+
 // New returns the Claude adapter.
 func New() Adapter { return Adapter{} }
+
+// StartupOutput renders the startup instructions in the format Claude reads:
+// one hookSpecificOutput object. It is this adapter's own; core has no default.
+func (Adapter) StartupOutput(startup agent.StartupContext) (any, error) {
+	return map[string]any{"hookSpecificOutput": map[string]string{"hookEventName": "SessionStart", "additionalContext": startup.Instructions}}, nil
+}
 
 // Configuration declares the Claude hook and MCP files. The patches are built with
 // clientconfig.HookConfig, clientconfig.HookCommand and clientconfig.MCPConfig.

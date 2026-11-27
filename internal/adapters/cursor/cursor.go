@@ -24,6 +24,8 @@ import (
 // Adapter implements the Cursor client.
 type Adapter struct{ agent.StandardHooks }
 
+var _ agent.HookAdapter = Adapter{}
+
 var _ agent.Listener = Adapter{}
 
 // New returns the Cursor adapter.

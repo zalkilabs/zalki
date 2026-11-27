@@ -3894,5 +3894,147 @@
       }
     },
     "reason": "A client can declare its own wording for an unconfirmed delivery. agent.AdapterDescriptor gets two string fields (UncertainReceiver, UncertainAcknowledged). bus.Service gets one method, UncertainDelivery (a new export, one method in one new file), and the mcpserver.Bus interface lists it. The same change makes the constant mcpserver.StateUnknown private (its value \"unknown\" is unchanged), so the export count stays 510; the shapes of the other State constants in the same group change because the group is part of their shape. No import or OS call changes."
+  },
+  {
+    "base_commit": "22b6f1e37e37e267ef366c0a4b01ceb1f93c72a4",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/adapters/claude.Adapter.StartupOutput",
+          "internal/adapters/codex.Adapter.StartupOutput"
+        ],
+        "removed": [
+          "internal/agent.StandardHooks.StartupOutput"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/adapters/claude.Adapter.StartupOutput": "func(Adapter) func(startup agent.StartupContext) (any, error)",
+          "function:internal/adapters/codex.Adapter.StartupOutput": "func(Adapter) func(startup agent.StartupContext) (any, error)"
+        },
+        "removed": {
+          "function:internal/agent.StandardHooks.StartupOutput": "func(StandardHooks) func(startup StartupContext) (any, error)"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/adapters/claude.Adapter": {
+            "before": {
+              "Methods": 11,
+              "Files": 2
+            },
+            "after": {
+              "Methods": 12,
+              "Files": 2
+            }
+          },
+          "internal/adapters/codex.Adapter": {
+            "before": {
+              "Methods": 15,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 16,
+              "Files": 3
+            }
+          },
+          "internal/agent.StandardHooks": {
+            "before": {
+              "Methods": 4,
+              "Files": 1
+            },
+            "after": {
+              "Methods": 3,
+              "Files": 1
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Each adapter renders its own startup output. agent.StandardHooks no longer has StartupOutput (one export removed). The Claude and Codex adapters get their own StartupOutput method (two new exports). The export count goes from 510 to 511. The method counts of agent.StandardHooks, claude.Adapter and codex.Adapter change by one each. No import, other shape or OS call changes."
+  },
+  {
+    "base_commit": "22b6f1e37e37e267ef366c0a4b01ceb1f93c72a4",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/adapters/claude.Adapter.StartupOutput",
+          "internal/adapters/codex.Adapter.StartupOutput"
+        ],
+        "removed": [
+          "internal/agent.StandardHooks.StartupOutput"
+        ]
+      },
+      "shapes": {
+        "added": {
+          "function:internal/adapters/claude.Adapter.StartupOutput": "func(Adapter) func(startup agent.StartupContext) (any, error)",
+          "function:internal/adapters/codex.Adapter.StartupOutput": "func(Adapter) func(startup agent.StartupContext) (any, error)"
+        },
+        "removed": {
+          "function:internal/agent.StandardHooks.StartupOutput": "func(StandardHooks) func(startup StartupContext) (any, error)"
+        },
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/adapters/claude.Adapter": {
+            "before": {
+              "Methods": 11,
+              "Files": 2
+            },
+            "after": {
+              "Methods": 12,
+              "Files": 2
+            }
+          },
+          "internal/adapters/codex.Adapter": {
+            "before": {
+              "Methods": 15,
+              "Files": 3
+            },
+            "after": {
+              "Methods": 16,
+              "Files": 3
+            }
+          },
+          "internal/agent.StandardHooks": {
+            "before": {
+              "Methods": 4,
+              "Files": 1
+            },
+            "after": {
+              "Methods": 3,
+              "Files": 1
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Each adapter renders its own startup output. agent.StandardHooks no longer has StartupOutput (one export removed). The Claude and Codex adapters get their own StartupOutput method (two new exports). The export count goes from 510 to 511. The method counts of agent.StandardHooks, claude.Adapter and codex.Adapter change by one each. No import, other shape or OS call changes."
   }
 ]

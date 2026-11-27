@@ -104,7 +104,7 @@ func TestPromptRegistrationComesFromTheDescriptor(t *testing.T) {
 
 // countingHooks records whether core ran the adapter's own handler.
 type countingHooks struct {
-	agent.StandardHooks
+	stubStartup
 	calls int
 }
 

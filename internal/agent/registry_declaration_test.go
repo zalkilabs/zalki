@@ -72,8 +72,6 @@ func declarationCases() []declarationCase {
 			[]string{"declared sets only one of UncertainReceiver and UncertainAcknowledged; UncertainReceiver is empty"}},
 		{"sentence without %s", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { sentences(d, "a sentence", "ACKed %s") })},
 			[]string{"declared: UncertainReceiver is used as a format string and must have exactly one %s"}},
-		{"another verb", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { sentences(d, "ok %s", "ACKed %d") })},
-			[]string{"declared: UncertainAcknowledged is used as a format string"}},
 		{"a lone percent sign", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { sentences(d, "ok %", "ACKed %s") })},
 			[]string{"declared: UncertainReceiver is used as a format string"}},
 		// Without the "exactly one %s" count, a single other verb or a % next to %s would pass.
@@ -87,6 +85,12 @@ func declarationCases() []declarationCase {
 		{"no SessionStart and no key", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) {
 			d.Hooks, d.HookEventKey = map[string]string{"stop": "Stop"}, ""
 		})}, []string{"declared maps no native event to SessionStart", "declared has hooks but declares no HookEventKey"}},
+		// The hook declaration rules run before the event key rules, so their lines come first.
+		{"no SessionStart and an invalid key", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) {
+			d.Hooks, d.HookEventKey = map[string]string{"stop": "Stop"}, " padded"
+		})}, []string{"declared maps no native event to SessionStart", "declared declares an invalid hook event key"}},
+		{"no hooks but an event key", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { d.Hooks = nil })},
+			[]string{"declared implements HookAdapter but maps no native event", "declared declares a hook event key but no hooks"}},
 		{"three rules at once", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) {
 			d.HookEventKey = ""
 			d.Native = []agent.NativeField{{Key: "a"}, {Key: "A"}}
