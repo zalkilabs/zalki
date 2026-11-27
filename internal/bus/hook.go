@@ -49,6 +49,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 		if err != nil {
 			return err
 		}
+		event.Registered = runtime.registered
 	}
 	runtime.pluginStartup = s.PluginStartup
 	fence := fenceOf(runtime)

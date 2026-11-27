@@ -18,6 +18,7 @@ type hookRuntime struct {
 	actor, kind, event string
 	generation         string
 	generationBound    bool
+	registered         bool // the hook created the session
 	pluginStartup      pluginStartupFormat
 }
 
