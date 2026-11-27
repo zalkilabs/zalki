@@ -41,7 +41,7 @@ def build(tree,head,paths,folder,source,command,modified=False,timeout=240):
     env=source.environment(paths,folder/'home',folder/'unused-cache',folder/'unused-linter',folder/'unused.json')
     temporary=folder/'tmp';temporary.mkdir(mode=0o700);env.update(TMPDIR=str(temporary),TMP=str(temporary),TEMP=str(temporary))
     binary=folder/'zalki';go=str(Path(paths['GOROOT'])/'bin/go')
-    built=command([go,'build','-race=false','-buildvcs=true','-p=1','-mod=readonly','-o',str(binary),'./cmd/zalki'],
+    built=command([go,'build','-trimpath','-race=false','-buildvcs=true','-p=1','-mod=readonly','-o',str(binary),'./cmd/zalki'],
                   tree,env,folder/'build.log',0,timeout=timeout)
     metadata=command([go,'version','-m','-json',str(binary)],tree,env,folder/'buildinfo.json',0)
     info=source.read_json(folder/'buildinfo.json');settings=identity(info,head,paths,modified)
@@ -69,5 +69,5 @@ def verify(record,head,paths,fingerprint,modified):
                 re.fullmatch('[0-9a-f]{64}',receipt['log_sha256']),'CLI command did not complete successfully')
     args=record['build'].get('argv')
     require(type(args) is list and len(args)>1 and all(type(a) is str for a in args) and
-            args[1]=='build' and '-race=false' in args and '-buildvcs=true' in args and './cmd/zalki' in args,
+            args[1]=='build' and '-trimpath' in args and '-race=false' in args and '-buildvcs=true' in args and './cmd/zalki' in args,
             'CLI build command differs from the required profile')

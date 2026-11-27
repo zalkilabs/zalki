@@ -50,7 +50,7 @@ def configure_cli_tools(item):
     git.write_text(text)
     go=item.bin/'go';text=go.read_text()
     branches="""elif a[0]=='build':
- assert '-race=false' in a and '-buildvcs=true' in a
+ assert '-trimpath' in a and '-race=false' in a and '-buildvcs=true' in a
  assert Path('.git').is_dir(),'R7_CLI_REAL_GIT_REQUIRED'
  Path(a[a.index('-o')+1]).write_bytes(Path('internal/fixture/guard.go').read_bytes())
 elif a[0]=='version':
@@ -59,7 +59,7 @@ elif a[0]=='version':
  print(json.dumps(dict(Path='github.com/zalkilabs/zalki/cmd/zalki',GoVersion=PATHS['GOVERSION'],Settings=[dict(Key=k,Value=v) for k,v in settings.items()]+[dict(Key='CGO_CFLAGS')])))
 """
     text=text.replace("elif a[0]=='test':",branches+"elif a[0]=='test':")
-    text=text.replace("if (ROOT/'compile-error').exists():raise SystemExit(2)", "assert '-race=false' in a\n if (ROOT/'compile-error').exists():raise SystemExit(2)")
+    text=text.replace("if (ROOT/'compile-error').exists():raise SystemExit(2)", "assert '-trimpath' in a and '-race=false' in a\n if (ROOT/'compile-error').exists():raise SystemExit(2)")
     text=text.replace("binary=Path(a[a.index('-p')+2]);bad=b'permitSynthetic() bool { return true }' in binary.read_bytes()", "binary=Path(a[a.index('-p')+2]);bad=b'permitSynthetic() bool { return true }' in Path(os.environ['ZALKI_TEST_BINARY']).read_bytes()\n assert '-test.timeout=120s' in a and '-test.count=1' in a")
     go.write_text(text)
 

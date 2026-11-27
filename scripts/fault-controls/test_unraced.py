@@ -139,7 +139,7 @@ class UnracedConstruction(unittest.TestCase):
         addition='''elif a[0]=='list':
  print(json.dumps(dict(Dir=str(Path.cwd()/'internal/fixture'),ImportPath='github.com/zalkilabs/zalki/internal/fixture',TestGoFiles=['guard_test.go'])))
 elif a[0]=='build':
- assert '-race=false' in a and '-buildvcs=true' in a
+ assert '-trimpath' in a and '-race=false' in a and '-buildvcs=true' in a
  assert Path('.git').is_dir(),'FRESH_CLI_REAL_GIT_DIRECTORY_REQUIRED'
  Path(a[a.index('-o')+1]).write_bytes(b'fresh nonrace CLI')
 elif a[0]=='version':
