@@ -118,16 +118,25 @@ func mergeMCPServer(current map[string]any, value any, versions []map[string]any
 	if servers == nil {
 		servers = map[string]any{}
 	}
-	wanted := value.(map[string]any)[zalkiMCPServer]
-	if old, exists := servers[zalkiMCPServer]; exists {
-		merged, err := mergeOwnedEntry(old, wanted, versions)
+	if err := mergeOwnedInto(servers, zalkiMCPServer, value.(map[string]any)[zalkiMCPServer], versions, mcpEntryWording); err != nil {
+		return err
+	}
+	current["mcpServers"] = servers
+	return nil
+}
+
+// mergeOwnedInto sets container[name] to the wanted entry. An existing entry is
+// merged: it is accepted when it holds every owned key with the next value, and
+// updated key by key when it still holds a recorded entry.
+func mergeOwnedInto(container map[string]any, name string, wanted any, versions []map[string]any, w entryWording) error {
+	if old, exists := container[name]; exists {
+		merged, err := mergeOwnedEntry(old, wanted, versions, w)
 		if err != nil {
 			return err
 		}
 		wanted = merged
 	}
-	servers[zalkiMCPServer] = wanted
-	current["mcpServers"] = servers
+	container[name] = wanted
 	return nil
 }
 

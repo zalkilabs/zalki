@@ -15,6 +15,27 @@ import (
 // other key. It refuses when an owned key was edited or removed, or when the
 // user already set a key that zalki now owns to another value.
 
+// entryWording is what the owned-entry helpers say about one kind of entry:
+// label names it in a message ("mcpServers.zalki"), noun is "entry" or "table",
+// differs is the refusal for an existing value that is not an object, and
+// edited is the refusal when no owned key can be named.
+type entryWording struct{ label, noun, differs, edited string }
+
+// mcpEditedText is the generic refusal for an edited zalki MCP entry or table.
+func mcpEditedText(noun string) string {
+	return fmt.Sprintf("managed %s MCP %s was edited; review it before removing or upgrading", zalkiMCPServer, noun)
+}
+
+// mcpEntryWording is the wording for the zalki entry of a JSON MCP file.
+var mcpEntryWording = entryWording{
+	label: "mcpServers.zalki", noun: "entry",
+	differs: "an existing zalki MCP server differs; review it before replacing",
+	edited:  mcpEditedText("entry"),
+}
+
+// mcpTableWording is the wording for the zalki table of a TOML MCP file.
+var mcpTableWording = entryWording{label: "[mcp_servers.zalki]", noun: "table", edited: mcpEditedText("table")}
+
 // ownedKeyProblem says why owned keys cannot be merged into an existing entry.
 // edited means an owned key was changed or removed. Otherwise the user set a
 // key that zalki now owns to another value.
@@ -125,18 +146,18 @@ func ownedEntries(patches []map[string]any) []map[string]any {
 
 // mergeOwnedEntry returns the zalki entry that results from merging wanted into
 // existing. The JSON value is a map of owned keys plus the user's keys.
-func mergeOwnedEntry(existing, wanted any, versions []map[string]any) (any, error) {
+func mergeOwnedEntry(existing, wanted any, versions []map[string]any, w entryWording) (any, error) {
 	have, haveOK := existing.(map[string]any)
 	want, wantOK := wanted.(map[string]any)
 	if !haveOK || !wantOK {
 		if equalJSON(existing, wanted) {
 			return existing, nil
 		}
-		return nil, errors.New("an existing zalki MCP server differs; review it before replacing")
+		return nil, errors.New(w.differs)
 	}
 	plan, problem := planOwnedKeys(have, want, versions)
 	if problem != nil {
-		return nil, ownedKeyError(problem, "mcpServers.zalki", "entry", len(versions) > 0)
+		return nil, ownedKeyError(problem, w.label, w.noun, len(versions) > 0)
 	}
 	merged := maps.Clone(have)
 	for _, key := range plan.set {
@@ -244,16 +265,16 @@ func recordedEntries(owned []any) []map[string]any {
 // entryUserKeys decides what uninstall does with a JSON entry that is not
 // exactly a recorded entry. When it is one recorded entry plus keys the user
 // added, uninstall removes it and returns those key names. Otherwise it refuses.
-func entryUserKeys(found any, owned []any) ([]string, error) {
+func entryUserKeys(found any, owned []any, w entryWording) ([]string, error) {
 	have, ok := found.(map[string]any)
 	if !ok {
-		return nil, editedKeyError(nil, nil, "mcpServers.zalki", "entry")
+		return nil, editedKeyError(nil, nil, w)
 	}
 	versions := recordedEntries(owned)
 	if extra, only := onlyUserKeysDiffer(have, versions); only {
 		return extra, nil
 	}
-	return nil, editedKeyError(have, versions, "mcpServers.zalki", "entry")
+	return nil, editedKeyError(have, versions, w)
 }
 
 // editedKeyError is the uninstall refusal for an entry that is neither a
@@ -261,9 +282,9 @@ func entryUserKeys(found any, owned []any) ([]string, error) {
 // mean the entry is no longer zalki's, so it stays refused. The error names the
 // first owned key that differs. With no recorded key to name (an empty recorded
 // entry, or an entry that is not an object) the text is generic.
-func editedKeyError(have map[string]any, versions []map[string]any, label, noun string) error {
+func editedKeyError(have map[string]any, versions []map[string]any, w entryWording) error {
 	if key := firstDifference(have, versions, nil); key != "" {
-		return fmt.Errorf("%s key %q was edited after Zalki wrote it; restore it or delete that %s, then run zalki uninstall again", label, key, noun)
+		return fmt.Errorf("%s key %q was edited after Zalki wrote it; restore it or delete that %s, then run zalki uninstall again", w.label, key, w.noun)
 	}
-	return fmt.Errorf("managed %s MCP %s was edited; review it before removing or upgrading", zalkiMCPServer, noun)
+	return errors.New(w.edited)
 }
