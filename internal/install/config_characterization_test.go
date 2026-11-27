@@ -20,19 +20,36 @@ import (
 // conversion equivalent to today's direct installer input. They use temporary
 // homes only; the CLI tests exercise the actual command wiring.
 
-// configDeclare turns the built-in registry's declarations into the installer's
+// allClientsDeclare turns the built-in registry's declarations into the installer's
 // execution specification. The JSON maps are passed on by reference, as the
 // direct registry-to-installer wiring does today.
-func configDeclare(binary, state string) ([]install.ConfigFile, error) {
+func allClientsDeclare(binary, state string) ([]install.ConfigFile, error) {
 	files, err := adapters.Builtin().Configuration(binary, []string{"--state", state})
 	if err != nil {
 		return nil, err
 	}
 	out := make([]install.ConfigFile, 0, len(files))
 	for _, file := range files {
-		out = append(out, install.ConfigFile{Path: file.Path, Draft: file.Draft, JSON: file.JSON, TOML: file.TOML, ConfigRootEnv: file.ConfigRootEnv})
+		out = append(out, install.ConfigFile{Path: file.Path, Draft: file.Draft, JSON: file.JSON, TOML: file.TOML, ConfigRootEnv: file.ConfigRootEnv, OwnedEntry: file.OwnedEntry})
 	}
 	return out, nil
+}
+
+// configDeclare declares Claude, Codex and Cursor, the clients that were there first.
+// The tests that use it describe the installer with those six files; the files of
+// Antigravity have goldens and tests of their own.
+func configDeclare(binary, state string) ([]install.ConfigFile, error) {
+	files, err := allClientsDeclare(binary, state)
+	if err != nil {
+		return nil, err
+	}
+	kept := files[:0]
+	for _, file := range files {
+		if !strings.HasPrefix(file.Path, ".gemini/") {
+			kept = append(kept, file)
+		}
+	}
+	return kept, nil
 }
 
 // clientAwareDeclare is configDeclare with the client of each file, as the

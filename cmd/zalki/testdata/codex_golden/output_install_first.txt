@@ -5,5 +5,8 @@ Updated: $HOME/.codex/config.toml
 Updated: $HOME/.codex/hooks.json
 Updated: $HOME/.cursor/hooks.json
 Updated: $HOME/.cursor/mcp.json
+Updated: $HOME/.gemini/config/hooks.json
+Updated: $HOME/.gemini/config/mcp_config.json
 Existing settings were preserved and backed up. Review/trust integrations in each configured client, then launch normally. Check doctor for adapter and listener requirements.
+Antigravity: restart agy to load the Zalki hooks. To let agy chats use the Zalki tools without asking, allow mcp(zalki/*) in agy's permission rules; Zalki does not change permissions.
 Codex: open /hooks and trust the zalki hooks, then send a message in each thread

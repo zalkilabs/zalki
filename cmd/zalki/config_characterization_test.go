@@ -36,10 +36,12 @@ func configTargets(home string) []string {
 		filepath.Join(home, ".codex", "hooks.json"),
 		filepath.Join(home, ".cursor", "hooks.json"),
 		filepath.Join(home, ".cursor", "mcp.json"),
+		filepath.Join(home, ".gemini", "config", "hooks.json"),
+		filepath.Join(home, ".gemini", "config", "mcp_config.json"),
 	}
 }
 
-const installAppliedNote = "Existing settings were preserved and backed up. Review/trust integrations in each configured client, then launch normally. Check doctor for adapter and listener requirements.\n" + codexNoticeForTest
+const installAppliedNote = "Existing settings were preserved and backed up. Review/trust integrations in each configured client, then launch normally. Check doctor for adapter and listener requirements.\n" + antigravityNoticeForTest + codexNoticeForTest
 
 // cliSnapshot reads every file under dir except the command logs, which change
 // on every command.
@@ -100,7 +102,7 @@ func TestInstallCommandDraftsFirstThenApplies(t *testing.T) {
 		names = append(names, entry.Name())
 	}
 	sort.Strings(names)
-	if wantNames := []string{"claude-hooks.json", "claude-mcp.json", "codex-hooks.json", "codex-mcp.toml", "cursor-hooks.json", "cursor-mcp.json", "targets.json"}; !reflect.DeepEqual(names, wantNames) {
+	if wantNames := []string{"antigravity-hooks.json", "antigravity-mcp.json", "claude-hooks.json", "claude-mcp.json", "codex-hooks.json", "codex-mcp.toml", "cursor-hooks.json", "cursor-mcp.json", "targets.json"}; !reflect.DeepEqual(names, wantNames) {
 		t.Fatalf("drafts = %v, want %v", names, wantNames)
 	}
 	for _, target := range configTargets(home) {
@@ -125,8 +127,8 @@ func TestInstallCommandDraftsFirstThenApplies(t *testing.T) {
 		t.Fatal(err)
 	}
 	record := readRecord(t, state)
-	if record.Schema != 3 || record.Home != home || record.State != state || record.Binary != binary || len(record.Targets) != 6 {
-		t.Fatalf("record = %+v, want schema 3 home %s state %s binary %s and six targets", record, home, state, binary)
+	if record.Schema != 3 || record.Home != home || record.State != state || record.Binary != binary || len(record.Targets) != 8 {
+		t.Fatalf("record = %+v, want schema 3 home %s state %s binary %s and eight targets", record, home, state, binary)
 	}
 
 	// The same command again has nothing to update, and changes no file.
@@ -158,7 +160,7 @@ func TestUpgradeConfigOnlyMovesHooksToTheNewBinaryAndKeepsUserSettings(t *testin
 	locateInstallation = func() (binaryLocation, error) { return binaryLocation{Binary: newBinary, Resolved: newBinary}, nil }
 	t.Cleanup(func() { locateInstallation = old })
 
-	// A dry run reports the six files and writes nothing.
+	// A dry run reports every declared file and writes nothing.
 	before := cliSnapshot(t, home)
 	out, diagnostic, err := execute(t, home, "", "upgrade", "--dry-run", "--state", state)
 	var report struct {

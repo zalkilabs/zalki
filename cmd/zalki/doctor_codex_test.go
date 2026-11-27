@@ -17,6 +17,8 @@ import (
 	"syscall"
 )
 
+const antigravityNoticeForTest = "Antigravity: restart agy to load the Zalki hooks. To let agy chats use the Zalki tools without asking, allow mcp(zalki/*) in agy's permission rules; Zalki does not change permissions.\n"
+
 const codexNoticeForTest = "Codex: open /hooks and trust the zalki hooks, then send a message in each thread\n"
 
 func writeCodexFixture(t *testing.T, path, content string) {
@@ -199,7 +201,7 @@ func TestInstallNoticesComeFromTheAdapters(t *testing.T) {
 	if err := printInstallNotices(adapters.Builtin(), nil, func(line string) error { lines = append(lines, line); return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if len(lines) != 1 || lines[0]+"\n" != codexNoticeForTest {
+	if len(lines) != 2 || lines[0]+"\n" != antigravityNoticeForTest || lines[1]+"\n" != codexNoticeForTest {
 		t.Fatalf("notices = %q", lines)
 	}
 }
@@ -295,7 +297,7 @@ func TestReadDiagnosticFile(t *testing.T) {
 
 // Only the clients that were configured print their line.
 func TestInstallNoticesAreOnlyForTheConfiguredClients(t *testing.T) {
-	for configured, want := range map[string]int{"codex": 1, "claude": 0, "cursor": 0} {
+	for configured, want := range map[string]int{"antigravity": 1, "codex": 1, "claude": 0, "cursor": 0} {
 		var lines []string
 		if err := printInstallNotices(adapters.Builtin(), []string{configured}, func(line string) error { lines = append(lines, line); return nil }); err != nil {
 			t.Fatal(err)

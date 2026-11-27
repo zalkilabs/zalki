@@ -17,7 +17,7 @@ import (
 )
 
 // execute runs a command in a home. A command that configures clients finds the
-// configuration directories of Claude, Codex and Cursor in it: use executeBare
+// configuration directories of Claude, Codex, Cursor and Antigravity in it: use executeBare
 // for a home with no client.
 func execute(t *testing.T, home, input string, args ...string) (string, string, error) {
 	t.Helper()
@@ -27,11 +27,11 @@ func execute(t *testing.T, home, input string, args ...string) (string, string, 
 	return executeBare(t, home, input, args...)
 }
 
-// seedClientDirs creates the configuration directories of Claude, Codex and
-// Cursor in a home, so that the installer sees those clients as present.
+// seedClientDirs creates the configuration directories of Claude, Codex, Cursor and
+// Antigravity in a home, so that the installer sees those clients as present.
 func seedClientDirs(t *testing.T, home string) {
 	t.Helper()
-	for _, dir := range []string{".claude", ".codex", ".cursor"} {
+	for _, dir := range []string{".claude", ".codex", ".cursor", filepath.Join(".gemini", "config")} {
 		if err := os.MkdirAll(filepath.Join(home, dir), 0o700); err != nil {
 			t.Fatal(err)
 		}

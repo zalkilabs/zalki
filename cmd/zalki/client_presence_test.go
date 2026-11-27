@@ -27,7 +27,7 @@ func presenceHome(t *testing.T, dirs ...string) string {
 	return home
 }
 
-const notFoundCodexCursor = "Not found: Codex, Cursor. Install one, then run zalki install.\n"
+const notFoundCodexCursor = "Not found: Antigravity, Codex, Cursor. Install one, then run zalki install.\n"
 
 func TestInstallConfiguresOnlyTheClientsThatAreThere(t *testing.T) {
 	home := presenceHome(t, ".claude")
@@ -55,7 +55,7 @@ func TestInstallConfiguresOnlyTheClientsThatAreThere(t *testing.T) {
 func TestInstallSaysPlainlyWhenNoClientIsThere(t *testing.T) {
 	home := presenceHome(t)
 	out, _, err := executeBare(t, home, "", "install", "--state", filepath.Join(home, "state"), "--apply")
-	const want = "No supported client found: Claude, Codex, Cursor. Install one, then run zalki install."
+	const want = "No supported client found: Antigravity, Claude, Codex, Cursor. Install one, then run zalki install."
 	if err == nil || err.Error() != want || out != "" {
 		t.Fatalf("error %v, output %q; want %q and no output", err, out, want)
 	}

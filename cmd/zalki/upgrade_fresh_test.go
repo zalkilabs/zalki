@@ -21,7 +21,7 @@ func TestUpgradeFreshDryRun(t *testing.T) {
 		before := bootstrapSnapshot(t, home)
 		out, diagnostic, err := execute(t, home, "", append([]string{"upgrade", "--dry-run"}, extra...)...)
 		var report upgradePreview
-		if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || !report.DryRun || report.Action != "upgrade" || len(report.Paths) != 6 {
+		if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || !report.DryRun || report.Action != "upgrade" || len(report.Paths) != 8 {
 			t.Fatal("fresh dry run", out, diagnostic, err)
 		}
 		if !reflect.DeepEqual(before, bootstrapSnapshot(t, home)) {

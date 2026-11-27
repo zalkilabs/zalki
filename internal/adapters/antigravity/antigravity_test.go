@@ -97,3 +97,11 @@ func TestStateCountsContinuesAndRefusesNonsense(t *testing.T) {
 		t.Fatal("a state that is not an object was accepted")
 	}
 }
+
+// The one line the install command prints for Antigravity.
+func TestInstallNoticeIsOneLineThatNamesTheRule(t *testing.T) {
+	const want = "Antigravity: restart agy to load the Zalki hooks. To let agy chats use the Zalki tools without asking, allow mcp(zalki/*) in agy's permission rules; Zalki does not change permissions."
+	if got := New().Descriptor().InstallNotice; got != want {
+		t.Fatalf("install notice = %q, want %q", got, want)
+	}
+}

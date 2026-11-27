@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "zalki": {
+      "args": [
+        "--state",
+        "<HOME>/state",
+        "mcp"
+      ],
+      "command": "/opt/zalki tools/zalki"
+    }
+  }
+}

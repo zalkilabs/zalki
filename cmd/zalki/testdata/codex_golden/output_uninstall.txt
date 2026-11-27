@@ -1,1 +1,1 @@
-{"action":"uninstall","dry_run":false,"paths":["$HOME/.claude.json","$HOME/.claude/settings.json","$HOME/.codex/config.toml","$HOME/.codex/hooks.json","$HOME/.cursor/hooks.json","$HOME/.cursor/mcp.json"]}
+{"action":"uninstall","dry_run":false,"paths":["$HOME/.claude.json","$HOME/.claude/settings.json","$HOME/.codex/config.toml","$HOME/.codex/hooks.json","$HOME/.cursor/hooks.json","$HOME/.cursor/mcp.json","$HOME/.gemini/config/hooks.json","$HOME/.gemini/config/mcp_config.json"]}

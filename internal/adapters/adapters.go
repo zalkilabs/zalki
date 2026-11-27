@@ -3,6 +3,7 @@
 package adapters
 
 import (
+	"github.com/zalkilabs/zalki/internal/adapters/antigravity"
 	"github.com/zalkilabs/zalki/internal/adapters/claude"
 	"github.com/zalkilabs/zalki/internal/adapters/codex"
 	"github.com/zalkilabs/zalki/internal/adapters/cursor"
@@ -21,7 +22,7 @@ func Builtin() *agent.Registry {
 // clientVersion is the Zalki build version that Codex receives when its
 // app-server is initialized.
 func BuiltinWithCodex(allow bool, configFile, clientVersion string) *agent.Registry {
-	r, err := agent.NewRegistry(codex.New(allow, configFile).WithClientVersion(clientVersion), claude.New(), cursor.New())
+	r, err := agent.NewRegistry(codex.New(allow, configFile).WithClientVersion(clientVersion), claude.New(), cursor.New(), antigravity.New())
 	if err != nil {
 		panic(err)
 	}

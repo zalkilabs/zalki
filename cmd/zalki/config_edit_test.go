@@ -89,7 +89,7 @@ func TestConfigEditHasOnlySelectedFileEffects(t *testing.T) {
 	}
 	entries, _ := os.ReadDir(home)
 	// The home holds the client directories that configTestHome made, and the selected file.
-	if len(entries) != 4 || entries[3].Name() != "selected.json" {
+	if len(entries) != 5 || entries[4].Name() != "selected.json" {
 		t.Fatal("config edit initialized unrelated files", entries)
 	}
 }
