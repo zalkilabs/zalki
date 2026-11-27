@@ -13,7 +13,7 @@ BAD=dict(files=2,sha256='b'*64)
 def record(mutant):
     settings=dict(GOOS='linux',GOARCH='fixture',CGO_ENABLED='1',**{'vcs.revision':HEAD,'vcs.modified':str(mutant).lower()})
     return dict(head=HEAD,modified=mutant,source_fingerprint=BAD if mutant else BASE,binary_sha256=('b' if mutant else 'a')*64,
-                build=dict(exit=0,log_sha256='c'*64,argv=['go','build','-race=false','-buildvcs=true','./cmd/zalki']),
+                build=dict(exit=0,log_sha256='c'*64,argv=['go','build','-trimpath','-race=false','-buildvcs=true','./cmd/zalki']),
                 metadata=dict(exit=0,log_sha256='d'*64),settings=settings,
                 build_info=dict(Path='github.com/zalkilabs/zalki/cmd/zalki',GoVersion='fixture-go',Settings=[dict(Key=k,Value=v) for k,v in settings.items()]))
 
@@ -51,6 +51,7 @@ class PhaseCLI(unittest.TestCase):
                  lambda c:c['phases']['restored']['cli'].update(binary_sha256='0'*64),
                  lambda c:c['phases']['good']['cli']['build'].update(exit=2),
                  lambda c:c['phases']['good']['cli']['build'].update(argv=['go','build','./cmd/zalki']),
+                 lambda c:c['phases']['good']['cli']['build'].update(argv=['go','build','-race=false','-buildvcs=true','./cmd/zalki']),  # no -trimpath
                  lambda c:c['phases']['good']['cli']['build'].update(argv=[]),
                  lambda c:c['phases']['good'].pop('cli'),
                  lambda c:c['cli_policy'].update(baseline_fingerprint=None)]

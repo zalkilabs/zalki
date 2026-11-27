@@ -157,7 +157,7 @@ def phase(tree,folder,control,paths,tools,files,intended,cli_input=None):
         env['ZALKI_TEST_BINARY']=str(cli_binary)
     binary=folder/'control.test'
     race='-race' if selected_profile['race'] else '-race=false'
-    build=command([go,'test',race,'-p=1','-c','-o',str(binary),control['selection']['directory']],tree,env,folder/'build.log',0,
+    build=command([go,'test','-trimpath',race,'-p=1','-c','-o',str(binary),control['selection']['directory']],tree,env,folder/'build.log',0,
                   timeout=selected_profile['build_seconds'])
     require(source.source_fingerprint(tree)==before,'test compilation changed source')
     pattern='/'.join('^'+re.escape(part)+'$' for part in control['selection']['test'].split('/'))
