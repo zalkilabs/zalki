@@ -107,6 +107,7 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 	trace.stage = "decode"
 	descriptor := adapter.Descriptor()
 	eventKey := descriptor.HookEventKey
+	// A guard for direct callers: agent.NewRegistry is the rule and refuses an adapter with hooks and no key.
 	if eventKey == "" {
 		return event, "", model.NewError(model.CodeInternal, "adapter %q has hooks but declares no HookEventKey; set it in its descriptor to the JSON key its client sends the event name in (for example %q)", kind, structEventKey)
 	}

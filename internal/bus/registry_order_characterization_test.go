@@ -3,6 +3,7 @@ package bus
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/agent"
@@ -83,8 +84,9 @@ func TestRegistryErrorAndCallbackPrecedence(t *testing.T) {
 			}
 			later := registryOrderAdapter{tag: "later", calls: &calls, inputs: &inputs}
 			registry, err := agent.NewRegistry(adapter, later)
-			if err == nil || err.Error() != test.want || registry != nil {
-				t.Fatalf("registry=%v error=%v, want nil registry and %q", registry, err, test.want)
+			// The registry may list more problems after the first; the first line is the pinned one.
+			if err == nil || strings.SplitN(err.Error(), "\n", 2)[0] != test.want || registry != nil {
+				t.Fatalf("registry=%v error=%v, want nil registry and first line %q", registry, err, test.want)
 			}
 			wantCalls := []string{"probe.descriptor"}
 			if test.kind == "probe" && test.label != "" {
@@ -154,7 +156,7 @@ func TestRegistryCallbacksFollowInputOrderAndUseZeroSessions(t *testing.T) {
 	var calls []string
 	var inputs []model.Session
 	first := registryOrderAdapter{tag: "first", descriptor: agent.AdapterDescriptor{Kind: "zeta", Label: "Zeta"}, caps: registryOrderCaps(false), calls: &calls, inputs: &inputs}
-	second := registryOrderAdapter{tag: "second", descriptor: agent.AdapterDescriptor{Kind: "alpha", Label: "Alpha", Hooks: map[string]string{"start": "SessionStart"}}, caps: registryOrderCaps(true), calls: &calls, inputs: &inputs}
+	second := registryOrderAdapter{tag: "second", descriptor: agent.AdapterDescriptor{Kind: "alpha", Label: "Alpha", HookEventKey: "hook_event_name", Hooks: map[string]string{"start": "SessionStart"}}, caps: registryOrderCaps(true), calls: &calls, inputs: &inputs}
 	registry, err := agent.NewRegistry(first, registryOrderHooks{registryOrderAdapter: second})
 	if err != nil {
 		t.Fatal(err)
