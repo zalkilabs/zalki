@@ -1,0 +1,25 @@
+{
+  "zalki": {
+    "PreInvocation": [
+      {
+        "command": "'/opt/zalki tools/zalki' '--config' '/fixture/config.json' '--state' '/fixture/state dir' 'hook' '--agent' 'antigravity'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ],
+    "SessionStart": [
+      {
+        "command": "'/opt/zalki tools/zalki' '--config' '/fixture/config.json' '--state' '/fixture/state dir' 'hook' '--agent' 'antigravity'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ],
+    "Stop": [
+      {
+        "command": "'/opt/zalki tools/zalki' '--config' '/fixture/config.json' '--state' '/fixture/state dir' 'hook' '--agent' 'antigravity'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ]
+  }
+}

@@ -4328,5 +4328,137 @@
       }
     },
     "reason": "The installer can own one named entry of a client file. model.ConfigDeclaration and install.ConfigFile each get one string field, OwnedEntry: the top-level key of a JSON file whose value zalki owns as a whole. Both are shape changes of existing types. The export count stays 511 (0 added, 0 removed). No import, receiver or OS call changes."
+  },
+  {
+    "base_commit": "8343abe0f246a9ce851e89d64d5d83bdc68fac08",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/adapters/antigravity.Adapter",
+          "internal/adapters/antigravity.Adapter.Configuration",
+          "internal/adapters/antigravity.Adapter.DecodeState",
+          "internal/adapters/antigravity.Adapter.Deliver",
+          "internal/adapters/antigravity.Adapter.Descriptor",
+          "internal/adapters/antigravity.Adapter.Diagnose",
+          "internal/adapters/antigravity.Adapter.HandleHook",
+          "internal/adapters/antigravity.Adapter.Health",
+          "internal/adapters/antigravity.Adapter.NormalizeHook",
+          "internal/adapters/antigravity.Adapter.ReceiveCapabilities",
+          "internal/adapters/antigravity.Adapter.StartupOutput",
+          "internal/adapters/antigravity.New"
+        ],
+        "removed": []
+      },
+      "imports": {
+        "added": [
+          "internal/adapters/antigravity -> internal/agent",
+          "internal/adapters/antigravity -> internal/clientconfig",
+          "internal/adapters/antigravity -> internal/model",
+          "internal/adapters/antigravity -> internal/statefile"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/adapters/antigravity.Adapter": {
+            "Files": 5,
+            "Methods": 13
+          }
+        },
+        "changed": {},
+        "removed": {}
+      },
+      "shapes": {
+        "added": {
+          "function:internal/adapters/antigravity.Adapter.Configuration": "func(Adapter) func(binary string, args []string) []model.ConfigDeclaration",
+          "function:internal/adapters/antigravity.Adapter.DecodeState": "func(Adapter) func(in agent.StateInput) (json.RawMessage, error)",
+          "function:internal/adapters/antigravity.Adapter.Deliver": "func(Adapter) func(context.Context, model.Message, model.Session) model.Receipt",
+          "function:internal/adapters/antigravity.Adapter.Descriptor": "func(Adapter) func() agent.AdapterDescriptor",
+          "function:internal/adapters/antigravity.Adapter.Diagnose": "func(Adapter) func(in agent.DiagnosticInput) (string, any)",
+          "function:internal/adapters/antigravity.Adapter.HandleHook": "func(Adapter) func(host agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error)",
+          "function:internal/adapters/antigravity.Adapter.Health": "func(Adapter) func(agent.HealthHost, model.Session) (string, string)",
+          "function:internal/adapters/antigravity.Adapter.NormalizeHook": "func(Adapter) func(event agent.HookInput) (agent.HookInput, error)",
+          "function:internal/adapters/antigravity.Adapter.ReceiveCapabilities": "func(Adapter) func(model.Session) model.ReceiveCapabilities",
+          "function:internal/adapters/antigravity.Adapter.StartupOutput": "func(Adapter) func(startup agent.StartupContext) (any, error)",
+          "function:internal/adapters/antigravity.New": "func() Adapter",
+          "type:internal/adapters/antigravity.Adapter": "Adapter struct{ agent.StandardHooks }"
+        },
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "A new client adapter package, internal/adapters/antigravity, for Antigravity. It adds one type, Adapter, with the methods the adapter contract needs (Configuration, DecodeState, Deliver, Descriptor, Diagnose, HandleHook, Health, NormalizeHook, ReceiveCapabilities, StartupOutput) and the constructor New: 12 exports, 511 to 523. It imports agent, clientconfig, model and statefile only. No existing type, import, receiver or OS call changes."
+  },
+  {
+    "base_commit": "8343abe0f246a9ce851e89d64d5d83bdc68fac08",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/adapters/antigravity.Adapter",
+          "internal/adapters/antigravity.Adapter.Configuration",
+          "internal/adapters/antigravity.Adapter.DecodeState",
+          "internal/adapters/antigravity.Adapter.Deliver",
+          "internal/adapters/antigravity.Adapter.Descriptor",
+          "internal/adapters/antigravity.Adapter.Diagnose",
+          "internal/adapters/antigravity.Adapter.HandleHook",
+          "internal/adapters/antigravity.Adapter.Health",
+          "internal/adapters/antigravity.Adapter.NormalizeHook",
+          "internal/adapters/antigravity.Adapter.ReceiveCapabilities",
+          "internal/adapters/antigravity.Adapter.StartupOutput",
+          "internal/adapters/antigravity.New"
+        ],
+        "removed": []
+      },
+      "imports": {
+        "added": [
+          "internal/adapters/antigravity -> internal/agent",
+          "internal/adapters/antigravity -> internal/clientconfig",
+          "internal/adapters/antigravity -> internal/model",
+          "internal/adapters/antigravity -> internal/statefile"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/adapters/antigravity.Adapter": {
+            "Files": 5,
+            "Methods": 13
+          }
+        },
+        "changed": {},
+        "removed": {}
+      },
+      "shapes": {
+        "added": {
+          "function:internal/adapters/antigravity.Adapter.Configuration": "func(Adapter) func(binary string, args []string) []model.ConfigDeclaration",
+          "function:internal/adapters/antigravity.Adapter.DecodeState": "func(Adapter) func(in agent.StateInput) (json.RawMessage, error)",
+          "function:internal/adapters/antigravity.Adapter.Deliver": "func(Adapter) func(context.Context, model.Message, model.Session) model.Receipt",
+          "function:internal/adapters/antigravity.Adapter.Descriptor": "func(Adapter) func() agent.AdapterDescriptor",
+          "function:internal/adapters/antigravity.Adapter.Diagnose": "func(Adapter) func(in agent.DiagnosticInput) (string, any)",
+          "function:internal/adapters/antigravity.Adapter.HandleHook": "func(Adapter) func(host agent.HookHost, event agent.HookInput, id string, output io.Writer) (bool, error)",
+          "function:internal/adapters/antigravity.Adapter.Health": "func(Adapter) func(agent.HealthHost, model.Session) (string, string)",
+          "function:internal/adapters/antigravity.Adapter.NormalizeHook": "func(Adapter) func(event agent.HookInput) (agent.HookInput, error)",
+          "function:internal/adapters/antigravity.Adapter.ReceiveCapabilities": "func(Adapter) func(model.Session) model.ReceiveCapabilities",
+          "function:internal/adapters/antigravity.Adapter.StartupOutput": "func(Adapter) func(startup agent.StartupContext) (any, error)",
+          "function:internal/adapters/antigravity.New": "func() Adapter",
+          "type:internal/adapters/antigravity.Adapter": "Adapter struct{ agent.StandardHooks }"
+        },
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "A new client adapter package, internal/adapters/antigravity, for Antigravity. It adds one type, Adapter, with the methods the adapter contract needs (Configuration, DecodeState, Deliver, Descriptor, Diagnose, HandleHook, Health, NormalizeHook, ReceiveCapabilities, StartupOutput) and the constructor New: 12 exports, 511 to 523. It imports agent, clientconfig, model and statefile only. No existing type, import, receiver or OS call changes."
   }
 ]
