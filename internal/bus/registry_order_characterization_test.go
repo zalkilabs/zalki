@@ -37,7 +37,7 @@ func (registryOrderAdapter) Deliver(context.Context, model.Message, model.Sessio
 
 type registryOrderHooks struct {
 	registryOrderAdapter
-	agent.StandardHooks
+	stubStartup
 }
 
 // Characterized, not endorsed: the first failing registry check decides the

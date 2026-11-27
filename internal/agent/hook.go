@@ -69,6 +69,8 @@ type HookHost interface {
 }
 
 // StandardHooks supplies default lifecycle behavior for adapters that need none of their own.
+// It has no StartupOutput: what a client reads at session start is that client's own format,
+// so every hook adapter writes its own.
 type StandardHooks struct{}
 
 func (StandardHooks) NormalizeHook(event HookInput) (HookInput, error) { return event, nil }
@@ -77,9 +79,6 @@ func (StandardHooks) RegisterHook(HookInput) (HookRegistration, error) {
 }
 func (StandardHooks) HandleHook(HookHost, HookInput, string, io.Writer) (bool, error) {
 	return false, nil
-}
-func (StandardHooks) StartupOutput(startup StartupContext) (any, error) {
-	return map[string]any{"hookSpecificOutput": map[string]string{"hookEventName": "SessionStart", "additionalContext": startup.Instructions}}, nil
 }
 
 // StandardEvents lists the common lifecycle events adapters may map native hook names onto.

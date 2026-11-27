@@ -16,7 +16,7 @@ import (
 
 // camelAdapter stands in for a client that sends hookEventName and conversationId
 // instead of hook_event_name. It declares its own key and one native field.
-type camelAdapter struct{ agent.StandardHooks }
+type camelAdapter struct{ stubStartup }
 
 func (camelAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{

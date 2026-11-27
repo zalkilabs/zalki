@@ -29,6 +29,14 @@ type Adapter struct {
 	clientVersion      string
 }
 
+var _ agent.HookAdapter = Adapter{}
+
+// StartupOutput renders the startup instructions in the format Codex reads:
+// one hookSpecificOutput object. It is this adapter's own; core has no default.
+func (Adapter) StartupOutput(startup agent.StartupContext) (any, error) {
+	return map[string]any{"hookSpecificOutput": map[string]string{"hookEventName": "SessionStart", "additionalContext": startup.Instructions}}, nil
+}
+
 // New returns the Codex adapter.
 func New(allow bool, configFile string) Adapter {
 	return Adapter{allowQueueFallback: allow, configFile: configFile}

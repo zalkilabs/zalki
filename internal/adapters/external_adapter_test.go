@@ -20,6 +20,11 @@ import (
 // interfaces, and be composed with the built-in registry.
 type fourthAdapter struct{ agent.StandardHooks }
 
+// StartupOutput renders the fourth client's own format. Core has no default.
+func (fourthAdapter) StartupOutput(startup agent.StartupContext) (any, error) {
+	return map[string]string{"fourth_context": startup.Instructions}, nil
+}
+
 func (fourthAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{
 		Kind: "fourth", Label: "Fourth", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(true),

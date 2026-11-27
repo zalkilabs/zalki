@@ -10,10 +10,18 @@ import (
 	"github.com/zalkilabs/zalki/internal/model"
 )
 
+// stubStartup gives test adapters the startup output of the core tests. It is test
+// code: core has no default startup output, every adapter renders its own.
+type stubStartup struct{ agent.StandardHooks }
+
+func (stubStartup) StartupOutput(startup agent.StartupContext) (any, error) {
+	return map[string]any{"hookSpecificOutput": map[string]string{"hookEventName": "SessionStart", "additionalContext": startup.Instructions}}, nil
+}
+
 // stubCodexAdapter stands in for the real Codex adapter, which lives in internal/adapters
 // and cannot be imported here without an import cycle. It supplies dispatch
 // metadata only; lifecycle policy is tested with Builtin in internal/adapters.
-type stubCodexAdapter struct{ agent.StandardHooks }
+type stubCodexAdapter struct{ stubStartup }
 
 func (stubCodexAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "codex", Label: "Codex", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(true), ProcessNames: []string{"codex"}, OwnerRole: "backend", Executable: "codex"}
@@ -33,7 +41,7 @@ func (stubCodexAdapter) Health(agent.HealthHost, model.Session) (string, string)
 
 // stubClaudeAdapter provides the native-inbox dispatch contract for core tests.
 // Real socket, metadata, configuration and hook registration tests live in adapters.
-type stubClaudeAdapter struct{ agent.StandardHooks }
+type stubClaudeAdapter struct{ stubStartup }
 
 func (stubClaudeAdapter) Descriptor() agent.AdapterDescriptor {
 	return agent.AdapterDescriptor{Kind: "claude", Label: "Claude", HookEventKey: "hook_event_name", Hooks: agent.StandardEvents(false), ProcessNames: []string{"claude"}, OwnerRole: "client", Executable: "claude"}

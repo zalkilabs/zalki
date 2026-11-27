@@ -52,6 +52,11 @@ type modelReleaseAdapter struct {
 	agentapi.StandardHooks
 }
 
+// StartupOutput renders a plain test format: core has no default.
+func (modelReleaseAdapter) StartupOutput(startup agentapi.StartupContext) (any, error) {
+	return map[string]string{"model_context": startup.Instructions}, nil
+}
+
 func (a modelReleaseAdapter) Descriptor() agentapi.AdapterDescriptor {
 	d := a.fakeAdapter.Descriptor()
 	d.HookEventKey = "hook_event_name"
