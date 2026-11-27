@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/zalkilabs/zalki/internal/adapters/antigravity"
@@ -188,4 +189,75 @@ func TestAntigravityDeclarationFitsTheRegistryAndTheInstallerTypes(t *testing.T)
 	if declarations[0].Path >= declarations[1].Path {
 		t.Fatalf("declarations are not sorted by path: %v", declarations)
 	}
+}
+
+// agy logs a load error and skips a settings file that is not valid JSON (seen
+// for an invalid global mcp_config.json), so Zalki must never write into such a
+// file: it could not tell what the user meant, and a write would hide the damage.
+// Install and upgrade refuse, the error names the file and the parser's reason,
+// and nothing is written, not the other file, not the record. Uninstall has
+// nothing of ours to remove from a file it cannot read, and leaves the file as it is.
+const (
+	brokenAntigravityMCP   = `{"mcpServers": {"a": {"command": "x"} "b": {"command": "y"}}}`
+	brokenAntigravityHooks = `{"other-tool": {"Stop": [}`
+)
+
+// seedAntigravityFile writes content to a settings file of a temporary home.
+func seedAntigravityFile(t *testing.T, home, file, content string) string {
+	t.Helper()
+	path := filepath.Join(home, filepath.FromSlash(file))
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func requireFileIs(t *testing.T, path, want string) {
+	t.Helper()
+	if raw, err := os.ReadFile(path); err != nil || string(raw) != want {
+		t.Fatalf("the invalid file was changed: %q (%v)", raw, err)
+	}
+}
+
+func requireNothingWritten(t *testing.T, home string, files ...string) {
+	t.Helper()
+	for _, name := range files {
+		if _, err := os.Stat(filepath.Join(home, filepath.FromSlash(name))); !os.IsNotExist(err) {
+			t.Fatalf("%s was written (%v) although the install was refused", name, err)
+		}
+	}
+}
+
+func TestAntigravityInstallRefusesAnInvalidSettingsFileAndWritesNothing(t *testing.T) {
+	for name, test := range map[string]struct{ file, content, other string }{
+		"mcp file":   {".gemini/config/mcp_config.json", brokenAntigravityMCP, ".gemini/config/hooks.json"},
+		"hooks file": {".gemini/config/hooks.json", brokenAntigravityHooks, ".gemini/config/mcp_config.json"},
+	} {
+		for _, action := range []string{"install", "upgrade"} {
+			t.Run(name+" "+action, func(t *testing.T) {
+				isolatedClientRoots(t)
+				home := t.TempDir()
+				path := seedAntigravityFile(t, home, test.file, test.content)
+				_, err := install.Manage(antigravityDeclare(home), antigravityRequest(home, action))
+				if err == nil || !strings.Contains(err.Error(), test.file) || !strings.Contains(err.Error(), "invalid character") {
+					t.Fatalf("%s: error %v; want one that names %s and the JSON problem", action, err, test.file)
+				}
+				requireFileIs(t, path, test.content)
+				requireNothingWritten(t, home, test.other, "state/installation.json")
+			})
+		}
+	}
+}
+
+func TestAntigravityUninstallLeavesAnInvalidSettingsFileAsItIs(t *testing.T) {
+	isolatedClientRoots(t)
+	home := t.TempDir()
+	path := seedAntigravityFile(t, home, ".gemini/config/mcp_config.json", brokenAntigravityMCP)
+	if _, err := install.Manage(antigravityDeclare(home), antigravityRequest(home, "uninstall")); err != nil {
+		t.Fatal(err)
+	}
+	requireFileIs(t, path, brokenAntigravityMCP)
 }
