@@ -1,0 +1,70 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

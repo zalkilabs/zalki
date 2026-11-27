@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "Interrupt": [],
+    "PermissionRequest": [],
+    "PostToolUse": [],
+    "SessionEnd": [],
+    "SessionStart": [],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "echo mine",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": []
+  }
+}

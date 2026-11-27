@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'cursor'",
+        "timeout": 5
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'cursor'",
+        "timeout": 5
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'cursor'",
+        "timeout": 5
+      }
+    ],
+    "sessionStart": [
+      {
+        "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'cursor'",
+        "timeout": 5
+      }
+    ],
+    "stop": [
+      {
+        "command": "echo mine"
+      },
+      {
+        "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'cursor'",
+        "loop_limit": 5,
+        "timeout": 5
+      }
+    ]
+  },
+  "version": 1
+}

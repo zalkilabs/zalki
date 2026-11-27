@@ -1,0 +1,32 @@
+package install_test
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/zalkilabs/zalki/internal/install"
+)
+
+// Generator, run only inside a copy of the rc.8 tree: installs with the rc.8
+// installer into a temporary home that holds the user's own settings, and stores
+// every file the installer left (home path written as <HOME>).
+func TestGenerateRC8Fixture(t *testing.T) {
+	isolateConfigEnv(t)
+	home := t.TempDir()
+	seedHome(t, home, goldenUserFiles)
+	if _, err := install.Manage(configDeclare, goldenRequest(home, "install", goldenBinary)); err != nil {
+		t.Fatal(err)
+	}
+	out := "<output-dir>"
+	_ = os.RemoveAll(out)
+	for name, content := range snapshotHome(t, home) {
+		path := filepath.Join(out, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

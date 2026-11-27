@@ -1,0 +1,4 @@
+
+[mcp_servers.zalki]
+command = "/opt/zalki tools/zalki"
+args = ["--state","<HOME>/state","mcp"]

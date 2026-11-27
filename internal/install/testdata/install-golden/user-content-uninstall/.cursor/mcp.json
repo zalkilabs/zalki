@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "mine": {
+      "args": [
+        "a"
+      ],
+      "command": "x"
+    }
+  }
+}
