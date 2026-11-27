@@ -68,6 +68,12 @@ type AdapterDescriptor struct {
 	// arrived): to the receiver, and after the receiver ACKed it. Each has one %s
 	// for the message id. Empty means core adds no client-specific sentence.
 	UncertainReceiver, UncertainAcknowledged string
+
+	// InstallNotice is one line the install command prints after it has applied
+	// the configuration, for a client that needs the user to do something next
+	// (for example to trust the hooks). Empty means no line. One line, no control
+	// characters.
+	InstallNotice string
 }
 
 type Adapter interface {
