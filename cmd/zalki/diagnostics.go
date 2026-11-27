@@ -55,12 +55,13 @@ func runDoctor(cmd *cobra.Command, opts *commandOptions, port diagnosticsPort, s
 	if err != nil {
 		return err
 	}
-	return encodeOutput(cmd, map[string]any{"state": port.Dir(),
+	out := map[string]any{"state": port.Dir(),
 		"agents":  report.Agents,
 		"runtime": report.Runtime, "runtimes": report.Runtimes, "untracked_processes": report.UntrackedProcesses,
 		"sessions": report.Sessions, "notes": report.Notes,
-		"codex_hooks":        diagnoseCodexHooks(opts, report),
-		"plugins_background": doctorBackground(cmd, opts, store)})
+		"plugins_background": doctorBackground(cmd, opts, store)}
+	adapterSections(opts, report, out)
+	return encodeOutput(cmd, out)
 }
 
 func newPruneCommand(opts *commandOptions) *cobra.Command {

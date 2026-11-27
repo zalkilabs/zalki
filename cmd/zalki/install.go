@@ -62,18 +62,16 @@ func applyConfiguration(cmd *cobra.Command, opts *commandOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := printCodexTrustNotice(cmd); err != nil {
+	if err := printInstallNotices(opts.registry, func(line string) error {
+		_, err := fmt.Fprintln(cmd.OutOrStdout(), line)
+		return err
+	}); err != nil {
 		return err
 	}
 	if target := newLoginItemTarget(opts, service.Store.Dir()); target != nil {
 		return target.rootSetup(cmd, service.Store)
 	}
 	return nil
-}
-
-func printCodexTrustNotice(cmd *cobra.Command) error {
-	_, err := fmt.Fprintln(cmd.OutOrStdout(), "Codex: open /hooks and trust the zalki hooks, then send a message in each thread")
-	return err
 }
 
 func writeConfigurationDrafts(cmd *cobra.Command, opts *commandOptions, out string) error {

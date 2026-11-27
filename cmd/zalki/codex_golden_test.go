@@ -49,29 +49,9 @@ type codexGoldenCase struct {
 }
 
 func codexGoldenCases() []codexGoldenCase {
-	trust := func(t *testing.T, home, state, root string, hooks []byte) {
-		opts, _, _ := newCodexDiagnosticFixture(t, home, state, root)
-		expected, err := expectedCodexHookHashes(opts)
-		if err != nil {
-			t.Fatal(err)
-		}
-		path := filepath.Join(root, "hooks.json")
-		var states strings.Builder
-		for _, row := range diagnoseCodexHooks(opts, bus.DiagnosticReport{SessionScanComplete: true, Agents: []bus.AgentDiagnostic{{Kind: "codex", Found: true, Version: "0.167.2"}}}).Hooks {
-			switch row.Event {
-			case "SessionStart":
-				states.WriteString("[hooks.state.\"" + row.Key + "\"]\ntrusted_hash = \"" + expected[row.Event] + "\"\n")
-			case "Stop":
-				states.WriteString("[hooks.state.\"" + row.Key + "\"]\ntrusted_hash = \"sha256:" + strings.Repeat("0", 64) + "\"\n")
-			case "PostToolUse":
-				states.WriteString("[hooks.state.\"" + row.Key + "\"]\nenabled = false\n")
-			}
-		}
-		_ = path
-		writeCodexFixture(t, filepath.Join(root, "config.toml"), states.String())
-	}
 	record := func(target string) func(t *testing.T, home, state, root string, hooks []byte) {
 		return func(t *testing.T, home, state, root string, hooks []byte) {
+			t.Helper()
 			writeCodexFixture(t, filepath.Join(state, "installation.json"), `{"schema":3,"home":`+jsonQuote(home)+`,"state":`+jsonQuote(state)+`,"targets":{".codex/hooks.json":`+jsonQuote(target)+`}}`)
 		}
 	}
@@ -80,24 +60,32 @@ func codexGoldenCases() []codexGoldenCase {
 		{name: "compared_with_sessions", version: "0.167.2", sessions: true},
 		{name: "unverified_version", version: "0.167.3"},
 		{name: "codex_not_found", version: "none"},
-		{name: "mixed_trust_states", version: "0.167.2", setup: trust},
-		{name: "hooks_file_missing", version: "0.167.2", setup: func(t *testing.T, _, _, root string, _ []byte) { _ = os.Remove(filepath.Join(root, "hooks.json")) }},
+		{name: "hooks_file_missing", version: "0.167.2", setup: func(t *testing.T, _, _, root string, _ []byte) {
+			t.Helper()
+			_ = os.Remove(filepath.Join(root, "hooks.json"))
+		}},
 		{name: "hooks_file_invalid", version: "0.167.2", setup: func(t *testing.T, _, _, root string, _ []byte) {
+			t.Helper()
 			writeCodexFixture(t, filepath.Join(root, "hooks.json"), "{broken")
 		}},
 		{name: "config_toml_invalid", version: "0.167.2", setup: func(t *testing.T, _, _, root string, _ []byte) {
+			t.Helper()
 			writeCodexFixture(t, filepath.Join(root, "config.toml"), "= not toml")
 		}},
 		{name: "record_matches", version: "0.167.2", setup: func(t *testing.T, home, state, root string, hooks []byte) {
+			t.Helper()
 			record(filepath.Join(root, "hooks.json"))(t, home, state, root, hooks)
 		}},
 		{name: "record_other_target", version: "0.167.2", setup: func(t *testing.T, home, state, root string, hooks []byte) {
+			t.Helper()
 			record("/elsewhere/hooks.json")(t, home, state, root, hooks)
 		}},
 		{name: "record_invalid", version: "0.167.2", setup: func(t *testing.T, _, state, _ string, _ []byte) {
+			t.Helper()
 			writeCodexFixture(t, filepath.Join(state, "installation.json"), "{broken")
 		}},
 		{name: "record_other_schema", version: "0.167.2", setup: func(t *testing.T, home, state, _ string, _ []byte) {
+			t.Helper()
 			writeCodexFixture(t, filepath.Join(state, "installation.json"), `{"schema":2,"home":`+jsonQuote(home)+`,"state":`+jsonQuote(state)+`}`)
 		}},
 	}
@@ -118,7 +106,7 @@ func TestCodexDoctorSectionGolden(t *testing.T) {
 			state := filepath.Join(home, "state")
 			root := filepath.Join(home, ".codex")
 			t.Setenv("CODEX_HOME", root)
-			opts, _, hooks := newCodexDiagnosticFixture(t, home, state, root)
+			opts, hooks := newCodexDiagnosticFixture(t, home, state, root)
 			if test.setup != nil {
 				test.setup(t, home, state, root, hooks)
 			}
@@ -143,7 +131,7 @@ func TestCodexDoctorSectionGoldenUnsafeRoot(t *testing.T) {
 	for _, root := range map[string]string{"relative": "relative", "control": "/tmp/bad\nroot"} {
 		home := codexDiagnosticTestDir(t)
 		t.Setenv("CODEX_HOME", root)
-		opts, _, _ := newCodexDiagnosticFixture(t, home, filepath.Join(home, "state"), filepath.Join(home, ".codex"))
+		opts, _ := newCodexDiagnosticFixture(t, home, filepath.Join(home, "state"), filepath.Join(home, ".codex"))
 		t.Setenv("CODEX_HOME", root)
 		report := bus.DiagnosticReport{Agents: []bus.AgentDiagnostic{{Kind: "codex", Found: true, Version: "0.167.2"}}}
 		raw, err := json.MarshalIndent(codexDoctorSection(opts, report), "", "  ")
@@ -156,7 +144,9 @@ func TestCodexDoctorSectionGoldenUnsafeRoot(t *testing.T) {
 
 // codexDoctorSection is what the doctor puts under "codex_hooks".
 func codexDoctorSection(opts *commandOptions, report bus.DiagnosticReport) any {
-	return diagnoseCodexHooks(opts, report)
+	sections := map[string]any{}
+	adapterSections(opts, report, sections)
+	return sections["codex_hooks"]
 }
 
 func TestCodexInstallOutputGolden(t *testing.T) {
