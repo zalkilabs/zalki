@@ -1,0 +1,231 @@
+{
+  "schema": 3,
+  "home": "<HOME>",
+  "binary": "/opt/zalki tools/zalki",
+  "state": "<HOME>/state",
+  "patches": {
+    ".claude.json": {
+      "mcpServers": {
+        "zalki": {
+          "args": [
+            "--state",
+            "<HOME>/state",
+            "mcp"
+          ],
+          "command": "/opt/zalki tools/zalki",
+          "type": "stdio"
+        }
+      }
+    },
+    ".claude/settings.json": {
+      "hooks": {
+        "PermissionRequest": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "PostToolUse": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "SessionEnd": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "SessionStart": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "Stop": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "UserPromptSubmit": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'claude'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    ".codex/hooks.json": {
+      "hooks": {
+        "Interrupt": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "PermissionRequest": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "PostToolUse": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "SessionEnd": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "SessionStart": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "Stop": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ],
+        "UserPromptSubmit": [
+          {
+            "hooks": [
+              {
+                "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+                "timeout": 5,
+                "type": "command"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    ".cursor/hooks.json": {
+      "hooks": {
+        "beforeSubmitPrompt": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'cursor'",
+            "timeout": 5
+          }
+        ],
+        "postToolUse": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'cursor'",
+            "timeout": 5
+          }
+        ],
+        "sessionEnd": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'cursor'",
+            "timeout": 5
+          }
+        ],
+        "sessionStart": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'cursor'",
+            "timeout": 5
+          }
+        ],
+        "stop": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'cursor'",
+            "loop_limit": 5,
+            "timeout": 5
+          }
+        ]
+      },
+      "version": 1
+    },
+    ".cursor/mcp.json": {
+      "mcpServers": {
+        "zalki": {
+          "args": [
+            "--state",
+            "<HOME>/state",
+            "mcp"
+          ],
+          "command": "/opt/zalki tools/zalki"
+        }
+      }
+    }
+  },
+  "fragments": {
+    ".codex/config.toml": "\n[mcp_servers.zalki]\ncommand = \"/opt/zalki tools/zalki\"\nargs = [\"--state\",\"<HOME>/state\",\"mcp\"]\n"
+  },
+  "targets": {
+    ".claude.json": "<HOME>/.claude.json",
+    ".claude/settings.json": "<HOME>/.claude/settings.json",
+    ".codex/config.toml": "<HOME>/.codex/config.toml",
+    ".codex/hooks.json": "<HOME>/.codex/hooks.json",
+    ".cursor/hooks.json": "<HOME>/.cursor/hooks.json",
+    ".cursor/mcp.json": "<HOME>/.cursor/mcp.json"
+  }
+}

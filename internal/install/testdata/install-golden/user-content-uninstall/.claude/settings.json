@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "PermissionRequest": [],
+    "PostToolUse": [],
+    "SessionEnd": [],
+    "SessionStart": [],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "echo mine",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": []
+  },
+  "ratio": 1.50,
+  "theme": "mine"
+}

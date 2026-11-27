@@ -60,5 +60,18 @@ func validateConfigurationDeclaration(kind string, file model.ConfigDeclaration,
 	if file.JSON != nil && len(file.JSON) == 0 {
 		return errors.New("configuration JSON patch must not be empty")
 	}
+	return validateOwnedEntryDeclaration(kind, file)
+}
+
+// validateOwnedEntryDeclaration checks a declared owned entry: the file is JSON
+// and the patch holds exactly that key, with an object value that is not empty.
+func validateOwnedEntryDeclaration(kind string, file model.ConfigDeclaration) error {
+	if file.OwnedEntry == "" {
+		return nil
+	}
+	entry, isObject := file.JSON[file.OwnedEntry].(map[string]any)
+	if !model.ValidName(file.OwnedEntry) || len(file.JSON) != 1 || !isObject || len(entry) == 0 {
+		return fmt.Errorf("%s declares the owned entry %q, which needs a JSON patch with exactly that key and a non-empty object as its value", kind, file.OwnedEntry)
+	}
 	return nil
 }

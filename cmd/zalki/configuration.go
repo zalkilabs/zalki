@@ -23,6 +23,7 @@ func installDeclarations(registry *agent.Registry, configFile string) install.De
 				JSON:          declaration.JSON,
 				TOML:          declaration.TOML,
 				ConfigRootEnv: declaration.ConfigRootEnv,
+				OwnedEntry:    declaration.OwnedEntry,
 			})
 		}
 		return files, nil

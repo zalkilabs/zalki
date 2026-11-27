@@ -1,0 +1,32 @@
+{
+  "zalki": {
+    "PostInvocation": [
+      {
+        "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'PostInvocation'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ],
+    "PreInvocation": [
+      {
+        "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'PreInvocation'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ],
+    "SessionStart": [
+      {
+        "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'SessionStart'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ],
+    "Stop": [
+      {
+        "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'Stop'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ]
+  }
+}

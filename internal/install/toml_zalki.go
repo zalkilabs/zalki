@@ -304,7 +304,7 @@ func updateMCPFragment(path string, before []byte, owned []string, next string) 
 	}
 	plan, problem := planOwnedKeys(current, wanted, versions)
 	if problem != nil {
-		return nil, fmt.Errorf("%s: %w", path, ownedKeyError(problem, "[mcp_servers.zalki]", "table", len(versions) > 0))
+		return nil, fmt.Errorf("%s: %w", path, ownedKeyError(problem, mcpTableWording.label, mcpTableWording.noun, len(versions) > 0))
 	}
 	if len(plan.set) == 0 && len(plan.remove) == 0 {
 		return before, nil
@@ -326,12 +326,12 @@ func updateMCPFragment(path string, before []byte, owned []string, next string) 
 func tableUserKeys(current map[string]any, fragments []string) ([]string, error) {
 	tables, err := recordedTables(fragments)
 	if err != nil {
-		return nil, editedKeyError(nil, nil, "[mcp_servers.zalki]", "table")
+		return nil, editedKeyError(nil, nil, mcpTableWording)
 	}
 	if extra, only := onlyUserKeysDiffer(current, tables); only {
 		return extra, nil
 	}
-	return nil, editedKeyError(current, tables, "[mcp_servers.zalki]", "table")
+	return nil, editedKeyError(current, tables, mcpTableWording)
 }
 
 var (

@@ -366,18 +366,26 @@ func removeManagedMCPServer(current map[string]any, owned []any) ([]string, erro
 	if !ok {
 		return nil, nil // absent or null
 	}
-	found, exists := servers[zalkiMCPServer]
+	return removeOwnedEntry(servers, zalkiMCPServer, owned, mcpEntryWording)
+}
+
+// removeOwnedEntry deletes container[name] when it equals one of the owned
+// entries, or one of them plus keys the user added, and returns those key names.
+// An absent entry is left as it is. Any other entry was edited in a key zalki
+// owns and is refused.
+func removeOwnedEntry(container map[string]any, name string, owned []any, w entryWording) ([]string, error) {
+	found, exists := container[name]
 	if !exists {
 		return nil, nil
 	}
 	var userKeys []string
 	if !containsJSON(owned, found) {
 		var err error
-		if userKeys, err = entryUserKeys(found, owned); err != nil {
+		if userKeys, err = entryUserKeys(found, owned, w); err != nil {
 			return nil, err
 		}
 	}
-	delete(servers, zalkiMCPServer)
+	delete(container, name)
 	return userKeys, nil
 }
 

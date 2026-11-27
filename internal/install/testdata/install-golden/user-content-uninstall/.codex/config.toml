@@ -1,0 +1,4 @@
+model = "x"
+
+[mcp_servers.mine]
+command = "x"

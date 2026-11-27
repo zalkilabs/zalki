@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "beforeSubmitPrompt": [],
+    "postToolUse": [],
+    "sessionEnd": [],
+    "sessionStart": [],
+    "stop": [
+      {
+        "command": "echo mine"
+      }
+    ]
+  },
+  "version": 1
+}

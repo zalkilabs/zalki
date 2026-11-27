@@ -4250,5 +4250,83 @@
       }
     },
     "reason": "Core keeps the native hook event name and the adapter declares the prompt hook reply. agent.HookInput gets one string field, NativeEvent (set by core, not by the input). agent.Lifecycle gets one string field, PromptReply (the reply core writes after a prompt hook that may register a session). Both are shape changes of existing types. The export count stays 511 (0 added, 0 removed). No import, receiver or OS call changes."
+  },
+  {
+    "base_commit": "964975ad305daa61ea48a59f5567372291e2245d",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "type:internal/install.ConfigFile": {
+            "before": "ConfigFile struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n}",
+            "after": "ConfigFile struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n\tOwnedEntry\tstring\n}"
+          },
+          "type:internal/model.ConfigDeclaration": {
+            "before": "ConfigDeclaration struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n}",
+            "after": "ConfigDeclaration struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n\tOwnedEntry\tstring\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The installer can own one named entry of a client file. model.ConfigDeclaration and install.ConfigFile each get one string field, OwnedEntry: the top-level key of a JSON file whose value zalki owns as a whole. Both are shape changes of existing types. The export count stays 511 (0 added, 0 removed). No import, receiver or OS call changes."
+  },
+  {
+    "base_commit": "964975ad305daa61ea48a59f5567372291e2245d",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "type:internal/install.ConfigFile": {
+            "before": "ConfigFile struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n}",
+            "after": "ConfigFile struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n\tOwnedEntry\tstring\n}"
+          },
+          "type:internal/model.ConfigDeclaration": {
+            "before": "ConfigDeclaration struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n}",
+            "after": "ConfigDeclaration struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n\tOwnedEntry\tstring\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The installer can own one named entry of a client file. model.ConfigDeclaration and install.ConfigFile each get one string field, OwnedEntry: the top-level key of a JSON file whose value zalki owns as a whole. Both are shape changes of existing types. The export count stays 511 (0 added, 0 removed). No import, receiver or OS call changes."
   }
 ]

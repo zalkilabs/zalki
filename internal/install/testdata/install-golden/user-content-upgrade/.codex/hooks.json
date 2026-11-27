@@ -1,0 +1,89 @@
+{
+  "hooks": {
+    "Interrupt": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/new tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/new tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/new tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/new tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/new tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "echo mine",
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "'/opt/new tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "'/opt/new tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'codex'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

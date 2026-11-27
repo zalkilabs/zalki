@@ -1,0 +1,18 @@
+{
+  "count": 12345678901234567890,
+  "mcpServers": {
+    "mine": {
+      "command": "x"
+    },
+    "zalki": {
+      "args": [
+        "--state",
+        "<HOME>/state",
+        "mcp"
+      ],
+      "command": "/opt/zalki tools/zalki",
+      "type": "stdio"
+    }
+  },
+  "projects": {}
+}

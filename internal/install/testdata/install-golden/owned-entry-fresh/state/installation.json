@@ -1,0 +1,43 @@
+{
+  "schema": 3,
+  "home": "<HOME>",
+  "binary": "/opt/zalki tools/zalki",
+  "state": "<HOME>/state",
+  "patches": {
+    ".app/config/hooks.json": {
+      "zalki": {
+        "PostInvocation": [
+          {
+            "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'PostInvocation'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "PreInvocation": [
+          {
+            "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'PreInvocation'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "SessionStart": [
+          {
+            "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'SessionStart'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "Stop": [
+          {
+            "command": "'/opt/zalki tools/zalki' 'hook' '--agent' 'app' '--event' 'Stop'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    }
+  },
+  "targets": {
+    ".app/config/hooks.json": "<HOME>/.app/config/hooks.json"
+  }
+}
