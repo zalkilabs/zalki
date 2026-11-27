@@ -1,0 +1,3 @@
+Config file: $HOME/.config/zalki/config.json
+Existing settings were preserved and backed up. Review/trust integrations in each configured client, then launch normally. Check doctor for adapter and listener requirements.
+Codex: open /hooks and trust the zalki hooks, then send a message in each thread

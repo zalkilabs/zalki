@@ -1,0 +1,9 @@
+Config file: $HOME/.config/zalki/config.json
+Updated: $HOME/.claude.json
+Updated: $HOME/.claude/settings.json
+Updated: $HOME/.codex/config.toml
+Updated: $HOME/.codex/hooks.json
+Updated: $HOME/.cursor/hooks.json
+Updated: $HOME/.cursor/mcp.json
+Existing settings were preserved and backed up. Review/trust integrations in each configured client, then launch normally. Check doctor for adapter and listener requirements.
+Codex: open /hooks and trust the zalki hooks, then send a message in each thread

@@ -1,0 +1,5 @@
+
+--- stderr ---
+
+--- error ---
+CODEX_HOME must be an absolute configuration directory

@@ -1,0 +1,79 @@
+{
+  "status": "cannot_verify",
+  "message": "Codex: cannot verify hook trust.",
+  "advice": "Codex: open /hooks and trust the zalki hooks, then send a message in each thread",
+  "observation": "Codex: no Codex sessions are registered.",
+  "caveat": "A hash match does not guarantee execution: enabled settings, profile, feature, event, matcher, project policy and a running thread's loaded configuration still apply.",
+  "hooks": [
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "Interrupt",
+      "key": "",
+      "status": "cannot_verify",
+      "enabled": null,
+      "trusted_hash_matches": null,
+      "reason": "invalid_data",
+      "message": "Codex hook Interrupt: cannot verify hook trust."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "PermissionRequest",
+      "key": "",
+      "status": "cannot_verify",
+      "enabled": null,
+      "trusted_hash_matches": null,
+      "reason": "invalid_data",
+      "message": "Codex hook PermissionRequest: cannot verify hook trust."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "PostToolUse",
+      "key": "",
+      "status": "cannot_verify",
+      "enabled": null,
+      "trusted_hash_matches": null,
+      "reason": "invalid_data",
+      "message": "Codex hook PostToolUse: cannot verify hook trust."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "SessionEnd",
+      "key": "",
+      "status": "cannot_verify",
+      "enabled": null,
+      "trusted_hash_matches": null,
+      "reason": "invalid_data",
+      "message": "Codex hook SessionEnd: cannot verify hook trust."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "SessionStart",
+      "key": "",
+      "status": "cannot_verify",
+      "enabled": null,
+      "trusted_hash_matches": null,
+      "reason": "invalid_data",
+      "message": "Codex hook SessionStart: cannot verify hook trust."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "Stop",
+      "key": "",
+      "status": "cannot_verify",
+      "enabled": null,
+      "trusted_hash_matches": null,
+      "reason": "invalid_data",
+      "message": "Codex hook Stop: cannot verify hook trust."
+    },
+    {
+      "source_path": "$HOME/.codex/hooks.json",
+      "event": "UserPromptSubmit",
+      "key": "",
+      "status": "cannot_verify",
+      "enabled": null,
+      "trusted_hash_matches": null,
+      "reason": "invalid_data",
+      "message": "Codex hook UserPromptSubmit: cannot verify hook trust."
+    }
+  ]
+}
