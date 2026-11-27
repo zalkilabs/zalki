@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "zalki": {
+      "args": [
+        "--config",
+        "/fixture/config.json",
+        "--state",
+        "/fixture/state dir",
+        "mcp"
+      ],
+      "command": "/opt/zalki tools/zalki"
+    }
+  }
+}
