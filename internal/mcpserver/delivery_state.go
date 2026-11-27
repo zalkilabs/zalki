@@ -12,14 +12,14 @@ import (
 type DeliveryState string
 
 const (
-	// StateQueued means the message waits to be sent.
-	StateQueued DeliveryState = "queued"
-	// StateDelivered means the receiver's client has the message; nobody confirmed reading it.
-	StateDelivered DeliveryState = "delivered"
-	// StateRead means the receiver confirmed it with ack_message or reply_message.
-	StateRead DeliveryState = "read"
-	// StateFailed means the message was refused or could not be sent.
-	StateFailed DeliveryState = "failed"
+	// stateQueued means the message waits to be sent.
+	stateQueued DeliveryState = "queued"
+	// stateDelivered means the receiver's client has the message; nobody confirmed reading it.
+	stateDelivered DeliveryState = "delivered"
+	// stateRead means the receiver confirmed it with ack_message or reply_message.
+	stateRead DeliveryState = "read"
+	// stateFailed means the message was refused or could not be sent.
+	stateFailed DeliveryState = "failed"
 	// stateUnknown means the message may or may not have arrived.
 	stateUnknown DeliveryState = "unknown"
 )
@@ -29,26 +29,26 @@ const (
 // message shows no state.
 func deliveryState(msg model.Message) DeliveryState {
 	if msg.AcknowledgedAt != "" {
-		return StateRead
+		return stateRead
 	}
 	if msg.IsQueuedForApproval() {
-		return StateQueued
+		return stateQueued
 	}
 	switch msg.Status {
 	case "":
 		return ""
 	case model.StatusAttempting, model.StatusPendingActivity, model.StatusWakeWritten:
-		return StateQueued
+		return stateQueued
 	case model.StatusSubmitted:
 		// A plugin inbox stores the message; the plugin reads it later.
 		if strings.HasPrefix(msg.To, "plugin:") {
-			return StateQueued
+			return stateQueued
 		}
-		return StateDelivered
+		return stateDelivered
 	case model.StatusTransportWritten, model.StatusContextEmitted:
-		return StateDelivered
+		return stateDelivered
 	case model.StatusNotSent, model.StatusApprovalBlocked, model.StatusCommandFailed:
-		return StateFailed
+		return stateFailed
 	case model.StatusWakeUncertain, model.StatusUnknownTimeout, model.StatusUnknownWrite, model.StatusQueuedForApproval:
 		return stateUnknown
 	}

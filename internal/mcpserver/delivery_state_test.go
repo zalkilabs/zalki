@@ -19,23 +19,23 @@ func TestDeliveryStateNamesEveryStoredStatus(t *testing.T) {
 		msg  model.Message
 		want DeliveryState
 	}{
-		{"attempting", model.Message{Status: model.StatusAttempting}, StateQueued},
-		{"next activity", model.Message{Status: model.StatusPendingActivity}, StateQueued},
-		{"wake hint written", model.Message{Status: model.StatusWakeWritten}, StateQueued},
-		{"held for approval", model.Message{Status: model.StatusApprovalBlocked, Held: true}, StateQueued},
-		{"plugin inbox", model.Message{Status: model.StatusSubmitted, To: "plugin:" + model.NewUUID()}, StateQueued},
-		{"submitted", model.Message{Status: model.StatusSubmitted, To: "codex:" + model.NewUUID()}, StateDelivered},
-		{"transport written", model.Message{Status: model.StatusTransportWritten}, StateDelivered},
-		{"hook context", model.Message{Status: model.StatusContextEmitted}, StateDelivered},
-		{"not sent", model.Message{Status: model.StatusNotSent}, StateFailed},
-		{"command failed", model.Message{Status: model.StatusCommandFailed}, StateFailed},
-		{"final approval refusal", model.Message{Status: model.StatusApprovalBlocked}, StateFailed},
+		{"attempting", model.Message{Status: model.StatusAttempting}, stateQueued},
+		{"next activity", model.Message{Status: model.StatusPendingActivity}, stateQueued},
+		{"wake hint written", model.Message{Status: model.StatusWakeWritten}, stateQueued},
+		{"held for approval", model.Message{Status: model.StatusApprovalBlocked, Held: true}, stateQueued},
+		{"plugin inbox", model.Message{Status: model.StatusSubmitted, To: "plugin:" + model.NewUUID()}, stateQueued},
+		{"submitted", model.Message{Status: model.StatusSubmitted, To: "codex:" + model.NewUUID()}, stateDelivered},
+		{"transport written", model.Message{Status: model.StatusTransportWritten}, stateDelivered},
+		{"hook context", model.Message{Status: model.StatusContextEmitted}, stateDelivered},
+		{"not sent", model.Message{Status: model.StatusNotSent}, stateFailed},
+		{"command failed", model.Message{Status: model.StatusCommandFailed}, stateFailed},
+		{"final approval refusal", model.Message{Status: model.StatusApprovalBlocked}, stateFailed},
 		{"wake hint uncertain", model.Message{Status: model.StatusWakeUncertain}, stateUnknown},
 		{"unknown after timeout", model.Message{Status: model.StatusUnknownTimeout}, stateUnknown},
 		{"unknown after write", model.Message{Status: model.StatusUnknownWrite}, stateUnknown},
-		{"acknowledged delivered", model.Message{Status: model.StatusTransportWritten, AcknowledgedAt: at}, StateRead},
-		{"acknowledged after uncertain delivery", model.Message{Status: model.StatusUnknownWrite, AcknowledgedAt: at}, StateRead},
-		{"acknowledged while queued", model.Message{Status: model.StatusPendingActivity, AcknowledgedAt: at}, StateRead},
+		{"acknowledged delivered", model.Message{Status: model.StatusTransportWritten, AcknowledgedAt: at}, stateRead},
+		{"acknowledged after uncertain delivery", model.Message{Status: model.StatusUnknownWrite, AcknowledgedAt: at}, stateRead},
+		{"acknowledged while queued", model.Message{Status: model.StatusPendingActivity, AcknowledgedAt: at}, stateRead},
 		{"no status", model.Message{}, ""},
 	}
 	for _, test := range tests {
@@ -79,7 +79,7 @@ func namedFixture() (*namedBus, string) {
 func TestSendReceiptShowsReceiverAndState(t *testing.T) {
 	service, to := namedFixture()
 	receipt, err := sentReceipt(service, toolArgs{Actor: "a", Capability: "k"})(service.sent, nil)
-	if err != nil || receipt.To != to || receipt.ToName != "lead" || receipt.State != StateDelivered || receipt.Acknowledged || receipt.ParentAcknowledged {
+	if err != nil || receipt.To != to || receipt.ToName != "lead" || receipt.State != stateDelivered || receipt.Acknowledged || receipt.ParentAcknowledged {
 		t.Fatalf("send receipt: %+v %v", receipt, err)
 	}
 }
@@ -88,7 +88,7 @@ func TestReplyReceiptSaysTheParentWasAcknowledged(t *testing.T) {
 	service, _ := namedFixture()
 	reply := replyReceipt(service, toolArgs{Actor: "a", Capability: "k"})
 	receipt, err := reply(service.replied, nil)
-	if err != nil || receipt.ToName != "lead" || receipt.State != StateDelivered || !receipt.ParentAcknowledged {
+	if err != nil || receipt.ToName != "lead" || receipt.State != stateDelivered || !receipt.ParentAcknowledged {
 		t.Fatalf("reply receipt: %+v %v", receipt, err)
 	}
 	receipt, err = reply(service.replied, errors.New("delivery failed"))
@@ -99,7 +99,7 @@ func TestReplyReceiptSaysTheParentWasAcknowledged(t *testing.T) {
 
 func TestAckReceiptIsReadAndNamesNoReceiver(t *testing.T) {
 	acknowledged, err := ackReceipt(model.Message{ID: model.NewUUID(), Status: model.StatusTransportWritten, AcknowledgedAt: "2026-11-22T00:00:00Z"}, nil, codexNotes)
-	if err != nil || acknowledged.State != StateRead || acknowledged.To != "" || acknowledged.ToName != "" || !acknowledged.Acknowledged {
+	if err != nil || acknowledged.State != stateRead || acknowledged.To != "" || acknowledged.ToName != "" || !acknowledged.Acknowledged {
 		t.Fatalf("ack receipt: %+v %v", acknowledged, err)
 	}
 }
@@ -114,7 +114,7 @@ func TestReceiverNameIsLeftOutWhenUnknown(t *testing.T) {
 	}
 	failing := &namedBus{discoverErr: errors.New("discovery down")}
 	receipt, err = sentReceipt(failing, toolArgs{})(msg, nil)
-	if err != nil || receipt.To != to || receipt.ToName != "" || receipt.State != StateDelivered {
+	if err != nil || receipt.To != to || receipt.ToName != "" || receipt.State != stateDelivered {
 		t.Fatalf("discovery failure must not fail the send: %+v %v", receipt, err)
 	}
 	refused, err := sentReceipt(failing, toolArgs{})(model.Message{}, errors.New("refused"))
@@ -129,14 +129,14 @@ func TestMessageViewsShowStateAndNameOnlyForSentMessages(t *testing.T) {
 	received := model.Message{ID: model.NewUUID(), From: other, To: me, Status: model.StatusTransportWritten}
 	names := map[string]string{other: "lead", me: "worker"}
 	views := messageViews([]model.Message{sent, received}, me, names, codexNotes)
-	if views[0].State != StateDelivered || views[0].ToName != "lead" {
+	if views[0].State != stateDelivered || views[0].ToName != "lead" {
 		t.Fatalf("sent view: %+v", views[0])
 	}
 	if views[1].State != "" || views[1].ToName != "" {
 		t.Fatalf("received view must not claim a sender-side state or name: %+v", views[1])
 	}
 	sent.AcknowledgedAt = "2026-11-22T00:00:00Z"
-	if view := messageViews([]model.Message{sent}, me, nil, codexNotes)[0]; view.State != StateRead || view.ToName != "" {
+	if view := messageViews([]model.Message{sent}, me, nil, codexNotes)[0]; view.State != stateRead || view.ToName != "" {
 		t.Fatalf("read view without names: %+v", view)
 	}
 }
@@ -165,10 +165,10 @@ func TestDeliveryStateFollowsAHeldMessageThroughRelease(t *testing.T) {
 		do   func() error
 		want DeliveryState
 	}{
-		{"held", func() error { return nil }, StateQueued},
-		{"released", func() error { return msg.ReleaseHeld(model.StatusAttempting) }, StateQueued},
-		{"written", func() error { return msg.ApplyReceipt(model.NewReceipt(model.StatusTransportWritten)) }, StateDelivered},
-		{"acknowledged", func() error { msg.AcknowledgedAt = model.Timestamp(); return nil }, StateRead},
+		{"held", func() error { return nil }, stateQueued},
+		{"released", func() error { return msg.ReleaseHeld(model.StatusAttempting) }, stateQueued},
+		{"written", func() error { return msg.ApplyReceipt(model.NewReceipt(model.StatusTransportWritten)) }, stateDelivered},
+		{"acknowledged", func() error { msg.AcknowledgedAt = model.Timestamp(); return nil }, stateRead},
 	}
 	for _, step := range steps {
 		if err := step.do(); err != nil {
@@ -182,7 +182,7 @@ func TestDeliveryStateFollowsAHeldMessageThroughRelease(t *testing.T) {
 	if err := refused.Hold(); err != nil {
 		t.Fatal(err)
 	}
-	if err := refused.SettleNotSent(model.CodeUnavailable, "gone"); err != nil || deliveryState(refused) != StateFailed {
+	if err := refused.SettleNotSent(model.CodeUnavailable, "gone"); err != nil || deliveryState(refused) != stateFailed {
 		t.Fatalf("a refused held message is failed: %v %q", err, deliveryState(refused))
 	}
 }
@@ -229,20 +229,20 @@ func TestSendReplyAndSentHistoryShowTheState(t *testing.T) {
 	var sent, reply Output[DeliveryReceipt]
 	var page Output[MessagePage]
 	callTool(ctx, t, client, "send_message", map[string]any{"actor": from.ID, "capability": key, "to": to.ID, "body": "review"}, &sent)
-	wantState(t, "send", sent.Data.State, StateDelivered)
+	wantState(t, "send", sent.Data.State, stateDelivered)
 	if sent.Data.To != to.ID {
 		t.Fatalf("the send result must name the receiver: %+v", sent.Data)
 	}
 	sentList := map[string]any{"actor": from.ID, "capability": key, "sent": true}
 	callTool(ctx, t, client, "list_messages", sentList, &page)
-	wantState(t, "sent history before the reply", onlyState(t, page.Data), StateDelivered)
+	wantState(t, "sent history before the reply", onlyState(t, page.Data), stateDelivered)
 	callTool(ctx, t, client, "reply_message", map[string]any{"actor": to.ID, "capability": toKey, "message_id": sent.Data.ID, "body": "done"}, &reply)
 	if !reply.Data.ParentAcknowledged || reply.Data.To != from.ID {
 		t.Fatalf("a reply says it acknowledged the parent: %+v", reply.Data)
 	}
-	wantState(t, "reply to a hook-pending receiver", reply.Data.State, StateQueued)
+	wantState(t, "reply to a hook-pending receiver", reply.Data.State, stateQueued)
 	callTool(ctx, t, client, "list_messages", sentList, &page)
-	wantState(t, "sent history after the reply", onlyState(t, page.Data), StateRead)
+	wantState(t, "sent history after the reply", onlyState(t, page.Data), stateRead)
 	// The receiver's own history shows no sender-side state for what it received.
 	callTool(ctx, t, client, "list_messages", map[string]any{"actor": to.ID, "capability": toKey, "history": true}, &page)
 	for _, view := range page.Data.Messages {
@@ -272,13 +272,13 @@ func TestInstructionsExplainTheStatesAndAckMessage(t *testing.T) {
 // exactly the keys of a compact receipt: the stored receipt, the state, the
 // receiver and the parent acknowledgement.
 func isQueuedReplyReceipt(data map[string]any, receiver string) bool {
-	return len(data) == 7 && data["state"] == string(StateQueued) && data["parent_acknowledged"] == true && data["to"] == receiver
+	return len(data) == 7 && data["state"] == string(stateQueued) && data["parent_acknowledged"] == true && data["to"] == receiver
 }
 
 // The five state words are part of the tool results and their schema: a
 // constant may become private, its word may not change.
 func TestDeliveryStateWordsDoNotChange(t *testing.T) {
-	for state, word := range map[DeliveryState]string{StateQueued: "queued", StateDelivered: "delivered", StateRead: "read", StateFailed: "failed", stateUnknown: "unknown"} {
+	for state, word := range map[DeliveryState]string{stateQueued: "queued", stateDelivered: "delivered", stateRead: "read", stateFailed: "failed", stateUnknown: "unknown"} {
 		if string(state) != word {
 			t.Fatalf("state %q, want %q", state, word)
 		}
