@@ -8,6 +8,10 @@
 // instead of switching on a client name. HookEventKey says which JSON key holds
 // the native hook event name; an adapter with hooks declares it.
 //
+// NewRegistry checks every declaration rule (descriptor, optional interfaces,
+// capabilities) and lists all problems of an adapter at once. Package agenttest
+// uses the same check and adds the behavior checks that call adapter code.
+//
 //	Interface            Core calls it                         Default when missing
 //	HookAdapter          every lifecycle hook                  no hooks: the hook command fails
 //	HookPayloadAdapter   hook decoding of large payloads       all events use the 8 MiB limit

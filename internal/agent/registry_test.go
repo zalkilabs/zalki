@@ -37,7 +37,7 @@ func TestRegistryHookEventKey(t *testing.T) {
 		adapter agent.Adapter
 		failure string
 	}{
-		{"empty key is accepted here", keyAdapter{descriptor: keyDescriptor("", oneHook)}, ""},
+		{"hooks without a key", keyAdapter{descriptor: keyDescriptor("", oneHook)}, "has hooks but declares no HookEventKey"},
 		{"camelCase key with hooks", keyAdapter{descriptor: keyDescriptor("hookEventName", oneHook)}, ""},
 		{"key without hooks", keyAdapter{descriptor: keyDescriptor("hookEventName", nil)}, "a hook event key but no hooks"},
 		{"the name Claude, Codex and Cursor send", keyAdapter{descriptor: keyDescriptor("hook_event_name", oneHook)}, ""},
