@@ -191,6 +191,8 @@ func TestLogEventKeepsOnlyKnownAgentsEventsAndStages(t *testing.T) {
 		{"an oversized hook payload class is kept", eventData{HookPayloadClass: "gt_8mib"}, []string{"hook_payload_class=gt_8mib"}},
 		{"an arbitrary hook payload class is dropped", eventData{HookPayloadClass: "secret-payload-class"}, nil},
 		{"the interrupt event is kept", eventData{HookEvent: "Interrupt"}, []string{"hook_event=Interrupt"}},
+		{"the activity event is kept", eventData{HookEvent: "Activity"}, []string{"hook_event=Activity"}},
+		{"a native activity name is not kept", eventData{HookEvent: "activity"}, nil},
 		{"a hook event in another case is dropped", eventData{HookEvent: "stop"}, nil},
 		{"an unknown hook event is dropped", eventData{HookEvent: "secret-event"}, nil},
 		{"a stage that is not one of the fixed words is dropped", eventData{HookStage: "secret-stage"}, nil},

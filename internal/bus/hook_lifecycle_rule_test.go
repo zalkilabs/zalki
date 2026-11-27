@@ -80,7 +80,7 @@ func (a forgedPromptAdapter) Descriptor() agent.AdapterDescriptor {
 }
 
 func (forgedPromptAdapter) NormalizeHook(v agent.HookInput) (agent.HookInput, error) {
-	v.AllowPromptRegistration = true
+	v.AllowRegistration = true
 	return v, nil
 }
 
@@ -95,8 +95,8 @@ func TestPromptRegistrationComesFromTheDescriptor(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if want := allow && native == "beforeSubmitPrompt"; event.AllowPromptRegistration != want {
-				t.Fatal("prompt registration was not decided by the descriptor", allow, native, event.AllowPromptRegistration)
+			if want := allow && native == "beforeSubmitPrompt"; event.AllowRegistration != want {
+				t.Fatal("prompt registration was not decided by the descriptor", allow, native, event.AllowRegistration)
 			}
 		}
 	}

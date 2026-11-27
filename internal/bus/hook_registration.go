@@ -18,7 +18,7 @@ func prepareHookRuntime(s Store, kind, actor string, event agent.HookInput) (hoo
 	h := hookRuntime{store: s, actor: actor, kind: kind, event: event.Event, generationBound: true}
 	err := s.locked(func() error {
 		v, err := s.session(actor)
-		if errors.Is(err, os.ErrNotExist) && event.AllowPromptRegistration && event.Event == "UserPromptSubmit" {
+		if errors.Is(err, os.ErrNotExist) && event.AllowRegistration && (event.Event == "UserPromptSubmit" || event.Event == "Activity") {
 			v, err = registerPromptAbsent(s, kind, actor, event, time.Now().UTC(), fsutil.WriteAtomic)
 		}
 		if errors.Is(err, os.ErrNotExist) {

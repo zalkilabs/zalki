@@ -61,3 +61,35 @@ func TestRegistryHookEventKey(t *testing.T) {
 		})
 	}
 }
+
+// Activity is a common event a descriptor may map onto, but it is not in
+// StandardEvents; and ActivityMayRegister needs a native event that maps to it.
+func TestRegistryActivityEvent(t *testing.T) {
+	activity := map[string]string{"start": "SessionStart", "model_call": "Activity"}
+	withRule := func(hooks map[string]string, mayRegister bool) agent.Adapter {
+		d := keyDescriptor("hookEventName", hooks)
+		d.Lifecycle.ActivityMayRegister = mayRegister
+		return keyAdapter{descriptor: d}
+	}
+	for _, test := range []struct {
+		name    string
+		adapter agent.Adapter
+		failure string
+	}{
+		{"a native event maps to Activity", withRule(activity, false), ""},
+		{"Activity with the register rule", withRule(activity, true), ""},
+		{"the register rule without a native Activity event", withRule(oneHook, true), "ActivityMayRegister but maps no native event to Activity"},
+		{"a made-up common event", withRule(map[string]string{"start": "SessionStart", "x": "Bogus"}, false), "unsupported lifecycle event"},
+		{"Activity in lower case", withRule(map[string]string{"x": "activity"}, false), "unsupported lifecycle event"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := agent.NewRegistry(test.adapter)
+			switch {
+			case test.failure == "" && err != nil:
+				t.Fatalf("registry refused a valid adapter: %v", err)
+			case test.failure != "" && (err == nil || !strings.Contains(err.Error(), test.failure)):
+				t.Fatalf("registry error = %v, want it to contain %q", err, test.failure)
+			}
+		})
+	}
+}

@@ -8,7 +8,8 @@ import (
 
 // Lifecycle states how an adapter's client behaves, so core never switches on
 // an event name for one client. The zero value is the default: a session end
-// retires the session, and a prompt hook cannot register an unknown session.
+// retires the session, and neither a prompt hook nor an Activity hook can
+// register an unknown session.
 type Lifecycle struct {
 	// KeepOnSessionEnd keeps the session listed and ready on SessionEnd. Use it
 	// when the client also ends sessions that are only unloaded, not closed.
@@ -16,6 +17,13 @@ type Lifecycle struct {
 	// PromptMayRegister lets a trusted prompt hook register a session core has
 	// not seen yet. Only core sets this on an event; JSON input cannot.
 	PromptMayRegister bool
+	// ActivityMayRegister lets a trusted Activity hook register a session core has
+	// not seen yet, and allows the adapter's policy to reactivate a retired one on
+	// it. Activity is the common event for a client that has no prompt hook but
+	// shows that it works for a chat (a model call starts). Like a prompt hook, an
+	// Activity hook that may register never fails the client: errors are logged.
+	// Only core sets the flag on an event; JSON input cannot.
+	ActivityMayRegister bool
 	// PromptReply is the one JSON object, on one line without the newline, that
 	// the client needs on stdout after a prompt hook that may register a session,
 	// whatever the outcome of the hook. Core writes it and a newline, but only

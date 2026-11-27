@@ -17,10 +17,11 @@ var allowedTransitions = map[string][]agent.LifecycleTransition{
 	"Stop":             {agent.TransitionNone, agent.TransitionReady},
 	"Interrupt":        {agent.TransitionNone, agent.TransitionReady},
 	"PostToolUse":      {agent.TransitionNone},
+	"Activity":         {agent.TransitionNone, agent.TransitionPromptReactivate},
 }
 
 // Recovery reissues credentials, so only hooks that observed activity may claim it.
-var recoveryEvents = map[string]bool{"PostToolUse": true, "Stop": true}
+var recoveryEvents = map[string]bool{"PostToolUse": true, "Activity": true, "Stop": true}
 
 func viewOf(v model.Session) model.SessionView {
 	return model.SessionView{Actor: v.ID, Kind: v.Kind, Generation: v.Generation, State: v.State, Retired: v.Retired,

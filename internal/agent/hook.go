@@ -8,11 +8,12 @@ import (
 )
 
 type HookInput struct {
-	// Set only by core from the adapter's Lifecycle; JSON cannot select creation.
-	AllowPromptRegistration bool   `json:"-"`
-	SessionID               string `json:"session_id"`
-	CWD                     string `json:"cwd"`
-	Event                   string `json:"hook_event_name"`
+	// Set only by core from the adapter's Lifecycle (PromptMayRegister for a
+	// prompt hook, ActivityMayRegister for an Activity hook); JSON cannot select creation.
+	AllowRegistration bool   `json:"-"`
+	SessionID         string `json:"session_id"`
+	CWD               string `json:"cwd"`
+	Event             string `json:"hook_event_name"`
 	// NativeEvent is the event name the client sent, before core mapped it to
 	// Event. Set only by core, and again after NormalizeHook; JSON cannot set it.
 	// An adapter reads it to tell native events apart that map to one common

@@ -22,13 +22,12 @@ type hookTrace struct {
 func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output io.Writer) (resultErr error) {
 	started := time.Now()
 	trace := hookTrace{stage: "adapter"}
-	var prompt bool
-	var promptReply string
+	var setup hookSetup
 	// The reply declared for a prompt hook is written only when the adapter wrote nothing itself.
 	var seen bytes.Buffer
 	written := io.MultiWriter(output, &seen)
 	defer func() {
-		resultErr = finishHookResult(s, kind, trace, started, output, prompt, replyUnlessWritten(promptReply, &seen), resultErr)
+		resultErr = finishHookResult(s, kind, trace, started, output, setup, replyUnlessWritten(setup.reply, &seen), resultErr)
 	}()
 	adapter, err := s.Store.registry.Lookup(kind)
 	if err != nil {
@@ -39,11 +38,8 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 		return errors.New("this adapter does not support lifecycle hooks")
 	}
 	event, id, err := s.decodeHook(ctx, kind, input, adapter, hooks, &trace)
-	prompt = event.AllowPromptRegistration && event.Event == "UserPromptSubmit"
 	life := adapter.Descriptor().Lifecycle
-	if prompt {
-		promptReply = life.PromptReply
-	}
+	setup = newHookSetup(event, life)
 	if err != nil {
 		return err
 	}
@@ -172,7 +168,7 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 	}
 	event.NativeEvent = native
 	// Only the descriptor can allow a prompt hook to create a session.
-	event.AllowPromptRegistration = descriptor.Lifecycle.PromptMayRegister && event.Event == "UserPromptSubmit"
+	event.AllowRegistration = registrationAllowed(descriptor.Lifecycle, event.Event)
 	trace.stage = "identity"
 	id, err := s.Store.sessionID(kind, event.SessionID)
 	if err != nil {
@@ -180,6 +176,29 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 	}
 	trace.actor = id
 	return event, id, nil
+}
+
+// hookSetup describes a hook that may register a session. Such a hook is optional
+// setup: it never fails the client, and core writes the reply the descriptor
+// declares for a prompt hook (an Activity hook has none).
+type hookSetup struct {
+	optional, activity bool
+	reply              string
+}
+
+func newHookSetup(event agent.HookInput, life agent.Lifecycle) hookSetup {
+	setup := hookSetup{optional: event.AllowRegistration, activity: event.Event == "Activity"}
+	if setup.optional && !setup.activity {
+		setup.reply = life.PromptReply
+	}
+	return setup
+}
+
+// registrationAllowed says whether the descriptor lets a hook of this common
+// event register a session core has not seen: a prompt for PromptMayRegister,
+// an Activity for ActivityMayRegister. No other event can.
+func registrationAllowed(life agent.Lifecycle, event string) bool {
+	return (life.PromptMayRegister && event == "UserPromptSubmit") || (life.ActivityMayRegister && event == "Activity")
 }
 
 func (s *Service) startSession(kind string, hooks agent.HookAdapter, event agent.HookInput, id string, output io.Writer, trace *hookTrace) error {
@@ -229,6 +248,7 @@ var lifecycleRules = map[string]lifecycleRule{
 	"SessionEnd":        {state: model.StateRetired, retire: true, endsSession: true},
 	"PermissionRequest": {state: model.StateApproval},
 	"PostToolUse":       {state: model.StateBusy},
+	"Activity":          {state: model.StateBusy},
 	"UserPromptSubmit":  {state: model.StateBusy},
 	"Stop":              {state: model.StateReady},
 	"Interrupt":         {state: model.StateReady},
@@ -267,15 +287,29 @@ func (s *Service) keepEndedSession(id, event string, life agent.Lifecycle, runti
 var lifecycleCauses = map[string]model.EventCause{
 	"Stop": model.CauseStop, "Interrupt": model.CauseInterrupt, "UserPromptSubmit": model.CausePrompt,
 	"PostToolUse": model.CauseTool, "PermissionRequest": model.CausePermission, "SessionEnd": model.CauseSessionEnd,
+	"Activity": model.CauseActivity,
 }
 
 func lifecycleCause(event string) model.EventCause { return lifecycleCauses[event] }
 
+// activityFailure names the step an Activity hook failed in. Only the step of
+// registering says "register": a delivery or state error is not a registration error.
+// The stage is one of the fixed words of the log.
+func activityFailure(stage string) string {
+	if stage == "register" {
+		return "Zalki could not safely register this chat. The chat was not blocked."
+	}
+	return "Zalki could not finish its work for this chat (step: " + stage + "). The chat was not blocked."
+}
+
 // promptRegistrationFailed says what happened and where the cause is: doctor
 // does not show hook failures, only the log does, and only when it records
 // warnings.
-func (s Store) promptRegistrationFailed() string {
-	const failed = "Zalki could not safely register this chat. Your message was not blocked."
+func (s Store) promptRegistrationFailed(activity bool, stage string) string {
+	failed := "Zalki could not safely register this chat. Your message was not blocked."
+	if activity {
+		failed = activityFailure(stage)
+	}
 	if s.logger == nil || !s.logger.Enabled(context.Background(), slog.LevelWarn) {
 		return failed + " Logging is off, so the cause was not saved; zalki config show shows the logging settings."
 	}
@@ -284,11 +318,14 @@ func (s Store) promptRegistrationFailed() string {
 
 // Optional setup must never deny the owner's explicit prompt. Cursor's prompt
 // response carries no private setup context; that arrives on a supported hook.
-func finishPromptHook(s Store, output io.Writer, reply string, err error) error {
+func finishPromptHook(s Store, output io.Writer, activity bool, stage, reply string, err error) error {
 	if err != nil && !errors.Is(err, errStaleHook) {
-		message := s.promptRegistrationFailed()
+		message := s.promptRegistrationFailed(activity, stage)
 		if errors.Is(err, errPromptQuota) {
 			message = "Zalki setup is limited right now. Wait 60 seconds, then send another message."
+			if activity {
+				message = "Zalki setup is limited right now. It tries again after about 60 seconds."
+			}
 		}
 		_, _ = fmt.Fprintln(os.Stderr, message)
 		s.logEvent(slog.LevelWarn, "hook.prompt_registration_unavailable", eventData{Err: err})
@@ -309,12 +346,32 @@ func replyUnlessWritten(reply string, written *bytes.Buffer) string {
 	return reply
 }
 
-func finishHookResult(s *Service, kind string, trace hookTrace, started time.Time, output io.Writer, prompt bool, reply string, err error) error {
+func finishHookResult(s *Service, kind string, trace hookTrace, started time.Time, output io.Writer, setup hookSetup, reply string, err error) error {
 	logged := s.finishHook(kind, trace, started, err)
-	if !prompt {
+	if !setup.optional {
 		return logged
 	}
-	return finishPromptHook(s.Store, output, reply, err)
+	return finishPromptHook(s.Store, output, setup.activity, trace.stage, reply, err)
+}
+
+// refreshOwnerOn says whether this hook looks for the owner process again. A
+// prompt always does. An Activity hook does when the recorded owner is missing or
+// has exited: a resumed chat runs in a new process and sends no start hook, so
+// this is the only time core can learn the new owner. Every other event keeps the
+// recorded owner.
+func refreshOwnerOn(store Store, actor, event string, fences ...sessionFence) bool {
+	if event != "Activity" {
+		return event == "UserPromptSubmit"
+	}
+	gone := true
+	_ = store.readLocked(func() error {
+		v, err := sessionUnderFence(store, actor, fences...)
+		if err == nil && v.Owner != nil {
+			gone = processLiveness(v.Owner) == model.LivenessExited
+		}
+		return nil
+	})
+	return gone
 }
 
 func prepareLifecycleHook(store Store, kind, actor string, event agent.HookInput, trace *hookTrace) (hookRuntime, error) {
@@ -324,7 +381,7 @@ func prepareLifecycleHook(store Store, kind, actor string, event agent.HookInput
 		return runtime, err
 	}
 	trace.stage = "owner"
-	if err := store.rememberOwner(actor, kind, event.Event == "UserPromptSubmit", fenceOf(runtime)); err != nil {
+	if err := store.rememberOwner(actor, kind, refreshOwnerOn(store, actor, event.Event, fenceOf(runtime)), fenceOf(runtime)); err != nil {
 		return runtime, err
 	}
 	return runtime, nil

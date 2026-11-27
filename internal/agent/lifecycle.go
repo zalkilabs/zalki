@@ -12,8 +12,10 @@ type LifecycleTransition int
 
 const (
 	TransitionNone LifecycleTransition = iota
-	// TransitionPromptReactivate resumes a conversation on an actual prompt,
-	// including one retired by a previous session end.
+	// TransitionPromptReactivate resumes a conversation when the user is visibly
+	// working in it: on an actual prompt, or on an Activity hook of an adapter that
+	// declares ActivityMayRegister. It also revives one retired by a previous
+	// session end or by a prune after its owner exited.
 	TransitionPromptReactivate
 	// TransitionReady marks a stopped turn ready without reactivating a retired one.
 	TransitionReady
