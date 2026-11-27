@@ -16,6 +16,12 @@ type Lifecycle struct {
 	// PromptMayRegister lets a trusted prompt hook register a session core has
 	// not seen yet. Only core sets this on an event; JSON input cannot.
 	PromptMayRegister bool
+	// PromptReply is the one JSON object, on one line without the newline, that
+	// the client needs on stdout after a prompt hook that may register a session,
+	// whatever the outcome of the hook. Core writes it and a newline, but only
+	// when the adapter's own handler wrote nothing. Empty means core writes
+	// nothing. It needs PromptMayRegister. Core holds no client reply of its own.
+	PromptReply string
 }
 
 // NativeKind is the JSON type core expects for a native hook field.

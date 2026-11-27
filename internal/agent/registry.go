@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -67,7 +68,25 @@ func declarationProblems(adapter Adapter, d AdapterDescriptor) []error {
 	add(validateNativeDeclaration(adapter, d, hooked))
 	add(validateUncertainWording(d))
 	add(validateInstallNotice(d))
+	add(validatePromptReply(d))
 	return problems
+}
+
+// validatePromptReply checks the reply core writes after a prompt hook that may
+// register a session: one JSON object on one line, and only with PromptMayRegister.
+func validatePromptReply(d AdapterDescriptor) error {
+	reply := d.Lifecycle.PromptReply
+	if reply == "" {
+		return nil
+	}
+	if !d.Lifecycle.PromptMayRegister {
+		return fmt.Errorf("%s declares a PromptReply but not PromptMayRegister; core writes the reply only after a prompt hook that may register a session", d.Kind)
+	}
+	var object map[string]json.RawMessage
+	if strings.ContainsAny(reply, "\r\n") || json.Unmarshal([]byte(reply), &object) != nil || object == nil {
+		return fmt.Errorf("%s: PromptReply must be one JSON object on one line without a newline, got %q", d.Kind, reply)
+	}
+	return nil
 }
 
 // validateHookDeclaration checks what a hook adapter must map.

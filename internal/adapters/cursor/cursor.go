@@ -45,7 +45,7 @@ func (a Adapter) Configuration(binary string, args []string) []model.ConfigDecla
 }
 
 func (Adapter) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", HookEventKey: "hook_event_name", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Lifecycle: agent.Lifecycle{PromptMayRegister: true}, Native: nativeFields, Notes: []string{"A running Cursor listener does not establish an unsuppressed native observer or remaining notification budget.", "Check CURSOR_CONFIG_DIR, XDG_CONFIG_HOME and HOME for the native profile. Use absolute UTF-8 paths without control characters; a leading ~ is not expanded."}, Hooks: map[string]string{
+	return agent.AdapterDescriptor{Kind: "cursor", Label: "Cursor", HookEventKey: "hook_event_name", ProcessNames: []string{"agent", "cursor-agent"}, OwnerRole: "client", Executable: "agent", Lifecycle: agent.Lifecycle{PromptMayRegister: true, PromptReply: `{"continue":true}`}, Native: nativeFields, Notes: []string{"A running Cursor listener does not establish an unsuppressed native observer or remaining notification budget.", "Check CURSOR_CONFIG_DIR, XDG_CONFIG_HOME and HOME for the native profile. Use absolute UTF-8 paths without control characters; a leading ~ is not expanded."}, Hooks: map[string]string{
 		"sessionStart": "SessionStart", "sessionEnd": "SessionEnd", "beforeSubmitPrompt": "UserPromptSubmit", "postToolUse": "PostToolUse", "stop": "Stop",
 	}}
 }

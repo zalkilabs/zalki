@@ -205,7 +205,7 @@ func TestPromptRegistrationSecretsStayPrivate(t *testing.T) {
 		t.Fatal(err)
 	}
 	var output bytes.Buffer
-	if err := finishPromptHook(store, &output, nil); err != nil || strings.TrimSpace(output.String()) != `{"continue":true}` {
+	if err := finishPromptHook(store, &output, `{"continue":true}`, nil); err != nil || strings.TrimSpace(output.String()) != `{"continue":true}` {
 		t.Fatal("C10_PROMPT_HAS_NO_CAPABILITY", err, output.String())
 	}
 	host.event = "PostToolUse"
