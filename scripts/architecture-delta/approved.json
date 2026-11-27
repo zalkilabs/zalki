@@ -4172,5 +4172,83 @@
       }
     },
     "reason": "The Codex hook-trust engine moves from cmd/zalki into internal/adapters/codex, and the doctor and install commands take their client-specific parts from adapter data. New exports: agent.DiagnosticsAdapter and agent.DiagnosticInput (the optional doctor-section interface and its plain input), codex.Adapter.Diagnose, and install.RecordedTargets (the installer judges its own record, from bytes the caller passes, for a diagnostic). Removed exports: the four mcpserver constants StateQueued, StateDelivered, StateRead and StateFailed become private (their words do not change), so the export count stays the same. agent.AdapterDescriptor gets the field InstallNotice. codex.Adapter gets 3 private/exported methods in a new file. One new import: internal/adapters/codex -> internal/statefile (the bounded file read moved with the engine). No OS call changes."
+  },
+  {
+    "base_commit": "b076c23aa9e13e4a27ecfe9046cd9982a7137e6b",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "type:internal/agent.HookInput": {
+            "before": "HookInput struct {\n\tAllowPromptRegistration\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tNative\t\t\tjson.RawMessage\t`json:\"-\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}",
+            "after": "HookInput struct {\n\tAllowPromptRegistration\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tNativeEvent\t\tstring\t\t`json:\"-\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tNative\t\t\tjson.RawMessage\t`json:\"-\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}"
+          },
+          "type:internal/agent.Lifecycle": {
+            "before": "Lifecycle struct {\n\tKeepOnSessionEnd\tbool\n\tPromptMayRegister\tbool\n}",
+            "after": "Lifecycle struct {\n\tKeepOnSessionEnd\tbool\n\tPromptMayRegister\tbool\n\tPromptReply\t\tstring\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Core keeps the native hook event name and the adapter declares the prompt hook reply. agent.HookInput gets one string field, NativeEvent (set by core, not by the input). agent.Lifecycle gets one string field, PromptReply (the reply core writes after a prompt hook that may register a session). Both are shape changes of existing types. The export count stays 511 (0 added, 0 removed). No import, receiver or OS call changes."
+  },
+  {
+    "base_commit": "b076c23aa9e13e4a27ecfe9046cd9982a7137e6b",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "type:internal/agent.HookInput": {
+            "before": "HookInput struct {\n\tAllowPromptRegistration\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tNative\t\t\tjson.RawMessage\t`json:\"-\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}",
+            "after": "HookInput struct {\n\tAllowPromptRegistration\tbool\t\t`json:\"-\"`\n\tSessionID\t\tstring\t\t`json:\"session_id\"`\n\tCWD\t\t\tstring\t\t`json:\"cwd\"`\n\tEvent\t\t\tstring\t\t`json:\"hook_event_name\"`\n\tNativeEvent\t\tstring\t\t`json:\"-\"`\n\tSource\t\t\tstring\t\t`json:\"source\"`\n\tNative\t\t\tjson.RawMessage\t`json:\"-\"`\n\tPrompt\t\t\tstring\t\t`json:\"prompt\"`\n\tSessionTitle\t\t*string\t\t`json:\"session_title\"`\n\tLastAssistantMessage\tstring\t\t`json:\"last_assistant_message,omitempty\"`\n}"
+          },
+          "type:internal/agent.Lifecycle": {
+            "before": "Lifecycle struct {\n\tKeepOnSessionEnd\tbool\n\tPromptMayRegister\tbool\n}",
+            "after": "Lifecycle struct {\n\tKeepOnSessionEnd\tbool\n\tPromptMayRegister\tbool\n\tPromptReply\t\tstring\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "Core keeps the native hook event name and the adapter declares the prompt hook reply. agent.HookInput gets one string field, NativeEvent (set by core, not by the input). agent.Lifecycle gets one string field, PromptReply (the reply core writes after a prompt hook that may register a session). Both are shape changes of existing types. The export count stays 511 (0 added, 0 removed). No import, receiver or OS call changes."
   }
 ]

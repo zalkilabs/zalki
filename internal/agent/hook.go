@@ -13,7 +13,12 @@ type HookInput struct {
 	SessionID               string `json:"session_id"`
 	CWD                     string `json:"cwd"`
 	Event                   string `json:"hook_event_name"`
-	Source                  string `json:"source"`
+	// NativeEvent is the event name the client sent, before core mapped it to
+	// Event. Set only by core, and again after NormalizeHook; JSON cannot set it.
+	// An adapter reads it to tell native events apart that map to one common
+	// Event. Core never decides from it.
+	NativeEvent string `json:"-"`
+	Source      string `json:"source"`
 	// Native is a JSON object with the client-specific hook fields the adapter
 	// declared in its descriptor (AdapterDescriptor.Native), and only those.
 	// Core checks their types and keeps nothing else. Only the adapter's

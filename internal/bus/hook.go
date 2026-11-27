@@ -1,8 +1,8 @@
 package bus
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -23,7 +23,13 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 	started := time.Now()
 	trace := hookTrace{stage: "adapter"}
 	var prompt bool
-	defer func() { resultErr = finishHookResult(s, kind, trace, started, output, prompt, resultErr) }()
+	var promptReply string
+	// The reply declared for a prompt hook is written only when the adapter wrote nothing itself.
+	var seen bytes.Buffer
+	written := io.MultiWriter(output, &seen)
+	defer func() {
+		resultErr = finishHookResult(s, kind, trace, started, output, prompt, replyUnlessWritten(promptReply, &seen), resultErr)
+	}()
 	adapter, err := s.Store.registry.Lookup(kind)
 	if err != nil {
 		return err
@@ -35,6 +41,9 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 	event, id, err := s.decodeHook(ctx, kind, input, adapter, hooks, &trace)
 	prompt = event.AllowPromptRegistration && event.Event == "UserPromptSubmit"
 	life := adapter.Descriptor().Lifecycle
+	if prompt {
+		promptReply = life.PromptReply
+	}
 	if err != nil {
 		return err
 	}
@@ -48,7 +57,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 	runtime.pluginStartup = s.PluginStartup
 	fence := fenceOf(runtime)
 	trace.stage = "handler"
-	handled, err := s.runHookHandler(hooks, runtime, event, id, life, output)
+	handled, err := s.runHookHandler(hooks, runtime, event, id, life, written)
 	if err != nil {
 		return err
 	}
@@ -61,7 +70,7 @@ func (s *Service) Hook(ctx context.Context, kind string, input io.Reader, output
 		return s.releaseApprovalQueue(ctx, id, fence)
 	}
 	if event.Event == "SessionStart" {
-		return s.startSession(kind, hooks, event, id, output, &trace)
+		return s.startSession(kind, hooks, event, id, written, &trace)
 	}
 	if event.SessionTitle != nil {
 		trace.stage = "name"
@@ -154,12 +163,14 @@ func (s *Service) decodeHook(ctx context.Context, kind string, input io.Reader, 
 	if !ok {
 		return event, "", errors.New("unsupported agent lifecycle event")
 	}
-	event.Event, trace.lifecycle = mapped, mapped
+	native := event.Event
+	event.NativeEvent, event.Event, trace.lifecycle = native, mapped, mapped
 	trace.stage = "normalize"
 	event, err = hooks.NormalizeHook(event)
 	if err != nil {
 		return event, "", err
 	}
+	event.NativeEvent = native
 	// Only the descriptor can allow a prompt hook to create a session.
 	event.AllowPromptRegistration = descriptor.Lifecycle.PromptMayRegister && event.Event == "UserPromptSubmit"
 	trace.stage = "identity"
@@ -273,7 +284,7 @@ func (s Store) promptRegistrationFailed() string {
 
 // Optional setup must never deny the owner's explicit prompt. Cursor's prompt
 // response carries no private setup context; that arrives on a supported hook.
-func finishPromptHook(s Store, output io.Writer, err error) error {
+func finishPromptHook(s Store, output io.Writer, reply string, err error) error {
 	if err != nil && !errors.Is(err, errStaleHook) {
 		message := s.promptRegistrationFailed()
 		if errors.Is(err, errPromptQuota) {
@@ -282,17 +293,28 @@ func finishPromptHook(s Store, output io.Writer, err error) error {
 		_, _ = fmt.Fprintln(os.Stderr, message)
 		s.logEvent(slog.LevelWarn, "hook.prompt_registration_unavailable", eventData{Err: err})
 	}
-	// Even a broken stdout cannot make this optional integration veto a prompt.
-	_ = json.NewEncoder(output).Encode(map[string]bool{"continue": true})
+	// The reply is the adapter's, declared in its descriptor. Even a broken stdout
+	// cannot make this optional integration veto a prompt.
+	if reply != "" {
+		_, _ = io.WriteString(output, reply+"\n")
+	}
 	return nil
 }
 
-func finishHookResult(s *Service, kind string, trace hookTrace, started time.Time, output io.Writer, prompt bool, err error) error {
+// replyUnlessWritten returns reply, or nothing when the adapter wrote something.
+func replyUnlessWritten(reply string, written *bytes.Buffer) string {
+	if written.Len() > 0 {
+		return ""
+	}
+	return reply
+}
+
+func finishHookResult(s *Service, kind string, trace hookTrace, started time.Time, output io.Writer, prompt bool, reply string, err error) error {
 	logged := s.finishHook(kind, trace, started, err)
 	if !prompt {
 		return logged
 	}
-	return finishPromptHook(s.Store, output, err)
+	return finishPromptHook(s.Store, output, reply, err)
 }
 
 func prepareLifecycleHook(store Store, kind, actor string, event agent.HookInput, trace *hookTrace) (hookRuntime, error) {

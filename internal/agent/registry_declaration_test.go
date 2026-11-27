@@ -94,6 +94,24 @@ func declarationCases() []declarationCase {
 		})}, []string{"declared maps no native event to SessionStart", "declared declares an invalid hook event key"}},
 		{"no hooks but an event key", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { d.Hooks = nil })},
 			[]string{"declared implements HookAdapter but maps no native event", "declared declares a hook event key but no hooks"}},
+		{"valid prompt reply", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) {
+			d.Lifecycle = agent.Lifecycle{PromptMayRegister: true, PromptReply: `{"continue": true}`}
+		})}, nil},
+		{"may register without a reply", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { d.Lifecycle.PromptMayRegister = true })}, nil},
+		{"a reply without PromptMayRegister", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) { d.Lifecycle.PromptReply = `{}` })},
+			[]string{"declared declares a PromptReply but not PromptMayRegister"}},
+		{"a reply that is not JSON", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) {
+			d.Lifecycle = agent.Lifecycle{PromptMayRegister: true, PromptReply: `{"continue":`}
+		})}, []string{"declared: PromptReply must be one JSON object on one line"}},
+		{"a reply that is an array", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) {
+			d.Lifecycle = agent.Lifecycle{PromptMayRegister: true, PromptReply: `[]`}
+		})}, []string{"declared: PromptReply must be one JSON object on one line"}},
+		{"a reply that is null", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) {
+			d.Lifecycle = agent.Lifecycle{PromptMayRegister: true, PromptReply: `null`}
+		})}, []string{"declared: PromptReply must be one JSON object on one line"}},
+		{"a reply with a newline", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) {
+			d.Lifecycle = agent.Lifecycle{PromptMayRegister: true, PromptReply: "{\n}"}
+		})}, []string{"declared: PromptReply must be one JSON object on one line"}},
 		{"three rules at once", keyAdapter{descriptor: declared(func(d *agent.AdapterDescriptor) {
 			d.HookEventKey = ""
 			d.Native = []agent.NativeField{{Key: "a"}, {Key: "A"}}
