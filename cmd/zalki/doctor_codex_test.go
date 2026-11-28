@@ -156,14 +156,14 @@ func TestDoctorCodexTrustIsOffline(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", filepath.Dir(fake))
-	out, _, err := execute(t, home, "", "doctor", "--state", state)
+	out, _, err := execute(t, home, "", "doctor", "--json", "--state", state)
 	var report struct {
 		Codex struct {
 			Status string            `json:"status"`
 			Hooks  []json.RawMessage `json:"hooks"`
 		} `json:"codex_hooks"`
 	}
-	if err != nil || json.Unmarshal([]byte(out), &report) != nil || report.Codex.Status != "compared" || len(report.Codex.Hooks) != 7 {
+	if !doctorExitOK(err) || json.Unmarshal([]byte(out), &report) != nil || report.Codex.Status != "compared" || len(report.Codex.Hooks) != 7 {
 		t.Fatal("D11_DOCTOR_JSON", out, err)
 	}
 	calls, err := os.ReadFile(log)
@@ -239,7 +239,8 @@ func TestAdapterSectionNeverReplacesADoctorKey(t *testing.T) {
 		ConfigFile: config.Value[string]{Value: filepath.Join(home, "zalki.json")}, StateDir: config.Value[string]{Value: filepath.Join(home, "state")},
 	}}}
 	doctor := map[string]any{"agents": "original"}
-	adapterSections(opts, bus.DiagnosticReport{}, doctor)
+	recorded, recordReason := readInstallRecord(opts)
+	adapterSections(opts, bus.DiagnosticReport{}, doctor, recorded, recordReason)
 	if doctor["agents"] != "original" || doctor["extra"] != "added" || len(doctor) != 2 {
 		t.Fatalf("doctor sections = %v", doctor)
 	}

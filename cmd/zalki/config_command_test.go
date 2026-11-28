@@ -220,8 +220,8 @@ func TestConfigInvocationSnapshot(t *testing.T) {
 	var output, diagnostic bytes.Buffer
 	root.SetOut(&output)
 	root.SetErr(&diagnostic)
-	root.SetArgs([]string{"doctor"})
-	if err := root.ExecuteContext(t.Context()); err != nil || diagnostic.Len() != 0 || !json.Valid(output.Bytes()) {
+	root.SetArgs([]string{"doctor", "--json"})
+	if err := root.ExecuteContext(t.Context()); !doctorExitOK(err) || diagnostic.Len() != 0 || !json.Valid(output.Bytes()) {
 		t.Fatalf("service reloaded an invocation snapshot: %v, %s", err, diagnostic.String())
 	}
 	if _, _, err := execute(t, home, "", "config", "show"); err == nil {
@@ -233,11 +233,11 @@ func TestConfigStateEnvironmentUsedByService(t *testing.T) {
 	home := configTestHome(t)
 	state := filepath.Join(home, "environment-state")
 	t.Setenv("ZALKI_STATE", state)
-	out, diagnostic, err := execute(t, home, "", "doctor")
+	out, diagnostic, err := execute(t, home, "", "doctor", "--json")
 	var report struct {
 		State string `json:"state"`
 	}
-	if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || report.State != state {
+	if !doctorExitOK(err) || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || report.State != state {
 		t.Fatalf("service did not receive the resolved state: %v %q %s", err, diagnostic, out)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".local")); !os.IsNotExist(err) {

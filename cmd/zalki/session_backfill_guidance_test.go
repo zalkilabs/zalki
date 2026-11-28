@@ -74,14 +74,14 @@ func checkOldGuidancePrivacy(t *testing.T, store bus.Store, home string) {
 		t.Fatal(err)
 	}
 	output, _, err := execute(t, home, "", "doctor", "--state", store.Dir())
-	if err != nil || strings.Contains(output, "private-name-secret") || strings.Contains(output, "private-json-secret") || !strings.Contains(output, "Skipped 1 session records with noncanonical filenames.") {
+	if !doctorExitOK(err) || strings.Contains(output, "private-name-secret") || strings.Contains(output, "private-json-secret") || !strings.Contains(output, "Skipped 1 session records with noncanonical filenames.") {
 		t.Fatal("DOCTOR_EXPOSED_UNVALIDATED_SESSION_NAME", output, err)
 	}
 }
 
 func checkDoctorSessionReason(t *testing.T, id, output string, err error) {
 	t.Helper()
-	if err != nil || !strings.Contains(output, "Skipped session "+id+": unsupported record.") || strings.Contains(output, "not migrated") || strings.Contains(output, "run zalki doctor") {
+	if !doctorExitOK(err) || !strings.Contains(output, "Skipped session "+id+": unsupported record.") || strings.Contains(output, "not migrated") || strings.Contains(output, "run zalki doctor") {
 		t.Fatal("DOCTOR_LOST_FIXED_SESSION_REASON", output, err)
 	}
 }

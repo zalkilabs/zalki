@@ -145,7 +145,8 @@ func TestCodexDoctorSectionGoldenUnsafeRoot(t *testing.T) {
 // codexDoctorSection is what the doctor puts under "codex_hooks".
 func codexDoctorSection(opts *commandOptions, report bus.DiagnosticReport) any {
 	sections := map[string]any{}
-	adapterSections(opts, report, sections)
+	recorded, recordReason := readInstallRecord(opts)
+	adapterSections(opts, report, sections, recorded, recordReason)
 	return sections["codex_hooks"]
 }
 
