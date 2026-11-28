@@ -55,6 +55,18 @@ func TestSettingsFindingsSayWhenFilesDifferOrCannotBeChecked(t *testing.T) {
 			t.Fatalf("line %d = %+v, want %q", i, c, want[i])
 		}
 	}
+	// Only the client with a differing file is a problem; the other stays in place.
+	mixed := settingsFindings(install.Report{
+		Configured: []string{"claude", "codex"}, Paths: []string{"/a"}, Clients: map[string]string{"/a": "Codex"},
+	}, nil, labelOfKind)
+	if len(mixed) != 2 || mixed[0] != (doctorCheck{Name: "Claude: Zalki settings are in place", Status: checkOK}) || mixed[1].Name != "Codex: 1 settings file is out of date" {
+		t.Fatalf("one client differs: %+v", mixed)
+	}
+	// A differing file with no client name: nobody is called in place.
+	anon := settingsFindings(install.Report{Configured: []string{"claude"}, Paths: []string{"/z"}}, nil, labelOfKind)
+	if len(anon) != 1 || anon[0].Name != "Zalki's settings are out of date (1 file)" {
+		t.Fatalf("a file without a client: %+v", anon)
+	}
 	failed := settingsFindings(install.Report{Configured: []string{"claude"}}, errors.New("lock busy"), labelOfKind)
 	if len(failed) != 1 || failed[0].Status != checkProblem || !strings.Contains(failed[0].Name, "lock busy") || failed[0].Fix == "" {
 		t.Fatalf("an error = %+v", failed)
@@ -63,20 +75,33 @@ func TestSettingsFindingsSayWhenFilesDifferOrCannotBeChecked(t *testing.T) {
 
 func doctorSettingsFixture(t *testing.T) (home, state string) {
 	t.Helper()
+	return doctorFixtureWith(t, map[string]string{"claude": "2.1.0 (Claude Code)", "codex": "codex-cli 0.150.0"})
+}
+
+// addFakeClient puts one more fake client command on the fixture's PATH.
+func addFakeClient(t *testing.T, home, name, version string) {
+	t.Helper()
+	fake := filepath.Join(home, "bin", name)
+	writeCodexFixture(t, fake, "#!/bin/sh\nprintf '"+version+"\\n'\n")
+	if err := os.Chmod(fake, 0700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// doctorFixtureWith installs Zalki with exactly these fake clients on the PATH.
+func doctorFixtureWith(t *testing.T, clients map[string]string) (home, state string) {
+	t.Helper()
 	home = codexDiagnosticTestDir(t)
 	state = filepath.Join(home, "state")
 	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {
 		t.Setenv(name, "")
 	}
-	for name, out := range map[string]string{"claude": "2.1.0 (Claude Code)", "codex": "codex-cli 0.150.0"} {
-		fake := filepath.Join(home, "bin", name)
-		writeCodexFixture(t, fake, "#!/bin/sh\nprintf '"+out+"\\n'\n")
-		if err := os.Chmod(fake, 0700); err != nil {
-			t.Fatal(err)
-		}
+	for name, out := range clients {
+		addFakeClient(t, home, name, out)
 	}
 	t.Setenv("PATH", filepath.Join(home, "bin"))
-	if _, _, err := execute(t, home, "", "install", "--yes", "--state", state); err != nil {
+	// A bare home: only the clients that are on the PATH are configured (execute would seed every client's folder).
+	if _, _, err := executeBare(t, home, "", "install", "--yes", "--state", state); err != nil {
 		t.Fatal(err)
 	}
 	return home, state
@@ -219,5 +244,46 @@ func TestDoctorSaysTheCodexHooksAreNotTrustedRightAfterInstall(t *testing.T) {
 	want := "[problem] Codex: its 7 zalki hooks are not trusted yet\n          Next: open /hooks in Codex and trust the zalki hooks, then send a message in each thread\n"
 	if !errors.Is(err, errReported) || !strings.Contains(out, want) {
 		t.Fatalf("a known Codex version: %v\n%s", err, out)
+	}
+}
+
+// A client that is on the machine but was never configured is a problem: Zalki
+// was installed when only Claude was there; later codex, agent (Cursor) and agy
+// (Antigravity) appear. Each is named, with the number of its settings files that
+// Zalki would write, and the doctor exits 1. It is never "in place".
+func TestAClientThatIsInstalledButNeverConfiguredIsAProblem(t *testing.T) {
+	home, state := doctorFixtureWith(t, map[string]string{"claude": "2.1.0 (Claude Code)"})
+	if out, err := doctorWords(t, home, state); err != nil || !strings.Contains(out, "No problems found.") || strings.Contains(out, "Codex: Zalki settings are in place") {
+		t.Fatalf("only Claude, installed: %v\n%s", err, out)
+	}
+	addFakeClient(t, home, "codex", "codex-cli 0.150.0")
+	addFakeClient(t, home, "agent", "agent 1.0.0")
+	addFakeClient(t, home, "agy", "agy 1.5.18")
+	before := snapshotTree(t, home)
+	out, err := doctorWords(t, home, state)
+	if !errors.Is(err, errReported) {
+		t.Fatalf("the doctor exit = %v, want the problem exit\n%s", err, out)
+	}
+	for _, want := range []string{"[problem] Codex: ", "[problem] Cursor: ", "[problem] Antigravity: "} {
+		if !strings.Contains(out, want) || !strings.Contains(out, " settings file") {
+			t.Fatalf("output lacks %q:\n%s", want, out)
+		}
+	}
+	for _, client := range []string{"Codex", "Cursor", "Antigravity"} {
+		if strings.Contains(out, "[ok]      "+client+": Zalki settings are in place") {
+			t.Fatalf("%s was called in place although it was never configured:\n%s", client, out)
+		}
+	}
+	if !strings.Contains(out, "[ok]      Claude: Zalki settings are in place") || !strings.Contains(out, "Next: run zalki upgrade") {
+		t.Fatalf("Claude stays in place and the fix is named:\n%s", out)
+	}
+	after := snapshotTree(t, home)
+	for path, sum := range before {
+		if after[path] != sum {
+			t.Fatalf("the doctor changed %s", path)
+		}
+	}
+	if len(before) != len(after) {
+		t.Fatalf("the doctor changed the files: %d before, %d after", len(before), len(after))
 	}
 }

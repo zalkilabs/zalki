@@ -30,14 +30,23 @@ func settingsFindings(report install.Report, err error, label func(kind string) 
 	for _, name := range report.Unusable {
 		checks = append(checks, doctorCheck{Name: name + ": its settings file cannot be used" + skipReason(report.Notes, name), Status: checkProblem, Fix: "fix that file, then run zalki upgrade"})
 	}
-	changing := len(report.Paths) > 0
+	outdated, unnamed := map[string]bool{}, 0
+	for _, path := range report.Paths {
+		if name, ok := report.Clients[path]; ok {
+			outdated[name] = true
+		} else {
+			unnamed++
+		}
+	}
 	for _, kind := range report.Configured {
-		if changing {
+		// A client with a differing file is not in place; with a file that has no
+		// client name nobody can be called in place.
+		if unnamed > 0 || outdated[label(kind)] {
 			continue
 		}
 		checks = append(checks, doctorCheck{Name: label(kind) + ": Zalki settings are in place", Status: checkOK})
 	}
-	if changing && len(report.Configured) > 0 {
+	if len(report.Paths) > 0 && len(report.Configured) > 0 {
 		checks = append(checks, outOfDateChecks(report)...)
 	}
 	return checks
