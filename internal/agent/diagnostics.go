@@ -29,3 +29,17 @@ type DiagnosticInput struct {
 type DiagnosticsAdapter interface {
 	Diagnose(DiagnosticInput) (key string, section any)
 }
+
+// Check is one finding of a client check. Status is "ok", "note" or
+// "problem": a problem means messaging cannot work for this client; a note is
+// advice. Fix is the one next step and is empty for "ok". Any other Status is
+// shown as a problem.
+type Check struct{ Name, Status, Fix string }
+
+// CheckAdapter optionally reports the doctor's checklist lines for its
+// client. It sees the same input as Diagnose, must not start another process
+// and must not write. An adapter without it gets one note that points to the
+// JSON section.
+type CheckAdapter interface {
+	Checks(DiagnosticInput) []Check
+}

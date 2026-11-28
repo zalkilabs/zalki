@@ -26,10 +26,10 @@ func TestDoctorInheritsCanceledContextAndKeepsAdvisoryReport(t *testing.T) {
 	var output, diagnostic bytes.Buffer
 	cmd.SetOut(&output)
 	cmd.SetErr(&diagnostic)
-	cmd.SetArgs([]string{"doctor"})
+	cmd.SetArgs([]string{"doctor", "--json"})
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := cmd.ExecuteContext(ctx); err != nil {
+	if err := cmd.ExecuteContext(ctx); !doctorExitOK(err) {
 		t.Fatal("advisory cancellation failed doctor", err)
 	}
 	var report struct{ Agents []bus.AgentDiagnostic }

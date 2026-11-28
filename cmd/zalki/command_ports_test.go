@@ -173,6 +173,7 @@ type fakeDiagnostics struct {
 	sessions   []model.Session
 	skipped    int
 	listErr    error
+	diagErr    error
 	report     bus.DiagnosticReport
 	pruned     []any
 	pruneErr   error
@@ -186,7 +187,7 @@ func (f *fakeDiagnostics) ListWithWarnings() ([]model.Session, int, error) {
 }
 
 func (f *fakeDiagnostics) Diagnostics(context.Context) (bus.DiagnosticReport, error) {
-	return f.report, nil
+	return f.report, f.diagErr
 }
 
 func (f *fakeDiagnostics) PruneRetired(dryRun bool, selected []string, retention time.Duration) (bus.PruneReport, error) {

@@ -55,31 +55,59 @@ func skippedRecordsLine(n int) string {
 }
 
 func newDoctorCommand(opts *commandOptions) *cobra.Command {
-	return &cobra.Command{
-		Use: "doctor", Short: "Report builds, processes, and receive health as JSON", Args: cobra.NoArgs,
+	var asJSON bool
+	cmd := &cobra.Command{
+		Use: "doctor", Short: "Check the setup: clients, sessions, builds and plugins", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			service, err := opts.service()
 			if err != nil {
 				return err
 			}
-			return runDoctor(cmd, opts, viewOf(service), service.Store)
+			return runDoctor(cmd, opts, viewOf(service), service.Store, asJSON)
 		},
 	}
+	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
+	return cmd
 }
 
-// The plugin section reads the plugin records, so it takes the store itself.
-func runDoctor(cmd *cobra.Command, opts *commandOptions, port diagnosticsPort, store bus.Store) error {
-	report, err := port.Diagnostics(cmd.Context())
-	if err != nil {
-		return err
-	}
-	out := map[string]any{"state": port.Dir(),
+// newDoctorOutput is the JSON report before the adapter sections. The checks
+// and summary keys are reserved here, so that no adapter section can take them.
+func newDoctorOutput(state string, report bus.DiagnosticReport, background doctorBackgroundView) map[string]any {
+	return map[string]any{"state": state,
 		"agents":  report.Agents,
 		"runtime": report.Runtime, "runtimes": report.Runtimes, "untracked_processes": report.UntrackedProcesses,
 		"sessions": report.Sessions, "notes": report.Notes,
-		"plugins_background": doctorBackground(cmd, opts, store)}
-	adapterSections(opts, report, out)
-	return encodeOutput(cmd, out)
+		"plugins_background": background,
+		"checks":             []doctorCheck{}, "summary": doctorSummary{}}
+}
+
+// The plugin section reads the plugin records, so it takes the store itself.
+// With a problem found the exit code is 1; the result is printed first.
+func runDoctor(cmd *cobra.Command, opts *commandOptions, port diagnosticsPort, store bus.Store, asJSON bool) error {
+	report, err := port.Diagnostics(cmd.Context())
+	if err != nil {
+		return failure("Zalki could not collect the doctor report.", sessionRecordsNext, err)
+	}
+	background := doctorBackground(cmd, opts, store)
+	out := newDoctorOutput(port.Dir(), report, background)
+	recorded, recordReason := readInstallRecord(opts)
+	var clientChecks []doctorCheck
+	if recordReason == "" && anyClientFound(report) {
+		clientChecks = settingsChecks(opts)
+	}
+	clientChecks = append(clientChecks, adapterSections(opts, report, out, recorded, recordReason)...)
+	checks := coreChecks(doctorFacts{report: report, recordReason: recordReason, background: background, clientChecks: clientChecks})
+	summary := summarize(checks)
+	out["checks"], out["summary"] = checks, summary
+	if asJSON {
+		err = encodeOutput(cmd, out)
+	} else {
+		err = printDoctor(cmd, checks, summary)
+	}
+	if err == nil && summary.Problems > 0 {
+		return errReported
+	}
+	return err
 }
 
 func newPruneCommand(opts *commandOptions) *cobra.Command {

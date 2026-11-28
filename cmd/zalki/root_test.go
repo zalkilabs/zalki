@@ -76,11 +76,11 @@ func TestGlobalFlagPositionsAndJSONOutput(t *testing.T) {
 	home := t.TempDir()
 	state := filepath.Join(home, "registry")
 	for _, args := range [][]string{
-		{"--state", state, "doctor"},
-		{"doctor", "--state", state},
+		{"--state", state, "doctor", "--json"},
+		{"doctor", "--json", "--state", state},
 	} {
 		out, diagnostic, err := execute(t, home, "", args...)
-		if err != nil || diagnostic != "" {
+		if !doctorExitOK(err) || diagnostic != "" {
 			t.Fatalf("doctor failed: %v, stderr=%q", err, diagnostic)
 		}
 		var report struct {
@@ -133,9 +133,9 @@ func TestVersionAndFreshCommandFlags(t *testing.T) {
 	if _, _, err := execute(t, home, "", "list", "--state", state); err != nil {
 		t.Fatal(err)
 	}
-	out, _, err := execute(t, home, "", "doctor")
+	out, _, err := execute(t, home, "", "doctor", "--json")
 	var report struct{ State string }
-	if err != nil || json.Unmarshal([]byte(out), &report) != nil || report.State != filepath.Join(home, ".local", "state", "zalki") {
+	if !doctorExitOK(err) || json.Unmarshal([]byte(out), &report) != nil || report.State != filepath.Join(home, ".local", "state", "zalki") {
 		t.Fatal("flags leaked between command trees", err)
 	}
 }

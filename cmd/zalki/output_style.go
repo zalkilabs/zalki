@@ -29,6 +29,10 @@ func failure(what, next string, cause error) error {
 func (f *nextStepError) Error() string { return "Failed: " + f.what + "\nNext: " + f.next }
 func (f *nextStepError) Unwrap() error { return f.cause }
 
+// errReported is returned by a command that already printed everything the
+// user needs and only wants a failing exit code. main prints nothing for it.
+var errReported = errors.New("reported")
+
 // errorLines is what main prints on stderr for a command error.
 func errorLines(err error) string {
 	var f *nextStepError
@@ -39,15 +43,23 @@ func errorLines(err error) string {
 }
 
 // printError writes a command error to w, as main does on stderr.
-func printError(w io.Writer, err error) { _, _ = fmt.Fprintln(w, errorLines(err)) }
+func printError(w io.Writer, err error) {
+	if !errors.Is(err, errReported) {
+		_, _ = fmt.Fprintln(w, errorLines(err))
+	}
+}
 
 // jsonFlagHelp is the help text of --json on every command that prints data.
 const jsonFlagHelp = "print the result as JSON, for scripts"
 
-// markNote is the text mark of a finding that is advice, not a failure.
-const markNote = "note"
+// The text marks of a finding: [ok], [note] (advice) and [problem].
+const (
+	markOK      = "ok"
+	markNote    = "note"
+	markProblem = "problem"
+)
 
-var markColour = map[string]string{markNote: "33"} // yellow
+var markColour = map[string]string{markOK: "32", markNote: "33", markProblem: "31"} // green, yellow, red
 
 // outputIsTerminal says whether w is a terminal; tests replace it.
 var outputIsTerminal = writerIsTerminal

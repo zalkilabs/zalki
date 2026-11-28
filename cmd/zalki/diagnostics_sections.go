@@ -9,28 +9,26 @@ import (
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
+// readInstallRecord reads the installation record once: the installed files
+// it names and why it cannot be used ("" when it can).
+func readInstallRecord(opts *commandOptions) (recorded map[string]string, reason string) {
+	state := opts.snapshot.Paths.StateDir.Value
+	raw, readReason := readDiagnosticFile(filepath.Join(state, "installation.json"))
+	return install.RecordedTargets(raw, readReason, opts.home, state)
+}
+
 // adapterSections collects the doctor sections that adapters report about
-// their own clients, keyed by the name each adapter gives its section. An
-// adapter section never replaces a section the doctor already has.
-func adapterSections(opts *commandOptions, report bus.DiagnosticReport, doctor map[string]any) {
-	var recorded map[string]string
-	var recordReason string
-	read := false
+// their own clients, keyed by the name each adapter gives its section, and the
+// checklist lines of the adapters that have them. An adapter section never
+// replaces a section the doctor already has.
+func adapterSections(opts *commandOptions, report bus.DiagnosticReport, doctor map[string]any, recorded map[string]string, recordReason string) []doctorCheck {
+	var checks []doctorCheck
 	for _, kind := range opts.registry.Kinds() {
 		adapter, err := opts.registry.Lookup(kind)
 		if err != nil {
 			continue
 		}
-		reporter, ok := adapter.(agent.DiagnosticsAdapter)
-		if !ok {
-			continue
-		}
 		state := opts.snapshot.Paths.StateDir.Value
-		if !read {
-			raw, readReason := readDiagnosticFile(filepath.Join(state, "installation.json"))
-			recorded, recordReason = install.RecordedTargets(raw, readReason, opts.home, state)
-			read = true
-		}
 		binary, _ := installationBinary() // an unknown binary leaves the adapter unable to verify
 		input := agent.DiagnosticInput{
 			Home: opts.home, StateDir: state, ConfigFile: opts.snapshot.Paths.ConfigFile.Value, Binary: binary,
@@ -38,12 +36,18 @@ func adapterSections(opts *commandOptions, report bus.DiagnosticReport, doctor m
 			RecordReason: recordReason, RecordedTargets: recorded,
 		}
 		input.Found, input.Version = clientVersion(report, kind)
-		if key, section := reporter.Diagnose(input); key != "" {
-			if _, exists := doctor[key]; !exists {
-				doctor[key] = section
+		if reporter, ok := adapter.(agent.DiagnosticsAdapter); ok {
+			if key, section := reporter.Diagnose(input); key != "" {
+				if _, exists := doctor[key]; !exists {
+					doctor[key] = section
+				}
 			}
 		}
+		if checker, ok := adapter.(agent.CheckAdapter); ok {
+			checks = append(checks, adapterChecks(checker.Checks(input))...)
+		}
 	}
+	return checks
 }
 
 // clientVersion gives the doctor's finding for one adapter's client.
