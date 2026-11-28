@@ -15,6 +15,9 @@ func statDevice(stat *syscall.Stat_t) uint64 { return stat.Dev }
 // success, so an EPERM there is never read as exited.
 func groupOnlyZombies(int) bool { return false }
 
+// awaitGroupOnlyZombies has nothing to wait for on Linux: no proof exists.
+func awaitGroupOnlyZombies(pgid int) bool { return groupOnlyZombies(pgid) }
+
 // leaderExited reports a zombie (exited, not reaped) pid; /proc is one
 // bounded file read.
 func leaderExited(pid int) bool {

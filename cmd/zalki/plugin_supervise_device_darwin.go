@@ -7,6 +7,7 @@ package main
 
 import (
 	"syscall"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -27,6 +28,30 @@ var pgrpQuery = func(pgid int) (*unix.KinfoProc, error) { return unix.SysctlKinf
 func groupOnlyZombies(pgid int) bool {
 	row, err := pgrpQuery(pgid)
 	return err == nil && row != nil && int(row.Proc.P_pid) == pgid && row.Proc.P_stat == 5 // SZOMB, sys/proc.h
+}
+
+// The census is read again for a short, fixed time: a group whose members are
+// all leaving can still show a running row for a moment, while the kernel
+// already refuses the signal. Tests shorten the gap.
+var (
+	groupCensusTries = 20
+	groupCensusGap   = 25 * time.Millisecond
+)
+
+// awaitGroupOnlyZombies is groupOnlyZombies read up to groupCensusTries times
+// (about half a second at most), stopping at the first proof. It only
+// observes: it sends no signal, and the leader stays unreaped. Everything
+// else, also at the bound, is unknown: false.
+func awaitGroupOnlyZombies(pgid int) bool {
+	for try := 0; try < groupCensusTries; try++ {
+		if try > 0 {
+			time.Sleep(groupCensusGap)
+		}
+		if groupOnlyZombies(pgid) {
+			return true
+		}
+	}
+	return false
 }
 
 // leaderExited reports a zombie (exited, not reaped) pid from ONE fixed-size
