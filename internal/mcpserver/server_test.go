@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -216,6 +217,18 @@ func TestMCPStageClockStartsAfterWarmUp(t *testing.T) {
 	}
 }
 
+// doctorJSON runs the doctor of the real binary and returns its JSON report. The
+// doctor exits 1 when it finds a problem and still prints the whole report.
+func doctorJSON(ctx context.Context, t *testing.T, binary, state string) []byte {
+	t.Helper()
+	out, err := exec.CommandContext(ctx, binary, "--state", state, "doctor", "--json").Output()
+	var exit *exec.ExitError
+	if err != nil && (!errors.As(err, &exit) || exit.ExitCode() != 1) {
+		t.Fatal(err)
+	}
+	return out
+}
+
 func TestBinaryLoadedBuildSurvivesOnDiskUpgrade(t *testing.T) {
 	binary := os.Getenv("ZALKI_TEST_BINARY")
 	if binary == "" {
@@ -282,10 +295,9 @@ func TestBinaryLoadedBuildSurvivesOnDiskUpgrade(t *testing.T) {
 	if after == nil || !after.NeedsRestart || after.LoadedBuild != before.LoadedBuild || after.PID != before.PID || after.DiskBuild == before.LoadedBuild {
 		t.Fatalf("old process relabeled itself after upgrade: before=%+v after=%+v", before, after)
 	}
-	command := exec.CommandContext(ctx, binary, "--state", state, "doctor")
-	out, err := command.Output()
-	if err != nil {
-		t.Fatal(err)
+	out := doctorJSON(ctx, t, binary, state)
+	if len(out) == 0 {
+		t.Fatal("the doctor printed no report")
 	}
 	var report struct {
 		Runtimes []bus.RuntimeInfo `json:"runtimes"`
