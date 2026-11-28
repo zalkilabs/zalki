@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -62,7 +63,12 @@ func (declare Declare) plan(request Request) (installationPlan, error) {
 	if request.Action == "uninstall" && !known {
 		return plan, nil
 	}
-	next, err := declare.desired(request, declarations, manifest.path, previous.Targets)
+	groups := clientGroups(declarations)
+	absent, err := absentClients(request, declarations, groups)
+	if err != nil {
+		return plan, err
+	}
+	next, err := declare.desired(request, declarations, manifest.path, previous, absent)
 	if err != nil {
 		return plan, err
 	}
@@ -70,14 +76,17 @@ func (declare Declare) plan(request Request) (installationPlan, error) {
 	if err := checkInstallStart(request, manifest, next); err != nil {
 		return plan, err
 	}
-	plan.edits, err = planSettingsEdits(request.Action, slices.Concat([]installation{previous}, manifest.pending), next, declarations)
+	var failed map[string]string
+	plan.edits, failed, err = planSettingsEdits(request.Action, slices.Concat([]installation{previous}, manifest.pending), next, declarations, absent)
 	if err != nil {
 		return plan, err
 	}
+	next = keepFailedClients(next, previous, groups, failed)
 	for _, edit := range plan.edits {
 		plan.report.Paths = append(plan.report.Paths, edit.path)
 	}
 	plan.report.Notes = append(plan.report.Notes, editNoteTexts(plan.edits, plan.report.DryRun)...)
+	plan.report.Notes = append(plan.report.Notes, clientNotes(request.Action, groups, absent, failed, &plan.report)...)
 	plan.pendingPath = filepath.Join(request.StateDir, pendingRecordName)
 	plan.clearStale = len(manifest.pending) > 0
 	return plan, plan.addRecordEdits(request.Action, manifest, next)
@@ -112,7 +121,7 @@ func (manifest installationManifest) previous(action string) (installation, bool
 // addRecordEdits adds the record edit last, so it is the commit point. Any
 // client edit before it is covered by the pending record.
 func (plan *installationPlan) addRecordEdits(action string, manifest installationManifest, next installation) error {
-	if action == "uninstall" {
+	if action == "uninstall" && len(next.Targets) == 0 {
 		if manifest.exists {
 			plan.edits = append(plan.edits, configEdit{path: manifest.path, before: manifest.before, existed: true, remove: true})
 		}
@@ -146,13 +155,25 @@ func checkInstallStart(request Request, manifest installationManifest, next inst
 	if request.Action != "install" {
 		return nil
 	}
-	if manifest.exists && (manifest.record.Binary != request.Binary || !equalJSON(manifest.record.Targets, next.Targets)) {
+	if manifest.exists && (manifest.record.Binary != request.Binary || !keepsRecordedTargets(manifest.record.Targets, next.Targets)) {
 		return errors.New("zalki is installed at another binary or configuration path; run zalki upgrade --config-only")
 	}
 	if len(manifest.pending) > 0 && !slices.ContainsFunc(manifest.pending, func(p installation) bool { return equalJSON(p, next) }) {
 		return errors.New("an earlier zalki upgrade did not finish; run zalki upgrade")
 	}
 	return nil
+}
+
+// keepsRecordedTargets reports whether next names every recorded file at the
+// place the record has it. It may name more: an install run again after a client
+// was skipped or appeared adds that client.
+func keepsRecordedTargets(recorded, next map[string]string) bool {
+	for key, target := range recorded {
+		if next[key] != target {
+			return false
+		}
+	}
+	return true
 }
 
 func readInstallationManifest(request Request, declarations map[string]ConfigFile) (installationManifest, error) {
@@ -246,7 +267,8 @@ func (record installation) validate(request Request, declarations map[string]Con
 // desired builds the next record. An upgrade keeps every target that the
 // previous record has, so a shell with another CLAUDE_CONFIG_DIR or CODEX_HOME
 // does not move the integration.
-func (declare Declare) desired(request Request, declarations map[string]ConfigFile, manifestPath string, recorded map[string]string) (installation, error) {
+func (declare Declare) desired(request Request, declarations map[string]ConfigFile, manifestPath string, previous installation, absent map[string]bool) (installation, error) {
+	recorded := previous.Targets
 	next := installation{Schema: 3, Home: request.HomeDir, Binary: request.Binary, State: request.StateDir,
 		Patches: map[string]map[string]any{}, Fragments: map[string]string{}, Targets: map[string]string{}}
 	if request.Action == "uninstall" {
@@ -257,6 +279,10 @@ func (declare Declare) desired(request Request, declarations map[string]ConfigFi
 		return next, err
 	}
 	for _, file := range files {
+		if file.Client != "" && absent[file.Client] {
+			keepRecorded(&next, previous, file.Path)
+			continue
+		}
 		target, err := file.target(request.HomeDir)
 		if err != nil {
 			return next, err
@@ -295,10 +321,88 @@ func keptTargetNotes(request Request, declarations map[string]ConfigFile, target
 	return notes
 }
 
+// keepRecorded copies the previous record's entry for one file into next: the
+// file is not touched by this run, so what zalki wrote there stays on record.
+func keepRecorded(next *installation, previous installation, key string) {
+	target, ok := previous.Targets[key]
+	if !ok {
+		return
+	}
+	next.Targets[key] = target
+	if patch, ok := previous.Patches[key]; ok {
+		next.Patches[key] = patch
+	}
+	if fragment, ok := previous.Fragments[key]; ok {
+		next.Fragments[key] = fragment
+	}
+}
+
+// absentClients finds the clients that are not on this machine. Nothing is
+// skipped for an uninstall, which only removes what the record names. It
+// refuses a run that would configure no client at all.
+func absentClients(request Request, declarations map[string]ConfigFile, groups []clientGroup) (map[string]bool, error) {
+	absent := map[string]bool{}
+	if request.Action == "uninstall" || len(groups) == 0 {
+		return absent, nil
+	}
+	present := 0
+	for _, group := range groups {
+		if group.present(request) {
+			present++
+		} else {
+			absent[group.id] = true
+		}
+	}
+	clientless := slices.ContainsFunc(slices.Collect(maps.Values(declarations)), func(file ConfigFile) bool { return file.Client == "" })
+	if present == 0 && !clientless {
+		return nil, noClientError(request.Action, groups)
+	}
+	return absent, nil
+}
+
+// keepFailedClients keeps the previous record's entries for the clients whose
+// file could not be used: this run did not change their files.
+func keepFailedClients(next, previous installation, groups []clientGroup, failed map[string]string) installation {
+	for _, group := range groups {
+		if _, bad := failed[group.id]; !bad {
+			continue
+		}
+		for _, file := range group.files {
+			delete(next.Targets, file.Path)
+			delete(next.Patches, file.Path)
+			delete(next.Fragments, file.Path)
+			keepRecorded(&next, previous, file.Path)
+		}
+	}
+	return next
+}
+
+// clientNotes are the lines about the clients this run skipped. It also fills
+// the report's lists of configured and unusable clients.
+func clientNotes(action string, groups []clientGroup, absent map[string]bool, failed map[string]string, report *Report) []string {
+	var notes []string
+	var missing []clientGroup
+	for _, group := range groups {
+		switch reason, bad := failed[group.id]; {
+		case bad:
+			notes = append(notes, skippedNotes(group, reason, action)...)
+			report.Unusable = append(report.Unusable, labelOf(group))
+		case absent[group.id]:
+			missing = append(missing, group)
+		default:
+			report.Configured = append(report.Configured, group.id)
+		}
+	}
+	if len(missing) > 0 {
+		notes = append(notes, notFoundNote(missing))
+	}
+	return notes
+}
+
 // planSettingsEdits plans every client file. owners[0] is the previous
 // record and the rest are pending records: an entry equal to any of them is
 // zalki's own and may be removed.
-func planSettingsEdits(action string, owners []installation, next installation, declarations map[string]ConfigFile) ([]configEdit, error) {
+func planSettingsEdits(action string, owners []installation, next installation, declarations map[string]ConfigFile, absent map[string]bool) ([]configEdit, map[string]string, error) {
 	selected := map[string]bool{}
 	ownerKeys, nextKeys := make([]map[string]string, len(owners)), map[string]string{}
 	for i, owner := range owners {
@@ -312,8 +416,11 @@ func planSettingsEdits(action string, owners []installation, next installation, 
 		selected[path] = true
 		nextKeys[path] = key
 		if oldKey, exists := ownerKeys[0][path]; exists && (declarations[oldKey].JSON != nil) != (declarations[key].JSON != nil) {
-			return nil, errors.New("configuration targets have incompatible file formats")
+			return nil, nil, errors.New("configuration targets have incompatible file formats")
 		}
+	}
+	for path := range absentPaths(owners, next, declarations, absent) {
+		delete(selected, path)
 	}
 	paths := make([]string, 0, len(selected))
 	for path := range selected {
@@ -321,26 +428,67 @@ func planSettingsEdits(action string, owners []installation, next installation, 
 	}
 	sort.Strings(paths)
 	var edits []configEdit
+	failed, editClient := map[string]string{}, map[string]string{}
 	for _, path := range paths {
-		change := settingsChange{path: path, nextPatch: next.Patches[nextKeys[path]], nextFragment: next.Fragments[nextKeys[path]]}
-		key := nextKeys[path]
-		for i, owner := range owners {
-			ownerKey := ownerKeys[i][path]
-			key = cmp.Or(key, ownerKey)
-			change.ownedPatches = append(change.ownedPatches, owner.Patches[ownerKey])
-			change.ownedFragments = append(change.ownedFragments, owner.Fragments[ownerKey])
-		}
-		change.isJSON = declarations[key].JSON != nil
-		change.ownedEntry = declarations[key].OwnedEntry
+		change, key := changeFor(path, owners, ownerKeys, next, nextKeys, declarations)
 		edit, err := change.plan(action)
 		if err != nil {
-			return nil, err
+			client := declarations[key].Client
+			if client == "" {
+				return nil, nil, err
+			}
+			if _, seen := failed[client]; !seen {
+				failed[client] = err.Error()
+			}
+			continue
 		}
 		if !bytes.Equal(edit.before, edit.after) {
 			edits = append(edits, edit)
+			editClient[path] = declarations[key].Client
 		}
 	}
-	return edits, nil
+	edits = slices.DeleteFunc(edits, func(edit configEdit) bool {
+		_, bad := failed[editClient[edit.path]]
+		return bad
+	})
+	return edits, failed, nil
+}
+
+// changeFor builds what one file needs: the entries the previous and pending
+// records own there and the entry the next record wants. It also returns the
+// file's key among the declarations.
+func changeFor(path string, owners []installation, ownerKeys []map[string]string, next installation, nextKeys map[string]string, declarations map[string]ConfigFile) (settingsChange, string) {
+	change := settingsChange{path: path, nextPatch: next.Patches[nextKeys[path]], nextFragment: next.Fragments[nextKeys[path]]}
+	key := nextKeys[path]
+	for i, owner := range owners {
+		ownerKey := ownerKeys[i][path]
+		key = cmp.Or(key, ownerKey)
+		change.ownedPatches = append(change.ownedPatches, owner.Patches[ownerKey])
+		change.ownedFragments = append(change.ownedFragments, owner.Fragments[ownerKey])
+	}
+	change.isJSON = declarations[key].JSON != nil
+	change.ownedEntry = declarations[key].OwnedEntry
+	return change, key
+}
+
+// absentPaths are the files of the clients this run does not configure: it
+// neither reads nor edits them.
+func absentPaths(owners []installation, next installation, declarations map[string]ConfigFile, absent map[string]bool) map[string]bool {
+	paths := map[string]bool{}
+	for key, file := range declarations {
+		if file.Client == "" || !absent[file.Client] {
+			continue
+		}
+		for _, owner := range owners {
+			if path, ok := owner.Targets[key]; ok {
+				paths[path] = true
+			}
+		}
+		if path, ok := next.Targets[key]; ok {
+			paths[path] = true
+		}
+	}
+	return paths
 }
 
 // settingsChange plans one client file. The owned lists hold the previous

@@ -25,4 +25,10 @@ type ConfigDeclaration struct {
 	// user's, or another tool's, and is never read as zalki's. It is empty for a
 	// file whose patch is merged by the rules of the built-in settings keys.
 	OwnedEntry string
+	// Client, ClientLabel and Executable say which client the file belongs to: its
+	// kind, its display name and the command that starts it. The registry sets
+	// them from the adapter's descriptor; an adapter does not. The installer uses
+	// them to configure a client only when it is present, and to say which client
+	// it skipped.
+	Client, ClientLabel, Executable string
 }

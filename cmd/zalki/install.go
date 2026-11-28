@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/zalkilabs/zalki/internal/install"
 
@@ -58,20 +60,36 @@ func applyConfiguration(cmd *cobra.Command, opts *commandOptions) error {
 			return err
 		}
 	}
+	for _, note := range report.Notes {
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), note); err != nil {
+			return err
+		}
+	}
 	_, err = fmt.Fprintln(cmd.OutOrStdout(), "Existing settings were preserved and backed up. Review/trust integrations in each configured client, then launch normally. Check doctor for adapter and listener requirements.")
 	if err != nil {
 		return err
 	}
-	if err := printInstallNotices(opts.registry, func(line string) error {
+	if err := printInstallNotices(opts.registry, report.Configured, func(line string) error {
 		_, err := fmt.Fprintln(cmd.OutOrStdout(), line)
 		return err
 	}); err != nil {
 		return err
 	}
 	if target := newLoginItemTarget(opts, service.Store.Dir()); target != nil {
-		return target.rootSetup(cmd, service.Store)
+		if err := target.rootSetup(cmd, service.Store); err != nil {
+			return errors.Join(err, skippedClientsError(report))
+		}
 	}
-	return nil
+	return skippedClientsError(report)
+}
+
+// skippedClientsError makes a run that skipped a client because its file cannot
+// be used exit non-zero, after its output has said which file and what to do.
+func skippedClientsError(report install.Report) error {
+	if len(report.Unusable) == 0 {
+		return nil
+	}
+	return fmt.Errorf("skipped %s: fix the file named above, then run the command again", strings.Join(report.Unusable, ", "))
 }
 
 func writeConfigurationDrafts(cmd *cobra.Command, opts *commandOptions, out string) error {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,7 +16,30 @@ import (
 	"github.com/zalkilabs/zalki/internal/install"
 )
 
+// execute runs a command in a home. A command that configures clients finds the
+// configuration directories of Claude, Codex and Cursor in it: use executeBare
+// for a home with no client.
 func execute(t *testing.T, home, input string, args ...string) (string, string, error) {
+	t.Helper()
+	if len(args) > 0 && (args[0] == "install" || args[0] == "upgrade" || args[0] == "uninstall") && !slices.Contains(args, "--help") {
+		seedClientDirs(t, home)
+	}
+	return executeBare(t, home, input, args...)
+}
+
+// seedClientDirs creates the configuration directories of Claude, Codex and
+// Cursor in a home, so that the installer sees those clients as present.
+func seedClientDirs(t *testing.T, home string) {
+	t.Helper()
+	for _, dir := range []string{".claude", ".codex", ".cursor"} {
+		if err := os.MkdirAll(filepath.Join(home, dir), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// executeBare runs a command in the home exactly as it is.
+func executeBare(t *testing.T, home, input string, args ...string) (string, string, error) {
 	t.Helper()
 	cmd := newRootCommand(home)
 	var output, diagnostic bytes.Buffer
@@ -208,7 +232,7 @@ func TestDeprecatedFlagsAreUnknownAndDoNotTouchState(t *testing.T) {
 	} {
 		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
 			home := t.TempDir()
-			out, diagnostic, err := execute(t, home, "", test.args...)
+			out, diagnostic, err := executeBare(t, home, "", test.args...)
 			if err == nil || err.Error() != "unknown flag: --"+test.flag || out != "" || diagnostic != "" {
 				t.Fatalf("removed flag was not rejected silently: error=%v stdout=%q stderr=%q", err, out, diagnostic)
 			}

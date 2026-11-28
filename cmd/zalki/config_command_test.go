@@ -23,7 +23,9 @@ func configTestHome(t *testing.T) string {
 	for _, name := range []string{"ZALKI_CONFIG", "ZALKI_STATE", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "ZALKI_LOG_LEVEL", "ZALKI_LOG_FILE"} {
 		t.Setenv(name, "")
 	}
-	return t.TempDir()
+	home := t.TempDir()
+	seedClientDirs(t, home)
+	return home
 }
 
 func writeConfigFixture(t *testing.T, path, contents string) {
@@ -97,7 +99,8 @@ func TestConfigDefaultReviewFixture(t *testing.T) {
 		t.Fatalf("default review fixture: err=%v stderr=%q stdout=%s", err, diagnostic, out)
 	}
 	entries, err := os.ReadDir(home)
-	if err != nil || len(entries) != 0 {
+	// The home holds only the client directories that configTestHome made.
+	if err != nil || len(entries) != 3 {
 		t.Fatalf("inspector created files: %v, %v", entries, err)
 	}
 }
@@ -365,7 +368,8 @@ func checkControlSelectorDiagnostic(t *testing.T, binary, flag, variable, source
 		t.Fatalf("unsafe selector diagnostic: stdout=%q stderr=%q err=%v", output.String(), text, err)
 	}
 	entries, err := os.ReadDir(home)
-	if err != nil || len(entries) != 0 {
-		t.Fatal("selector refusal created local files", err)
+	// The home holds only the client directories that configTestHome made.
+	if err != nil || len(entries) != 3 {
+		t.Fatal("selector refusal created local files", entries, err)
 	}
 }

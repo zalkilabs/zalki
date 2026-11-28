@@ -32,7 +32,9 @@ func (r *Registry) Configuration(binary string, args []string) ([]model.ConfigDe
 		if !ok {
 			continue
 		}
+		descriptor := adapter.Descriptor()
 		for _, file := range configuration.Configuration(binary, append([]string{}, args...)) {
+			file.Client, file.ClientLabel, file.Executable = kind, descriptor.Label, descriptor.Executable
 			if err := validateConfigurationDeclaration(kind, file, paths, drafts); err != nil {
 				return nil, err
 			}

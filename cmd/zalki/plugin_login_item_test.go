@@ -44,6 +44,7 @@ func (f *fakeLoginItems) call(_ context.Context, r install.Request) (install.Rep
 func defaultHome(t *testing.T, reports ...install.Report) (string, *fakeLoginItems) {
 	t.Helper()
 	home := t.TempDir()
+	seedClientDirs(t, home)
 	for _, name := range []string{"ZALKI_STATE", "XDG_STATE_HOME", "ZALKI_CONFIG", "XDG_CONFIG_HOME"} {
 		t.Setenv(name, "")
 	}

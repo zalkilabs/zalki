@@ -4696,5 +4696,117 @@
       }
     },
     "reason": "agent.HookInput gets one core-set field, Registered, set on the hook that created the session through the optional registration rule. It is a shape change of an existing type. No export, import, receiver or OS call is added or removed."
+  },
+  {
+    "base_commit": "9ebac6dcbf23fa833bf5adbf4718e2b3eb93e6de",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/install.Request": {
+            "Files": 1,
+            "Methods": 1
+          },
+          "internal/install.clientGroup": {
+            "Files": 1,
+            "Methods": 1
+          }
+        },
+        "changed": {},
+        "removed": {}
+      },
+      "shapes": {
+        "added": {},
+        "changed": {
+          "type:internal/install.ConfigFile": {
+            "after": "ConfigFile struct {\n\tPath\t\t\t\tstring\n\tDraft\t\t\t\tstring\n\tJSON\t\t\t\tmap[string]any\n\tTOML\t\t\t\tstring\n\tConfigRootEnv\t\t\tstring\n\tOwnedEntry\t\t\tstring\n\tClient, ClientLabel, Executable\tstring\n}",
+            "before": "ConfigFile struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n\tOwnedEntry\tstring\n}"
+          },
+          "type:internal/install.Report": {
+            "after": "Report struct {\n\tAction\t\t\tstring\t\t`json:\"action\"`\n\tDryRun\t\t\tbool\t\t`json:\"dry_run\"`\n\tPaths\t\t\t[]string\t`json:\"paths\"`\n\tNotes\t\t\t[]string\t`json:\"notes,omitempty\"`\n\tConfigured\t\t[]string\t`json:\"-\"`\n\tUnusable\t\t[]string\t`json:\"-\"`\n\tManagedState\t\tstring\t\t`json:\"managed_state,omitempty\"`\n\tServiceState\t\tstring\t\t`json:\"service_state,omitempty\"`\n\tLoadedIdentity\t\tstring\t\t`json:\"loaded_identity,omitempty\"`\n\tOperationPending\tbool\t\t`json:\"operation_pending,omitempty\"`\n\tLoginItemLauncher\tstring\t\t`json:\"login_item_launcher,omitempty\"`\n\tLoginItemRecord\t\tstring\t\t`json:\"-\"`\n}",
+            "before": "Report struct {\n\tAction\t\t\tstring\t\t`json:\"action\"`\n\tDryRun\t\t\tbool\t\t`json:\"dry_run\"`\n\tPaths\t\t\t[]string\t`json:\"paths\"`\n\tNotes\t\t\t[]string\t`json:\"notes,omitempty\"`\n\tManagedState\t\tstring\t\t`json:\"managed_state,omitempty\"`\n\tServiceState\t\tstring\t\t`json:\"service_state,omitempty\"`\n\tLoadedIdentity\t\tstring\t\t`json:\"loaded_identity,omitempty\"`\n\tOperationPending\tbool\t\t`json:\"operation_pending,omitempty\"`\n\tLoginItemLauncher\tstring\t\t`json:\"login_item_launcher,omitempty\"`\n\tLoginItemRecord\t\tstring\t\t`json:\"-\"`\n}"
+          },
+          "type:internal/install.Request": {
+            "after": "Request struct {\n\tAction\t\tstring\n\tBinary\t\tstring\n\tStateDir\tstring\n\tHomeDir\t\tstring\n\tConfigFile\tstring\n\tExpectRecord\tstring\n\tApply\t\tbool\n\tFindExecutable\tfunc(string) bool\n}",
+            "before": "Request struct {\n\tAction\t\tstring\n\tBinary\t\tstring\n\tStateDir\tstring\n\tHomeDir\t\tstring\n\tConfigFile\tstring\n\tExpectRecord\tstring\n\tApply\t\tbool\n}"
+          },
+          "type:internal/model.ConfigDeclaration": {
+            "after": "ConfigDeclaration struct {\n\tPath\t\t\t\tstring\n\tDraft\t\t\t\tstring\n\tJSON\t\t\t\tmap[string]any\n\tTOML\t\t\t\tstring\n\tConfigRootEnv\t\t\tstring\n\tOwnedEntry\t\t\tstring\n\tClient, ClientLabel, Executable\tstring\n}",
+            "before": "ConfigDeclaration struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n\tOwnedEntry\tstring\n}"
+          }
+        },
+        "removed": {}
+      }
+    },
+    "reason": "A client is configured only when it is present. model.ConfigDeclaration and install.ConfigFile get three fields that name the client of a file (kind, display name, command). install.Request gets FindExecutable, and install.Report gets the lists Configured and Unusable (neither is part of the JSON output). Two unexported receivers appear: Request.findExecutable and clientGroup.present. The export count stays 523 (0 added, 0 removed). No import or OS call changes."
+  },
+  {
+    "base_commit": "9ebac6dcbf23fa833bf5adbf4718e2b3eb93e6de",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "receivers": {
+        "added": {
+          "internal/install.Request": {
+            "Files": 1,
+            "Methods": 1
+          },
+          "internal/install.clientGroup": {
+            "Files": 1,
+            "Methods": 1
+          }
+        },
+        "changed": {},
+        "removed": {}
+      },
+      "shapes": {
+        "added": {},
+        "changed": {
+          "type:internal/install.ConfigFile": {
+            "after": "ConfigFile struct {\n\tPath\t\t\t\tstring\n\tDraft\t\t\t\tstring\n\tJSON\t\t\t\tmap[string]any\n\tTOML\t\t\t\tstring\n\tConfigRootEnv\t\t\tstring\n\tOwnedEntry\t\t\tstring\n\tClient, ClientLabel, Executable\tstring\n}",
+            "before": "ConfigFile struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n\tOwnedEntry\tstring\n}"
+          },
+          "type:internal/install.Report": {
+            "after": "Report struct {\n\tAction\t\t\tstring\t\t`json:\"action\"`\n\tDryRun\t\t\tbool\t\t`json:\"dry_run\"`\n\tPaths\t\t\t[]string\t`json:\"paths\"`\n\tNotes\t\t\t[]string\t`json:\"notes,omitempty\"`\n\tConfigured\t\t[]string\t`json:\"-\"`\n\tUnusable\t\t[]string\t`json:\"-\"`\n\tManagedState\t\tstring\t\t`json:\"managed_state,omitempty\"`\n\tServiceState\t\tstring\t\t`json:\"service_state,omitempty\"`\n\tLoadedIdentity\t\tstring\t\t`json:\"loaded_identity,omitempty\"`\n\tOperationPending\tbool\t\t`json:\"operation_pending,omitempty\"`\n\tLoginItemLauncher\tstring\t\t`json:\"login_item_launcher,omitempty\"`\n\tLoginItemRecord\t\tstring\t\t`json:\"-\"`\n}",
+            "before": "Report struct {\n\tAction\t\t\tstring\t\t`json:\"action\"`\n\tDryRun\t\t\tbool\t\t`json:\"dry_run\"`\n\tPaths\t\t\t[]string\t`json:\"paths\"`\n\tNotes\t\t\t[]string\t`json:\"notes,omitempty\"`\n\tManagedState\t\tstring\t\t`json:\"managed_state,omitempty\"`\n\tServiceState\t\tstring\t\t`json:\"service_state,omitempty\"`\n\tLoadedIdentity\t\tstring\t\t`json:\"loaded_identity,omitempty\"`\n\tOperationPending\tbool\t\t`json:\"operation_pending,omitempty\"`\n\tLoginItemLauncher\tstring\t\t`json:\"login_item_launcher,omitempty\"`\n\tLoginItemRecord\t\tstring\t\t`json:\"-\"`\n}"
+          },
+          "type:internal/install.Request": {
+            "after": "Request struct {\n\tAction\t\tstring\n\tBinary\t\tstring\n\tStateDir\tstring\n\tHomeDir\t\tstring\n\tConfigFile\tstring\n\tExpectRecord\tstring\n\tApply\t\tbool\n\tFindExecutable\tfunc(string) bool\n}",
+            "before": "Request struct {\n\tAction\t\tstring\n\tBinary\t\tstring\n\tStateDir\tstring\n\tHomeDir\t\tstring\n\tConfigFile\tstring\n\tExpectRecord\tstring\n\tApply\t\tbool\n}"
+          },
+          "type:internal/model.ConfigDeclaration": {
+            "after": "ConfigDeclaration struct {\n\tPath\t\t\t\tstring\n\tDraft\t\t\t\tstring\n\tJSON\t\t\t\tmap[string]any\n\tTOML\t\t\t\tstring\n\tConfigRootEnv\t\t\tstring\n\tOwnedEntry\t\t\tstring\n\tClient, ClientLabel, Executable\tstring\n}",
+            "before": "ConfigDeclaration struct {\n\tPath\t\tstring\n\tDraft\t\tstring\n\tJSON\t\tmap[string]any\n\tTOML\t\tstring\n\tConfigRootEnv\tstring\n\tOwnedEntry\tstring\n}"
+          }
+        },
+        "removed": {}
+      }
+    },
+    "reason": "A client is configured only when it is present. model.ConfigDeclaration and install.ConfigFile get three fields that name the client of a file (kind, display name, command). install.Request gets FindExecutable, and install.Report gets the lists Configured and Unusable (neither is part of the JSON output). Two unexported receivers appear: Request.findExecutable and clientGroup.present. The export count stays 523 (0 added, 0 removed). No import or OS call changes."
   }
 ]

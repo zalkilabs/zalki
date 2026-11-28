@@ -178,7 +178,7 @@ func previewUpgrade(cmd *cobra.Command, opts *commandOptions, binary string, cas
 	case cask:
 		step = brewUpgradeHint
 	}
-	return encodeOutput(cmd, upgradePreview{Report: report, BinaryUpgrade: step})
+	return errors.Join(encodeOutput(cmd, upgradePreview{Report: report, BinaryUpgrade: step}), skippedClientsError(report))
 }
 
 func manageConfiguration(opts *commandOptions, binary string, apply bool) (install.Report, error) {
@@ -202,7 +202,7 @@ func refreshConfiguration(cmd *cobra.Command, opts *commandOptions, binary strin
 		}
 	}
 	opts.logger.InfoContext(cmd.Context(), "upgrade.configuration_refreshed")
-	return nil
+	return skippedClientsError(report)
 }
 
 // Brew output is hidden on success; on failure its tail explains why. A

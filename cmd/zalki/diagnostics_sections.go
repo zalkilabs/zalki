@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"slices"
 
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
@@ -66,11 +67,12 @@ func hasSessionOfKind(report bus.DiagnosticReport, kind string) bool {
 }
 
 // printInstallNotices prints the line each adapter wants the user to see after a
-// successful install, in adapter order.
-func printInstallNotices(registry *agent.Registry, emit func(string) error) error {
+// successful install, in adapter order. When the installer says which clients it
+// configured, only those clients' lines are printed.
+func printInstallNotices(registry *agent.Registry, configured []string, emit func(string) error) error {
 	for _, kind := range registry.Kinds() {
 		adapter, err := registry.Lookup(kind)
-		if err != nil {
+		if err != nil || (len(configured) > 0 && !slices.Contains(configured, kind)) {
 			continue
 		}
 		if notice := adapter.Descriptor().InstallNotice; notice != "" {

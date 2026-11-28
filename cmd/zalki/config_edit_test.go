@@ -88,13 +88,15 @@ func TestConfigEditHasOnlySelectedFileEffects(t *testing.T) {
 		t.Fatal(out, diagnostic, err)
 	}
 	entries, _ := os.ReadDir(home)
-	if len(entries) != 1 || entries[0].Name() != "selected.json" {
+	// The home holds the client directories that configTestHome made, and the selected file.
+	if len(entries) != 4 || entries[3].Name() != "selected.json" {
 		t.Fatal("config edit initialized unrelated files", entries)
 	}
 }
 
 func TestConfigEditPinnedClientPath(t *testing.T) {
 	home := configTestHome(t)
+	seedClientDirs(t, home)
 	for _, variable := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR"} {
 		t.Setenv(variable, "")
 	}
