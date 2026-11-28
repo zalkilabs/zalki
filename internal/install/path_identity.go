@@ -6,6 +6,18 @@ import (
 	"path/filepath"
 )
 
+// blockedByFile reports that a file of a client cannot be there, because the
+// nearest folder above it that can be read is a plain file. It can then be the same
+// file as nothing, and the client's own check says what is wrong.
+func blockedByFile(target string) bool {
+	for dir := filepath.Dir(target); dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+		if info, err := os.Stat(dir); err == nil {
+			return !info.IsDir()
+		}
+	}
+	return false
+}
+
 func sameTargetFile(a, b string) (bool, error) {
 	left, leftErr := os.Stat(a)
 	right, rightErr := os.Stat(b)

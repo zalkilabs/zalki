@@ -492,3 +492,85 @@ func TestInstallStillRefusesAnotherBinary(t *testing.T) {
 		t.Fatal("a refused install wrote a file")
 	}
 }
+
+// A plain file where a client keeps its folder does not stop the run. A client that is
+// not there is skipped as not found; the other clients are configured.
+func TestAPlainFileInPlaceOfAClientFolderDoesNotStopTheRun(t *testing.T) {
+	c := newClientHome(t)
+	c.write(".blue", "not a folder")
+	c.mkdir(".red")
+	report := c.run("install", goldenBinary)
+	if !reflect.DeepEqual(report.Configured, []string{"red"}) || len(report.Unusable) != 0 {
+		t.Fatalf("configured %v, unusable %v; want only red configured", report.Configured, report.Unusable)
+	}
+	if want := "Not found: Blue, Green. Install one, then run zalki install."; !slices.Contains(report.Notes, want) {
+		t.Fatalf("notes %q lack %q", report.Notes, want)
+	}
+	if got := c.read(".blue"); got != "not a folder" {
+		t.Fatalf("the plain file was changed: %q", got)
+	}
+}
+
+// When the client's command is found but its folder is a plain file, that client is
+// skipped with the reason, the others are configured, and the file is not changed.
+func TestAPlainFileInPlaceOfAFolderOfAClientThatIsThereSkipsThatClient(t *testing.T) {
+	c := newClientHome(t)
+	c.write(".blue", "not a folder")
+	c.mkdir(".red")
+	c.found["blue-cmd"] = true
+	report := c.run("install", goldenBinary)
+	if !reflect.DeepEqual(report.Configured, []string{"red"}) || !reflect.DeepEqual(report.Unusable, []string{"Blue"}) {
+		t.Fatalf("configured %v, unusable %v; want red configured and Blue skipped", report.Configured, report.Unusable)
+	}
+	if !slices.Contains(report.Notes, "Next: fix that file, then run zalki install.") {
+		t.Fatalf("notes %q lack the next step", report.Notes)
+	}
+	if got := c.read(".blue"); got != "not a folder" {
+		t.Fatalf("the plain file was changed: %q", got)
+	}
+}
+
+// Fixing the folder and running the same command configures the client.
+func TestAClientWhoseFolderWasAFileIsConfiguredAfterTheFix(t *testing.T) {
+	c := newClientHome(t)
+	c.write(".blue", "not a folder")
+	c.found["blue-cmd"] = true
+	if report := c.run("install", goldenBinary); !reflect.DeepEqual(report.Unusable, []string{"Blue"}) {
+		t.Fatalf("unusable %v", report.Unusable)
+	}
+	if err := os.Remove(filepath.Join(c.home, ".blue")); err != nil {
+		t.Fatal(err)
+	}
+	c.mkdir(".blue")
+	if report := c.run("install", goldenBinary); !reflect.DeepEqual(report.Configured, []string{"blue"}) {
+		t.Fatalf("configured %v; want blue after the fix", report.Configured)
+	}
+}
+
+// An installation exists and then every client that is there has a file that cannot
+// be used: the record stays as it was, byte for byte, and the same command works after
+// the fix.
+func TestARunThatSkipsEveryClientKeepsTheExistingRecordAsItWas(t *testing.T) {
+	for _, action := range []string{"install", "upgrade"} {
+		t.Run(action, func(t *testing.T) {
+			c := newClientHome(t)
+			c.mkdir(".blue", ".red")
+			c.run("install", goldenBinary)
+			record := c.read("state/installation.json")
+			c.write(".blue/hooks.json", `{"a": 1 "b": 2}`)
+			c.write(".red/hooks.json", `{"a": 1 "b": 2}`)
+			report := c.run(action, goldenBinary)
+			if !reflect.DeepEqual(report.Unusable, []string{"Blue", "Red"}) || len(report.Configured) != 0 {
+				t.Fatalf("configured %v, unusable %v; want both skipped", report.Configured, report.Unusable)
+			}
+			if got := c.read("state/installation.json"); got != record {
+				t.Fatalf("the record changed:\nwas  %s\nnow  %s", record, got)
+			}
+			c.write(".blue/hooks.json", `{}`)
+			c.write(".red/hooks.json", `{}`)
+			if report := c.run(action, goldenBinary); !reflect.DeepEqual(report.Configured, []string{"blue", "red"}) || len(report.Unusable) != 0 {
+				t.Fatalf("after the fix: configured %v, unusable %v", report.Configured, report.Unusable)
+			}
+		})
+	}
+}

@@ -127,6 +127,11 @@ func (plan *installationPlan) addRecordEdits(action string, manifest installatio
 		}
 		return nil
 	}
+	// A run that configured no client records nothing: such a record would
+	// refuse the next run, and an existing record stays as it is.
+	if len(next.Patches)+len(next.Fragments) == 0 {
+		return nil
+	}
 	data, err := json.MarshalIndent(next, "", "  ")
 	if err != nil {
 		return err

@@ -225,3 +225,17 @@ func TestCheckLogFileReturnsAnErrorWhenTheLogFileCannotBeInspected(t *testing.T)
 		t.Fatal("error = none, want the error of the file system")
 	}
 }
+
+// A declared file whose folder is a plain file is not the log file: the client's own
+// check reports it.
+func TestCheckLogFileIgnoresADeclaredFileInsideAPlainFile(t *testing.T) {
+	isolateConfigEnv(t)
+	home := t.TempDir()
+	if err := os.WriteFile(filepath.Join(home, ".codex"), []byte("not a folder"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	declare := declareFiles(settingsFile("Codex", ".codex/config.toml", "CODEX_HOME"))
+	if err := install.CheckLogFile(declare, filepath.Join(t.TempDir(), "zalki.log"), t.TempDir(), home); err != nil {
+		t.Fatalf("error = %v, want none", err)
+	}
+}

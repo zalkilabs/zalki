@@ -12,6 +12,9 @@ func validateReservedTarget(target string, file ConfigFile, request Request) err
 	if err := validateBootstrapSelection(request); err != nil {
 		return err
 	}
+	if blockedByFile(target) {
+		return nil
+	}
 	reserved := []struct{ selector, path, fix string }{
 		{"--config", request.ConfigFile, "config file"},
 		{"--state", request.StateDir, "state directory"},
