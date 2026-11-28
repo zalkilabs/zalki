@@ -152,7 +152,7 @@ func TestRepeatablePruneSelectionAndDryRun(t *testing.T) {
 		}
 		ids = append(ids, session.ID)
 	}
-	args := []string{"prune", "--state", state, "--session", ids[0], "--session", ids[1]}
+	args := []string{"prune", "--json", "--state", state, "--session", ids[0], "--session", ids[1]}
 	for _, dry := range []bool{true, false} {
 		argv := append([]string{}, args...)
 		if dry {

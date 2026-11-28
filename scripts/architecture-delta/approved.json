@@ -5056,5 +5056,87 @@
       }
     },
     "reason": "The plugin inbox list moves from the plugin's data folder to plugins/NAME.inbox.json. PluginFeed gets two methods: SettleInboxIndex moves a list kept by an earlier build before the plugin starts, and InboxIndexProblem names a list that cannot be read (for zalki doctor). The export count goes from 524 to 526 (2 added, 0 removed)."
+  },
+  {
+    "base_commit": "8cd20e37590c1d0374b95da127a044d48d4c89d1",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "cmd/zalki.nextStepError.Error",
+          "cmd/zalki.nextStepError.Unwrap"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:cmd/zalki.nextStepError.Error": "func(*nextStepError) func() string",
+          "function:cmd/zalki.nextStepError.Unwrap": "func(*nextStepError) func() error"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "cmd/zalki.nextStepError": {
+            "Methods": 2,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "A command error that tells the user what failed and the next step needs its own error type, nextStepError. Its two methods (Error and Unwrap) count as exports even though the type is not exported. The export count goes from 524 to 526 (2 added, 0 removed)."
+  },
+  {
+    "base_commit": "8cd20e37590c1d0374b95da127a044d48d4c89d1",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "cmd/zalki.nextStepError.Error",
+          "cmd/zalki.nextStepError.Unwrap"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:cmd/zalki.nextStepError.Error": "func(*nextStepError) func() string",
+          "function:cmd/zalki.nextStepError.Unwrap": "func(*nextStepError) func() error"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {
+          "cmd/zalki.nextStepError": {
+            "Methods": 2,
+            "Files": 1
+          }
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "A command error that tells the user what failed and the next step needs its own error type, nextStepError. Its two methods (Error and Unwrap) count as exports even though the type is not exported. The export count goes from 524 to 526 (2 added, 0 removed)."
   }
 ]

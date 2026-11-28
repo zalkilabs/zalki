@@ -10,30 +10,48 @@ import (
 )
 
 func newListCommand(opts *commandOptions) *cobra.Command {
-	return &cobra.Command{
-		Use: "list", Short: "List registered sessions as JSON", Args: cobra.NoArgs,
+	var asJSON bool
+	cmd := &cobra.Command{
+		Use: "list", Short: "List registered sessions", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			service, err := opts.service()
 			if err != nil {
 				return err
 			}
-			return runList(cmd, viewOf(service))
+			return runList(cmd, viewOf(service), asJSON)
 		},
 	}
+	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
+	return cmd
 }
 
-func runList(cmd *cobra.Command, port diagnosticsPort) error {
+func runList(cmd *cobra.Command, port diagnosticsPort, asJSON bool) error {
 	sessions, skipped, err := port.ListWithWarnings()
 	if err != nil {
-		return err
+		return failure("Zalki could not read the session records.", sessionRecordsNext, err)
 	}
 	if skipped > 0 {
-		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: skipped %d unreadable or unsupported session records; run zalki doctor.\n", skipped)
+		mark := markText(cmd.ErrOrStderr(), markNote)
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "%s %s\nNext: run zalki doctor to see why.\n", mark, skippedRecordsLine(skipped))
 	}
 	if err := noticeExitedSessions(cmd, port); err != nil {
 		return err
 	}
-	return encodeOutput(cmd, sessions)
+	if asJSON {
+		return encodeOutput(cmd, sessions)
+	}
+	return printSessions(cmd, sessions)
+}
+
+// sessionRecordsNext is the one next step when the session records cannot be
+// read at all.
+const sessionRecordsNext = "run zalki doctor; the Zalki log has the details."
+
+func skippedRecordsLine(n int) string {
+	if n == 1 {
+		return "1 session record cannot be read, so it is not listed."
+	}
+	return fmt.Sprintf("%d session records cannot be read, so they are not listed.", n)
 }
 
 func newDoctorCommand(opts *commandOptions) *cobra.Command {
@@ -65,7 +83,7 @@ func runDoctor(cmd *cobra.Command, opts *commandOptions, port diagnosticsPort, s
 }
 
 func newPruneCommand(opts *commandOptions) *cobra.Command {
-	var dryRun bool
+	var dryRun, asJSON bool
 	var selected []string
 	retiredOlderThan := bus.DefaultRetiredRetention
 	cmd := &cobra.Command{
@@ -82,26 +100,30 @@ func newPruneCommand(opts *commandOptions) *cobra.Command {
 			if cmd.Flags().Changed("retired-older-than") {
 				retention = retiredOlderThan
 			}
-			return runPrune(cmd, viewOf(service), dryRun, selected, retention)
+			return runPrune(cmd, viewOf(service), dryRun, selected, retention, asJSON)
 		},
 	}
+	cmd.Flags().BoolVar(&asJSON, "json", false, jsonFlagHelp)
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview confirmed stale sessions, exited runtimes, and expired retired records without changing them")
 	cmd.Flags().StringArrayVar(&selected, "session", nil, "explicitly retire this exact kind:UUID, even if owner liveness is unknown; repeatable")
 	cmd.Flags().DurationVar(&retiredOlderThan, "retired-older-than", bus.DefaultRetiredRetention, "delete retired session records older than this duration; 0 deletes every retired record; message history is kept")
 	return cmd
 }
 
-func runPrune(cmd *cobra.Command, port diagnosticsPort, dryRun bool, selected []string, retention time.Duration) error {
+func runPrune(cmd *cobra.Command, port diagnosticsPort, dryRun bool, selected []string, retention time.Duration, asJSON bool) error {
 	report, err := port.PruneRetired(dryRun, selected, retention)
 	if err != nil {
-		return err
+		return failure("Zalki could not clean up the session records.", sessionRecordsNext, err)
 	}
 	if !dryRun {
 		if err := noticeExitedSessions(cmd, port); err != nil {
 			return err
 		}
 	}
-	return encodeOutput(cmd, report)
+	if asJSON {
+		return encodeOutput(cmd, report)
+	}
+	return printPrune(cmd, report)
 }
 
 // Notice delivery is best effort; journal observation failures remain fatal.

@@ -41,7 +41,7 @@ func TestDiagnosticsKeepOutputWhenACompletionWatcherIsUnreachable(t *testing.T) 
 					t.Fatal(err)
 				}
 			}
-			out, diagnostic, err := execute(t, home, "", command, "--state", state)
+			out, diagnostic, err := execute(t, home, "", command, "--json", "--state", state)
 			if err != nil || strings.Count(diagnostic, "\n") != 1 || !strings.Contains(diagnostic, "completion notice") {
 				t.Fatalf("notice failure hid output or failed command: %v stderr=%q", err, diagnostic)
 			}

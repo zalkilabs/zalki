@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,7 +16,7 @@ func main() {
 	defer cancel()
 	ctx = context.WithValue(ctx, signalContextKey{}, ctx)
 	if err := run(ctx, os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "zalki:", err)
+		printError(os.Stderr, err)
 		os.Exit(commandExitCode(err))
 	}
 }

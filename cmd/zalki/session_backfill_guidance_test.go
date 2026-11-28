@@ -43,8 +43,8 @@ func checkOldSessionGuidance(t *testing.T, kind string) {
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	output, warning, err := execute(t, home, "", "list", "--state", store.Dir())
-	if err != nil || !strings.Contains(output, healthy.ID) || strings.Contains(output, old.ID) || warning != "Warning: skipped 1 unreadable or unsupported session records; run zalki doctor.\n" {
+	output, warning, err := execute(t, home, "", "list", "--json", "--state", store.Dir())
+	if err != nil || !strings.Contains(output, healthy.ID) || strings.Contains(output, old.ID) || warning != "[note] 1 session record cannot be read, so it is not listed.\nNext: run zalki doctor to see why.\n" {
 		t.Fatal("OLD_SESSION_GUIDANCE_NOT_ONE_LINE_ONE_COMMAND", output, warning, err)
 	}
 	output, _, err = execute(t, home, "", "doctor", "--state", store.Dir())
