@@ -5138,5 +5138,127 @@
       }
     },
     "reason": "A command error that tells the user what failed and the next step needs its own error type, nextStepError. Its two methods (Error and Unwrap) count as exports even though the type is not exported. The export count goes from 524 to 526 (2 added, 0 removed)."
+  },
+  {
+    "base_commit": "51fe0a5a49bb91d37d063518adb5be2b4e9567b6",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/adapters/antigravity.Adapter.Checks",
+          "internal/adapters/codex.Adapter.Checks",
+          "internal/agent.Check",
+          "internal/agent.CheckAdapter"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/adapters/antigravity.Adapter.Checks": "func(Adapter) func(in agent.DiagnosticInput) []agent.Check",
+          "function:internal/adapters/codex.Adapter.Checks": "func(Adapter) func(in agent.DiagnosticInput) []agent.Check",
+          "type:internal/agent.Check": "Check struct{ Name, Status, Fix string }",
+          "type:internal/agent.CheckAdapter": "CheckAdapter interface{ Checks(DiagnosticInput) []Check }"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/adapters/antigravity.Adapter": {
+            "before": {
+              "Methods": 13,
+              "Files": 5
+            },
+            "after": {
+              "Methods": 14,
+              "Files": 6
+            }
+          },
+          "internal/adapters/codex.Adapter": {
+            "before": {
+              "Methods": 19,
+              "Files": 4
+            },
+            "after": {
+              "Methods": 20,
+              "Files": 5
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The doctor lets each client add its own checks. The agent package gets the type Check (name, status ok, note or problem, and the fix) and the interface CheckAdapter, which an adapter implements to list its checks. The Codex and Antigravity adapters each get a Checks method: Codex reports hook trust, Antigravity reports a missing allow rule for the Zalki tools. The export count goes from 526 to 530 (4 added, 0 removed). No import or OS call changes."
+  },
+  {
+    "base_commit": "51fe0a5a49bb91d37d063518adb5be2b4e9567b6",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [
+          "internal/adapters/antigravity.Adapter.Checks",
+          "internal/adapters/codex.Adapter.Checks",
+          "internal/agent.Check",
+          "internal/agent.CheckAdapter"
+        ],
+        "removed": []
+      },
+      "shapes": {
+        "added": {
+          "function:internal/adapters/antigravity.Adapter.Checks": "func(Adapter) func(in agent.DiagnosticInput) []agent.Check",
+          "function:internal/adapters/codex.Adapter.Checks": "func(Adapter) func(in agent.DiagnosticInput) []agent.Check",
+          "type:internal/agent.Check": "Check struct{ Name, Status, Fix string }",
+          "type:internal/agent.CheckAdapter": "CheckAdapter interface{ Checks(DiagnosticInput) []Check }"
+        },
+        "removed": {},
+        "changed": {}
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "internal/adapters/antigravity.Adapter": {
+            "before": {
+              "Methods": 13,
+              "Files": 5
+            },
+            "after": {
+              "Methods": 14,
+              "Files": 6
+            }
+          },
+          "internal/adapters/codex.Adapter": {
+            "before": {
+              "Methods": 19,
+              "Files": 4
+            },
+            "after": {
+              "Methods": 20,
+              "Files": 5
+            }
+          }
+        }
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "The doctor lets each client add its own checks. The agent package gets the type Check (name, status ok, note or problem, and the fix) and the interface CheckAdapter, which an adapter implements to list its checks. The Codex and Antigravity adapters each get a Checks method: Codex reports hook trust, Antigravity reports a missing allow rule for the Zalki tools. The export count goes from 526 to 530 (4 added, 0 removed). No import or OS call changes."
   }
 ]
