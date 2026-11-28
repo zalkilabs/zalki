@@ -35,7 +35,7 @@ func settingsFindings(report install.Report, err error, label func(kind string) 
 		if changing {
 			continue
 		}
-		checks = append(checks, doctorCheck{Name: label(kind) + ": set up", Status: checkOK})
+		checks = append(checks, doctorCheck{Name: label(kind) + ": Zalki settings are in place", Status: checkOK})
 	}
 	if changing && len(report.Configured) > 0 {
 		checks = append(checks, outOfDateChecks(report)...)

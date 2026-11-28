@@ -119,11 +119,55 @@ func sessionChecks(report bus.DiagnosticReport) []doctorCheck {
 		}
 	}
 	checks := []doctorCheck{{Name: sessionsLine(live), Status: checkOK}}
+	checks = append(checks, listenerChecks(report)...)
 	if exited > 0 {
 		checks = append(checks, doctorCheck{Name: countOf(exited, "session has", "sessions have") + " exited", Status: checkNote, Fix: "run zalki prune"})
 	}
 	if outdated > 0 {
 		checks = append(checks, doctorCheck{Name: countOf(outdated, "session runs", "sessions run") + " an older Zalki build", Status: checkNote, Fix: "restart those client sessions"})
+	}
+	return checks
+}
+
+// listenerChecks is one note per client whose live sessions have no running
+// listener: they still get messages at their next step, but an idle chat is not
+// woken. The fix is the client's own recovery hint for such a session.
+func listenerChecks(report bus.DiagnosticReport) []doctorCheck {
+	type group struct {
+		n    int
+		hint string
+	}
+	byKind := map[string]*group{}
+	var order []string
+	for _, s := range report.Sessions {
+		if s.Retired || s.Liveness == model.LivenessExited {
+			continue
+		}
+		switch s.ListenerHealth {
+		case "stale", "not_armed", "legacy_running":
+		default:
+			continue
+		}
+		g := byKind[s.Kind]
+		if g == nil {
+			g = &group{hint: s.RecoveryHint}
+			byKind[s.Kind] = g
+			order = append(order, s.Kind)
+		}
+		g.n++
+	}
+	checks := make([]doctorCheck, 0, len(order))
+	for _, kind := range order {
+		g := byKind[kind]
+		label := kind
+		for _, client := range report.Agents {
+			if client.Kind == kind && client.Label != "" {
+				label = client.Label
+			}
+		}
+		fix := orDefault(plainText(g.hint), "see the recovery hint of each session in zalki doctor --json")
+		name := label + ": " + countOf(g.n, "session has", "sessions have") + " no running listener, so an idle chat is not woken"
+		checks = append(checks, doctorCheck{Name: name, Status: checkNote, Fix: fix})
 	}
 	return checks
 }

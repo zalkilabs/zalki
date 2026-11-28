@@ -139,12 +139,12 @@ func TestUntrackedProcessesAreNotAFinding(t *testing.T) {
 // The adapters' lines come right after the installation record, before the sessions.
 func TestClientChecksAreListedNextToTheClientLines(t *testing.T) {
 	facts := healthyFacts()
-	facts.clientChecks = []doctorCheck{{Name: "Claude: set up", Status: checkOK}}
+	facts.clientChecks = []doctorCheck{{Name: "Claude: Zalki settings are in place", Status: checkOK}}
 	names := make([]string, 0, 8)
 	for _, c := range coreChecks(facts) {
 		names = append(names, c.Name)
 	}
-	want := []string{"Claude: found (version 2.1.0)", "Codex: not installed, skipped", "Zalki is set up for these clients", "Claude: set up", "No sessions are registered yet"}
+	want := []string{"Claude: found (version 2.1.0)", "Codex: not installed, skipped", "Zalki is set up for these clients", "Claude: Zalki settings are in place", "No sessions are registered yet"}
 	if len(names) < len(want) || strings.Join(names[:len(want)], "|") != strings.Join(want, "|") {
 		t.Fatalf("order = %q", names)
 	}
@@ -217,5 +217,36 @@ func TestErrReportedExitsWithoutPrintingAnything(t *testing.T) {
 	printError(&out, errors.Join(errReported))
 	if out.Len() != 0 || commandExitCode(errReported) != 1 {
 		t.Fatalf("printed %q, exit %d", out.String(), commandExitCode(errReported))
+	}
+}
+
+// A client's live sessions without a running listener get one note with the
+// client's own recovery hint; exited or retired sessions and running listeners do not.
+func TestListenerNotesAreOnePerClientWithItsOwnHint(t *testing.T) {
+	facts := healthyFacts()
+	facts.report.Agents = append(facts.report.Agents, bus.AgentDiagnostic{Kind: "cursor", Label: "Cursor", Found: true})
+	facts.report.Sessions = []model.SessionDiagnostic{
+		{ID: "cursor:1", Kind: "cursor", Liveness: model.LivenessAlive, ListenerHealth: "not_armed", RecoveryHint: "arm one listener"},
+		{ID: "cursor:2", Kind: "cursor", Liveness: model.LivenessAlive, ListenerHealth: "stale", RecoveryHint: "arm one listener"},
+		{ID: "cursor:3", Kind: "cursor", Liveness: model.LivenessAlive, ListenerHealth: "running"},
+		{ID: "cursor:4", Kind: "cursor", Liveness: model.LivenessExited, ListenerHealth: "not_armed"},
+		{ID: "cursor:5", Kind: "cursor", Retired: true, ListenerHealth: "not_armed"},
+		{ID: "claude:1", Kind: "claude", Liveness: model.LivenessAlive},
+	}
+	var got []doctorCheck
+	for _, c := range coreChecks(facts) {
+		if strings.Contains(c.Name, "listener") {
+			got = append(got, c)
+		}
+	}
+	if len(got) != 1 || got[0].Name != "Cursor: 2 sessions have no running listener, so an idle chat is not woken" || got[0].Status != checkNote || got[0].Fix != "arm one listener" {
+		t.Fatalf("listener notes = %+v", got)
+	}
+	facts.report.Sessions = facts.report.Sessions[:1]
+	facts.report.Sessions[0].RecoveryHint = ""
+	for _, c := range coreChecks(facts) {
+		if strings.Contains(c.Name, "listener") && (c.Name != "Cursor: 1 session has no running listener, so an idle chat is not woken" || !strings.Contains(c.Fix, "zalki doctor --json")) {
+			t.Fatalf("one session without a hint = %+v", c)
+		}
 	}
 }

@@ -232,24 +232,33 @@ const permissionRulesPath = ".gemini/config/config.json"
 // the file is missing or has a shape this code does not know, because the rule may
 // be kept elsewhere (a rule saved for one project, for example).
 func toolPermissionNote(home string) string {
+	if !toolPermissionMissing(home) {
+		return ""
+	}
+	return "Antigravity: no allow rule for the Zalki tools was found in " + permissionRulesPath + ". If agy asks to approve a Zalki tool, approve it, or add mcp(" + ownedEntry + "/*) to its allow rules; a headless agy run denies the tools without it."
+}
+
+// toolPermissionMissing is true only when the rules file has a shape this code
+// knows and no allow rule covers the Zalki tools.
+func toolPermissionMissing(home string) bool {
 	raw, err := statefile.ReadBytes(filepath.Join(home, filepath.FromSlash(permissionRulesPath)), maxClientFile)
 	if err != nil {
-		return ""
+		return false
 	}
 	var top map[string]any
 	if json.Unmarshal(raw, &top) != nil || top == nil {
-		return ""
+		return false
 	}
 	allow, known := allowRules(top)
 	if !known {
-		return ""
+		return false
 	}
 	for _, rule := range allow {
 		if rule == "mcp(*)" || rule == "mcp("+ownedEntry+"/*)" || strings.HasPrefix(rule, "mcp("+ownedEntry+"/") {
-			return ""
+			return false
 		}
 	}
-	return "Antigravity: no allow rule for the Zalki tools was found in " + permissionRulesPath + ". If agy asks to approve a Zalki tool, approve it, or add mcp(" + ownedEntry + "/*) to its allow rules; a headless agy run denies the tools without it."
+	return true
 }
 
 // allowRules returns the allow rules of a settings object. known is false when

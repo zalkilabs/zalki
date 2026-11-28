@@ -16,7 +16,8 @@ processes, a Codex hook check and the background plugin setup. `zalki list` prin
 only the sessions, one line each.
 Add `--json` to `zalki list` or `zalki prune` when a script reads the output.
 
-If `doctor` says it cannot verify the Codex hooks, trust them as described in
+If `doctor` says the Codex hooks are not trusted (a problem), or that it could not
+check them (a note), trust them as described in
 [First run](../README.md#first-run), then send a message in each thread.
 
 ## Claude Code delivery

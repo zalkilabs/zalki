@@ -358,3 +358,48 @@ func TestDiagnoseNotesAMissingToolPermissionRule(t *testing.T) {
 		}
 	})
 }
+
+// The doctor checklist says it as a note with the fix; with the rule, or with a
+// file this code does not know, or without the client, it says nothing.
+func TestChecksNoteAMissingToolPermissionRule(t *testing.T) {
+	f := newDiagnoseFixture(t)
+	adapter := New()
+	f.writeRaw(t, permissionRulesPath, `{"permissions":{"allow":["mcp(other/*)"]}}`)
+	got := adapter.Checks(f.input)
+	if len(got) != 1 || got[0].Status != "note" || !strings.Contains(got[0].Name, "no allow rule") || !strings.Contains(got[0].Fix, "mcp(zalki/*)") {
+		t.Fatalf("checks = %+v", got)
+	}
+	f.writeRaw(t, permissionRulesPath, `{"permissions":{"allow":["mcp(zalki/*)"]}}`)
+	if got := adapter.Checks(f.input); len(got) != 0 {
+		t.Fatalf("a covered rule gave %+v", got)
+	}
+	f.writeRaw(t, permissionRulesPath, `[1,2]`)
+	if got := adapter.Checks(f.input); len(got) != 0 {
+		t.Fatalf("an unknown shape gave %+v", got)
+	}
+	f.writeRaw(t, permissionRulesPath, `{"permissions":{"allow":[]}}`)
+	absent := f.input
+	absent.Found = false
+	if got := adapter.Checks(absent); len(got) != 0 {
+		t.Fatalf("a client that is not installed gave %+v", got)
+	}
+	// A relative home must never be read relative to the current folder: put a
+	// rules file there that would otherwise give the note.
+	here := t.TempDir()
+	t.Chdir(here)
+	if err := os.MkdirAll(filepath.Join(here, ".gemini", "config"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(here, filepath.FromSlash(permissionRulesPath)), []byte(`{"permissions":{"allow":["mcp(other/*)"]}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	relative := f.input
+	relative.Home = "."
+	if got := adapter.Checks(relative); len(got) != 0 {
+		t.Fatalf("a relative home was read relative to the current folder: %+v", got)
+	}
+	relative.Home = here
+	if got := adapter.Checks(relative); len(got) != 1 {
+		t.Fatalf("the same folder as an absolute home gave %+v", got)
+	}
+}

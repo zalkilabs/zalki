@@ -15,9 +15,9 @@ import (
 
 func labelOfKind(kind string) string { return strings.ToUpper(kind[:1]) + kind[1:] }
 
-func TestSettingsFindingsListEveryMatchingClientAsSetUp(t *testing.T) {
+func TestSettingsFindingsListEveryMatchingClientAsInPlace(t *testing.T) {
 	ok := settingsFindings(install.Report{Configured: []string{"claude", "codex"}}, nil, labelOfKind)
-	if len(ok) != 2 || ok[0] != (doctorCheck{Name: "Claude: set up", Status: checkOK}) || ok[1].Name != "Codex: set up" {
+	if len(ok) != 2 || ok[0] != (doctorCheck{Name: "Claude: Zalki settings are in place", Status: checkOK}) || ok[1].Name != "Codex: Zalki settings are in place" {
 		t.Fatalf("matching settings = %+v", ok)
 	}
 }
@@ -68,7 +68,7 @@ func doctorSettingsFixture(t *testing.T) (home, state string) {
 	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {
 		t.Setenv(name, "")
 	}
-	for name, out := range map[string]string{"claude": "2.1.0 (Claude Code)", "codex": "codex-cli 0.167.2"} {
+	for name, out := range map[string]string{"claude": "2.1.0 (Claude Code)", "codex": "codex-cli 0.150.0"} {
 		fake := filepath.Join(home, "bin", name)
 		writeCodexFixture(t, fake, "#!/bin/sh\nprintf '"+out+"\\n'\n")
 		if err := os.Chmod(fake, 0700); err != nil {
@@ -110,9 +110,9 @@ func snapshotTree(t *testing.T, home string) map[string]string {
 	return files
 }
 
-func doctorWords(t *testing.T, home, state string, args ...string) (string, error) {
+func doctorWords(t *testing.T, home, state string) (string, error) {
 	t.Helper()
-	out, diagnostic, err := execute(t, home, "", append([]string{"doctor", "--state", state}, args...)...)
+	out, diagnostic, err := execute(t, home, "", "doctor", "--state", state)
 	if diagnostic != "" {
 		t.Fatalf("stderr %q", diagnostic)
 	}
@@ -124,7 +124,7 @@ func doctorWords(t *testing.T, home, state string, args ...string) (string, erro
 // a file differs; in every state it writes nothing.
 func TestDoctorChecksTheClientSettingsAndWritesNothing(t *testing.T) {
 	home, state := doctorSettingsFixture(t)
-	if out, err := doctorWords(t, home, state); err != nil || !strings.Contains(out, "[ok]      Claude: set up") || !strings.Contains(out, "[ok]      Codex: set up") || !strings.Contains(out, "No problems found.") {
+	if out, err := doctorWords(t, home, state); err != nil || !strings.Contains(out, "[ok]      Claude: Zalki settings are in place") || !strings.Contains(out, "[ok]      Codex: Zalki settings are in place") || !strings.Contains(out, "No problems found.") {
 		t.Fatalf("set up: %v\n%s", err, out)
 	}
 	settings := filepath.Join(home, ".claude", "settings.json")
@@ -199,5 +199,25 @@ func TestDoctorWithARecordButNoClientLeftHasNoProblem(t *testing.T) {
 	out, err := doctorWords(t, home, state)
 	if err != nil || strings.Contains(out, "[problem]") || !strings.Contains(out, "No problems found.") {
 		t.Fatalf("exit %v\n%s", err, out)
+	}
+}
+
+// Right after install Codex has not trusted the zalki hooks yet. For a Codex
+// version whose hashes Zalki knows, the doctor says so as a problem with the
+// one step; the 0.150.0 fixture of the other tests cannot be compared, so it is
+// only a note.
+func TestDoctorSaysTheCodexHooksAreNotTrustedRightAfterInstall(t *testing.T) {
+	home, state := doctorSettingsFixture(t)
+	if out, err := doctorWords(t, home, state); err != nil || !strings.Contains(out, "[note]    Codex: hook trust could not be checked") {
+		t.Fatalf("an unknown Codex version: %v\n%s", err, out)
+	}
+	writeCodexFixture(t, filepath.Join(home, "bin", "codex"), "#!/bin/sh\nprintf 'codex-cli 0.167.2\\n'\n")
+	if err := os.Chmod(filepath.Join(home, "bin", "codex"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	out, err := doctorWords(t, home, state)
+	want := "[problem] Codex: its 7 zalki hooks are not trusted yet\n          Next: open /hooks in Codex and trust the zalki hooks, then send a message in each thread\n"
+	if !errors.Is(err, errReported) || !strings.Contains(out, want) {
+		t.Fatalf("a known Codex version: %v\n%s", err, out)
 	}
 }
