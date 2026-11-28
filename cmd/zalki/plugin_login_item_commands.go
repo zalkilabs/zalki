@@ -39,7 +39,7 @@ func installedPlugins(store bus.Store) (total, enabled int, err error) {
 	return total, enabled, nil
 }
 
-// rootSetup is the login-item part of `zalki install --apply`: the same rows
+// rootSetup is the login-item part of `zalki install`: the same rows
 // as a plugin install without the build, and at most one question.
 func (t *loginItemTarget) rootSetup(cmd *cobra.Command, store bus.Store) error {
 	if _, enabled, err := installedPlugins(store); err != nil || enabled == 0 {
@@ -132,7 +132,7 @@ func askOnce(ctx context.Context, cmd *cobra.Command, raw bool, question string)
 	return false, nil
 }
 
-// uninstallNote removes the owned item for `zalki uninstall --apply` (no
+// uninstallNote removes the owned item for `zalki uninstall` (no
 // question) or names it in the preview. Foreign or unknown items are left
 // alone and get no note.
 func (t *loginItemTarget) uninstallNote(ctx context.Context, apply bool) (string, error) {

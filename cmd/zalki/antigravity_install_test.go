@@ -110,7 +110,7 @@ func TestABareGeminiDirectoryIsNotAntigravity(t *testing.T) {
 	home := presenceHome(t, ".claude", ".gemini")
 	state := filepath.Join(home, "state")
 	for _, args := range [][]string{
-		{"install", "--state", state, "--apply"},
+		{"install", "--state", state, "--yes"},
 		{"upgrade", "--config-only", "--state", state},
 	} {
 		out, diagnostic, err := executeBare(t, home, "", args...)

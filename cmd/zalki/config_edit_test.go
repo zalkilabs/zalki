@@ -102,7 +102,7 @@ func TestConfigEditPinnedClientPath(t *testing.T) {
 	}
 	path, other, state := filepath.Join(home, "p.json"), filepath.Join(home, "q.json"), filepath.Join(home, "state")
 	writeConfigFixture(t, path, `{}`)
-	if _, _, err := execute(t, home, "", "--config", path, "--state", state, "install", "--apply"); err != nil {
+	if _, _, err := execute(t, home, "", "--config", path, "--state", state, "install", "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	before := bootstrapSnapshot(t, home)

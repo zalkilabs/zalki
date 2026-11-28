@@ -85,11 +85,27 @@ func (declare Declare) plan(request Request) (installationPlan, error) {
 	for _, edit := range plan.edits {
 		plan.report.Paths = append(plan.report.Paths, edit.path)
 	}
+	plan.report.Clients = clientsOfEdits(plan.edits, groups)
 	plan.report.Notes = append(plan.report.Notes, editNoteTexts(plan.edits, plan.report.DryRun)...)
 	plan.report.Notes = append(plan.report.Notes, clientNotes(request.Action, groups, absent, failed, &plan.report)...)
 	plan.pendingPath = filepath.Join(request.StateDir, pendingRecordName)
 	plan.clearStale = len(manifest.pending) > 0
 	return plan, plan.addRecordEdits(request.Action, manifest, next)
+}
+
+// clientsOfEdits names the client of each edited file that belongs to one.
+func clientsOfEdits(edits []configEdit, groups []clientGroup) map[string]string {
+	labels := map[string]string{}
+	for _, group := range groups {
+		labels[group.id] = labelOf(group)
+	}
+	clients := map[string]string{}
+	for _, edit := range edits {
+		if label, ok := labels[edit.client]; ok {
+			clients[edit.path] = label
+		}
+	}
+	return clients
 }
 
 // editNoteTexts returns the owner's sentences about the planned edits: what
@@ -433,7 +449,7 @@ func planSettingsEdits(action string, owners []installation, next installation, 
 	}
 	sort.Strings(paths)
 	var edits []configEdit
-	failed, editClient := map[string]string{}, map[string]string{}
+	failed := map[string]string{}
 	for _, path := range paths {
 		change, key := changeFor(path, owners, ownerKeys, next, nextKeys, declarations)
 		edit, err := change.plan(action)
@@ -448,12 +464,12 @@ func planSettingsEdits(action string, owners []installation, next installation, 
 			continue
 		}
 		if !bytes.Equal(edit.before, edit.after) {
+			edit.client = declarations[key].Client
 			edits = append(edits, edit)
-			editClient[path] = declarations[key].Client
 		}
 	}
 	edits = slices.DeleteFunc(edits, func(edit configEdit) bool {
-		_, bad := failed[editClient[edit.path]]
+		_, bad := failed[edit.client]
 		return bad
 	})
 	return edits, failed, nil

@@ -52,6 +52,9 @@ type Report struct {
 	// be used. Both are empty when no declared file has a client.
 	Configured []string `json:"-"`
 	Unusable   []string `json:"-"`
+	// Clients names the client (its display name) of each path in Paths that
+	// belongs to a client. A path with no client is not in the map.
+	Clients map[string]string `json:"-"`
 	// Login item inspect only (ManagedLoginItem); empty for native installs.
 	ManagedState     string `json:"managed_state,omitempty"`
 	ServiceState     string `json:"service_state,omitempty"`

@@ -5,13 +5,18 @@
 ```sh
 brew install zalkilabs/tap/zalki
 zalki install
-zalki install --apply
 ```
 
-`zalki install` only writes drafts of the settings to `./generated` (change it
-with `--out`). Review them if you like. `zalki install --apply` edits your
-client settings. It prints `Updated:` for each file it changed. Then restart
+`zalki install` lists the files it will change and asks one question
+(`[y/N]`). On `y` it edits your client settings and prints `Updated:` for each
+file it changed. On anything else it prints `Nothing changed.` Then restart
 your clients and follow [First run](../README.md#first-run).
+
+- `zalki install --yes` skips the question. Without a terminal, install needs
+  `--yes`.
+- `zalki install --dry-run` prints a JSON preview and changes nothing.
+- `zalki setup --out DIR` writes drafts of the settings to an empty folder `DIR`
+  for review. `zalki setup` without `--out` prints the preview.
 
 With `CODEX_HOME` or `CLAUDE_CONFIG_DIR`, set an absolute path before you
 install; the files then live there. Cursor files stay under `~/.cursor`.
@@ -84,12 +89,13 @@ An old extra Zalki hook from an earlier upgrade can cause this stop once.
 
 ```sh
 zalki uninstall
-zalki uninstall --apply
 ```
 
-Without `--apply`, uninstall prints a JSON preview. With it, Zalki removes the
-hooks and MCP entries it wrote, the `installation.json` record, and the Zalki
-login item if one is installed. Hooks you added stay. Message history stays.
+Uninstall lists the files it will change and asks one question. On `y`, Zalki
+removes the hooks and MCP entries it wrote, the `installation.json` record, and
+the Zalki login item if one is installed. Hooks you added stay. Message history
+stays. `--yes` skips the question (needed without a terminal); `--dry-run`
+prints a JSON preview and changes nothing.
 
 If you added keys to the Zalki entry (for example `env`), or added or changed
 keys on a Zalki hook, uninstall removes the whole entry or hook with them,
@@ -100,7 +106,7 @@ yourself.
 
 If you edited a key that Zalki owns, or the command of a Zalki hook, uninstall
 refuses. It names the key (or the event, for a hook). Restore it, or delete the
-entry or hook, then run `zalki uninstall --apply` again. See
+entry or hook, then run `zalki uninstall` again. See
 [troubleshooting](troubleshooting.md#common-refusals).
 
 ## Codex tool approval

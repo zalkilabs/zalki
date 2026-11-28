@@ -1795,7 +1795,7 @@
     "mutation": {
       "path": "cmd/zalki/plugin_login_item.go",
       "symbol": "loginItemPendingReason",
-      "old": "; run zalki install --apply in your own terminal to finish it\"",
+      "old": "; run zalki install in your own terminal to finish it\"",
       "new": "\"",
       "required_occurrences": 1,
       "declaration_kind": "const"

@@ -3,6 +3,7 @@ package install
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -21,6 +22,9 @@ func WriteSetup(declare Declare, binary, state, out, home, configFile string) er
 	targets, err := setupTargets(files, Request{StateDir: state, HomeDir: home, ConfigFile: configFile})
 	if err != nil {
 		return err
+	}
+	if entries, err := os.ReadDir(out); err == nil && len(entries) > 0 {
+		return fmt.Errorf("%s is not empty; choose an empty folder for the drafts", out)
 	}
 	if err := os.MkdirAll(out, 0700); err != nil {
 		return err
@@ -183,6 +187,8 @@ type configEdit struct {
 	existed       bool
 	backup        string
 	remove        bool
+	// client is the kind of the client the file belongs to, or "".
+	client string
 	// notes are the owner's sentences about this edit, for a preview and a result.
 	notes []editNote
 }

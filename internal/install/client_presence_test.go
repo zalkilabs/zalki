@@ -574,3 +574,21 @@ func TestARunThatSkipsEveryClientKeepsTheExistingRecordAsItWas(t *testing.T) {
 		})
 	}
 }
+
+// The report names the client of each file it lists.
+func TestTheReportNamesTheClientOfEachChangedFile(t *testing.T) {
+	c := newClientHome(t)
+	c.mkdir(".blue", ".green")
+	report, err := install.Manage(threeClients, c.request("install", goldenBinary, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		filepath.Join(c.home, ".blue", "hooks.json"):  "Blue",
+		filepath.Join(c.home, ".green.json"):          "Green",
+		filepath.Join(c.home, ".green", "hooks.json"): "Green",
+	}
+	if !reflect.DeepEqual(report.Clients, want) {
+		t.Fatalf("clients %v, want %v", report.Clients, want)
+	}
+}

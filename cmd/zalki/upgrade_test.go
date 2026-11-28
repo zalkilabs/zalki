@@ -47,7 +47,7 @@ func newUpgradeFixture(t *testing.T, brewScript, childScript string) upgradeFixt
 	if err := os.MkdirAll(f.home, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := execute(t, f.home, "", "install", "--state", f.state, "--apply"); err != nil {
+	if _, _, err := execute(t, f.home, "", "install", "--state", f.state, "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", t.TempDir()) // brew must be found via the prefix unless a test adds it.

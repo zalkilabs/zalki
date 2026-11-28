@@ -176,7 +176,7 @@ func TestGeneratedSetupRetainsInstalledCommandSyntax(t *testing.T) {
 	}
 	home := configTestHome(t)
 	state := filepath.Join(home, "state")
-	for _, name := range []string{"setup", "install"} {
+	for _, name := range []string{"setup"} {
 		outDir := filepath.Join(home, name)
 		_, diagnostic, err := execute(t, home, "", name, "--state", state, "--out", outDir)
 		if err != nil || diagnostic != "" {
@@ -259,10 +259,10 @@ func TestUninstallCommandPreviewsAndApplies(t *testing.T) {
 	}
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
-	if _, _, err := execute(t, home, "", "install", "--state", state, "--apply"); err != nil {
+	if _, _, err := execute(t, home, "", "install", "--state", state, "--yes"); err != nil {
 		t.Fatal(err)
 	}
-	args := []string{"uninstall", "--state", state}
+	args := []string{"uninstall", "--state", state, "--dry-run"}
 	out, diagnostic, err := execute(t, home, "", args...)
 	var report install.Report
 	if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || !report.DryRun || report.Action != "uninstall" {
@@ -271,7 +271,7 @@ func TestUninstallCommandPreviewsAndApplies(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(state, "installation.json")); err != nil {
 		t.Fatal("preview removed record", err)
 	}
-	out, diagnostic, err = execute(t, home, "", append(args, "--apply")...)
+	out, diagnostic, err = execute(t, home, "", "uninstall", "--state", state, "--yes")
 	if err != nil || diagnostic != "" || json.Unmarshal([]byte(out), &report) != nil || report.DryRun {
 		t.Fatal("uninstall apply failed", err)
 	}
@@ -281,9 +281,9 @@ func TestUninstallCommandPreviewsAndApplies(t *testing.T) {
 // key and that no value reached the output.
 func uninstallListsKey(t *testing.T, home, state string, apply bool, secret string) {
 	t.Helper()
-	args := []string{"uninstall", "--state", state}
+	args := []string{"uninstall", "--state", state, "--dry-run"}
 	if apply {
-		args = append(args, "--apply")
+		args = []string{"uninstall", "--state", state, "--yes"}
 	}
 	out, diagnostic, err := execute(t, home, "", args...)
 	var report install.Report
@@ -301,7 +301,7 @@ func TestUninstallCommandListsRemovedUserKeyNames(t *testing.T) {
 	}
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
-	if _, _, err := execute(t, home, "", "install", "--state", state, "--apply"); err != nil {
+	if _, _, err := execute(t, home, "", "install", "--state", state, "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	config := filepath.Join(home, ".codex", "config.toml")

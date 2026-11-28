@@ -10,11 +10,12 @@ macOS only (Apple silicon and Intel).
 
 ```sh
 brew install zalkilabs/tap/zalki
-zalki install --apply
+zalki install
 ```
 
-`zalki install --apply` edits your client settings and keeps a backup of every
-file it changes. See [install, upgrade and uninstall](docs/install.md).
+`zalki install` lists the files it will change, asks one question, then edits
+your client settings and keeps a backup of every file it changes. See
+[install, upgrade and uninstall](docs/install.md).
 
 ## First run
 

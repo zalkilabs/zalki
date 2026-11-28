@@ -120,12 +120,12 @@ func TestPluginLoginItemOwnerLines(t *testing.T) {
 		{"refusal after build", fmt.Sprintf(loginItemChangedRefusal, "NAME", "REASON"), "Nothing was installed: the zalki login item changed while NAME was being built (REASON). Run the install again."},
 		{"not changed", fmt.Sprintf(loginItemNotChangedLine, "REASON"), "Background setup was not changed (REASON); you can run zalki plugins supervise."},
 		{"disabled", loginItemDisabledLine, "Background plugins are disabled for dev.zalki.plugins. Check System Settings > General > Login Items & Extensions > Allow in the Background."},
-		{"idle", loginItemIdleLine, "The zalki login item stays installed and idle. Remove it with zalki uninstall --apply."},
+		{"idle", loginItemIdleLine, "The zalki login item stays installed and idle. Remove it with zalki uninstall."},
 		{"start requested", fmt.Sprintf(loginItemStartedLine, "NAME", "NAME"), "Installed and enabled NAME. Start requested. Status: zalki plugins status NAME"},
-		{"partial", fmt.Sprintf(loginItemPartialLine, "NAME", "REASON", "DIR"), "Installed and enabled NAME. Background setup failed: REASON. Run zalki install --apply in your own terminal to review the login item, or run zalki plugins supervise --state DIR."},
+		{"partial", fmt.Sprintf(loginItemPartialLine, "NAME", "REASON", "DIR"), "Installed and enabled NAME. Background setup failed: REASON. Run zalki install in your own terminal to review the login item, or run zalki plugins supervise --state DIR."},
 		{"yes not set up", loginItemNotSetUpLine, "Installed and enabled. Background plugins are not set up yet; run zalki plugins install once in your own terminal."},
 		{"root question", loginItemRootAsk, "Set up background plugins now? [y/N]"},
-		{"root not set up", loginItemRootNotSetUp, "Background plugins are not set up yet; run zalki install --apply in your own terminal."},
+		{"root not set up", loginItemRootNotSetUp, "Background plugins are not set up yet; run zalki install in your own terminal."},
 		{"root started", loginItemRootStarted, "Background plugins are set up. Start requested."},
 		{"relaunched", fmt.Sprintf(loginItemRelaunchedLine, "B2"), "The zalki login item now runs B2. Start requested."},
 		{"root failed", fmt.Sprintf(loginItemRootFailed, "REASON"), "Background setup failed: REASON."},
@@ -464,7 +464,7 @@ func checkRootRow(t *testing.T, report install.Report, mode installChoice, input
 	}
 }
 
-// Root `zalki install --apply`: the same rows without a build, at most one question.
+// Root `zalki install`: the same rows without a build, at most one question.
 func TestPluginLoginItemRootInstallReview(t *testing.T) {
 	b2 := thisBinary(t)
 	for _, tc := range []struct {
@@ -548,14 +548,14 @@ func TestPluginLoginItemUninstallCLI(t *testing.T) {
 	t.Run("owned, job unknown", checkUninstallManualSteps)
 	t.Run("command, default selectors", func(t *testing.T) {
 		home, fake := defaultHome(t, reportOwned(thisBinary(t)))
-		output, err := runDefault(t, home, installNoTerminal, "", "uninstall", "--apply")
+		output, err := runDefault(t, home, installNoTerminal, "", "uninstall", "--yes")
 		if err != nil || !slices.Equal(fake.changes, []string{"uninstall"}) || !strings.Contains(output, loginItemRemovedNote) || strings.Contains(output, "[y/N]") {
 			t.Fatalf("uninstall --apply: %v %v\n%s", err, fake.changes, output)
 		}
 	})
 	t.Run("command, custom state", func(t *testing.T) {
 		home, fake := defaultHome(t, reportOwned(thisBinary(t)))
-		output, err := runDefault(t, home, installNoTerminal, "", "--state", filepath.Join(home, "other"), "uninstall", "--apply")
+		output, err := runDefault(t, home, installNoTerminal, "", "--state", filepath.Join(home, "other"), "uninstall", "--yes")
 		if err != nil || len(fake.requests) != 0 {
 			t.Fatalf("a custom-state uninstall reached the login item: %v %d\n%s", err, len(fake.requests), output)
 		}
@@ -641,7 +641,7 @@ func TestPluginLoginItemUpgradeKickstart(t *testing.T) {
 			if tc.state {
 				selector = []string{"--state", filepath.Join(home, "custom")}
 			}
-			if output, err := runDefault(t, home, installNoTerminal, "", append(selector, "install", "--apply")...); err != nil {
+			if output, err := runDefault(t, home, installNoTerminal, "", append(selector, "install", "--yes")...); err != nil {
 				t.Fatal(output, err)
 			}
 			output, err := runDefault(t, home, installNoTerminal, "", append(selector, "upgrade", "--finish-upgrade")...)

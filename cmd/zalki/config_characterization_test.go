@@ -91,8 +91,8 @@ func TestInstallCommandDraftsFirstThenApplies(t *testing.T) {
 	home, state := cliEnv(t)
 	drafts := filepath.Join(home, "drafts")
 
-	out, diagnostic, err := execute(t, home, "", "install", "--state", state, "--out", drafts)
-	want := defaultConfigLine(home) + "Configuration drafts written to " + drafts + "\nTo apply after review: zalki install --apply\n"
+	out, diagnostic, err := execute(t, home, "", "setup", "--state", state, "--out", drafts)
+	want := defaultConfigLine(home) + "Configuration drafts written to " + drafts + "\nTo apply: zalki install\n"
 	if err != nil || diagnostic != "" || out != want {
 		t.Fatalf("draft run: out %q diagnostic %q err %v; want %q", out, diagnostic, err, want)
 	}
@@ -114,7 +114,7 @@ func TestInstallCommandDraftsFirstThenApplies(t *testing.T) {
 		t.Fatalf("drafting wrote an installation record: %v", err)
 	}
 
-	out, diagnostic, err = execute(t, home, "", "install", "--state", state, "--apply")
+	out, diagnostic, err = execute(t, home, "", "install", "--state", state, "--yes")
 	var updated strings.Builder
 	for _, target := range configTargets(home) {
 		updated.WriteString("Updated: " + target + "\n")
@@ -133,7 +133,7 @@ func TestInstallCommandDraftsFirstThenApplies(t *testing.T) {
 
 	// The same command again has nothing to update, and changes no file.
 	before := cliSnapshot(t, home)
-	out, _, err = execute(t, home, "", "install", "--state", state, "--apply")
+	out, _, err = execute(t, home, "", "install", "--state", state, "--yes")
 	if err != nil || out != defaultConfigLine(home)+installAppliedNote || !reflect.DeepEqual(before, cliSnapshot(t, home)) {
 		t.Fatalf("repeat apply: out %q err %v, files changed: %v", out, err, !reflect.DeepEqual(before, cliSnapshot(t, home)))
 	}
@@ -148,7 +148,7 @@ func TestUpgradeConfigOnlyMovesHooksToTheNewBinaryAndKeepsUserSettings(t *testin
 	if err := os.WriteFile(settings, []byte(`{"theme":"mine"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := execute(t, home, "", "install", "--state", state, "--apply"); err != nil {
+	if _, _, err := execute(t, home, "", "install", "--state", state, "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	oldBinary, err := installationBinary()
@@ -223,8 +223,8 @@ func TestUninstallCommandReportsOwnedFilesAndHandlesNoRecord(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"uninstall", "--state", state}, `{"action":"uninstall","dry_run":true,"paths":[]}` + "\n"},
-		{[]string{"uninstall", "--state", state, "--apply"}, `{"action":"uninstall","dry_run":false,"paths":[]}` + "\n"},
+		{[]string{"uninstall", "--state", state, "--dry-run"}, `{"action":"uninstall","dry_run":true,"paths":[]}` + "\n"},
+		{[]string{"uninstall", "--state", state, "--yes"}, `{"action":"uninstall","dry_run":false,"paths":[]}` + "\n"},
 	} {
 		out, diagnostic, err := execute(t, home, "", tc.args...)
 		if err != nil || diagnostic != "" || out != tc.want {
@@ -237,16 +237,16 @@ func TestUninstallCommandReportsOwnedFilesAndHandlesNoRecord(t *testing.T) {
 		}
 	}
 
-	if _, _, err := execute(t, home, "", "install", "--state", state, "--apply"); err != nil {
+	if _, _, err := execute(t, home, "", "install", "--state", state, "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	before := cliSnapshot(t, home)
-	out, _, err := execute(t, home, "", "uninstall", "--state", state)
+	out, _, err := execute(t, home, "", "uninstall", "--state", state, "--dry-run")
 	wantPaths, _ := json.Marshal(configTargets(home))
 	if err != nil || out != `{"action":"uninstall","dry_run":true,"paths":`+string(wantPaths)+"}\n" || !reflect.DeepEqual(before, cliSnapshot(t, home)) {
 		t.Fatalf("preview: out %q err %v", out, err)
 	}
-	out, _, err = execute(t, home, "", "uninstall", "--state", state, "--apply")
+	out, _, err = execute(t, home, "", "uninstall", "--state", state, "--yes")
 	if err != nil || out != `{"action":"uninstall","dry_run":false,"paths":`+string(wantPaths)+"}\n" {
 		t.Fatalf("apply: out %q err %v", out, err)
 	}
@@ -267,16 +267,15 @@ func TestUninstallCommandReportsOwnedFilesAndHandlesNoRecord(t *testing.T) {
 
 func TestRelativeConfigDirectoryIsRefusedWithoutChangingConfiguration(t *testing.T) {
 	home, state := cliEnv(t)
-	if _, _, err := execute(t, home, "", "install", "--state", state, "--apply"); err != nil {
+	if _, _, err := execute(t, home, "", "install", "--state", state, "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("CODEX_HOME", "relative/profile")
 	const message = "CODEX_HOME must be an absolute configuration directory"
 	before := cliSnapshot(t, home)
 	for _, args := range [][]string{
-		{"install", "--state", state, "--out", filepath.Join(home, "drafts")},
 		{"setup", "--state", state, "--out", filepath.Join(home, "drafts")},
-		{"install", "--state", state, "--apply"},
+		{"install", "--state", state, "--yes"},
 		{"upgrade", "--config-only", "--state", state},
 		{"upgrade", "--dry-run", "--state", state},
 	} {
@@ -289,7 +288,7 @@ func TestRelativeConfigDirectoryIsRefusedWithoutChangingConfiguration(t *testing
 		t.Error("a refused command wrote files")
 	}
 	// Uninstall uses the targets recorded at install time, so it still works.
-	if _, _, err := execute(t, home, "", "uninstall", "--state", state, "--apply"); err != nil {
+	if _, _, err := execute(t, home, "", "uninstall", "--state", state, "--yes"); err != nil {
 		t.Errorf("uninstall with a relative CODEX_HOME: %v", err)
 	}
 }
