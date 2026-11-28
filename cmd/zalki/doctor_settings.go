@@ -21,7 +21,7 @@ func settingsChecks(opts *commandOptions) []doctorCheck {
 
 // settingsFindings turns the preview of an upgrade into doctor lines: a client
 // whose file cannot be used and the files that differ from Zalki's are
-// problems, a client with nothing to change is set up.
+// problems, a client with nothing to change is in place.
 func settingsFindings(report install.Report, err error, label func(kind string) string) []doctorCheck {
 	var checks []doctorCheck
 	if err != nil {

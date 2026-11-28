@@ -97,7 +97,7 @@ func clientCheck(client bus.AgentDiagnostic) (doctorCheck, bool) {
 func recordCheck(reason string) doctorCheck {
 	switch reason {
 	case "":
-		return doctorCheck{Name: "Zalki is set up for these clients", Status: checkOK}
+		return doctorCheck{Name: "Zalki installation found", Status: checkOK}
 	case "missing_file":
 		return doctorCheck{Name: "Zalki is not set up for the clients above", Status: checkProblem, Fix: "run zalki install, then zalki doctor again"}
 	}

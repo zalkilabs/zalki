@@ -147,7 +147,7 @@ func TestDoctorSeesTheInstallationRecordAfterInstall(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, _, err := execute(t, home, "", "doctor", "--state", state)
-	if strings.Contains(out, "Zalki is not set up") || !strings.Contains(out, "[ok]      Zalki is set up for these clients") {
+	if strings.Contains(out, "Zalki is not set up") || !strings.Contains(out, "[ok]      Zalki installation found") {
 		t.Fatalf("exit %v out:\n%s", err, out)
 	}
 }

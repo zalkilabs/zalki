@@ -144,7 +144,7 @@ func TestClientChecksAreListedNextToTheClientLines(t *testing.T) {
 	for _, c := range coreChecks(facts) {
 		names = append(names, c.Name)
 	}
-	want := []string{"Claude: found (version 2.1.0)", "Codex: not installed, skipped", "Zalki is set up for these clients", "Claude: Zalki settings are in place", "No sessions are registered yet"}
+	want := []string{"Claude: found (version 2.1.0)", "Codex: not installed, skipped", "Zalki installation found", "Claude: Zalki settings are in place", "No sessions are registered yet"}
 	if len(names) < len(want) || strings.Join(names[:len(want)], "|") != strings.Join(want, "|") {
 		t.Fatalf("order = %q", names)
 	}
@@ -248,5 +248,29 @@ func TestListenerNotesAreOnePerClientWithItsOwnHint(t *testing.T) {
 		if strings.Contains(c.Name, "listener") && (c.Name != "Cursor: 1 session has no running listener, so an idle chat is not woken" || !strings.Contains(c.Fix, "zalki doctor --json")) {
 			t.Fatalf("one session without a hint = %+v", c)
 		}
+	}
+}
+
+// A listener that is "legacy_running" (an older build's listener) is counted like a
+// stale one: the idle chat is not woken by the current build.
+func TestLegacyRunningListenerIsCounted(t *testing.T) {
+	report := bus.DiagnosticReport{
+		Agents: []bus.AgentDiagnostic{{Kind: "cursor", Label: "Cursor", Found: true}},
+		Sessions: []model.SessionDiagnostic{
+			{ID: "cursor:1", Kind: "cursor", Liveness: model.LivenessAlive, ListenerHealth: "legacy_running", RecoveryHint: "re-arm it"},
+			{ID: "cursor:2", Kind: "cursor", Liveness: model.LivenessAlive, ListenerHealth: "running"},
+		},
+	}
+	got := listenerChecks(report)
+	if len(got) != 1 || got[0].Name != "Cursor: 1 session has no running listener, so an idle chat is not woken" || got[0].Fix != "re-arm it" {
+		t.Fatalf("legacy_running = %+v", got)
+	}
+}
+
+// A plugin note comes from outside the doctor: control bytes never reach the terminal.
+func TestPluginNotesAreShownAsPlainText(t *testing.T) {
+	got := pluginChecks(doctorBackgroundView{EnabledPlugins: 1, Notes: []string{"bad\x1b[31m note\x07"}})
+	if len(got) != 2 || got[1].Status != checkNote || strings.ContainsAny(got[1].Name, "\x1b\x07") || !strings.Contains(got[1].Name, "note") {
+		t.Fatalf("plugin note = %+v", got)
 	}
 }
