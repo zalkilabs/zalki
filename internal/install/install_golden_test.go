@@ -1,6 +1,7 @@
 package install_test
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
 	"path/filepath"
@@ -72,28 +73,33 @@ func filepathWalkFiles(dir string, into map[string]string) error {
 	})
 }
 
-func mustManage(t *testing.T, home, action, binary string) {
+// mustManage runs the action for Claude, Codex and Cursor, with the first golden binary.
+func mustManage(t *testing.T, home, action string) {
 	t.Helper()
-	if _, err := install.Manage(configDeclare, goldenRequest(home, action, binary)); err != nil {
-		t.Fatalf("%s: %v", action, err)
-	}
+	mustManageWith(t, configDeclare, home, action, goldenBinary)
 }
 
-// What the three clients get on a fresh home, then with the user's own settings,
+// mustManageAll runs the action for every built-in client.
+func mustManageAll(t *testing.T, home, action, binary string) {
+	t.Helper()
+	mustManageWith(t, allClientsDeclare, home, action, binary)
+}
+
+// What each client gets on a fresh home, then with the user's own settings,
 // after an upgrade to another binary, and after an uninstall.
-func TestInstallGoldenFilesOfTheThreeClients(t *testing.T) {
+func TestInstallGoldenFilesOfTheClients(t *testing.T) {
 	isolateConfigEnv(t)
 	fresh := t.TempDir()
-	mustManage(t, fresh, "install", goldenBinary)
+	mustManageAll(t, fresh, "install", goldenBinary)
 	requireGolden(t, "fresh-install", snapshotHome(t, fresh))
 
 	home := t.TempDir()
 	seedHome(t, home, goldenUserFiles)
-	mustManage(t, home, "install", goldenBinary)
+	mustManageAll(t, home, "install", goldenBinary)
 	requireGolden(t, "user-content-install", snapshotHome(t, home))
-	mustManage(t, home, "upgrade", goldenNewBinary)
+	mustManageAll(t, home, "upgrade", goldenNewBinary)
 	requireGolden(t, "user-content-upgrade", snapshotHome(t, home))
-	mustManage(t, home, "uninstall", goldenNewBinary)
+	mustManageAll(t, home, "uninstall", goldenNewBinary)
 	requireGolden(t, "user-content-uninstall", snapshotHome(t, home))
 }
 
@@ -119,7 +125,7 @@ func TestInstallWritesTheBytesRC8Wrote(t *testing.T) {
 	isolateConfigEnv(t)
 	home := t.TempDir()
 	seedHome(t, home, goldenUserFiles)
-	mustManage(t, home, "install", goldenBinary)
+	mustManage(t, home, "install")
 	want := map[string]string{}
 	if err := filepathWalkFiles(filepath.Join("testdata", "rc8-install"), want); err != nil {
 		t.Fatal(err)
@@ -144,13 +150,13 @@ func TestUpgradeAndUninstallReadAnRC8Installation(t *testing.T) {
 	isolateConfigEnv(t)
 	home := loadRC8Home(t)
 	before := snapshotHome(t, home)
-	mustManage(t, home, "upgrade", goldenBinary)
+	mustManage(t, home, "upgrade")
 	if after := snapshotHome(t, home); !equalFiles(before, after) {
 		t.Fatalf("an upgrade to the same binary changed files: before %v, after %v", sortedNames(before), sortedNames(after))
 	}
-	mustManage(t, home, "upgrade", goldenNewBinary)
+	mustManageAll(t, home, "upgrade", goldenNewBinary)
 	requireGolden(t, "user-content-upgrade", snapshotHome(t, home))
-	mustManage(t, home, "uninstall", goldenNewBinary)
+	mustManageAll(t, home, "uninstall", goldenNewBinary)
 	requireGolden(t, "user-content-uninstall", snapshotHome(t, home))
 }
 
@@ -193,5 +199,67 @@ func TestUpgradeOfAnEarlierInstallationKeepsAClientThatIsGone(t *testing.T) {
 	}
 	if after, err := os.ReadFile(filepath.Join(home, "state", "installation.json")); err != nil || string(after) != string(record) {
 		t.Fatalf("the record changed (%v)", err)
+	}
+}
+
+// An installation of three clients, upgraded by an installer that knows Antigravity,
+// with the Antigravity directory present: Antigravity is added, and the files and the
+// record entries of the other three do not change.
+func TestUpgradeOfAnInstallationOfThreeClientsAddsAntigravity(t *testing.T) {
+	isolateConfigEnv(t)
+	home := loadRC8Home(t)
+	if err := os.MkdirAll(filepath.Join(home, ".gemini", "config"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	before := snapshotHome(t, home)
+	if _, err := install.Manage(clientAwareDeclare, goldenRequest(home, "upgrade", goldenBinary)); err != nil {
+		t.Fatal(err)
+	}
+	after := snapshotHome(t, home)
+	for name, content := range before {
+		if name != "state/installation.json" && after[name] != content {
+			t.Errorf("%s changed", name)
+		}
+	}
+	for _, name := range []string{".gemini/config/hooks.json", ".gemini/config/mcp_config.json"} {
+		if !strings.Contains(after[name], "zalki") {
+			t.Errorf("%s was not written for Antigravity", name)
+		}
+	}
+	was, now := readRecordParts(t, before["state/installation.json"]), readRecordParts(t, after["state/installation.json"])
+	for key, target := range was.Targets {
+		if now.Targets[key] != target {
+			t.Errorf("target %s changed to %q", key, now.Targets[key])
+		}
+	}
+	requireSameRaw(t, "patch", was.Patches, now.Patches)
+	requireSameRaw(t, "fragment", was.Fragments, now.Fragments)
+	if len(now.Targets) != len(was.Targets)+2 {
+		t.Errorf("record has %d targets, want %d", len(now.Targets), len(was.Targets)+2)
+	}
+}
+
+type recordParts struct {
+	Targets   map[string]string          `json:"targets"`
+	Patches   map[string]json.RawMessage `json:"patches"`
+	Fragments map[string]json.RawMessage `json:"fragments"`
+}
+
+func readRecordParts(t *testing.T, raw string) recordParts {
+	t.Helper()
+	var parts recordParts
+	if err := json.Unmarshal([]byte(raw), &parts); err != nil {
+		t.Fatal(err)
+	}
+	return parts
+}
+
+// requireSameRaw checks that every entry that was recorded is recorded the same way.
+func requireSameRaw(t *testing.T, kind string, was, now map[string]json.RawMessage) {
+	t.Helper()
+	for key, raw := range was {
+		if string(now[key]) != string(raw) {
+			t.Errorf("%s %s changed", kind, key)
+		}
 	}
 }

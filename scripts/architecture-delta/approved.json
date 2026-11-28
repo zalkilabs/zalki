@@ -4808,5 +4808,69 @@
       }
     },
     "reason": "A client is configured only when it is present. model.ConfigDeclaration and install.ConfigFile get three fields that name the client of a file (kind, display name, command). install.Request gets FindExecutable, and install.Report gets the lists Configured and Unusable (neither is part of the JSON output). Two unexported receivers appear: Request.findExecutable and clientGroup.present. The export count stays 523 (0 added, 0 removed). No import or OS call changes."
+  },
+  {
+    "base_commit": "c6c96ddbd5be2eb22e9674ce3eb95e35f0ec8a0c",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "imports": {
+        "added": [
+          "internal/adapters -> internal/adapters/antigravity"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "receivers": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "shapes": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "The Antigravity adapter is part of the built-in registry: internal/adapters imports internal/adapters/antigravity (the composition package lists each client). No export, shape, receiver or OS call changes."
+  },
+  {
+    "base_commit": "c6c96ddbd5be2eb22e9674ce3eb95e35f0ec8a0c",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "imports": {
+        "added": [
+          "internal/adapters -> internal/adapters/antigravity"
+        ],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "receivers": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      },
+      "shapes": {
+        "added": {},
+        "changed": {},
+        "removed": {}
+      }
+    },
+    "reason": "The Antigravity adapter is part of the built-in registry: internal/adapters imports internal/adapters/antigravity (the composition package lists each client). No export, shape, receiver or OS call changes."
   }
 ]

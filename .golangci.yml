@@ -225,11 +225,13 @@ linters:
             - github.com/zalkilabs/zalki/internal/adapters/codex$
             - github.com/zalkilabs/zalki/internal/adapters/claude$
             - github.com/zalkilabs/zalki/internal/adapters/cursor$
+            - github.com/zalkilabs/zalki/internal/adapters/antigravity$
         client-isolation:
           files:
             - "**/internal/adapters/codex/**"
             - "**/internal/adapters/claude/**"
             - "**/internal/adapters/cursor/**"
+            - "**/internal/adapters/antigravity/**"
           list-mode: lax
           allow:
             - github.com/zalkilabs/zalki/internal/adapters/internal/socketio$
@@ -244,6 +246,7 @@ linters:
             - "**/internal/adapters/codex/*.go"
             - "**/internal/adapters/claude/*.go"
             - "**/internal/adapters/cursor/*.go"
+            - "**/internal/adapters/antigravity/*.go"
             - "!$test"
           list-mode: lax
           deny:

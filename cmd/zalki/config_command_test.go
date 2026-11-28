@@ -100,7 +100,7 @@ func TestConfigDefaultReviewFixture(t *testing.T) {
 	}
 	entries, err := os.ReadDir(home)
 	// The home holds only the client directories that configTestHome made.
-	if err != nil || len(entries) != 3 {
+	if err != nil || len(entries) != 4 {
 		t.Fatalf("inspector created files: %v, %v", entries, err)
 	}
 }
@@ -369,7 +369,7 @@ func checkControlSelectorDiagnostic(t *testing.T, binary, flag, variable, source
 	}
 	entries, err := os.ReadDir(home)
 	// The home holds only the client directories that configTestHome made.
-	if err != nil || len(entries) != 3 {
+	if err != nil || len(entries) != 4 {
 		t.Fatal("selector refusal created local files", entries, err)
 	}
 }

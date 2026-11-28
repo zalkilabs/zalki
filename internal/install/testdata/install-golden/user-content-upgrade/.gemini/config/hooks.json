@@ -1,0 +1,25 @@
+{
+  "zalki": {
+    "PreInvocation": [
+      {
+        "command": "'/opt/new tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'antigravity'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ],
+    "SessionStart": [
+      {
+        "command": "'/opt/new tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'antigravity'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ],
+    "Stop": [
+      {
+        "command": "'/opt/new tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'antigravity'",
+        "timeout": 5,
+        "type": "command"
+      }
+    ]
+  }
+}

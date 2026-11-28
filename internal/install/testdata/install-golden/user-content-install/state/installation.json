@@ -215,6 +215,43 @@
           "command": "/opt/zalki tools/zalki"
         }
       }
+    },
+    ".gemini/config/hooks.json": {
+      "zalki": {
+        "PreInvocation": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'antigravity'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "SessionStart": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'antigravity'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "Stop": [
+          {
+            "command": "'/opt/zalki tools/zalki' '--state' '<HOME>/state' 'hook' '--agent' 'antigravity'",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    },
+    ".gemini/config/mcp_config.json": {
+      "mcpServers": {
+        "zalki": {
+          "args": [
+            "--state",
+            "<HOME>/state",
+            "mcp"
+          ],
+          "command": "/opt/zalki tools/zalki"
+        }
+      }
     }
   },
   "fragments": {
@@ -226,6 +263,8 @@
     ".codex/config.toml": "<HOME>/.codex/config.toml",
     ".codex/hooks.json": "<HOME>/.codex/hooks.json",
     ".cursor/hooks.json": "<HOME>/.cursor/hooks.json",
-    ".cursor/mcp.json": "<HOME>/.cursor/mcp.json"
+    ".cursor/mcp.json": "<HOME>/.cursor/mcp.json",
+    ".gemini/config/hooks.json": "<HOME>/.gemini/config/hooks.json",
+    ".gemini/config/mcp_config.json": "<HOME>/.gemini/config/mcp_config.json"
   }
 }

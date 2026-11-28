@@ -42,6 +42,13 @@ func TestBuiltinConfigurationDeclarations(t *testing.T) {
 		`"sessionStart":[{"command":%[1]s,"timeout":5}],`+
 		`"stop":[{"command":%[1]s,"loop_limit":5,"timeout":5}]},"version":1}`, cursorCommand)
 
+	// The Antigravity hooks file has one named entry of flat handlers.
+	antigravityCommand, _ := json.Marshal(hookCommand("antigravity"))
+	antigravityHooks := fmt.Sprintf(`{"zalki":{`+
+		`"PreInvocation":[{"command":%[1]s,"timeout":5,"type":"command"}],`+
+		`"SessionStart":[{"command":%[1]s,"timeout":5,"type":"command"}],`+
+		`"Stop":[{"command":%[1]s,"timeout":5,"type":"command"}]}}`, antigravityCommand)
+
 	want := []struct {
 		path, draft, root string
 		json              string // Expected JSON patch, or "".
@@ -57,6 +64,9 @@ func TestBuiltinConfigurationDeclarations(t *testing.T) {
 			json: nested("codex", "Interrupt", "PermissionRequest", "PostToolUse", "SessionEnd", "SessionStart", "Stop", "UserPromptSubmit")},
 		{path: ".cursor/hooks.json", draft: "cursor-hooks.json", root: "", json: cursorHooks},
 		{path: ".cursor/mcp.json", draft: "cursor-mcp.json", root: "",
+			json: `{"mcpServers":{"zalki":{"args":["--state","/var/my state","mcp"],"command":"/opt/my tools/it's zalki"}}}`},
+		{path: ".gemini/config/hooks.json", draft: "antigravity-hooks.json", root: "", json: antigravityHooks},
+		{path: ".gemini/config/mcp_config.json", draft: "antigravity-mcp.json", root: "",
 			json: `{"mcpServers":{"zalki":{"args":["--state","/var/my state","mcp"],"command":"/opt/my tools/it's zalki"}}}`},
 	}
 

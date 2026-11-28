@@ -77,19 +77,19 @@ func TestJSONEntryRefusalsSayWhatIsWrongAndWhatToDo(t *testing.T) {
 	})
 	t.Run("upgrade after the user edited an owned key", func(t *testing.T) {
 		home := t.TempDir()
-		mustManage(t, home, "install", goldenBinary)
+		mustManage(t, home, "install")
 		editJSONFile(t, jsonEntryPath(home), func(v map[string]any) { zalkiMCPOf(v)["command"] = "mine" })
 		requireMessage(t, manageError(t, configDeclare, home, "upgrade", goldenNewBinary), jsonEntryPath(home)+`: mcpServers.zalki key "command" was edited after Zalki wrote it; restore it or delete that entry, then run zalki upgrade again`)
 	})
 	t.Run("uninstall after the user edited an owned key", func(t *testing.T) {
 		home := t.TempDir()
-		mustManage(t, home, "install", goldenBinary)
+		mustManage(t, home, "install")
 		editJSONFile(t, jsonEntryPath(home), func(v map[string]any) { zalkiMCPOf(v)["command"] = "mine" })
 		requireMessage(t, manageError(t, configDeclare, home, "uninstall", goldenBinary), jsonEntryPath(home)+`: mcpServers.zalki key "command" was edited after Zalki wrote it; restore it or delete that entry, then run zalki uninstall again`)
 	})
 	t.Run("uninstall when the entry is no longer an object", func(t *testing.T) {
 		home := t.TempDir()
-		mustManage(t, home, "install", goldenBinary)
+		mustManage(t, home, "install")
 		editJSONFile(t, jsonEntryPath(home), func(v map[string]any) { v["mcpServers"].(map[string]any)["zalki"] = "x" })
 		requireMessage(t, manageError(t, configDeclare, home, "uninstall", goldenBinary), jsonEntryPath(home)+`: managed zalki MCP entry was edited; review it before removing or upgrading`)
 	})
@@ -124,7 +124,7 @@ func mustManageWith(t *testing.T, declare install.Declare, home, action, binary 
 func TestUninstallNamesTheKeysTheUserAddedToTheEntry(t *testing.T) {
 	isolateConfigEnv(t)
 	home := t.TempDir()
-	mustManage(t, home, "install", goldenBinary)
+	mustManage(t, home, "install")
 	editJSONFile(t, jsonEntryPath(home), func(v map[string]any) { zalkiMCPOf(v)["extra"] = "secret value" })
 	path := jsonEntryPath(home)
 	notesOf := func(apply bool) []string {
@@ -161,7 +161,7 @@ func TestTOMLTableRefusalsSayWhatIsWrongAndWhatToDo(t *testing.T) {
 	})
 	t.Run("uninstall after the user edited an owned key", func(t *testing.T) {
 		home := t.TempDir()
-		mustManage(t, home, "install", goldenBinary)
+		mustManage(t, home, "install")
 		raw, err := os.ReadFile(tomlTablePath(home))
 		if err != nil {
 			t.Fatal(err)

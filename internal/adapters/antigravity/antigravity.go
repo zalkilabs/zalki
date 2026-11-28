@@ -35,6 +35,7 @@ func (Adapter) Descriptor() agent.AdapterDescriptor {
 		Lifecycle:    agent.Lifecycle{ActivityMayRegister: true},
 		Native:       nativeFields,
 		ProcessNames: []string{"agy"}, OwnerRole: "client", Executable: "agy",
+		InstallNotice: "Antigravity: restart agy to load the Zalki hooks. To let agy chats use the Zalki tools without asking, allow mcp(zalki/*) in agy's permission rules; Zalki does not change permissions.",
 		Notes: []string{
 			"Antigravity cannot wake an idle chat. A message reaches a running chat before its next model call or when its turn ends, and an idle chat gets it at its next hook.",
 			"A chat that was resumed with agy --resume sends no start hook. Zalki registers it at its first model call and gives it new credentials if it had none.",
