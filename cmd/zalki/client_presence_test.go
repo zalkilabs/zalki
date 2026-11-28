@@ -173,3 +173,41 @@ func TestTheHintAfterASkippedInstallWorks(t *testing.T) {
 		t.Fatalf("install did not configure the client that was skipped: %q", raw)
 	}
 }
+
+// When the only client that is there has a file that cannot be used, nothing is
+// configured: no line of another client's notice is printed, the run exits 1, and
+// the same command works after the fix.
+func TestInstallWhereTheOnlyClientIsSkippedPrintsNoNoticeAndWorksAfterTheFix(t *testing.T) {
+	home := presenceHome(t, ".cursor")
+	state := filepath.Join(home, "state")
+	broken := filepath.Join(home, ".cursor", "mcp.json")
+	if err := os.WriteFile(broken, []byte(`{bad`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := executeBare(t, home, "", "install", "--state", state, "--apply")
+	if err == nil || !strings.Contains(out, "Skipped Cursor: ") || strings.Contains(out, "/hooks") {
+		t.Fatalf("error %v, output %q; want Cursor skipped and no notice of Codex", err, out)
+	}
+	if err := os.WriteFile(broken, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if out, _, err := executeBare(t, home, "", "install", "--state", state, "--apply"); err != nil || !strings.Contains(out, "Updated: "+broken) {
+		t.Fatalf("after the fix: error %v, output %q", err, out)
+	}
+}
+
+// A plain file where a client keeps its folder (here ~/.cursor) is not a client that
+// is there: the other clients are configured and the run succeeds.
+func TestInstallWithAPlainFileInPlaceOfAClientFolderSucceeds(t *testing.T) {
+	home := presenceHome(t, ".claude")
+	if err := os.WriteFile(filepath.Join(home, ".cursor"), []byte("not a folder"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, diagnostic, err := executeBare(t, home, "", "install", "--state", filepath.Join(home, "state"), "--apply")
+	if err != nil || diagnostic != "" || !strings.Contains(out, "Updated: "+filepath.Join(home, ".claude.json")) || !strings.Contains(out, "Not found: Antigravity, Codex, Cursor.") {
+		t.Fatalf("error %v, output %q, diagnostic %q", err, out, diagnostic)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(home, ".cursor")); string(raw) != "not a folder" {
+		t.Fatalf("the plain file was changed: %q", raw)
+	}
+}

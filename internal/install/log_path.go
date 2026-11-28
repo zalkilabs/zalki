@@ -36,6 +36,9 @@ func CheckLogFile(declare Declare, logFile, state, home string) error {
 		if err != nil {
 			return err
 		}
+		if blockedByFile(target) {
+			continue
+		}
 		same, err := sameTargetFile(logFile, target)
 		if err != nil {
 			return err

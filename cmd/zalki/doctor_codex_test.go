@@ -198,7 +198,7 @@ func TestAdapterSectionInputs(t *testing.T) {
 
 func TestInstallNoticesComeFromTheAdapters(t *testing.T) {
 	var lines []string
-	if err := printInstallNotices(adapters.Builtin(), nil, func(line string) error { lines = append(lines, line); return nil }); err != nil {
+	if err := printInstallNotices(adapters.Builtin(), []string{"antigravity", "claude", "codex", "cursor"}, func(line string) error { lines = append(lines, line); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if len(lines) != 2 || lines[0]+"\n" != antigravityNoticeForTest || lines[1]+"\n" != codexNoticeForTest {
@@ -305,5 +305,9 @@ func TestInstallNoticesAreOnlyForTheConfiguredClients(t *testing.T) {
 		if len(lines) != want {
 			t.Errorf("configured %s: notices %q, want %d", configured, lines, want)
 		}
+	}
+	var none []string
+	if err := printInstallNotices(adapters.Builtin(), nil, func(line string) error { none = append(none, line); return nil }); err != nil || len(none) != 0 {
+		t.Errorf("no client was configured: notices %q, error %v", none, err)
 	}
 }
