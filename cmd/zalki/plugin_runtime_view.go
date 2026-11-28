@@ -50,7 +50,7 @@ const (
 // Doctor notes about background plugins (bounded, fixed text).
 const (
 	noteLauncherMissing = "background plugins cannot start: %s is missing"
-	noteBrewUninstall   = "raw brew uninstall left the owned plist: zalki uninstall --apply"
+	noteBrewUninstall   = "raw brew uninstall left the owned plist: zalki uninstall"
 )
 
 // pluginRunView is the run{} object of plugins status. plugin_pid is not

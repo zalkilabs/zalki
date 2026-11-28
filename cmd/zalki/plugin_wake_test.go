@@ -71,7 +71,7 @@ func TestPluginInstallLineWithRunningSupervisor(t *testing.T) {
 
 // An unfinished login-item change names its one repair.
 func TestPluginLoginItemPendingNamesRepair(t *testing.T) {
-	if !strings.Contains(loginItemPendingReason, "run zalki install --apply in your own terminal") {
+	if !strings.Contains(loginItemPendingReason, "run zalki install in your own terminal") {
 		t.Fatalf("the unfinished-change reason names no repair: %q", loginItemPendingReason)
 	}
 }

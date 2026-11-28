@@ -48,7 +48,7 @@ func TestCodexFailedApplyHasNoTrustNotice(t *testing.T) {
 	}
 	home := t.TempDir()
 	writeCodexFixture(t, filepath.Join(home, ".codex", "hooks.json"), "{broken")
-	out, _, err := execute(t, home, "", "install", "--apply", "--state", filepath.Join(home, "state"))
+	out, _, err := execute(t, home, "", "install", "--yes", "--state", filepath.Join(home, "state"))
 	if err == nil || strings.Contains(out, codexNoticeForTest) {
 		t.Fatal("D10_NO_NOTICE_FAILED_APPLY", out, err)
 	}
@@ -103,19 +103,19 @@ func TestCodexInstallNoticeSuccessOnly(t *testing.T) {
 	home := t.TempDir()
 	state := filepath.Join(home, "state")
 	for range 2 {
-		out, _, err := execute(t, home, "", "install", "--apply", "--state", state)
+		out, _, err := execute(t, home, "", "install", "--yes", "--state", state)
 		if err != nil || strings.Count(out, codexNoticeForTest) != 1 {
 			t.Fatal("D10_NOTICE_SUCCESS_IDEMPOTENT", out, err)
 		}
 	}
-	for _, args := range [][]string{{"install", "--out", filepath.Join(home, "drafts")}, {"uninstall", "--apply"}} {
+	for _, args := range [][]string{{"setup", "--out", filepath.Join(home, "drafts")}, {"uninstall", "--yes"}} {
 		out, _, err := execute(t, home, "", append(args, "--state", state)...)
 		if err != nil || strings.Contains(out, codexNoticeForTest) {
 			t.Fatal("D10_NO_NOTICE_DRAFT_UNINSTALL", out, err)
 		}
 	}
 	t.Setenv("CODEX_HOME", "relative")
-	out, _, err := execute(t, home, "", "install", "--apply", "--state", state)
+	out, _, err := execute(t, home, "", "install", "--yes", "--state", state)
 	if err == nil || strings.Contains(out, codexNoticeForTest) {
 		t.Fatal("D10_NO_NOTICE_FAILURE", out, err)
 	}
@@ -137,7 +137,7 @@ func TestDoctorCodexTrustIsOffline(t *testing.T) {
 	for _, name := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"} {
 		t.Setenv(name, "")
 	}
-	if _, _, err := execute(t, home, "", "install", "--apply", "--state", state); err != nil {
+	if _, _, err := execute(t, home, "", "install", "--yes", "--state", state); err != nil {
 		t.Fatal(err)
 	}
 	root := filepath.Join(home, ".codex")

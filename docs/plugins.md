@@ -74,7 +74,7 @@ Enabled does not mean running. `zalki plugins run NAME` runs one plugin in the
 foreground. `zalki plugins supervise` runs all enabled plugins and restarts them
 after a failure. After 5 failures in 10 minutes a plugin stays stopped until you
 run `zalki plugins restart NAME`. If you have enabled plugins,
-`zalki install --apply` can set up one macOS login item that runs the
+`zalki install` can set up one macOS login item that runs the
 supervisor. It asks first. Turn it off in System Settings > General > Login
 Items & Extensions.
 

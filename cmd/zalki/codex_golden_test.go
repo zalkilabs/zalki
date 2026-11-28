@@ -159,10 +159,10 @@ func TestCodexInstallOutputGolden(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"install_first", []string{"install", "--apply", "--state", state}},
-		{"install_second", []string{"install", "--apply", "--state", state}},
-		{"install_drafts", []string{"install", "--out", filepath.Join(home, "drafts"), "--state", state}},
-		{"uninstall", []string{"uninstall", "--apply", "--state", state}},
+		{"install_first", []string{"install", "--yes", "--state", state}},
+		{"install_second", []string{"install", "--yes", "--state", state}},
+		{"install_drafts", []string{"setup", "--out", filepath.Join(home, "drafts"), "--state", state}},
+		{"uninstall", []string{"uninstall", "--yes", "--state", state}},
 	}
 	for _, step := range steps {
 		out, errOut, err := execute(t, home, "", step.args...)
@@ -172,7 +172,7 @@ func TestCodexInstallOutputGolden(t *testing.T) {
 		checkGolden(t, "output_"+step.name+".txt", home, out)
 	}
 	t.Setenv("CODEX_HOME", "relative")
-	out, errOut, err := execute(t, home, "", "install", "--apply", "--state", state)
+	out, errOut, err := execute(t, home, "", "install", "--yes", "--state", state)
 	if err == nil {
 		t.Fatal("a relative CODEX_HOME must fail the install")
 	}

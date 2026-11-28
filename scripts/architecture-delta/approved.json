@@ -4872,5 +4872,75 @@
       }
     },
     "reason": "The Antigravity adapter is part of the built-in registry: internal/adapters imports internal/adapters/antigravity (the composition package lists each client). No export, shape, receiver or OS call changes."
+  },
+  {
+    "base_commit": "b88f5488f22bc9221c22e3e84644c60cb00c63be",
+    "os": "darwin",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "type:internal/install.Report": {
+            "before": "Report struct {\n\tAction\t\t\tstring\t\t`json:\"action\"`\n\tDryRun\t\t\tbool\t\t`json:\"dry_run\"`\n\tPaths\t\t\t[]string\t`json:\"paths\"`\n\tNotes\t\t\t[]string\t`json:\"notes,omitempty\"`\n\tConfigured\t\t[]string\t`json:\"-\"`\n\tUnusable\t\t[]string\t`json:\"-\"`\n\tManagedState\t\tstring\t\t`json:\"managed_state,omitempty\"`\n\tServiceState\t\tstring\t\t`json:\"service_state,omitempty\"`\n\tLoadedIdentity\t\tstring\t\t`json:\"loaded_identity,omitempty\"`\n\tOperationPending\tbool\t\t`json:\"operation_pending,omitempty\"`\n\tLoginItemLauncher\tstring\t\t`json:\"login_item_launcher,omitempty\"`\n\tLoginItemRecord\t\tstring\t\t`json:\"-\"`\n}",
+            "after": "Report struct {\n\tAction\t\t\tstring\t\t\t`json:\"action\"`\n\tDryRun\t\t\tbool\t\t\t`json:\"dry_run\"`\n\tPaths\t\t\t[]string\t\t`json:\"paths\"`\n\tNotes\t\t\t[]string\t\t`json:\"notes,omitempty\"`\n\tConfigured\t\t[]string\t\t`json:\"-\"`\n\tUnusable\t\t[]string\t\t`json:\"-\"`\n\tClients\t\t\tmap[string]string\t`json:\"-\"`\n\tManagedState\t\tstring\t\t\t`json:\"managed_state,omitempty\"`\n\tServiceState\t\tstring\t\t\t`json:\"service_state,omitempty\"`\n\tLoadedIdentity\t\tstring\t\t\t`json:\"loaded_identity,omitempty\"`\n\tOperationPending\tbool\t\t\t`json:\"operation_pending,omitempty\"`\n\tLoginItemLauncher\tstring\t\t\t`json:\"login_item_launcher,omitempty\"`\n\tLoginItemRecord\t\tstring\t\t\t`json:\"-\"`\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "install.Report gets one field, Clients (not in JSON): the display name of the client of each changed file in Paths. The install and uninstall questions list the files grouped by client from it. It is a shape change of an existing type; no export is added or removed (524 stays 524), and no receiver or OS call changes."
+  },
+  {
+    "base_commit": "b88f5488f22bc9221c22e3e84644c60cb00c63be",
+    "os": "linux",
+    "delta": {
+      "exports": {
+        "added": [],
+        "removed": []
+      },
+      "shapes": {
+        "added": {},
+        "removed": {},
+        "changed": {
+          "type:internal/install.Report": {
+            "before": "Report struct {\n\tAction\t\t\tstring\t\t`json:\"action\"`\n\tDryRun\t\t\tbool\t\t`json:\"dry_run\"`\n\tPaths\t\t\t[]string\t`json:\"paths\"`\n\tNotes\t\t\t[]string\t`json:\"notes,omitempty\"`\n\tConfigured\t\t[]string\t`json:\"-\"`\n\tUnusable\t\t[]string\t`json:\"-\"`\n\tManagedState\t\tstring\t\t`json:\"managed_state,omitempty\"`\n\tServiceState\t\tstring\t\t`json:\"service_state,omitempty\"`\n\tLoadedIdentity\t\tstring\t\t`json:\"loaded_identity,omitempty\"`\n\tOperationPending\tbool\t\t`json:\"operation_pending,omitempty\"`\n\tLoginItemLauncher\tstring\t\t`json:\"login_item_launcher,omitempty\"`\n\tLoginItemRecord\t\tstring\t\t`json:\"-\"`\n}",
+            "after": "Report struct {\n\tAction\t\t\tstring\t\t\t`json:\"action\"`\n\tDryRun\t\t\tbool\t\t\t`json:\"dry_run\"`\n\tPaths\t\t\t[]string\t\t`json:\"paths\"`\n\tNotes\t\t\t[]string\t\t`json:\"notes,omitempty\"`\n\tConfigured\t\t[]string\t\t`json:\"-\"`\n\tUnusable\t\t[]string\t\t`json:\"-\"`\n\tClients\t\t\tmap[string]string\t`json:\"-\"`\n\tManagedState\t\tstring\t\t\t`json:\"managed_state,omitempty\"`\n\tServiceState\t\tstring\t\t\t`json:\"service_state,omitempty\"`\n\tLoadedIdentity\t\tstring\t\t\t`json:\"loaded_identity,omitempty\"`\n\tOperationPending\tbool\t\t\t`json:\"operation_pending,omitempty\"`\n\tLoginItemLauncher\tstring\t\t\t`json:\"login_item_launcher,omitempty\"`\n\tLoginItemRecord\t\tstring\t\t\t`json:\"-\"`\n}"
+          }
+        }
+      },
+      "receivers": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      },
+      "imports": {
+        "added": [],
+        "removed": []
+      },
+      "os_calls": {
+        "added": {},
+        "removed": {},
+        "changed": {}
+      }
+    },
+    "reason": "install.Report gets one field, Clients (not in JSON): the display name of the client of each changed file in Paths. The install and uninstall questions list the files grouped by client from it. It is a shape change of an existing type; no export is added or removed (524 stays 524), and no receiver or OS call changes."
   }
 ]

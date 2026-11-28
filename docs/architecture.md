@@ -61,7 +61,7 @@ no background service. Where the folder is: [install](install.md#install).
 ### Remove your data
 
 `zalki uninstall` keeps your messages. To remove everything: quit your sessions,
-run `zalki uninstall --apply`, then delete the state folder. That also deletes
+run `zalki uninstall`, then delete the state folder. That also deletes
 installed plugins and their data. Your settings file is separate; see
 [install](install.md#install).
 

@@ -88,7 +88,7 @@ func TestDefaultLoggingCapturesDeliveryAndKeepsPreviewsReadOnly(t *testing.T) {
 		t.Fatal("default log missing", err)
 	}
 	before := string(data)
-	if _, stderr, err := execute(t, home, "", "uninstall", "--state", state); err != nil || stderr != "" {
+	if _, stderr, err := execute(t, home, "", "uninstall", "--state", state, "--dry-run"); err != nil || stderr != "" {
 		t.Fatal(err, stderr)
 	}
 	data, _ = os.ReadFile(path)

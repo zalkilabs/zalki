@@ -32,7 +32,7 @@ const notFoundCodexCursor = "Not found: Antigravity, Codex, Cursor. Install one,
 func TestInstallConfiguresOnlyTheClientsThatAreThere(t *testing.T) {
 	home := presenceHome(t, ".claude")
 	state := filepath.Join(home, "state")
-	out, diagnostic, err := executeBare(t, home, "", "install", "--state", state, "--apply")
+	out, diagnostic, err := executeBare(t, home, "", "install", "--state", state, "--yes")
 	want := defaultConfigLine(home) +
 		"Updated: " + filepath.Join(home, ".claude.json") + "\n" +
 		"Updated: " + filepath.Join(home, ".claude", "settings.json") + "\n" +
@@ -54,7 +54,7 @@ func TestInstallConfiguresOnlyTheClientsThatAreThere(t *testing.T) {
 
 func TestInstallSaysPlainlyWhenNoClientIsThere(t *testing.T) {
 	home := presenceHome(t)
-	out, _, err := executeBare(t, home, "", "install", "--state", filepath.Join(home, "state"), "--apply")
+	out, _, err := executeBare(t, home, "", "install", "--state", filepath.Join(home, "state"), "--yes")
 	const want = "No supported client found: Antigravity, Claude, Codex, Cursor. Install one, then run zalki install."
 	if err == nil || err.Error() != want || out != "" {
 		t.Fatalf("error %v, output %q; want %q and no output", err, out, want)
@@ -72,7 +72,7 @@ func TestInstallSkipsAClientWhoseFileCannotBeUsed(t *testing.T) {
 	if err := os.WriteFile(broken, []byte(`{"mcpServers": {"a": 1 "b": 2}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	out, _, err := executeBare(t, home, "", "install", "--state", filepath.Join(home, "state"), "--apply")
+	out, _, err := executeBare(t, home, "", "install", "--state", filepath.Join(home, "state"), "--yes")
 	if err == nil || !strings.HasPrefix(err.Error(), "skipped Claude:") {
 		t.Fatalf("error %v; want a non-zero exit that names the skipped client", err)
 	}
@@ -111,10 +111,10 @@ func TestUpgradePreviewListsTheClientsThatAreNotThere(t *testing.T) {
 func TestUninstallRemovesWhatTheRecordNamesWhateverIsThere(t *testing.T) {
 	home := presenceHome(t, ".claude", ".cursor")
 	state := filepath.Join(home, "state")
-	if _, _, err := executeBare(t, home, "", "install", "--state", state, "--apply"); err != nil {
+	if _, _, err := executeBare(t, home, "", "install", "--state", state, "--yes"); err != nil {
 		t.Fatal(err)
 	}
-	out, _, err := executeBare(t, home, "", "uninstall", "--state", state, "--apply")
+	out, _, err := executeBare(t, home, "", "uninstall", "--state", state, "--yes")
 	var report struct {
 		Paths []string `json:"paths"`
 	}
@@ -131,13 +131,13 @@ func TestEveryCommandExitsNonZeroForAnUnusableFile(t *testing.T) {
 	for name, args := range map[string][]string{
 		"upgrade":         {"upgrade", "--config-only"},
 		"upgrade preview": {"upgrade", "--dry-run", "--config-only"},
-		"uninstall":       {"uninstall", "--apply"},
-		"uninstall plan":  {"uninstall"},
+		"uninstall":       {"uninstall", "--yes"},
+		"uninstall plan":  {"uninstall", "--dry-run"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			home := presenceHome(t, ".claude", ".cursor")
 			state := filepath.Join(home, "state")
-			if _, _, err := executeBare(t, home, "", "install", "--state", state, "--apply"); err != nil {
+			if _, _, err := executeBare(t, home, "", "install", "--state", state, "--yes"); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(filepath.Join(home, ".cursor", "mcp.json"), []byte(`{"mcpServers": `), 0o600); err != nil {
@@ -159,14 +159,14 @@ func TestTheHintAfterASkippedInstallWorks(t *testing.T) {
 	if err := os.WriteFile(broken, []byte(`{"hooks": `), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	out, _, err := executeBare(t, home, "", "install", "--state", state, "--apply")
+	out, _, err := executeBare(t, home, "", "install", "--state", state, "--yes")
 	if err == nil || !strings.Contains(out, "Next: fix that file, then run zalki install.\n") {
 		t.Fatalf("error %v, output %q", err, out)
 	}
 	if err := os.WriteFile(broken, []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := executeBare(t, home, "", "install", "--state", state, "--apply"); err != nil {
+	if _, _, err := executeBare(t, home, "", "install", "--state", state, "--yes"); err != nil {
 		t.Fatalf("the command named by the hint failed: %v", err)
 	}
 	if raw, _ := os.ReadFile(broken); !strings.Contains(string(raw), "hook") {
@@ -184,14 +184,14 @@ func TestInstallWhereTheOnlyClientIsSkippedPrintsNoNoticeAndWorksAfterTheFix(t *
 	if err := os.WriteFile(broken, []byte(`{bad`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	out, _, err := executeBare(t, home, "", "install", "--state", state, "--apply")
+	out, _, err := executeBare(t, home, "", "install", "--state", state, "--yes")
 	if err == nil || !strings.Contains(out, "Skipped Cursor: ") || strings.Contains(out, "/hooks") {
 		t.Fatalf("error %v, output %q; want Cursor skipped and no notice of Codex", err, out)
 	}
 	if err := os.WriteFile(broken, []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if out, _, err := executeBare(t, home, "", "install", "--state", state, "--apply"); err != nil || !strings.Contains(out, "Updated: "+broken) {
+	if out, _, err := executeBare(t, home, "", "install", "--state", state, "--yes"); err != nil || !strings.Contains(out, "Updated: "+broken) {
 		t.Fatalf("after the fix: error %v, output %q", err, out)
 	}
 }
@@ -203,7 +203,7 @@ func TestInstallWithAPlainFileInPlaceOfAClientFolderSucceeds(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(home, ".cursor"), []byte("not a folder"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	out, diagnostic, err := executeBare(t, home, "", "install", "--state", filepath.Join(home, "state"), "--apply")
+	out, diagnostic, err := executeBare(t, home, "", "install", "--state", filepath.Join(home, "state"), "--yes")
 	if err != nil || diagnostic != "" || !strings.Contains(out, "Updated: "+filepath.Join(home, ".claude.json")) || !strings.Contains(out, "Not found: Antigravity, Codex, Cursor.") {
 		t.Fatalf("error %v, output %q, diagnostic %q", err, out, diagnostic)
 	}

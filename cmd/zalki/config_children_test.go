@@ -74,7 +74,7 @@ func checkConfigChildSelection(t *testing.T, source string) {
 	checkConfigChildDrafts(t, fixture)
 	checkConfigChildInstall(t, fixture)
 	checkConfigChildUpgrade(t, fixture)
-	fixture.run(t, "uninstall", "--apply")
+	fixture.run(t, "uninstall", "--yes")
 	configAfter, err := os.ReadFile(fixture.configFile)
 	if err != nil || !bytes.Equal(configBefore, configAfter) {
 		t.Fatal("client configuration operation changed the selected settings file", err)
@@ -84,7 +84,7 @@ func checkConfigChildSelection(t *testing.T, source string) {
 func checkConfigChildDrafts(t *testing.T, fixture configChildSelection) {
 	t.Helper()
 	wantLine := "Config file: " + fixture.configFile + "\n"
-	for _, action := range []string{"setup", "install"} {
+	for _, action := range []string{"setup"} {
 		drafts := filepath.Join(fixture.home, "drafts-"+action)
 		out := fixture.run(t, action, "--out", drafts)
 		if !strings.HasPrefix(out, wantLine) || strings.Count(out, "Config file:") != 1 {
@@ -99,14 +99,14 @@ func checkConfigChildDrafts(t *testing.T, fixture configChildSelection) {
 func checkConfigChildInstall(t *testing.T, fixture configChildSelection) {
 	t.Helper()
 	wantLine := "Config file: " + fixture.configFile + "\n"
-	if out := fixture.run(t, "install", "--apply"); strings.Count(out, wantLine) != 1 {
+	if out := fixture.run(t, "install", "--yes"); strings.Count(out, wantLine) != 1 {
 		t.Fatalf("install selected config line: %q", out)
 	}
 	for _, path := range configTargets(fixture.home) {
 		checkChildConfiguration(t, path, fixture.configFile, fixture.state)
 	}
 	before := cliSnapshot(t, fixture.home)
-	if out := fixture.run(t, "install", "--apply"); out != wantLine+installAppliedNote || !reflect.DeepEqual(before, cliSnapshot(t, fixture.home)) {
+	if out := fixture.run(t, "install", "--yes"); out != wantLine+installAppliedNote || !reflect.DeepEqual(before, cliSnapshot(t, fixture.home)) {
 		t.Fatal("repeat install changed settled configuration or output")
 	}
 }
@@ -275,7 +275,7 @@ func TestConfigChildrenRealUpgradeSuccessOutput(t *testing.T) {
 	}
 	configFile, state := filepath.Join(home, "selected.json"), filepath.Join(home, "state")
 	writeConfigFixture(t, configFile, `{"logging":{"level":"off"}}`)
-	if _, _, err := execute(t, home, "", "--config", configFile, "--state", state, "install", "--apply"); err != nil {
+	if _, _, err := execute(t, home, "", "--config", configFile, "--state", state, "install", "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	for _, mode := range []struct{ flag, want string }{{"--finish-upgrade", upgradeSuccess}, {"--config-only", configOnlyDone}} {
@@ -330,7 +330,7 @@ func prepareBootstrapUpgrade(t *testing.T, home, state string) {
 	t.Helper()
 	safe := filepath.Join(home, "zalki.json")
 	writeConfigFixture(t, safe, `{}`)
-	if _, _, err := execute(t, home, "", "--config", safe, "--state", state, "--log-level=off", "install", "--apply"); err != nil {
+	if _, _, err := execute(t, home, "", "--config", safe, "--state", state, "--log-level=off", "install", "--yes"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -363,7 +363,7 @@ func checkBootstrapTargetCollision(t *testing.T, client configChildClient, alias
 	args := []string{"--config", selected, "--state", state, "--log-level=off", action}
 	switch action {
 	case "install":
-		args = append(args, "--apply")
+		args = append(args, "--yes")
 	case "setup":
 		args = append(args, "--out", filepath.Join(home, "drafts"))
 	case "upgrade":
