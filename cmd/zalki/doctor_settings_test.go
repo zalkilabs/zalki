@@ -67,6 +67,11 @@ func TestSettingsFindingsSayWhenFilesDifferOrCannotBeChecked(t *testing.T) {
 	if len(anon) != 1 || anon[0].Name != "Zalki's settings are out of date (1 file)" {
 		t.Fatalf("a file without a client: %+v", anon)
 	}
+	// Files that differ but no configured client: the doctor says nothing here (the
+	// missing set-up is reported by the check before it).
+	if none := settingsFindings(install.Report{Paths: []string{"/a"}, Clients: map[string]string{"/a": "Codex"}}, nil, labelOfKind); len(none) != 0 {
+		t.Fatalf("no configured client: %+v", none)
+	}
 	failed := settingsFindings(install.Report{Configured: []string{"claude"}}, errors.New("lock busy"), labelOfKind)
 	if len(failed) != 1 || failed[0].Status != checkProblem || !strings.Contains(failed[0].Name, "lock busy") || failed[0].Fix == "" {
 		t.Fatalf("an error = %+v", failed)
