@@ -69,7 +69,7 @@ func (x inboxReadCLIFixture) run(t *testing.T, args ...string) ([]byte, []byte, 
 }
 func TestPluginInboxReadActualCLIOutputPrivacyAndNonConsumption(t *testing.T) {
 	x := newInboxReadCLIFixture(t)
-	paths := []string{filepath.Join(x.store.Dir(), "messages", x.message.ID+".json"), filepath.Join(x.store.Dir(), "plugins", "external.data", "inbox.json"), filepath.Join(x.store.Dir(), "plugins", "external.json")}
+	paths := []string{filepath.Join(x.store.Dir(), "messages", x.message.ID+".json"), filepath.Join(x.store.Dir(), "plugins", "external.inbox.json"), filepath.Join(x.store.Dir(), "plugins", "external.json")}
 	before := map[string]string{}
 	for _, path := range paths {
 		raw, err := os.ReadFile(path)

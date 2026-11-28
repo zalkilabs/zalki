@@ -46,6 +46,9 @@ func Run(ctx context.Context, store bus.Store, name string, output io.Writer, su
 		return err
 	}
 	defer lease.Close() //nolint:errcheck // Close only after the child is reaped; never explicitly unlock.
+	if err := feed.SettleInboxIndex(); err != nil {
+		return err
+	}
 	status, err = checkInstallation(feed, status.ID)
 	if err != nil {
 		return err

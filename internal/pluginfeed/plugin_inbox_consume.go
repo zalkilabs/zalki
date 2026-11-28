@@ -3,7 +3,6 @@ package pluginfeed
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"slices"
 	"time"
 
@@ -229,5 +228,11 @@ func (s pluginFiles) savePluginInboxIndex(index pluginInboxIndex) error {
 	if err != nil {
 		return err
 	}
-	return fsutil.WriteAtomic(filepath.Join(s.pluginDataPath(), "inbox.json"), encoded)
+	if err := fsutil.WriteAtomic(s.inboxIndexPath(), encoded); err != nil {
+		return err
+	}
+	if index.adopted {
+		_ = s.removeEarlierInboxIndex() // Best effort: the file in plugins/ wins either way.
+	}
+	return nil
 }

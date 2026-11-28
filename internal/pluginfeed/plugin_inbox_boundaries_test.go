@@ -83,7 +83,7 @@ func TestPluginInboxNativeBackgroundPathsPreserveStoredBytes(t *testing.T) {
 	index.Entries[0].At = old
 	index.Entries[0].Bytes = len(canonical)
 	x.putIndex(t, index)
-	indexPath := filepath.Join(x.f.pluginDataPath(), "inbox.json")
+	indexPath := x.f.inboxIndexPath()
 	indexBytes, _ := os.ReadFile(indexPath)
 	runNativePathsAgainstPluginRecord(t, x, r)
 	after, err := os.ReadFile(path)

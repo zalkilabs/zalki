@@ -38,8 +38,14 @@ func (s PluginFeed) checkInstallArtifacts(current string) error {
 		return err
 	}
 	var notice startNoticeLedger
-	return s.checkLedger(s.startNoticePath(), &notice, func() (string, bool) {
+	if err := s.checkLedger(s.startNoticePath(), &notice, func() (string, bool) {
 		return notice.Installation, model.IsCanonicalUUID(notice.Installation) && notice.valid(notice.Installation)
+	}, current); err != nil {
+		return err
+	}
+	var inbox pluginInboxIndex
+	return s.checkLedger(s.inboxIndexPath(), &inbox, func() (string, bool) {
+		return inbox.Installation, model.IsCanonicalUUID(inbox.Installation) && inbox.Version == 1 && inbox.Entries != nil
 	}, current)
 }
 

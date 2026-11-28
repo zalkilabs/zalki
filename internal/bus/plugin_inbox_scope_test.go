@@ -119,7 +119,7 @@ func assertPluginInboxScopeUnchanged(t *testing.T, x inboxAdmissionFixture, befo
 	if after := pluginScopeSnapshot(t, x.store); !reflect.DeepEqual(before, after) {
 		t.Fatal("invalid scope changed persisted state")
 	}
-	if _, err := os.Stat(filepath.Join(x.status.DataDir, "inbox.json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(filepath.Dir(x.status.DataDir), x.status.Name+".inbox.json")); !os.IsNotExist(err) {
 		t.Fatal("invalid scope created an inbox index", err)
 	}
 }

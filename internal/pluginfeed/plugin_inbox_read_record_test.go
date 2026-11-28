@@ -22,7 +22,7 @@ func TestPluginInboxReadIndexMustRemainActiveAndValid(t *testing.T) {
 func checkInboxReadIndex(t *testing.T, kind string) {
 	t.Helper()
 	x := newInboxReadFixture(t, "")
-	path := filepath.Join(x.f.pluginDataPath(), "inbox.json")
+	path := x.f.inboxIndexPath()
 	now := x.now
 	switch kind {
 	case "missing":

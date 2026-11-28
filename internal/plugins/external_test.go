@@ -28,12 +28,24 @@ type externalEvidence struct {
 	SentinelInherited bool
 }
 
+// noteHostFileInCwd leaves a marker when the working directory holds a file
+// named inbox.json: a Zalki file the child must never see there.
+func noteHostFileInCwd(cwd string) error {
+	if _, err := os.Stat("inbox.json"); err == nil {
+		return os.WriteFile(filepath.Join(cwd, "saw-inbox-json"), nil, 0600)
+	}
+	return nil
+}
+
 func externalTestChild(args []string) error {
 	if err := checkFixtureLeaseFD3(); err != nil {
 		return err
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
+		return err
+	}
+	if err := noteHostFileInCwd(cwd); err != nil {
 		return err
 	}
 	e := externalEvidence{args[1:], cwd, os.Getenv("HOME"), len(os.Environ()), os.Getenv("ZALKI_EXTERNAL_SENTINEL") != ""}
@@ -207,5 +219,146 @@ func (check *externalObservationCheck) run(t *testing.T) {
 	}
 	if err := os.Remove(evidence); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// The child must never see a Zalki file in its working directory: an index
+// that an earlier build kept there is moved out before the child starts.
+func TestExternalPluginRunMovesAnEarlierIndexBeforeTheChildStarts(t *testing.T) {
+	store, _ := hostStore(t)
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	feed := pluginfeed.NewPluginFeed(store, "external")
+	data := filepath.Join(store.Dir(), "plugins", "external.data")
+	evidence := filepath.Join(data, "observed.json")
+	if err := feed.AddExternalPlugin(binary, []string{"external-test-child", evidence}); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.EnablePluginFeed(true); err != nil {
+		t.Fatal(err)
+	}
+	status, err := feed.PluginStatus()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := statefile.EncodeJSON(map[string]any{
+		"version": 1, "installation": status.ID, "entries": []any{}, "quota": model.NewFloodState(time.Now().UTC()),
+	}, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fsutil.WriteAtomic(filepath.Join(data, "inbox.json"), raw); err != nil {
+		t.Fatal(err)
+	}
+	runExternalUntilObserved(t, store, evidence)
+	if _, err := os.Stat(filepath.Join(data, "saw-inbox-json")); !os.IsNotExist(err) {
+		t.Fatal("the child saw the host's index file in its working directory", err)
+	}
+	if _, err := os.Stat(filepath.Join(store.Dir(), "plugins", "external.inbox.json")); err != nil {
+		t.Fatal("the index was not moved next to the other plugin records", err)
+	}
+	if _, err := os.Stat(filepath.Join(data, "inbox.json")); !os.IsNotExist(err) {
+		t.Fatal("the earlier file is still in the data folder", err)
+	}
+}
+
+// An earlier index that cannot be moved must not leave a started plugin beside it.
+func TestExternalPluginRunDoesNotStartWhenAnEarlierIndexCannotBeMoved(t *testing.T) {
+	store, _ := hostStore(t)
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	feed := pluginfeed.NewPluginFeed(store, "external")
+	plugins := filepath.Join(store.Dir(), "plugins")
+	data := filepath.Join(plugins, "external.data")
+	evidence := filepath.Join(data, "observed.json")
+	if err := feed.AddExternalPlugin(binary, []string{"external-test-child", evidence}); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.EnablePluginFeed(true); err != nil {
+		t.Fatal(err)
+	}
+	runExternalUntilObserved(t, store, evidence) // creates the lease file and the new index
+	status, err := feed.PluginStatus()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := statefile.EncodeJSON(map[string]any{
+		"version": 1, "installation": status.ID, "entries": []any{}, "quota": model.NewFloodState(time.Now().UTC()),
+	}, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fsutil.WriteAtomic(filepath.Join(data, "inbox.json"), raw); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(plugins, "external.inbox.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(evidence); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(plugins, 0500); err != nil { // the move cannot write the new file
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(plugins, 0700) })
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	if err := Run(ctx, store, "external", io.Discard, nil); err == nil {
+		t.Fatal("the plugin ran although its index could not be moved")
+	}
+	if _, err := os.Stat(evidence); !os.IsNotExist(err) {
+		t.Fatal("the child started", err)
+	}
+}
+
+// A file named inbox.json that is not a Zalki list is the plugin's data: the
+// plugin starts and the file stays as it is.
+func TestExternalPluginRunStartsAndLeavesAFileThatIsNotOurList(t *testing.T) {
+	store, _ := hostStore(t)
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	feed := pluginfeed.NewPluginFeed(store, "external")
+	data := filepath.Join(store.Dir(), "plugins", "external.data")
+	evidence := filepath.Join(data, "observed.json")
+	if err := feed.AddExternalPlugin(binary, []string{"external-test-child", evidence}); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.ConfigurePluginScope("all"); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.GrantPluginAccess(pluginfeed.PluginAccess{Status: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.EnablePluginFeed(true); err != nil {
+		t.Fatal(err)
+	}
+	own := filepath.Join(data, "inbox.json")
+	if err := os.WriteFile(own, []byte("the plugin's own data"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	runExternalUntilObserved(t, store, evidence)
+	if got, err := os.ReadFile(own); err != nil || string(got) != "the plugin's own data" {
+		t.Fatalf("the plugin's file was changed: %q, %v", got, err)
+	}
+	if _, err := os.Stat(filepath.Join(store.Dir(), "plugins", "external.inbox.json")); err != nil {
+		t.Fatal("the list was not created", err)
 	}
 }

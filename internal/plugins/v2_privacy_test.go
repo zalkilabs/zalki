@@ -62,7 +62,7 @@ func TestV2ReadRefusesAnotherPluginsMail(t *testing.T) {
 func (x *v2Fixture) inflate(t *testing.T, id, body string) {
 	t.Helper()
 	size := rewriteJSON(t, filepath.Join(x.store.Dir(), "messages", id+".json"), func(v map[string]any) { v["body"] = body })
-	rewriteJSON(t, filepath.Join(x.status.DataDir, "inbox.json"), func(v map[string]any) {
+	rewriteJSON(t, filepath.Join(filepath.Dir(x.status.DataDir), x.status.Name+".inbox.json"), func(v map[string]any) {
 		for _, e := range v["entries"].([]any) {
 			if entry := e.(map[string]any); entry["id"] == id {
 				entry["encoded_message_bytes"] = size
