@@ -8,7 +8,8 @@ zalki doctor
 
 `doctor` prints a checklist: one line per finding, marked `[ok]`, `[note]` (advice)
 or `[problem]` (messaging cannot work), the fix under each note and problem, and a
-summary line. It exits with 1 when it finds a problem. `zalki doctor --json` prints
+summary line. It also compares each client's settings files with what `zalki upgrade`
+would write, without changing them. It exits with 1 when it finds a problem. `zalki doctor --json` prints
 the full report: each client Zalki supports (found or not, its version, and how it
 can receive), every session with its state, the running Zalki builds, untracked
 processes, a Codex hook check and the background plugin setup. `zalki list` prints

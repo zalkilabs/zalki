@@ -91,7 +91,11 @@ func runDoctor(cmd *cobra.Command, opts *commandOptions, port diagnosticsPort, s
 	background := doctorBackground(cmd, opts, store)
 	out := newDoctorOutput(port.Dir(), report, background)
 	recorded, recordReason := readInstallRecord(opts)
-	clientChecks := adapterSections(opts, report, out, recorded, recordReason)
+	var clientChecks []doctorCheck
+	if recordReason == "" && anyClientFound(report) {
+		clientChecks = settingsChecks(opts)
+	}
+	clientChecks = append(clientChecks, adapterSections(opts, report, out, recorded, recordReason)...)
 	checks := coreChecks(doctorFacts{report: report, recordReason: recordReason, background: background, clientChecks: clientChecks})
 	summary := summarize(checks)
 	out["checks"], out["summary"] = checks, summary

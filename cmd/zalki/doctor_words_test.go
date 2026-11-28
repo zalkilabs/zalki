@@ -12,7 +12,6 @@ import (
 	"github.com/zalkilabs/zalki/internal/agent"
 	"github.com/zalkilabs/zalki/internal/bus"
 	"github.com/zalkilabs/zalki/internal/config"
-	"github.com/zalkilabs/zalki/internal/model"
 )
 
 // checkedStub is an adapter that has a section and its own checks.
@@ -34,51 +33,19 @@ func stubOpts(t *testing.T, adapters ...agent.Adapter) *commandOptions {
 	}}}
 }
 
-// An adapter with checks adds its lines. One with only a section gets "set up"
-// when its client is present and the installation record is usable.
+// An adapter with checks adds its lines; one without adds nothing here (the
+// settings check speaks for every client).
 func TestAdapterSectionsGiveTheChecklistOfAdaptersThatHaveOne(t *testing.T) {
 	opts := stubOpts(t, stubSectionAdapter{}, checkedStub{})
 	report := bus.DiagnosticReport{Agents: []bus.AgentDiagnostic{
 		{Kind: "stubsection", Label: "Stub", Found: true}, {Kind: "stubsecond", Label: "Second", Found: true},
 	}}
 	checks := adapterSections(opts, report, map[string]any{}, nil, "")
-	if len(checks) != 3 {
+	if len(checks) != 2 {
 		t.Fatalf("checks = %+v", checks)
-	}
-	if c := findCheck(t, checks, "Stub: set up"); c.Status != checkOK || c.Fix != "" {
-		t.Fatalf("set-up line = %+v", c)
 	}
 	if c := findCheck(t, checks, "stub hook"); c.Status != checkProblem || c.Fix != "fix the stub" {
 		t.Fatalf("adapter problem = %+v", c)
-	}
-	if without := adapterSections(opts, report, map[string]any{}, nil, "missing_file"); len(without) != 2 {
-		t.Fatalf("a client without a usable record was called set up: %+v", without)
-	}
-	report.Agents[0].Found = false
-	if again := adapterSections(opts, report, map[string]any{}, nil, ""); len(again) != 2 {
-		t.Fatalf("a client that is not installed was called set up: %+v", again)
-	}
-}
-
-// An adapter without any section still gets its set-up line and, with checks, its checks.
-type plainStub struct{}
-
-func (plainStub) Descriptor() agent.AdapterDescriptor {
-	return agent.AdapterDescriptor{Kind: "plainstub", Label: "Plain"}
-}
-func (plainStub) ReceiveCapabilities(model.Session) model.ReceiveCapabilities {
-	return model.ReceiveCapabilities{Delivery: "fixture", Inbox: model.InboxNative, BusyDelivery: model.DeliveryNextTurn}
-}
-func (plainStub) Deliver(context.Context, model.Message, model.Session) model.Receipt {
-	return model.NewReceipt(model.StatusSubmitted)
-}
-
-func TestAnAdapterWithoutASectionStillGetsItsSetUpLine(t *testing.T) {
-	opts := stubOpts(t, plainStub{})
-	report := bus.DiagnosticReport{Agents: []bus.AgentDiagnostic{{Kind: "plainstub", Label: "Plain", Found: true}}}
-	checks := adapterSections(opts, report, map[string]any{}, nil, "")
-	if len(checks) != 1 || checks[0].Name != "Plain: set up" || checks[0].Status != checkOK {
-		t.Fatalf("checks = %+v", checks)
 	}
 }
 

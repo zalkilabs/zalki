@@ -20,9 +20,7 @@ func readInstallRecord(opts *commandOptions) (recorded map[string]string, reason
 // adapterSections collects the doctor sections that adapters report about
 // their own clients, keyed by the name each adapter gives its section, and the
 // checklist lines of the adapters that have them. An adapter section never
-// replaces a section the doctor already has. A present client whose adapter
-// has no checks gets "set up" when the installation record is usable; without
-// a usable record the record problem already says it.
+// replaces a section the doctor already has.
 func adapterSections(opts *commandOptions, report bus.DiagnosticReport, doctor map[string]any, recorded map[string]string, recordReason string) []doctorCheck {
 	var checks []doctorCheck
 	for _, kind := range opts.registry.Kinds() {
@@ -47,22 +45,9 @@ func adapterSections(opts *commandOptions, report bus.DiagnosticReport, doctor m
 		}
 		if checker, ok := adapter.(agent.CheckAdapter); ok {
 			checks = append(checks, adapterChecks(checker.Checks(input))...)
-		} else if input.Found && recordReason == "" {
-			// No checks of its own yet: the usable installation record is all that is known.
-			checks = append(checks, doctorCheck{Name: clientLabel(report, kind) + ": set up", Status: checkOK})
 		}
 	}
 	return checks
-}
-
-// clientLabel is the name the doctor shows for a client.
-func clientLabel(report bus.DiagnosticReport, kind string) string {
-	for _, client := range report.Agents {
-		if client.Kind == kind {
-			return client.Label
-		}
-	}
-	return kind
 }
 
 // clientVersion gives the doctor's finding for one adapter's client.

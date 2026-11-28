@@ -42,8 +42,8 @@ type doctorFacts struct {
 	report       bus.DiagnosticReport
 	recordReason string // "": the installation record is usable
 	background   doctorBackgroundView
-	// clientChecks are the lines of the clients' adapters; they are listed
-	// right after the installation record, next to the client lines.
+	// clientChecks are the lines about the clients' settings and their adapters;
+	// they are listed right after the installation record, next to the client lines.
 	clientChecks []doctorCheck
 }
 
@@ -70,6 +70,16 @@ func coreChecks(f doctorFacts) []doctorCheck {
 		}
 	}
 	return append(checks, pluginChecks(f.background)...)
+}
+
+// anyClientFound says whether a supported client is on this machine.
+func anyClientFound(report bus.DiagnosticReport) bool {
+	for _, client := range report.Agents {
+		if client.Found {
+			return true
+		}
+	}
+	return false
 }
 
 func clientCheck(client bus.AgentDiagnostic) (doctorCheck, bool) {
